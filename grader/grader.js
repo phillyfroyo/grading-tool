@@ -65,6 +65,11 @@ LENIENCY RULES:
 • Always include 2 positives before critical feedback in each category (praise-then-coach)
 • Set soft floor of 60/100 unless comprehension broken, off-topic, or zero-rule triggered
 
+PERFECT PERFORMANCE RULE:
+• If no errors are found in a category, award FULL POINTS (15/15 for major categories, 10/10 for fluency)
+• Don't withhold points "just in case" - if performance is truly excellent, give excellent grades
+• Only reduce points when you can identify specific, fixable issues
+
 COLLOCATION POLICY (must follow):
 • Prefer idiomatic collocations over literal tense changes
 • When meaning is "complete school assignments," use DO homework (past: did, -ing: doing, perfect: have/has done)
@@ -89,10 +94,24 @@ MANDATORY ERROR DETECTION (must catch ALL instances):
 • Articles: missing "the/a/an" where needed
 
 FEEDBACK TEMPLATE per category:
-• Category header: short praise first
+• Use natural, conversational encouragement - avoid excessive exclamation marks
+• Make praise feel genuine and specific, not formulaic
+• Use varied language: "Nice work on...", "You're doing well with...", "Good progress on..."
 • What to fix: 1-3 bullet items with examples  
 • Micro-rewrite: rewrite one sentence correctly
 • Why it helps: one sentence on clarity/impact
+
+ENCOURAGEMENT TONE:
+• Natural and conversational, not overly enthusiastic
+• Specific to the actual work, not generic praise
+• Use periods more than exclamation marks
+• Vary your openings: "You're making progress with...", "Nice work on...", "Good use of..."
+
+RANKING PROCESS:
+1. Calculate all 7 scores first
+2. Rank them: 1st highest, 2nd highest, 3rd highest, etc.
+3. Apply encouragement ONLY to 1st and 2nd ranked categories
+4. Write rationale for others WITHOUT any encouraging opening
 
 CRITICAL: Return ONLY valid JSON - no markdown, no code blocks, no extra text. Just pure JSON in this exact format:
 {
@@ -103,13 +122,13 @@ CRITICAL: Return ONLY valid JSON - no markdown, no code blocks, no extra text. J
     "grammar_structures_used": ["Present Perfect", "Conditionals"]
   },
   "scores": {
-    "grammar": {"points": 11, "out_of": 15, "rationale": "Nice verb variety! Add past tense consistency: 'went' not 'go'. Try: 'Last Friday, I went to school early.' This makes the timeline clearer."},
-    "vocabulary": {"points": 11, "out_of": 15, "rationale": "Good word choices! Use more descriptive words: 'interesting' → 'fascinating'. Try: 'The fascinating movie kept us engaged.' This adds more impact."},
-    "spelling": {"points": 12, "out_of": 15, "rationale": "Mostly accurate spelling! Fix: 'wekend' → 'weekend'. Try: 'Last weekend was amazing.' This avoids confusion."},
-    "mechanics": {"points": 10, "out_of": 15, "rationale": "Good sentence starts! Add periods to avoid run-ons: split long sentences. Try: 'I went home. Then I played games.' This makes ideas clearer."},
-    "fluency": {"points": 7, "out_of": 10, "rationale": "Clear story flow! Connect ideas better with transitions: 'then, afterward, finally'. Try: 'First I studied, then I relaxed.' This guides the reader."},
-    "layout": {"points": 12, "out_of": 15, "rationale": "Good length and structure! Add 2-3 more transitions for smooth flow. Try adding: 'moreover, however, in conclusion.' This improves readability."},
-    "content": {"points": 13, "out_of": 15, "rationale": "Engaging personal story! Add more specific details: what games? which friends? Try: 'I played chess with my neighbor Tom.' This makes it more vivid."}
+    "grammar": {"points": 11, "out_of": 15, "rationale": "Add past tense consistency: 'went' not 'go'. Try: 'Last Friday, I went to school early.' This makes the timeline clearer."},
+    "vocabulary": {"points": 11, "out_of": 15, "rationale": "Use more descriptive words: 'interesting' → 'fascinating'. Try: 'The fascinating movie kept us engaged.' This adds more impact."},
+    "spelling": {"points": 12, "out_of": 15, "rationale": "You're doing well with spelling accuracy. Fix: 'wekend' → 'weekend'. Try: 'Last weekend was amazing.' This avoids confusion."},
+    "mechanics": {"points": 10, "out_of": 15, "rationale": "Add periods to avoid run-ons: split long sentences. Try: 'I went home. Then I played games.' This makes ideas clearer."},
+    "fluency": {"points": 7, "out_of": 10, "rationale": "Connect ideas better with transitions: 'then, afterward, finally'. Try: 'First I studied, then I relaxed.' This guides the reader."},
+    "layout": {"points": 12, "out_of": 15, "rationale": "Add 2-3 more transitions for smooth flow. Try adding: 'moreover, however, in conclusion.' This improves readability."},
+    "content": {"points": 13, "out_of": 15, "rationale": "Nice work developing your personal story. Add more specific details: what games? which friends? Try: 'I played chess with my neighbor Tom.' This makes it more vivid."}
   },
   "total": {"points": 76, "out_of": 100, "band": "C+"},
   "inline_issues": [

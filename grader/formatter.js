@@ -6,14 +6,14 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 const rubric = JSON.parse(readFileSync(join(__dirname, 'rubric.json'), 'utf8'));
 
-export function formatGradedEssay(studentText, gradingResults) {
+export function formatGradedEssay(studentText, gradingResults, options = {}) {
   const { meta, scores, total, inline_issues, teacher_notes, encouragement_next_steps } = gradingResults;
   
   // Build formatted text using offset-based pipeline
   const formattedText = renderWithOffsets(studentText, inline_issues || []);
   
   // Generate feedback summary with new format
-  const feedbackHtml = generateFeedbackSummary(scores, total, meta, teacher_notes, encouragement_next_steps);
+  const feedbackHtml = generateFeedbackSummary(scores, total, meta, teacher_notes, encouragement_next_steps, options);
   
   return {
     formattedText: formattedText,
@@ -146,31 +146,53 @@ function levenshteinDistance(str1, str2) {
 function resolveOverlapsFixed(issues, priorityOrder) {
   const resolved = [];
   
-  for (const current of issues) {
+  // First, remove exact duplicates (same offsets)
+  const uniqueIssues = [];
+  const seenOffsets = new Set();
+  
+  for (const issue of issues) {
+    const offsetKey = `${issue.offsets.start}-${issue.offsets.end}`;
+    if (!seenOffsets.has(offsetKey)) {
+      seenOffsets.add(offsetKey);
+      uniqueIssues.push(issue);
+    } else {
+      console.log(`Removing duplicate highlight at ${offsetKey}: ${issue.message}`);
+    }
+  }
+  
+  // Then resolve overlaps by priority
+  for (const current of uniqueIssues) {
     let shouldAdd = true;
-    let trimmedIssue = { ...current };
     
-    // Check against all higher priority issues already added
+    // Check against all issues already added
     for (const existing of resolved) {
-      const currentPriority = priorityOrder.indexOf(current.type);
-      const existingPriority = priorityOrder.indexOf(existing.type);
-      
-      // If existing has higher priority and overlaps, trim or drop current
-      if (existingPriority < currentPriority && overlaps(current.offsets, existing.offsets)) {
-        // If current is completely inside existing, drop it
-        if (current.offsets.start >= existing.offsets.start && current.offsets.end <= existing.offsets.end) {
+      if (overlaps(current.offsets, existing.offsets)) {
+        const currentPriority = priorityOrder.indexOf(current.type);
+        const existingPriority = priorityOrder.indexOf(existing.type);
+        
+        // If existing has higher priority (lower index), drop current
+        if (existingPriority >= 0 && (currentPriority < 0 || existingPriority < currentPriority)) {
+          console.log(`Dropping overlapping issue: ${current.message} (conflicts with ${existing.message})`);
           shouldAdd = false;
           break;
         }
-        
-        // If partial overlap, trim current (simplified: drop for now)
-        shouldAdd = false;
-        break;
+        // If current has higher priority, remove existing and add current
+        else if (currentPriority >= 0 && currentPriority < existingPriority) {
+          console.log(`Replacing lower priority issue: ${existing.message} with ${current.message}`);
+          const index = resolved.indexOf(existing);
+          resolved.splice(index, 1);
+        }
+        // If same priority, keep the first one
+        else if (currentPriority === existingPriority) {
+          console.log(`Same priority overlap, keeping first: ${existing.message}`);
+          shouldAdd = false;
+          break;
+        }
       }
     }
     
     if (shouldAdd) {
-      resolved.push(trimmedIssue);
+      resolved.push(current);
     }
   }
   
@@ -253,7 +275,8 @@ function renderSegmentsToHTML(segments) {
 }
 
 
-function generateFeedbackSummary(scores, total, meta, teacherNotes, encouragementSteps) {
+function generateFeedbackSummary(scores, total, meta, teacherNotes, encouragementSteps, options = {}) {
+  const { editable = true } = options;
   const scoreColor = getScoreColor(total?.points || 0);
   
   let html = `
@@ -304,23 +327,53 @@ function generateFeedbackSummary(scores, total, meta, teacherNotes, encouragemen
     const percentage = Math.round((details.points / details.out_of) * 100);
     const categoryColor = getScoreColor(percentage);
     
-    html += `
-      <div class="category-feedback" style="margin: 15px 0; padding: 15px; 
-           border-left: 4px solid ${categoryInfo.color}; 
-           background: ${categoryInfo.backgroundColor}; 
-           border-radius: 0 8px 8px 0;">
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
-          <strong style="color: ${categoryInfo.color}; font-size: 1.1em;">
-            ${categoryInfo.name}
-          </strong>
-          <span style="color: ${categoryColor}; font-weight: bold; font-size: 1.2em;">
-            ${details.points}/${details.out_of}
-          </span>
-        </div>
-        <div style="background: white; padding: 10px; border-radius: 4px; line-height: 1.4;">
-          ${escapeHtml(details.rationale || 'No feedback provided')}
-        </div>
-      </div>`;
+    if (editable) {
+      html += `
+        <div class="category-feedback" style="margin: 15px 0; padding: 15px; 
+             border-left: 4px solid ${categoryInfo.color}; 
+             background: ${categoryInfo.backgroundColor}; 
+             border-radius: 0 8px 8px 0;"
+             data-category="${category}">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+            <strong style="color: ${categoryInfo.color}; font-size: 1.1em;">
+              ${categoryInfo.name}
+            </strong>
+            <div style="display: flex; align-items: center; gap: 5px;">
+              <input type="number" 
+                     class="editable-score" 
+                     data-category="${category}"
+                     value="${details.points}" 
+                     min="0" 
+                     max="${details.out_of}"
+                     style="width: 60px; padding: 4px; border: 1px solid #ddd; border-radius: 3px; text-align: center; font-weight: bold; color: ${categoryColor};">
+              <span style="color: ${categoryColor}; font-weight: bold; font-size: 1.2em;">/${details.out_of}</span>
+            </div>
+          </div>
+          <div style="background: white; padding: 10px; border-radius: 4px; line-height: 1.4;">
+            <textarea class="editable-feedback" 
+                      data-category="${category}"
+                      style="width: 100%; min-height: 80px; border: 1px solid #ddd; border-radius: 3px; padding: 8px; resize: vertical; font-family: inherit; line-height: 1.4;">${escapeHtml(details.rationale || 'No feedback provided')}</textarea>
+          </div>
+        </div>`;
+    } else {
+      html += `
+        <div class="category-feedback" style="margin: 15px 0; padding: 15px; 
+             border-left: 4px solid ${categoryInfo.color}; 
+             background: ${categoryInfo.backgroundColor}; 
+             border-radius: 0 8px 8px 0;">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+            <strong style="color: ${categoryInfo.color}; font-size: 1.1em;">
+              ${categoryInfo.name}
+            </strong>
+            <span style="color: ${categoryColor}; font-weight: bold; font-size: 1.2em;">
+              ${details.points}/${details.out_of}
+            </span>
+          </div>
+          <div style="background: white; padding: 10px; border-radius: 4px; line-height: 1.4;">
+            ${escapeHtml(details.rationale || 'No feedback provided')}
+          </div>
+        </div>`;
+    }
   });
   
   html += `

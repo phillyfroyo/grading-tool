@@ -299,6 +299,9 @@ app.get('/', (req, res) => {
                         </div>
                     \`;
                     resultsDiv.style.display = 'block';
+                    
+                    // Add event listeners for editable elements
+                    setupEditableElements(gradingResult, originalData);
                 })
                 .catch(error => {
                     console.error('Formatting error:', error);
@@ -307,19 +310,135 @@ app.get('/', (req, res) => {
                 });
             }
             
+            let currentGradingData = null;
+            let currentOriginalData = null;
+            
+            function setupEditableElements(gradingResult, originalData) {
+                currentGradingData = { ...gradingResult };
+                currentOriginalData = { ...originalData };
+                
+                // Add listeners for score inputs
+                document.querySelectorAll('.editable-score').forEach(input => {
+                    input.addEventListener('input', function() {
+                        const category = this.dataset.category;
+                        const newPoints = parseInt(this.value) || 0;
+                        const maxPoints = parseInt(this.max) || 15;
+                        
+                        // Validate range
+                        if (newPoints < 0) this.value = 0;
+                        if (newPoints > maxPoints) this.value = maxPoints;
+                        
+                        // Update data
+                        currentGradingData.scores[category].points = parseInt(this.value);
+                        
+                        // Recalculate total score
+                        updateTotalScore();
+                    });
+                });
+                
+                // Add listeners for feedback textareas
+                document.querySelectorAll('.editable-feedback').forEach(textarea => {
+                    textarea.addEventListener('input', function() {
+                        const category = this.dataset.category;
+                        currentGradingData.scores[category].rationale = this.value;
+                    });
+                });
+            }
+            
+            function updateTotalScore() {
+                let totalPoints = 0;
+                let totalMaxPoints = 0;
+                
+                Object.values(currentGradingData.scores).forEach(score => {
+                    totalPoints += score.points;
+                    totalMaxPoints += score.out_of;
+                });
+                
+                currentGradingData.total.points = totalPoints;
+                currentGradingData.total.out_of = totalMaxPoints;
+                
+                // Update the displayed total score
+                const overallScoreElement = document.querySelector('.overall-score');
+                if (overallScoreElement) {
+                    const percentage = Math.round((totalPoints / totalMaxPoints) * 100);
+                    let band = 'F';
+                    if (percentage >= 90) band = 'A';
+                    else if (percentage >= 80) band = 'B';
+                    else if (percentage >= 70) band = 'C';
+                    else if (percentage >= 60) band = 'D';
+                    
+                    currentGradingData.total.band = band;
+                    
+                    const color = getScoreColor(percentage);
+                    overallScoreElement.innerHTML = \`<div style="color: \${color}; font-size: 2em; font-weight: bold;">\${totalPoints}/\${totalMaxPoints} (\${band})</div>\`;
+                }
+            }
+            
+            function getScoreColor(percentage) {
+                if (percentage >= 90) return '#4CAF50'; // Green
+                if (percentage >= 80) return '#8BC34A'; // Light Green
+                if (percentage >= 70) return '#FFC107'; // Amber
+                if (percentage >= 60) return '#FF9800'; // Orange
+                return '#F44336'; // Red
+            }
+            
             function exportToPDF() {
                 window.print();
             }
             
             function exportToHTML() {
-                const content = document.getElementById('results').innerHTML;
-                const blob = new Blob([content], { type: 'text/html' });
-                const url = URL.createObjectURL(blob);
-                const a = document.createElement('a');
-                a.href = url;
-                a.download = 'graded_essay.html';
-                a.click();
-                URL.revokeObjectURL(url);
+                if (!currentGradingData || !currentOriginalData) {
+                    alert('No grading data available for export.');
+                    return;
+                }
+                
+                // Generate fresh formatted content with current edited values
+                fetch('/format', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        studentText: currentOriginalData.studentText,
+                        gradingResults: currentGradingData,
+                        studentName: currentOriginalData.studentName,
+                        options: { editable: false }
+                    })
+                })
+                .then(response => response.json())
+                .then(formatted => {
+                    const exportContent = \`
+                        <!DOCTYPE html>
+                        <html>
+                        <head>
+                            <title>Graded Essay - \${currentOriginalData.studentName}</title>
+                            <style>
+                                body { font-family: Arial, sans-serif; margin: 20px; }
+                                .grading-summary { max-width: 800px; margin: 0 auto; }
+                                .formatted-essay { font-family: 'Times New Roman', serif; font-size: 16px; line-height: 1.6; margin: 20px 0; padding: 20px; border: 1px solid #ddd; border-radius: 8px; }
+                            </style>
+                        </head>
+                        <body>
+                            <h1>Graded Essay - \${currentOriginalData.studentName}</h1>
+                            \${formatted.feedbackSummary}
+                            <h2>Color-Coded Essay:</h2>
+                            <div class="formatted-essay">\${formatted.formattedText}</div>
+                        </body>
+                        </html>
+                    \`;
+                    
+                    const blob = new Blob([exportContent], { type: 'text/html' });
+                    const url = URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = \`graded_essay_\${currentOriginalData.studentName.replace(/\\s+/g, '_')}.html\`;
+                    a.click();
+                    URL.revokeObjectURL(url);
+                })
+                .catch(error => {
+                    console.error('Export error:', error);
+                    alert('Error generating export. Please try again.');
+                });
             }
             
             // Profile management functionality
@@ -461,10 +580,10 @@ app.post("/grade", async (req, res) => {
 
 // Format graded essay endpoint
 app.post("/format", async (req, res) => {
-  const { studentText, gradingResults, studentName } = req.body;
+  const { studentText, gradingResults, studentName, options } = req.body;
   
   try {
-    const formatted = formatGradedEssay(studentText, gradingResults);
+    const formatted = formatGradedEssay(studentText, gradingResults, options);
     res.json(formatted);
   } catch (error) {
     console.error(error);
