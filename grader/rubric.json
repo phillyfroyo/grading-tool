@@ -1,0 +1,239 @@
+{
+  "id": "default",
+  "label": "General Writing Exam Rubric (B2 & C1)",
+  "zero_rules": [
+    "Use Artificial Intelligence",
+    "Write only in capital letters",
+    "Plagiarism or copying from another source",
+    "Off-topic: writing about a different topic than assigned"
+  ],
+  "categories": {
+    "grammar": {
+      "id": "grammar",
+      "name": "Grammar",
+      "color": "#FF6B6B",
+      "backgroundColor": "#FFE5E5",
+      "weight": 15,
+      "description": "Tenses, subject/verb agreement, negatives, and structures seen in class.",
+      "bands": [
+        {
+          "range": "15% - 13%",
+          "description": "No grammatical errors or only 2-3 minor errors. Excellent tense agreement. Uses 4+ structures taught in class."
+        },
+        {
+          "range": "12% - 10%",
+          "description": "Almost no grammatical errors (3-5 minor errors). Correct tense agreement with few mistakes. Uses 3 structures taught in class."
+        },
+        {
+          "range": "9% - 7%",
+          "description": "A few grammatical errors (6-9). Good tense agreement but some mistakes. Uses 2 structures taught in class."
+        },
+        {
+          "range": "6% - 4%",
+          "description": "Several grammatical errors (10-15). Tense agreement mostly incorrect. Only uses 1 structure taught in class."
+        },
+        {
+          "range": "3% - 0%",
+          "description": "Many basic grammatical errors (15+). No correct tense agreement. Does not use any structure taught in class."
+        }
+      ]
+    },
+    "vocabulary": {
+      "id": "vocabulary",
+      "name": "Vocabulary",
+      "color": "#4ECDC4",
+      "backgroundColor": "#E8F8F7",
+      "weight": 15,
+      "description": "Correct words and vocabulary taught in class.",
+      "bands": [
+        {
+          "range": "15% - 13%",
+          "description": "Excellent use of vocabulary taught in class (10+ correct words)."
+        },
+        {
+          "range": "12% - 10%",
+          "description": "Good use of vocabulary taught in class (7-9 correct words)."
+        },
+        {
+          "range": "9% - 7%",
+          "description": "Adequate vocabulary use (5-6 correct words)."
+        },
+        {
+          "range": "6% - 4%",
+          "description": "Limited vocabulary use (3-4 correct words)."
+        },
+        {
+          "range": "3% - 0%",
+          "description": "Incorrect or almost no correct vocabulary use (0-2 words)."
+        }
+      ]
+    },
+    "spelling": {
+      "id": "spelling",
+      "name": "Spelling",
+      "color": "#45B7D1",
+      "backgroundColor": "#E3F2FD",
+      "weight": 15,
+      "description": "Accuracy and clarity of spelling.",
+      "bands": [
+        {
+          "range": "15% - 13%",
+          "description": "Hardly any spelling errors (0-2). No errors that impede communication."
+        },
+        {
+          "range": "12% - 10%",
+          "description": "Some spelling errors (3-5). Errors do not impede communication."
+        },
+        {
+          "range": "9% - 7%",
+          "description": "Several spelling errors (6-8). Errors do not impede communication."
+        },
+        {
+          "range": "6% - 4%",
+          "description": "Many spelling errors (8-10). Errors may obscure communication at times."
+        },
+        {
+          "range": "3% - 0%",
+          "description": "Frequent and basic spelling errors (10+). Errors obscure communication."
+        }
+      ]
+    },
+    "mechanics": {
+      "id": "mechanics",
+      "name": "Mechanics & Punctuation",
+      "color": "#F7B731",
+      "backgroundColor": "#FFF8E1",
+      "weight": 15,
+      "description": "Correct use of commas, periods, capitalization, and sentence boundaries.",
+      "bands": [
+        {
+          "range": "15% - 13%",
+          "description": "No punctuation errors or only 1-3 minor errors."
+        },
+        {
+          "range": "12% - 10%",
+          "description": "Almost no punctuation errors (3-5 minor)."
+        },
+        {
+          "range": "9% - 7%",
+          "description": "A few punctuation errors (5-10, mostly minor)."
+        },
+        {
+          "range": "6% - 4%",
+          "description": "Many punctuation errors (10-20)."
+        },
+        {
+          "range": "3% - 0%",
+          "description": "Frequent or basic punctuation errors (20+). Text difficult to understand due to lack of punctuation."
+        }
+      ]
+    },
+    "fluency": {
+      "id": "fluency",
+      "name": "Fluency",
+      "color": "#A855F7",
+      "backgroundColor": "#F3E8FF",
+      "weight": 10,
+      "description": "Organization and logical flow of ideas.",
+      "bands": [
+        {
+          "range": "10% - 9%",
+          "description": "Well-organized, coherent, and easy to follow. Valid ideas clearly connected."
+        },
+        {
+          "range": "8% - 7%",
+          "description": "Mostly clear organization. Valid ideas organized logically."
+        },
+        {
+          "range": "6% - 5%",
+          "description": "Some organizational issues. Main ideas are somewhat clear but choppy."
+        },
+        {
+          "range": "4% - 3%",
+          "description": "Organization detracts from understanding. Ideas disorganized or repetitive."
+        },
+        {
+          "range": "2% - 0%",
+          "description": "Text is unstructured. Ideas disconnected and confusing."
+        }
+      ]
+    },
+    "layout": {
+      "id": "layout",
+      "name": "Layout & Follow Specs",
+      "color": "#16A34A",
+      "backgroundColor": "#DCFCE7",
+      "weight": 15,
+      "description": "Structure, paragraphs, length, and cohesive devices (transition words, pronouns, synonyms).",
+      "bands": [
+        {
+          "range": "15% - 13%",
+          "description": "Excellent text structure. Length within target range (10-13 words under OR 10-15 words over). Uses 6+ transition words."
+        },
+        {
+          "range": "12% - 10%",
+          "description": "Good structure. Length slightly off target (14-15 words under OR 16-20 words over). Uses 5 transition words."
+        },
+        {
+          "range": "9% - 7%",
+          "description": "Several inconsistencies. Length moderately off target (16-17 words under OR 21-25 words over). Uses 4 transition words."
+        },
+        {
+          "range": "6% - 4%",
+          "description": "Barely meets structure or length requirements (18-19 words under OR 26-30 words over). Uses 2-3 transition words."
+        },
+        {
+          "range": "3% - 0%",
+          "description": "Does not meet structure or length requirements (20+ words under OR 31+ words over). No cohesive devices used."
+        }
+      ]
+    },
+    "content": {
+      "id": "content",
+      "name": "Content & Information",
+      "color": "#DC2626",
+      "backgroundColor": "#FEE2E2",
+      "weight": 15,
+      "description": "Completeness and relevance of ideas and supporting information.",
+      "bands": [
+        {
+          "range": "15% - 13%",
+          "description": "Considerable variety of ideas. All content points elaborated and clearly connected to main topic."
+        },
+        {
+          "range": "12% - 10%",
+          "description": "Several valid ideas. Most content points elaborated and relevant."
+        },
+        {
+          "range": "9% - 7%",
+          "description": "Some valid ideas. Some content points elaborated. Main ideas stand out but choppy."
+        },
+        {
+          "range": "6% - 4%",
+          "description": "Limited ideas. Few content points elaborated. Minimal detail."
+        },
+        {
+          "range": "3% - 0%",
+          "description": "Insufficient treatment of topic. No relevant content or off-topic."
+        }
+      ]
+    }
+  },
+  "layout_rules": {
+    "target_word_count_min": 50,
+    "target_word_count_max": 150,
+    "transition_words_min": 5
+  },
+  "cefr_levels": {
+    "B2": {
+      "name": "B2 - Upper Intermediate",
+      "strictness_modifier": 0.85,
+      "description": "More lenient grading for upper intermediate students"
+    },
+    "C1": {
+      "name": "C1 - Advanced", 
+      "strictness_modifier": 1.0,
+      "description": "Standard grading expectations for advanced students"
+    }
+  }
+}
