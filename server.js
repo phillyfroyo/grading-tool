@@ -36,7 +36,6 @@ app.get('/', (req, res) => {
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
         <title>ESL Essay Grader</title>
         <style>
-            ${generateCSS()}
             body {
                 font-family: Arial, sans-serif;
                 margin: 0;
@@ -98,6 +97,24 @@ app.get('/', (req, res) => {
                 border: 1px solid #f5c6cb;
                 border-radius: 4px;
                 margin: 10px 0;
+            }
+            
+            /* Category button styles */
+            .category-btn:hover {
+                transform: translateY(-1px);
+                box-shadow: 0 4px 8px rgba(0,0,0,0.15);
+            }
+            
+            .category-btn:active,
+            .category-btn.selected {
+                transform: translateY(0);
+                outline: 3px solid rgba(0,0,0,0.2);
+                outline-offset: -1px;
+            }
+            
+            .category-btn:focus {
+                outline: 2px solid #007bff;
+                outline-offset: 2px;
             }
         </style>
     </head>
@@ -195,6 +212,41 @@ app.get('/', (req, res) => {
             </div>
         </div>
 
+        <!-- Custom Highlight Edit Modal -->
+        <div id="highlightEditModal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 1000;">
+            <div style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); background: white; padding: 30px; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.3); max-width: 500px; width: 90%;">
+                <h3 id="modalTitle" style="margin-top: 0; color: #333; font-size: 20px;">✏️ Edit Highlight</h3>
+                
+                <div style="margin: 20px 0; padding: 15px; background: #f8f9fa; border-radius: 8px; border-left: 4px solid #007bff;">
+                    <div style="font-weight: bold; color: #333; margin-bottom: 8px;">
+                        Selected Text: "<span id="modalSelectedText" style="font-style: italic;"></span>"
+                    </div>
+                    <div style="font-size: 14px; color: #666;">
+                        Category: <span id="modalCategory" style="font-weight: bold;"></span>
+                    </div>
+                </div>
+                
+                <div style="margin: 20px 0;">
+                    <label for="modalFeedback" style="display: block; margin-bottom: 8px; font-weight: bold; color: #333;">
+                        Teacher Feedback/Note:
+                    </label>
+                    <textarea id="modalFeedback" rows="3" style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 4px; font-size: 14px; resize: vertical;" placeholder="Enter your feedback or correction..."></textarea>
+                </div>
+                
+                <div style="display: flex; gap: 10px; justify-content: flex-end; margin-top: 25px;">
+                    <button id="removeHighlightBtn" style="background: #dc3545; color: white; border: none; padding: 10px 20px; border-radius: 6px; cursor: pointer; font-size: 14px;">
+                        🗑️ Remove Highlight
+                    </button>
+                    <button id="cancelEditBtn" style="background: #6c757d; color: white; border: none; padding: 10px 20px; border-radius: 6px; cursor: pointer; font-size: 14px;">
+                        Cancel
+                    </button>
+                    <button id="saveEditBtn" style="background: #28a745; color: white; border: none; padding: 10px 20px; border-radius: 6px; cursor: pointer; font-size: 14px;">
+                        💾 Save Changes
+                    </button>
+                </div>
+            </div>
+        </div>
+
         <script>
             // Load profiles on page load
             let profiles = [];
@@ -279,7 +331,8 @@ app.get('/', (req, res) => {
                     body: JSON.stringify({
                         studentText: originalData.studentText,
                         gradingResults: gradingResult,
-                        studentName: originalData.studentName
+                        studentName: originalData.studentName,
+                        editable: true
                     })
                 })
                 .then(response => response.json())
@@ -288,9 +341,45 @@ app.get('/', (req, res) => {
                         <h2>Grading Results for \${originalData.studentName}</h2>
                         \${formatted.feedbackSummary}
                         
-                        <h3>Color-Coded Essay:</h3>
-                        <div class="formatted-essay">
-                            \${formatted.formattedText}
+                        <h3 style="margin: 20px 0 10px 0;">Color-Coded Essay:</h3>
+                        
+                        <div id="essayContainer" style="border: 1px solid #ddd; border-radius: 4px;">
+                            <!-- Category selector bar -->
+                            <div id="categoryBar" style="padding: 10px; background: #f8f9fa; border-bottom: 1px solid #ddd; border-radius: 4px 4px 0 0;">
+                                <div style="margin-bottom: 5px; font-weight: bold; font-size: 14px;">Select category then highlight text, or highlight text then select category:</div>
+                                <div id="categoryButtons" style="display: flex; flex-wrap: wrap; gap: 8px;">
+                                    <button class="category-btn" data-category="grammar" style="background: #A855F7; color: #FFFFFF; border: 2px solid #A855F7; padding: 8px 12px; border-radius: 20px; cursor: pointer; font-weight: bold; transition: all 0.2s;">Grammar</button>
+                                    <button class="category-btn" data-category="mechanics-punctuation" style="background: #6B7280; color: #FFFFFF; border: 2px solid #6B7280; padding: 8px 12px; border-radius: 20px; cursor: pointer; font-weight: bold; transition: all 0.2s;">Mechanics & Punctuation</button>
+                                    <button class="category-btn" data-category="redundancy" style="background: #84CC16; color: #111827; border: 2px solid #84CC16; padding: 8px 12px; border-radius: 20px; cursor: pointer; font-weight: bold; transition: all 0.2s;">Redundancy</button>
+                                    <button class="category-btn" data-category="vocabulary-structure" style="background: #06B6D4; color: #111827; border: 2px solid #06B6D4; padding: 8px 12px; border-radius: 20px; cursor: pointer; font-weight: bold; transition: all 0.2s;">Vocabulary / Structure</button>
+                                    <button class="category-btn" data-category="needs-rephrasing" style="background: #38BDF8; color: #111827; border: 2px solid #38BDF8; padding: 8px 12px; border-radius: 20px; cursor: pointer; font-weight: bold; transition: all 0.2s;">Needs rephrasing</button>
+                                    <button class="category-btn" data-category="non-suitable-words" style="background: #111827; color: #FFFFFF; border: 2px solid #111827; padding: 8px 12px; border-radius: 20px; cursor: pointer; font-weight: bold; transition: all 0.2s;">Non-suitable words</button>
+                                    <button class="category-btn" data-category="spelling" style="background: #EF4444; color: #FFFFFF; border: 2px solid #EF4444; padding: 8px 12px; border-radius: 20px; cursor: pointer; font-weight: bold; transition: all 0.2s;">Spelling</button>
+                                    <button class="category-btn" data-category="professor-comments" style="background: #FACC15; color: #111827; border: 2px solid #FACC15; padding: 8px 12px; border-radius: 20px; cursor: pointer; font-weight: bold; transition: all 0.2s;">Professor's comments</button>
+                                    <button id="clearSelectionBtn" onclick="clearSelection()" style="background: #f5f5f5; color: #666; border: 2px solid #ccc; padding: 8px 12px; border-radius: 4px; cursor: pointer; margin-left: 10px;">Clear Selection</button>
+                                </div>
+                                <div id="selectionStatus" style="margin-top: 8px; font-size: 12px; color: #666; min-height: 16px;"></div>
+                                
+                                <!-- Correction Guide Legend -->
+                                <div style="margin-top: 10px; padding-top: 10px; border-top: 1px solid #ddd;">
+                                    <div style="font-weight: bold; font-size: 12px; margin-bottom: 6px; color: #666;">📖 Correction Guide:</div>
+                                    <div style="display: flex; flex-wrap: wrap; gap: 4px; font-size: 10px;">
+                                        <span style="background: #A855F7; color: #FFFFFF; padding: 2px 6px; border-radius: 12px; font-weight: 500;">Grammar</span>
+                                        <span style="background: #6B7280; color: #FFFFFF; padding: 2px 6px; border-radius: 12px; font-weight: 500;">Mechanics & Punctuation</span>
+                                        <span style="background: #84CC16; color: #111827; padding: 2px 6px; border-radius: 12px; font-weight: 500;">Redundancy</span>
+                                        <span style="background: #06B6D4; color: #111827; padding: 2px 6px; border-radius: 12px; font-weight: 500;">Vocabulary / Structure</span>
+                                        <span style="background: #38BDF8; color: #111827; padding: 2px 6px; border-radius: 12px; font-weight: 500;">Needs rephrasing</span>
+                                        <span style="background: #111827; color: #FFFFFF; padding: 2px 6px; border-radius: 12px; font-weight: 500;">Non-suitable words</span>
+                                        <span style="background: #EF4444; color: #FFFFFF; padding: 2px 6px; border-radius: 12px; font-weight: 500;">Spelling</span>
+                                        <span style="background: #FACC15; color: #111827; padding: 2px 6px; border-radius: 12px; font-weight: 500;">Professor's comments</span>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <!-- Essay text area -->
+                            <div class="formatted-essay-content" style="padding: 15px; line-height: 1.6; user-select: text;">
+                                \${formatted.formattedText}
+                            </div>
                         </div>
                         
                         <div style="margin-top: 20px;">
@@ -302,6 +391,9 @@ app.get('/', (req, res) => {
                     
                     // Add event listeners for editable elements
                     setupEditableElements(gradingResult, originalData);
+                    
+                    // Initialize essay editing
+                    setTimeout(() => initializeEssayEditing(), 100);
                 })
                 .catch(error => {
                     console.error('Formatting error:', error);
@@ -361,19 +453,373 @@ app.get('/', (req, res) => {
                 const overallScoreElement = document.querySelector('.overall-score');
                 if (overallScoreElement) {
                     const percentage = Math.round((totalPoints / totalMaxPoints) * 100);
-                    let band = 'F';
-                    if (percentage >= 90) band = 'A';
-                    else if (percentage >= 80) band = 'B';
-                    else if (percentage >= 70) band = 'C';
-                    else if (percentage >= 60) band = 'D';
-                    
-                    currentGradingData.total.band = band;
                     
                     const color = getScoreColor(percentage);
-                    overallScoreElement.innerHTML = \`<div style="color: \${color}; font-size: 2em; font-weight: bold;">\${totalPoints}/\${totalMaxPoints} (\${band})</div>\`;
+                    overallScoreElement.innerHTML = \`<div style="color: \${color}; font-size: 2em; font-weight: bold;">\${totalPoints}/\${totalMaxPoints}</div>\`;
                 }
             }
             
+            // Essay editing functionality - always on by default
+            let selectedCategory = null;
+            let selectedRange = null;
+            let pendingSelection = null;
+            
+            // Category colors mapping
+            // New rubric-aligned highlight categories
+            const categoryColors = {
+                'grammar': { color: '#FFFFFF', bg: '#A855F7' },
+                'mechanics-punctuation': { color: '#FFFFFF', bg: '#6B7280' },
+                'redundancy': { color: '#111827', bg: '#84CC16' },
+                'vocabulary-structure': { color: '#111827', bg: '#06B6D4' },
+                'needs-rephrasing': { color: '#111827', bg: '#38BDF8' },
+                'non-suitable-words': { color: '#FFFFFF', bg: '#111827' },
+                'spelling': { color: '#FFFFFF', bg: '#EF4444' },
+                'professor-comments': { color: '#111827', bg: '#FACC15' }
+            };
+
+            // Legacy mapping for backward compatibility
+            const legacyMapping = {
+                'grammar': 'grammar',
+                'vocabulary': 'vocabulary-structure', 
+                'spelling': 'spelling',
+                'mechanics': 'mechanics-punctuation',
+                'content': 'needs-rephrasing',
+                'layout': null // will need manual conversion
+            };
+
+            // Display order for toolbar
+            const categoryOrder = [
+                'grammar',
+                'mechanics-punctuation', 
+                'redundancy',
+                'vocabulary-structure',
+                'needs-rephrasing',
+                'non-suitable-words',
+                'spelling',
+                'professor-comments'
+            ];
+
+            // Category display names
+            const categoryNames = {
+                'grammar': 'Grammar',
+                'mechanics-punctuation': 'Mechanics & Punctuation',
+                'redundancy': 'Redundancy', 
+                'vocabulary-structure': 'Vocabulary / Structure',
+                'needs-rephrasing': 'Needs rephrasing',
+                'non-suitable-words': 'Non-suitable words',
+                'spelling': 'Spelling',
+                'professor-comments': "Professor's comments"
+            };
+
+            // Function to map legacy categories to new ones
+            function mapLegacyCategory(oldCategory) {
+                const mapping = legacyMapping[oldCategory];
+                if (mapping === null) {
+                    // Layout category - show conversion dialog
+                    return showCategoryConversionDialog(oldCategory);
+                }
+                return mapping || oldCategory;
+            }
+
+            function showCategoryConversionDialog(oldCategory) {
+                const newCategories = [
+                    'grammar',
+                    'mechanics-punctuation',
+                    'redundancy', 
+                    'vocabulary-structure',
+                    'needs-rephrasing',
+                    'non-suitable-words',
+                    'spelling',
+                    'professor-comments'
+                ];
+                
+                const options = newCategories.map(cat => cat + ': ' + categoryNames[cat]).join('\\n');
+                const choice = prompt('The category "' + oldCategory + '" is no longer available. Please choose a new category:\\n\\n' + options + '\\n\\nEnter the category key (e.g., \\'grammar\\'):');
+                
+                return newCategories.includes(choice) ? choice : 'professor-comments';
+            }
+
+            function migrateLegacyHighlights(essayContent) {
+                const marks = essayContent.querySelectorAll('mark[data-type]');
+                marks.forEach(mark => {
+                    const oldCategory = mark.getAttribute('data-type');
+                    if (!categoryColors[oldCategory]) {
+                        const newCategory = mapLegacyCategory(oldCategory);
+                        mark.setAttribute('data-type', newCategory);
+                        
+                        // Update styling
+                        const colors = categoryColors[newCategory];
+                        mark.style.cssText = 'background: ' + colors.bg + '; color: ' + colors.color + '; padding: 2px 4px; border-radius: 2px; position: relative; cursor: pointer;';
+                    }
+                });
+            }
+            
+            function initializeEssayEditing() {
+                const essayContent = document.querySelector('.formatted-essay-content');
+                if (!essayContent) return;
+                
+                // Migrate any existing legacy highlights
+                migrateLegacyHighlights(essayContent);
+                
+                // Add event listeners to category buttons
+                document.querySelectorAll('.category-btn').forEach(btn => {
+                    btn.addEventListener('click', function() {
+                        selectCategory(this.dataset.category);
+                    });
+                });
+                
+                // Add text selection listener to essay
+                essayContent.addEventListener('mouseup', handleTextSelection);
+                
+                // Add click listeners to existing highlights for editing
+                essayContent.querySelectorAll('mark').forEach(mark => {
+                    mark.style.cursor = 'pointer';
+                    mark.addEventListener('click', function(e) {
+                        e.preventDefault();
+                        editHighlight(this);
+                    });
+                });
+                
+                updateSelectionStatus('Ready to highlight. Select a category or highlight text.');
+            }
+            
+            function selectCategory(category) {
+                selectedCategory = category;
+                
+                // Update button visual states
+                document.querySelectorAll('.category-btn').forEach(btn => {
+                    if (btn.dataset.category === category) {
+                        btn.style.transform = 'scale(1.05)';
+                        btn.style.boxShadow = '0 2px 8px rgba(0,0,0,0.2)';
+                    } else {
+                        btn.style.transform = 'scale(1)';
+                        btn.style.boxShadow = 'none';
+                    }
+                });
+                
+                updateSelectionStatus('Category "' + category + '" selected. Now select text to highlight.');
+                
+                // If we have pending text selection, apply it now
+                if (pendingSelection) {
+                    applyHighlight(pendingSelection.range, pendingSelection.text, category);
+                    pendingSelection = null;
+                }
+            }
+            
+            function handleTextSelection(e) {
+                const selection = window.getSelection();
+                if (selection.rangeCount > 0 && !selection.isCollapsed) {
+                    const range = selection.getRangeAt(0);
+                    const text = range.toString().trim();
+                    
+                    // Only proceed if we selected text within the essay content
+                    if (text.length > 0 && document.querySelector('.formatted-essay-content').contains(range.commonAncestorContainer)) {
+                        if (selectedCategory) {
+                            // Category already selected, apply highlight immediately
+                            applyHighlight(range, text, selectedCategory);
+                        } else {
+                            // No category selected, save selection for later
+                            pendingSelection = { range: range.cloneRange(), text };
+                            updateSelectionStatus('Text "' + text.substring(0, 50) + (text.length > 50 ? '...' : '') + '" selected. Now click a category to highlight it.');
+                        }
+                        selection.removeAllRanges();
+                    }
+                }
+            }
+            
+            function applyHighlight(range, text, category) {
+                const colors = categoryColors[category];
+                const mark = document.createElement('mark');
+                mark.setAttribute('data-type', category);
+                mark.setAttribute('data-message', \`Manual \${category} highlight\`);
+                mark.setAttribute('data-editable', 'true');
+                mark.className = 'highlighted-segment';
+                mark.style.cssText = 'background: ' + colors.bg + '; color: ' + colors.color + '; padding: 2px 4px; border-radius: 2px; position: relative; cursor: pointer;';
+                mark.innerHTML = text + '<span class="edit-indicator" style="font-size: 10px; margin-left: 2px;">✎</span>';
+                
+                // Add click listener for editing
+                mark.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    editHighlight(this);
+                });
+                
+                try {
+                    range.deleteContents();
+                    range.insertNode(mark);
+                    updateSelectionStatus(\`"\${text.substring(0, 30)}\${text.length > 30 ? '...' : ''}" highlighted as \${category}.\`);
+                } catch (error) {
+                    console.error('Error adding highlight:', error);
+                    updateSelectionStatus('Error adding highlight. Please try again.');
+                }
+                
+                clearSelection();
+            }
+            
+            let currentEditingElement = null;
+            
+            function editHighlight(markElement) {
+                const category = markElement.getAttribute('data-type');
+                const message = markElement.getAttribute('data-message');
+                const text = markElement.textContent.replace('✎', '').trim();
+                
+                // Store reference to the element being edited
+                currentEditingElement = markElement;
+                
+                // Populate modal
+                document.getElementById('modalSelectedText').textContent = text;
+                document.getElementById('modalCategory').textContent = category.charAt(0).toUpperCase() + category.slice(1);
+                document.getElementById('modalFeedback').value = message.replace('Manual ', '').replace(' highlight', '');
+                
+                // Show modal
+                document.getElementById('highlightEditModal').style.display = 'block';
+            }
+            
+            // Modal event listeners
+            document.addEventListener('DOMContentLoaded', function() {
+                // Close modal when clicking background
+                document.getElementById('highlightEditModal').addEventListener('click', function(e) {
+                    if (e.target === this) {
+                        closeEditModal();
+                    }
+                });
+                
+                // Cancel button
+                document.getElementById('cancelEditBtn').addEventListener('click', closeEditModal);
+                
+                // Save button
+                document.getElementById('saveEditBtn').addEventListener('click', function() {
+                    if (currentEditingElement) {
+                        const newNote = document.getElementById('modalFeedback').value.trim();
+                        const category = currentEditingElement.getAttribute('data-type');
+                        const finalNote = newNote || \`Manual \${category} highlight\`;
+                        
+                        currentEditingElement.setAttribute('data-message', finalNote);
+                        currentEditingElement.title = finalNote;
+                    }
+                    closeEditModal();
+                });
+                
+                // Remove highlight button
+                document.getElementById('removeHighlightBtn').addEventListener('click', function() {
+                    if (currentEditingElement) {
+                        // Get the text content without the edit indicator
+                        const textContent = currentEditingElement.textContent.replace('✎', '').trim();
+                        
+                        // Replace the marked element with plain text
+                        const textNode = document.createTextNode(textContent);
+                        currentEditingElement.parentNode.replaceChild(textNode, currentEditingElement);
+                        
+                        updateSelectionStatus('Highlight removed successfully.');
+                    }
+                    closeEditModal();
+                });
+            });
+            
+            function closeEditModal() {
+                document.getElementById('highlightEditModal').style.display = 'none';
+                currentEditingElement = null;
+            }
+            
+            function clearSelection() {
+                selectedCategory = null;
+                pendingSelection = null;
+                
+                // Reset button styles
+                document.querySelectorAll('.category-btn').forEach(btn => {
+                    btn.style.transform = 'scale(1)';
+                    btn.style.boxShadow = 'none';
+                });
+                
+                updateSelectionStatus('Selection cleared. Ready to highlight again.');
+                window.getSelection().removeAllRanges();
+            }
+            
+            function updateSelectionStatus(message) {
+                const statusDiv = document.getElementById('selectionStatus');
+                if (statusDiv) {
+                    statusDiv.textContent = message;
+                }
+            }
+
+            // Functions for editing statistics and teacher notes
+            function editTeacherNotes(element) {
+                const currentContent = element.querySelector('.teacher-notes-content').textContent;
+                const newNotes = prompt('Edit teacher notes:', currentContent);
+                if (newNotes !== null && newNotes !== currentContent) {
+                    element.querySelector('.teacher-notes-content').textContent = newNotes;
+                    // Update the stored grading data
+                    if (currentGradingData) {
+                        currentGradingData.teacher_notes = newNotes;
+                    }
+                }
+            }
+
+            function editStat(element, statType) {
+                const currentValue = element.querySelector('.stat-value').textContent.replace(/[^0-9]/g, '');
+                const newValue = prompt(\`Edit \${statType === 'word_count' ? 'word count' : statType}:\`, currentValue);
+                if (newValue !== null && !isNaN(newValue) && newValue !== currentValue) {
+                    const intValue = parseInt(newValue);
+                    element.querySelector('.stat-value').textContent = intValue;
+                    // Update the stored grading data
+                    if (currentGradingData && currentGradingData.meta) {
+                        currentGradingData.meta[statType] = intValue;
+                    }
+                }
+            }
+
+            function editTransitions(element) {
+                const detailElement = element.querySelector('.stat-detail');
+                const currentTransitions = detailElement ? detailElement.textContent.replace(/[()]/g, '').split(', ') : [];
+                const newTransitionsStr = prompt('Edit transitions (comma-separated):', currentTransitions.join(', '));
+                if (newTransitionsStr !== null) {
+                    const newTransitions = newTransitionsStr.split(',').map(t => t.trim()).filter(t => t);
+                    element.querySelector('.stat-value').textContent = \`\${newTransitions.length} found\`;
+                    if (detailElement) {
+                        detailElement.textContent = newTransitions.length > 0 ? \`(\${newTransitions.join(', ')})\` : '';
+                    }
+                    // Update the stored grading data
+                    if (currentGradingData && currentGradingData.meta) {
+                        currentGradingData.meta.transition_words_found = newTransitions;
+                    }
+                }
+            }
+
+            function editVocabulary(element) {
+                const detailElement = element.querySelector('.stat-detail');
+                const currentVocab = detailElement ? detailElement.textContent.replace(/[()]/g, '').split(', ') : [];
+                const newVocabStr = prompt('Edit class vocabulary words (comma-separated):', currentVocab.join(', '));
+                if (newVocabStr !== null) {
+                    const newVocab = newVocabStr.split(',').map(v => v.trim()).filter(v => v);
+                    element.querySelector('.stat-value').textContent = \`\${newVocab.length} used\`;
+                    if (detailElement) {
+                        detailElement.textContent = newVocab.length > 0 ? \`(\${newVocab.join(', ')})\` : '';
+                    }
+                    // Update the stored grading data
+                    if (currentGradingData && currentGradingData.meta) {
+                        currentGradingData.meta.class_vocabulary_used = newVocab;
+                    }
+                }
+            }
+
+            function editGrammar(element) {
+                const detailElement = element.querySelector('.stat-detail');
+                const currentGrammar = detailElement ? detailElement.textContent.replace(/[()]/g, '').split(', ') : [];
+                const newGrammarStr = prompt('Edit grammar structures (comma-separated):', currentGrammar.join(', '));
+                if (newGrammarStr !== null) {
+                    const newGrammar = newGrammarStr.split(',').map(g => g.trim()).filter(g => g);
+                    element.querySelector('.stat-value').textContent = \`\${newGrammar.length} structures\`;
+                    if (detailElement) {
+                        const displayGrammar = newGrammar.slice(0, 2);
+                        const suffix = newGrammar.length > 2 ? '...' : '';
+                        detailElement.textContent = newGrammar.length > 0 ? \`(\${displayGrammar.join(', ')}\${suffix})\` : '';
+                    }
+                    // Update the stored grading data
+                    if (currentGradingData && currentGradingData.meta) {
+                        currentGradingData.meta.grammar_structures_used = newGrammar;
+                    }
+                }
+            }
+
             function getScoreColor(percentage) {
                 if (percentage >= 90) return '#4CAF50'; // Green
                 if (percentage >= 80) return '#8BC34A'; // Light Green
@@ -383,7 +829,287 @@ app.get('/', (req, res) => {
             }
             
             function exportToPDF() {
-                window.print();
+                if (!currentGradingData || !currentOriginalData) {
+                    alert('No grading data available for export.');
+                    return;
+                }
+                
+                // Get the essay content safely and process footnotes
+                const essayElement = document.querySelector('.formatted-essay-content');
+                let essayContent = essayElement ? essayElement.innerHTML : 'Essay content not available';
+                let feedbackNotes = [];
+                
+                // Process essay content to add footnotes and collect feedback
+                if (essayElement) {
+                    const tempDiv = document.createElement('div');
+                    tempDiv.innerHTML = essayContent;
+                    
+                    const highlights = tempDiv.querySelectorAll('mark[data-message]');
+                    highlights.forEach((mark, index) => {
+                        const footnoteNumber = index + 1;
+                        const message = mark.getAttribute('data-message') || '';
+                        const category = mark.getAttribute('data-type') || 'general';
+                        const highlightedText = mark.textContent.replace('✎', '').trim();
+                        
+                        // Add footnote number to highlight
+                        mark.innerHTML = mark.innerHTML + \`<sup style="font-size: 10px; color: #666; font-weight: bold;">[\${footnoteNumber}]</sup>\`;
+                        
+                        // Collect feedback for footnotes section
+                        if (message && !message.includes('Manual') && message.trim() !== '') {
+                            feedbackNotes.push({
+                                number: footnoteNumber,
+                                text: highlightedText,
+                                category: category.charAt(0).toUpperCase() + category.slice(1),
+                                feedback: message
+                            });
+                        }
+                    });
+                    
+                    essayContent = tempDiv.innerHTML;
+                }
+                
+                // Create a new window with print-optimized content
+                const printWindow = window.open('', '_blank');
+                const htmlContent = \`
+                    <!DOCTYPE html>
+                    <html>
+                    <head>
+                        <title>Midterm Writing Exam Grade - \${currentOriginalData.studentName}</title>
+                        <style>
+                            @media print {
+                                @page { 
+                                    margin: 0.5in; 
+                                    size: A4;
+                                }
+                                body { 
+                                    print-color-adjust: exact !important; 
+                                    -webkit-print-color-adjust: exact !important;
+                                    color-adjust: exact !important;
+                                    padding: 10px !important;
+                                    margin: 0 !important;
+                                    max-width: none !important;
+                                }
+                                .no-print { display: none !important; }
+                                .page-break { page-break-before: always; }
+                                
+                                /* Reduce spacing for print */
+                                h1 { 
+                                    margin-bottom: 15px !important; 
+                                    font-size: 20px !important;
+                                    padding-bottom: 5px !important;
+                                }
+                                h2 { 
+                                    margin-top: 15px !important; 
+                                    margin-bottom: 10px !important; 
+                                    font-size: 16px !important;
+                                    padding-bottom: 3px !important;
+                                }
+                                .score-box { 
+                                    padding: 15px !important; 
+                                    margin: 10px 0 !important; 
+                                    font-size: 24px !important;
+                                }
+                                .category-item { 
+                                    margin: 8px 0 !important; 
+                                    padding: 10px !important; 
+                                }
+                                .essay-container { 
+                                    padding: 15px !important; 
+                                    margin: 10px 0 !important; 
+                                    line-height: 1.5 !important;
+                                }
+                                .teacher-notes { 
+                                    padding: 12px !important; 
+                                    margin: 10px 0 !important; 
+                                }
+                            }
+                            
+                            body {
+                                font-family: Arial, sans-serif;
+                                max-width: 800px;
+                                margin: 0 auto;
+                                padding: 20px;
+                                color: #000;
+                                background: white;
+                                line-height: 1.4;
+                            }
+                            
+                            h1 {
+                                color: #333;
+                                text-align: center;
+                                margin-bottom: 30px;
+                                font-size: 24px;
+                                border-bottom: 3px solid #333;
+                                padding-bottom: 10px;
+                            }
+                            
+                            h2 {
+                                color: #333;
+                                border-bottom: 2px solid #333;
+                                padding-bottom: 5px;
+                                margin-top: 30px;
+                                margin-bottom: 15px;
+                                font-size: 18px;
+                            }
+                            
+                            .score-box {
+                                font-size: 28px;
+                                font-weight: bold;
+                                color: #333;
+                                text-align: center;
+                                background: #f5f5f5 !important;
+                                padding: 20px;
+                                border: 2px solid #ccc;
+                                margin: 20px 0;
+                                border-radius: 8px;
+                            }
+                            
+                            .category-item {
+                                margin: 15px 0;
+                                padding: 15px;
+                                border: 1px solid #ccc;
+                                background: #fafafa !important;
+                                border-radius: 8px;
+                                page-break-inside: avoid;
+                            }
+                            
+                            .category-title {
+                                font-weight: bold;
+                                font-size: 16px;
+                                color: #333;
+                                margin-bottom: 8px;
+                            }
+                            
+                            .category-feedback {
+                                font-size: 14px;
+                                color: #666;
+                                line-height: 1.6;
+                            }
+                            
+                            .essay-container {
+                                border: 2px solid #ddd;
+                                padding: 20px;
+                                margin: 20px 0;
+                                background: white !important;
+                                font-family: 'Times New Roman', serif;
+                                font-size: 14px;
+                                line-height: 1.8;
+                                border-radius: 8px;
+                            }
+                            
+                            .teacher-notes {
+                                background: #e8f5e8 !important;
+                                padding: 20px;
+                                border-left: 6px solid #4CAF50;
+                                margin: 20px 0;
+                                font-size: 14px;
+                                line-height: 1.6;
+                                border-radius: 8px;
+                            }
+                            
+                            /* Preserve highlight colors */
+                            mark {
+                                print-color-adjust: exact !important;
+                                -webkit-print-color-adjust: exact !important;
+                                color-adjust: exact !important;
+                            }
+                            
+                            .print-button {
+                                background: #007bff;
+                                color: white;
+                                border: none;
+                                padding: 15px 30px;
+                                font-size: 16px;
+                                border-radius: 5px;
+                                cursor: pointer;
+                                margin: 20px;
+                                display: block;
+                                margin-left: auto;
+                                margin-right: auto;
+                            }
+                            
+                            .print-button:hover {
+                                background: #0056b3;
+                            }
+                        </style>
+                    </head>
+                    <body>
+                        <div class="instructions no-print" style="background: #e3f2fd; padding: 20px; margin: 20px; border-radius: 8px; border-left: 6px solid #2196F3; text-align: center;">
+                            <h3 style="margin-top: 0; color: #1976D2;">📄 How to Save as PDF</h3>
+                            <p style="font-size: 16px; margin: 10px 0;"><strong>Press Ctrl+P (Windows) or Cmd+P (Mac)</strong></p>
+                            <p style="font-size: 14px; margin: 10px 0;">Then in the print dialog:</p>
+                            <ol style="text-align: left; display: inline-block; font-size: 14px;">
+                                <li>Change destination to <strong>"Save as PDF"</strong></li>
+                                <li>Click <strong>"Save"</strong></li>
+                                <li>Choose where to save your PDF</li>
+                            </ol>
+                            <button class="print-button" onclick="window.print();">
+                                🖨️ Open Print Dialog to Save as PDF
+                            </button>
+                        </div>
+                        
+                        <h1>Midterm Writing Exam Grade - \${currentOriginalData.studentName}</h1>
+                        
+                        <h2>Overall Score</h2>
+                        <div class="score-box">
+                            \${currentGradingData.total.points}/\${currentGradingData.total.out_of}
+                        </div>
+                        
+                        <h2>Category Breakdown</h2>
+                        \${Object.entries(currentGradingData.scores).map(([category, score]) => \`
+                            <div class="category-item">
+                                <div class="category-title">
+                                    \${category.charAt(0).toUpperCase() + category.slice(1)}: \${score.points}/\${score.out_of}
+                                </div>
+                                <div class="category-feedback">
+                                    \${score.rationale}
+                                </div>
+                            </div>
+                        \`).join('')}
+                        
+                        <div class="page-break"></div>
+                        
+                        <h2>Color-Coded Essay</h2>
+                        <div class="essay-container">
+                            \${essayContent}
+                        </div>
+                        
+                        \${feedbackNotes.length > 0 ? \`
+                            <div class="page-break"></div>
+                            <h2>📝 Feedback Notes</h2>
+                            <div style="background: #f8f9fa; padding: 20px; border-radius: 8px; border: 1px solid #ddd;">
+                                <p style="font-size: 14px; color: #666; margin-top: 0;">The numbers in brackets [1], [2], etc. in the essay above correspond to the feedback below:</p>
+                                \${feedbackNotes.map(note => \`
+                                    <div style="margin: 15px 0; padding: 15px; background: white; border-left: 4px solid #007bff; border-radius: 4px;">
+                                        <div style="font-weight: bold; color: #333; margin-bottom: 8px;">
+                                            <span style="background: #007bff; color: white; padding: 3px 8px; border-radius: 12px; font-size: 12px; margin-right: 10px;">[\${note.number}]</span>
+                                            "\${note.text}" - <em style="color: #666;">\${note.category}</em>
+                                        </div>
+                                        <div style="font-size: 14px; line-height: 1.5; color: #444;">
+                                            \${note.feedback}
+                                        </div>
+                                    </div>
+                                \`).join('')}
+                            </div>
+                        \` : ''}
+                        
+                        \${currentGradingData.teacher_notes ? \`
+                            <h2>Teacher Notes</h2>
+                            <div class="teacher-notes">
+                                \${currentGradingData.teacher_notes}
+                            </div>
+                        \` : ''}
+                    </body>
+                    </html>
+                \`;
+                
+                printWindow.document.write(htmlContent);
+                printWindow.document.close();
+                
+                // Focus the new window but don't auto-print
+                setTimeout(() => {
+                    printWindow.focus();
+                }, 100);
             }
             
             function exportToHTML() {
@@ -402,7 +1128,7 @@ app.get('/', (req, res) => {
                         studentText: currentOriginalData.studentText,
                         gradingResults: currentGradingData,
                         studentName: currentOriginalData.studentName,
-                        options: { editable: false }
+                        editable: false
                     })
                 })
                 .then(response => response.json())
@@ -411,7 +1137,7 @@ app.get('/', (req, res) => {
                         <!DOCTYPE html>
                         <html>
                         <head>
-                            <title>Graded Essay - \${currentOriginalData.studentName}</title>
+                            <title>Midterm Writing Exam Grade - \${currentOriginalData.studentName}</title>
                             <style>
                                 body { font-family: Arial, sans-serif; margin: 20px; }
                                 .grading-summary { max-width: 800px; margin: 0 auto; }
@@ -419,7 +1145,7 @@ app.get('/', (req, res) => {
                             </style>
                         </head>
                         <body>
-                            <h1>Graded Essay - \${currentOriginalData.studentName}</h1>
+                            <h1>Midterm Writing Exam Grade - \${currentOriginalData.studentName}</h1>
                             \${formatted.feedbackSummary}
                             <h2>Color-Coded Essay:</h2>
                             <div class="formatted-essay">\${formatted.formattedText}</div>
@@ -560,6 +1286,9 @@ app.get('/', (req, res) => {
                 }
             });
         </script>
+        
+        <!-- html2pdf library for direct PDF download -->
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
     </body>
     </html>
   `);
@@ -580,10 +1309,11 @@ app.post("/grade", async (req, res) => {
 
 // Format graded essay endpoint
 app.post("/format", async (req, res) => {
-  const { studentText, gradingResults, studentName, options } = req.body;
+  const { studentText, gradingResults, studentName, editable, options } = req.body;
+  const finalOptions = { ...options, editable };
   
   try {
-    const formatted = formatGradedEssay(studentText, gradingResults, options);
+    const formatted = formatGradedEssay(studentText, gradingResults, finalOptions);
     res.json(formatted);
   } catch (error) {
     console.error(error);

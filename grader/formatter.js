@@ -10,7 +10,7 @@ export function formatGradedEssay(studentText, gradingResults, options = {}) {
   const { meta, scores, total, inline_issues, teacher_notes, encouragement_next_steps } = gradingResults;
   
   // Build formatted text using offset-based pipeline
-  const formattedText = renderWithOffsets(studentText, inline_issues || []);
+  const formattedText = renderWithOffsets(studentText, inline_issues || [], options);
   
   // Generate feedback summary with new format
   const feedbackHtml = generateFeedbackSummary(scores, total, meta, teacher_notes, encouragement_next_steps, options);
@@ -19,13 +19,16 @@ export function formatGradedEssay(studentText, gradingResults, options = {}) {
     formattedText: formattedText,
     feedbackSummary: feedbackHtml,
     errors: inline_issues || [],
-    overallScore: total?.points || 0
+    overallScore: total?.points || 0,
+    segments: options.editable ? buildSegments(studentText.normalize('NFC'), findActualOffsets(studentText.normalize('NFC'), inline_issues || [])) : null
   };
 }
 
-function renderWithOffsets(studentText, inlineIssues) {
+function renderWithOffsets(studentText, inlineIssues, options = {}) {
   if (!inlineIssues || inlineIssues.length === 0) {
-    return escapeHtml(studentText);
+    return options.editable ? 
+      `<span class="text-segment" data-segment-id="0">${escapeHtml(studentText)}</span>` :
+      escapeHtml(studentText);
   }
 
   // Normalize essay to NFC (do not change whitespace or line breaks)
@@ -53,7 +56,7 @@ function renderWithOffsets(studentText, inlineIssues) {
   const mergedSegments = mergeAdjacentSegments(segments);
 
   // Render to HTML with proper escaping
-  return renderSegmentsToHTML(mergedSegments);
+  return renderSegmentsToHTML(mergedSegments, options);
 }
 
 function findActualOffsets(text, issues) {
@@ -74,8 +77,11 @@ function findActualOffsets(text, issues) {
     
     console.log(`Looking for: "${originalText}" in text`);
     
-    // Skip if the "error" is actually an instruction
-    if (originalText.length < 2 || originalText.toLowerCase().includes('add ') || originalText.toLowerCase().includes('use ')) {
+    // Skip only if this is clearly just an instruction without highlightable text
+    if (originalText.length < 1 || 
+        originalText.toLowerCase().startsWith('add ') || 
+        originalText.toLowerCase().startsWith('use ') ||
+        originalText.toLowerCase().startsWith('change ')) {
       console.log(`Skipping instruction: "${originalText}"`);
       return null;
     }
@@ -256,19 +262,30 @@ function mergeAdjacentSegments(segments) {
   return merged;
 }
 
-function renderSegmentsToHTML(segments) {
-  return segments.map(segment => {
+function renderSegmentsToHTML(segments, options = {}) {
+  const { editable = false } = options;
+  
+  return segments.map((segment, index) => {
     if (segment.type === 'normal') {
-      return escapeHtml(segment.text);
+      return editable ? 
+        `<span class="text-segment" data-segment-id="${index}">${escapeHtml(segment.text)}</span>` :
+        escapeHtml(segment.text);
     } else {
       const categoryInfo = rubric.categories[segment.issue.type];
       const color = categoryInfo?.color || '#666';
       const bgColor = categoryInfo?.backgroundColor || '#f5f5f5';
+      const categoryName = categoryInfo?.name || segment.issue.type;
+      
+      const editableAttrs = editable ? 
+        `data-segment-id="${index}" data-editable="true" class="highlighted-segment"` : '';
       
       return `<mark data-type="${escapeHtml(segment.issue.type)}" 
-                   style="background: ${bgColor}; color: ${color}; padding: 2px 4px; border-radius: 2px;" 
+                   data-message="${escapeHtml(segment.issue.message)}"
+                   ${editableAttrs}
+                   style="background: ${bgColor}; color: ${color}; padding: 2px 4px; border-radius: 2px; position: relative;" 
                    title="${escapeHtml(segment.issue.message)}">
                 ${escapeHtml(segment.text)}
+                ${editable ? `<span class="edit-indicator" style="font-size: 10px; margin-left: 2px;">✎</span>` : ''}
               </mark>`;
     }
   }).join('');
@@ -284,36 +301,41 @@ function generateFeedbackSummary(scores, total, meta, teacherNotes, encouragemen
       <h2>Grading Results</h2>
       
       <div class="overall-score" style="color: ${scoreColor}; font-size: 2em; font-weight: bold; text-align: center; margin: 20px 0;">
-        ${total?.points || 0}/${total?.out_of || 100} (${total?.band || 'N/A'})
+        ${total?.points || 0}/${total?.out_of || 100}
       </div>
       
-      <div class="teacher-notes" style="background: #e8f5e8; padding: 15px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #4CAF50;">
-        <strong>📝 Teacher Notes:</strong> ${escapeHtml(teacherNotes || 'No notes provided')}
+      <div class="teacher-notes editable-section" style="background: #e8f5e8; padding: 15px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #4CAF50; cursor: pointer; border: 2px solid transparent;" onclick="editTeacherNotes(this)" title="Click to edit teacher notes">
+        <strong>📝 Teacher Notes:</strong> <span class="teacher-notes-content">${escapeHtml(teacherNotes || 'No notes provided')}</span>
+        <span class="edit-indicator" style="font-size: 10px; margin-left: 5px; color: #666;">✎</span>
       </div>
       
       <div class="stats-row" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; margin: 20px 0;">
-        <div style="padding: 10px; background: #e3f2fd; border-radius: 4px; text-align: center;">
+        <div class="editable-stat" style="padding: 10px; background: #e3f2fd; border-radius: 4px; text-align: center; cursor: pointer; border: 2px solid transparent;" onclick="editStat(this, 'word_count')" title="Click to edit">
           <strong>📊 Word Count</strong><br>
-          <span style="font-size: 1.2em; color: #1976D2;">${meta?.word_count || 'Not counted'}</span>
+          <span class="stat-value" style="font-size: 1.2em; color: #1976D2;">${meta?.word_count || 'Not counted'}</span>
+          <span class="edit-indicator" style="font-size: 10px; margin-left: 2px; color: #666;">✎</span>
         </div>
-        <div style="padding: 10px; background: #f3e5f5; border-radius: 4px; text-align: center;">
+        <div class="editable-stat" style="padding: 10px; background: #f3e5f5; border-radius: 4px; text-align: center; cursor: pointer; border: 2px solid transparent;" onclick="editTransitions(this)" title="Click to edit">
           <strong>🔗 Transitions</strong><br>
-          <span style="font-size: 1.2em; color: #7B1FA2;">${(meta?.transition_words_found || []).length} found</span>
-          ${(meta?.transition_words_found || []).length > 0 ? `<br><small>(${(meta.transition_words_found).join(', ')})</small>` : ''}
+          <span class="stat-value" style="font-size: 1.2em; color: #7B1FA2;">${(meta?.transition_words_found || []).length} found</span>
+          <span class="edit-indicator" style="font-size: 10px; margin-left: 2px; color: #666;">✎</span>
+          ${(meta?.transition_words_found || []).length > 0 ? `<br><small class="stat-detail">(${(meta.transition_words_found).join(', ')})</small>` : ''}
         </div>
-        <div style="padding: 10px; background: #e8f5e8; border-radius: 4px; text-align: center;">
+        <div class="editable-stat" style="padding: 10px; background: #e8f5e8; border-radius: 4px; text-align: center; cursor: pointer; border: 2px solid transparent;" onclick="editVocabulary(this)" title="Click to edit">
           <strong>📚 Class Vocabulary</strong><br>
-          <span style="font-size: 1.2em; color: #388E3C;">
+          <span class="stat-value" style="font-size: 1.2em; color: #388E3C;">
             ${Array.isArray(meta?.class_vocabulary_used) ? meta.class_vocabulary_used.length + ' used' : (meta?.class_vocabulary_used || 'N/A')}
           </span>
-          ${Array.isArray(meta?.class_vocabulary_used) && meta.class_vocabulary_used.length > 0 ? `<br><small>(${meta.class_vocabulary_used.join(', ')})</small>` : ''}
+          <span class="edit-indicator" style="font-size: 10px; margin-left: 2px; color: #666;">✎</span>
+          ${Array.isArray(meta?.class_vocabulary_used) && meta.class_vocabulary_used.length > 0 ? `<br><small class="stat-detail">(${meta.class_vocabulary_used.join(', ')})</small>` : ''}
         </div>
-        <div style="padding: 10px; background: #fff3e0; border-radius: 4px; text-align: center;">
+        <div class="editable-stat" style="padding: 10px; background: #fff3e0; border-radius: 4px; text-align: center; cursor: pointer; border: 2px solid transparent;" onclick="editGrammar(this)" title="Click to edit">
           <strong>📖 Grammar</strong><br>
-          <span style="font-size: 1.2em; color: #F57C00;">
+          <span class="stat-value" style="font-size: 1.2em; color: #F57C00;">
             ${Array.isArray(meta?.grammar_structures_used) ? meta.grammar_structures_used.length + ' structures' : (meta?.grammar_structures_used || 'N/A')}
           </span>
-          ${Array.isArray(meta?.grammar_structures_used) && meta.grammar_structures_used.length > 0 ? `<br><small>(${meta.grammar_structures_used.slice(0,2).join(', ')}${meta.grammar_structures_used.length > 2 ? '...' : ''})</small>` : ''}
+          <span class="edit-indicator" style="font-size: 10px; margin-left: 2px; color: #666;">✎</span>
+          ${Array.isArray(meta?.grammar_structures_used) && meta.grammar_structures_used.length > 0 ? `<br><small class="stat-detail">(${meta.grammar_structures_used.slice(0,2).join(', ')}${meta.grammar_structures_used.length > 2 ? '...' : ''})</small>` : ''}
         </div>
       </div>
       

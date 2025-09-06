@@ -54,6 +54,34 @@ ${classProfile.vocabulary.join(', ')}
 GRAMMAR STRUCTURES TAUGHT IN CLASS (must be identified and counted):
 ${classProfile.grammar.join(', ')}
 
+CORRECTION DEPTH & POLICY (teach, don't rewrite):
+
+Goal: produce a minimally corrected version that is grammatical and faithful to the student's meaning.
+
+Do NOT fully rewrite sentences for style. Only fix objective errors (grammar, spelling, mechanics, articles, prepositions, agreement, basic word order, proper-noun capitalization).
+
+Keep the student's clause order unless ungrammatical.
+
+No duplicate subjects or verbs. Never output patterns like "is a Interstellar is…".
+
+Vocabulary changes (e.g., history → story) are allowed only after the sentence is grammatical. If a sentence remains awkward but correct, leave it and coach in the rationale.
+
+Prefer atomic edits (replace/insert/delete short spans). Avoid adding new ideas.
+
+Proper nouns must be capitalized (e.g., Interstellar, Christopher Nolan).
+
+"soundtrack" is one word; fix common film terms.
+
+Sentence Repair Order (apply in this order, then stop):
+1. Capitalization & punctuation (proper nouns, sentence starts)
+2. Articles/determiners for singular count nouns (a/an/the)
+3. Subject–verb agreement & basic tense
+4. Word order for auxiliaries/adverbs (I could only…)
+5. High-confidence vocabulary misuses (history → story)
+6. Split run-ons only when necessary for grammar
+
+"Too broken" rule: If a sentence is beyond minimal repair without inventing content, perform the smallest grammatical repair you can and explain the rest in feedback.
+
 IMPORTANT: Apply leniency_mode=easy for merciful but thorough grading:
 
 LENIENCY RULES:
@@ -63,12 +91,18 @@ LENIENCY RULES:
 • If word count within target ±25 words, don't drop Layout below middle band solely for transitions
 • If no class vocabulary provided, don't penalize - evaluate natural variety instead
 • Always include 2 positives before critical feedback in each category (praise-then-coach)
-• Set soft floor of 60/100 unless comprehension broken, off-topic, or zero-rule triggered
+• Set soft floor of 80/100 unless comprehension broken, off-topic, or zero-rule triggered
 
 PERFECT PERFORMANCE RULE:
 • If no errors are found in a category, award FULL POINTS (15/15 for major categories, 10/10 for fluency)
 • Don't withhold points "just in case" - if performance is truly excellent, give excellent grades
 • Only reduce points when you can identify specific, fixable issues
+
+ERROR SEVERITY GUIDELINES:
+• MINOR ERRORS (deduct 1-2 points max per category): capitalization of proper nouns, minor punctuation
+• MODERATE ERRORS (deduct 2-4 points per category): word choice, some grammar structures
+• MAJOR ERRORS (deduct 4+ points per category): comprehension-impeding mistakes, wrong tenses throughout
+• For essays with only 1-2 minor errors total, minimum grade should be 90/100
 
 COLLOCATION POLICY (must follow):
 • Prefer idiomatic collocations over literal tense changes
@@ -92,6 +126,8 @@ MANDATORY ERROR DETECTION (must catch ALL instances):
 • Word order: "I only could eat" → "I could only eat", "I always go" → "I always go"
 • Collocations: scan for ALL unnatural phrases, not just homework
 • Articles: missing "the/a/an" where needed
+• Duplicate verb/subject guard: If the input has "I think is X is…", correct to "I think X is…" (remove the extra "is")
+• Article insertion guard: Before singular count nouns, insert a/an unless a determiner is already present or it's a proper noun/uncountable (Interstellar is a great movie)
 
 FEEDBACK TEMPLATE per category:
 • Use natural, conversational encouragement - avoid excessive exclamation marks
@@ -121,6 +157,8 @@ CRITICAL: Return ONLY valid JSON - no markdown, no code blocks, no extra text. J
     "class_vocabulary_used": ["stakeholder", "revenue"] OR "N/A (no list provided)",
     "grammar_structures_used": ["Present Perfect", "Conditionals"]
   },
+  "corrected_text_minimal": "<string>",
+  "suggested_polish_one_sentence": "<string>",
   "scores": {
     "grammar": {"points": 11, "out_of": 15, "rationale": "Add past tense consistency: 'went' not 'go'. Try: 'Last Friday, I went to school early.' This makes the timeline clearer."},
     "vocabulary": {"points": 11, "out_of": 15, "rationale": "Use more descriptive words: 'interesting' → 'fascinating'. Try: 'The fascinating movie kept us engaged.' This adds more impact."},
@@ -130,7 +168,7 @@ CRITICAL: Return ONLY valid JSON - no markdown, no code blocks, no extra text. J
     "layout": {"points": 12, "out_of": 15, "rationale": "Add 2-3 more transitions for smooth flow. Try adding: 'moreover, however, in conclusion.' This improves readability."},
     "content": {"points": 13, "out_of": 15, "rationale": "Nice work developing your personal story. Add more specific details: what games? which friends? Try: 'I played chess with my neighbor Tom.' This makes it more vivid."}
   },
-  "total": {"points": 76, "out_of": 100, "band": "C+"},
+  "total": {"points": 76, "out_of": 100},
   "inline_issues": [
     {"type": "spelling", "subtype": "misspelling", "message": "wekend→weekend", "offsets": {"start": 8, "end": 14}},
     {"type": "grammar", "subtype": "tense", "message": "go→went (past tense)", "offsets": {"start": 16, "end": 18}},
@@ -163,15 +201,25 @@ Student Text: ${studentText}
 
 CRITICAL: You must identify EVERY SINGLE ERROR for color-coding. This is for teaching purposes.
 
-STEP 1: ERROR DETECTION (Be thorough - find ALL errors):
-- GRAMMAR: Every tense error, subject-verb disagreement, article mistake, preposition error
-- SPELLING: Every misspelled word, including "wekend", "hole" (whole), etc.
-- MECHANICS: Every missing comma, period, capitalization error
-- VOCABULARY: Word choice issues, register problems
-- CONTENT: Unclear or missing ideas  
-- LAYOUT: Structure and transition issues
+STEP 1: ERROR DETECTION (find ALL objective errors)
 
-STEP 2: GRADING ANALYSIS:
+Tag every instance of: articles, capitalization, agreement, tense, prepositions, word order, spelling, missing punctuation, run-ons, and clear vocabulary misuses.
+
+Do not propose large stylistic rewrites in inline_issues. Large improvements belong in rationales.
+
+STEP 2: MINIMAL CORRECTED TEXT (teach-first)
+
+Produce corrected_text_minimal: the smallest set of edits that make the text grammatical and faithful to the original meaning.
+
+Never duplicate subjects/verbs; never output sequences like "is a X is".
+
+Keep clause order unless ungrammatical.
+
+STEP 3: OPTIONAL POLISH (coaching only)
+
+Produce suggested_polish_one_sentence: choose one representative sentence and show a more natural rewrite (coaching), but do not rewrite the whole essay.
+
+STEP 4: GRADING ANALYSIS
 1. Count total words and identify ALL transition words used
 2. Identify and count vocabulary from class list: ${classProfile.vocabulary.join(', ')}
 3. Identify and count grammar structures from class: ${classProfile.grammar.join(', ')}
@@ -193,6 +241,12 @@ COLLOCATION PREFERENCES:
 }
 
 CRITICAL: Consult collocation_preferences before changing verb tense. Pick the idiomatic form that matches the detected tense.
+
+GRAMMAR CONTEXT AWARENESS: 
+• VALID CONSTRUCTIONS - DO NOT FLAG AS ERRORS:
+  - "is having" when describing ongoing effects/impact (e.g., "rest is having on my energy")
+  - Progressive forms with stative verbs when expressing temporary states or ongoing effects
+  - Present tense for current/general statements even in past narratives (e.g., "now today is Monday")
 
 PAST TENSE CONTEXT DETECTION: If the essay contains past time markers ("past weekend", "on friday", "then", "yesterday", etc.) or past verbs ("came", "played", "woke"), assume past narrative context. For past context:
 - "make my homework" → "did my homework" 
@@ -230,12 +284,16 @@ Be comprehensive in error detection but merciful in scoring.`,
       });
     }
     
-    // Apply CEFR level strictness modifier to scores (for new format)
-    if (cefrLevel === 'B2' && result.scores) {
+    // Apply CEFR level strictness modifier to scores - make B2 more lenient
+    if (result.scores) {
+      // Enhanced leniency for B2, standard for C1
+      const leniencyMultiplier = cefrLevel === 'B2' ? 1.15 : 1.0;
+      
       Object.keys(result.scores).forEach(cat => {
         if (result.scores[cat].points) {
+          // Apply leniency by boosting scores, capped at maximum
           result.scores[cat].points = Math.min(result.scores[cat].out_of, 
-            Math.round(result.scores[cat].points * levelInfo.strictness_modifier));
+            Math.round(result.scores[cat].points * leniencyMultiplier));
         }
       });
       
