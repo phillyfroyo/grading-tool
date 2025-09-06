@@ -227,8 +227,8 @@
   "cefr_levels": {
     "B2": {
       "name": "B2 - Upper Intermediate",
-      "strictness_modifier": 0.85,
-      "description": "More lenient grading for upper intermediate students"
+      "strictness_modifier": 1.0,
+      "description": "Lenient grading focusing on communication over perfection"
     },
     "C1": {
       "name": "C1 - Advanced", 

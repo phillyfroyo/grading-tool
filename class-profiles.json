@@ -2,7 +2,7 @@
   "profiles": [
     {
       "id": "business_b2_fall2024",
-      "name": "Business English B2 - Fall 2024",
+      "name": "Level 5 Midterm Exams - Fall 2025",
       "cefrLevel": "B2",
       "vocabulary": [
         "stakeholder",
@@ -31,11 +31,11 @@
         "Relative clauses"
       ],
       "created": "2024-09-04T00:00:00Z",
-      "lastModified": "2025-09-04T14:32:27.167Z"
+      "lastModified": "2025-09-04T18:18:37.147Z"
     },
     {
       "id": "academic_c1_fall2024",
-      "name": "Academic Writing C1 - Fall 2024",
+      "name": "Level 6 Midterm Exams - Fall 2025",
       "cefrLevel": "C1",
       "vocabulary": [
         "furthermore",
@@ -65,7 +65,7 @@
         "Nominalization"
       ],
       "created": "2024-09-04T00:00:00Z",
-      "lastModified": "2024-09-04T00:00:00Z"
+      "lastModified": "2025-09-04T18:19:05.753Z"
     }
   ]
 }
