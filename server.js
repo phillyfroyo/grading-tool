@@ -1809,6 +1809,35 @@ app.get("/api/debug", async (req, res) => {
   }
 });
 
+// Test grading endpoint with minimal data
+app.post("/api/test-grade", async (req, res) => {
+  try {
+    console.log("=== TEST GRADING ENDPOINT ===");
+    
+    const testText = "This is a test essay. I like school very much.";
+    const testPrompt = "Write about your school experience.";
+    const testProfile = {
+      id: "test",
+      name: "Test Profile",
+      cefrLevel: "B2",
+      vocabulary: ["school", "experience", "education"],
+      grammar: ["present tense", "adjectives"]
+    };
+    
+    console.log("Testing serverless grading function...");
+    const result = await gradeEssayServerless(testText, testPrompt, testProfile);
+    
+    res.json({ success: true, result });
+  } catch (error) {
+    console.error("Test grading error:", error);
+    res.status(500).json({ 
+      success: false, 
+      error: error.message,
+      stack: error.stack 
+    });
+  }
+});
+
 // Serverless-compatible grading function
 async function gradeEssayServerless(studentText, prompt, profileData) {
   console.log('=== STARTING SERVERLESS GRADING ===');
