@@ -8,7 +8,13 @@
       "Bash(git commit:*)",
       "Bash(git branch:*)",
       "Bash(git push:*)",
-      "WebFetch(domain:localhost)"
+      "WebFetch(domain:localhost)",
+      "Bash(git pull:*)",
+      "Bash(node:*)",
+      "Bash(npm start)",
+      "Bash(curl:*)",
+      "Bash(npm install:*)",
+      "Bash(npx prisma:*)"
     ],
     "deny": [],
     "ask": []

@@ -4,16 +4,24 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "dev": "nodemon server.js",
+    "start": "node server.js",
+    "db:setup": "npx prisma migrate dev --name init && npx prisma generate && node scripts/migrate-profiles.js",
+    "db:reset": "npx prisma migrate reset",
+    "db:studio": "npx prisma studio"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
   "type": "module",
   "dependencies": {
+    "@prisma/client": "^6.15.0",
     "dotenv": "^17.2.2",
     "express": "^5.1.0",
-    "openai": "^5.19.1"
+    "morgan": "^1.10.1",
+    "openai": "^5.19.1",
+    "prisma": "^6.15.0"
   },
   "devDependencies": {
     "nodemon": "^3.1.10"

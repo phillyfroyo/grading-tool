@@ -1,6 +1,7 @@
 // api/index.js - Serverless function entry point
 import express from "express";
 import dotenv from "dotenv";
+import { prisma } from "../lib/prisma.js";
 
 // Load class profiles for serverless environment
 function loadProfiles() {
@@ -299,70 +300,70 @@ app.post("/api/format", async (req, res) => {
   }
 });
 
-// Profile management API endpoints
-app.get("/api/profiles", (req, res) => {
+// Profile management API endpoints (using Prisma)
+app.get("/api/profiles", async (req, res) => {
   try {
-    res.json(sessionProfiles);
+    const profiles = await prisma.classProfile.findMany({
+      orderBy: { lastModified: 'desc' }
+    });
+    res.json({ profiles });
   } catch (error) {
+    console.error('Error loading profiles:', error);
     res.status(500).json({ error: "Error loading profiles" });
   }
 });
 
-app.post("/api/profiles", (req, res) => {
+app.post("/api/profiles", async (req, res) => {
   try {
-    const newProfile = {
-      id: `profile_${Date.now()}`,
-      name: req.body.name,
-      cefrLevel: req.body.cefrLevel,
-      vocabulary: req.body.vocabulary || [],
-      grammar: req.body.grammar || [],
-      prompt: req.body.prompt || '',
-      created: new Date().toISOString(),
-      lastModified: new Date().toISOString()
-    };
-    
-    sessionProfiles.profiles.push(newProfile);
+    const newProfile = await prisma.classProfile.create({
+      data: {
+        name: req.body.name,
+        cefrLevel: req.body.cefrLevel,
+        vocabulary: req.body.vocabulary || [],
+        grammar: req.body.grammar || [],
+        prompt: req.body.prompt || '',
+      }
+    });
     res.json(newProfile);
   } catch (error) {
+    console.error('Error creating profile:', error);
     res.status(500).json({ error: "Error creating profile" });
   }
 });
 
-app.put("/api/profiles/:id", (req, res) => {
+app.put("/api/profiles/:id", async (req, res) => {
   try {
-    const profileIndex = sessionProfiles.profiles.findIndex(p => p.id === req.params.id);
-    
-    if (profileIndex === -1) {
+    const updatedProfile = await prisma.classProfile.update({
+      where: { id: req.params.id },
+      data: {
+        name: req.body.name,
+        cefrLevel: req.body.cefrLevel,
+        vocabulary: req.body.vocabulary || [],
+        grammar: req.body.grammar || [],
+        prompt: req.body.prompt || '',
+      }
+    });
+    res.json(updatedProfile);
+  } catch (error) {
+    if (error.code === 'P2025') {
       return res.status(404).json({ error: "Profile not found" });
     }
-    
-    sessionProfiles.profiles[profileIndex] = {
-      ...sessionProfiles.profiles[profileIndex],
-      name: req.body.name,
-      cefrLevel: req.body.cefrLevel,
-      vocabulary: req.body.vocabulary || [],
-      grammar: req.body.grammar || [],
-      prompt: req.body.prompt || '',
-      lastModified: new Date().toISOString()
-    };
-    
-    res.json(sessionProfiles.profiles[profileIndex]);
-  } catch (error) {
+    console.error('Error updating profile:', error);
     res.status(500).json({ error: "Error updating profile" });
   }
 });
 
-app.delete("/api/profiles/:id", (req, res) => {
+app.delete("/api/profiles/:id", async (req, res) => {
   try {
-    const profileIndex = sessionProfiles.profiles.findIndex(p => p.id === req.params.id);
-    
-    if (profileIndex === -1) {
-      return res.status(404).json({ error: "Profile not found" });
-    }
-    
-    sessionProfiles.profiles.splice(profileIndex, 1);
+    await prisma.classProfile.delete({
+      where: { id: req.params.id }
+    });
     res.json({ success: true });
   } catch (error) {
+    if (error.code === 'P2025') {
+      return res.status(404).json({ error: "Profile not found" });
+    }
+    console.error('Error deleting profile:', error);
     res.status(500).json({ error: "Error deleting profile" });
   }
 });

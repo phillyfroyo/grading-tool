@@ -6,7 +6,24 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 const rubric = JSON.parse(readFileSync(join(__dirname, 'rubric.json'), 'utf8'));
 
+// Correction guide color mapping for highlighting (matches rubric colors)
+const correctionGuideColors = {
+  'grammar': { color: '#FFFFFF', backgroundColor: '#FF6B6B', name: 'Grammar' }, // Pink highlight to match rubric
+  'mechanics-punctuation': { color: '#FFFFFF', backgroundColor: '#6B7280', name: 'Mechanics & Punctuation' },
+  'redundancy': { color: '#111827', backgroundColor: '#84CC16', name: 'Redundancy' },
+  'vocabulary-structure': { color: '#4ECDC4', backgroundColor: 'transparent', name: 'Vocabulary / Structure' }, // Blue text, no highlight
+  'needs-rephrasing': { color: '#111827', backgroundColor: '#38BDF8', name: 'Needs rephrasing' },
+  'non-suitable-words': { color: '#000000', backgroundColor: 'transparent', textDecoration: 'line-through', name: 'Non-suitable words' }, // Black strikethrough
+  'spelling': { color: '#F57C00', backgroundColor: 'transparent', name: 'Spelling' }, // Orange/reddish text, no highlight
+  'fluency': { color: '#9333EA', backgroundColor: 'transparent', textDecoration: 'underline', name: 'Fluency Coaching' }, // Purple underline for coaching
+  'professor-comments': { color: '#111827', backgroundColor: '#FACC15', name: "Professor's comments" }
+};
+
 export function formatGradedEssay(studentText, gradingResults, options = {}) {
+  console.log('\n🎨 FORMATTER CALLED');
+  console.log(`Student text length: ${studentText.length}`);
+  console.log(`Number of inline issues: ${(gradingResults.inline_issues || []).length}`);
+  
   const { meta, scores, total, inline_issues, teacher_notes, encouragement_next_steps } = gradingResults;
   
   // Build formatted text using offset-based pipeline
@@ -45,8 +62,18 @@ function renderWithOffsets(studentText, inlineIssues, options = {}) {
     return b.offsets.end - a.offsets.end;
   });
 
-  // Resolve overlaps with fixed priority: grammar > mechanics > spelling > vocab > content > layout
-  const priorityOrder = ['grammar', 'mechanics', 'spelling', 'vocabulary', 'content', 'layout'];
+  // Resolve overlaps with fixed priority: grammar > mechanics-punctuation > spelling > vocab-structure > etc.
+  const priorityOrder = [
+    'grammar',
+    'mechanics-punctuation', 
+    'spelling',
+    'vocabulary-structure',
+    'needs-rephrasing',
+    'redundancy',
+    'non-suitable-words',
+    'fluency',
+    'professor-comments'
+  ];
   const resolvedIssues = resolveOverlapsFixed(sortedIssues, priorityOrder);
 
   // Build segments by slicing original string exactly once
@@ -61,23 +88,74 @@ function renderWithOffsets(studentText, inlineIssues, options = {}) {
 
 function findActualOffsets(text, issues) {
   return issues.map(issue => {
-    // Handle punctuation/mechanics errors differently - they don't highlight specific text
-    if (issue.type === 'mechanics' && (issue.message.includes('Add comma') || issue.message.includes('Add period'))) {
-      console.log(`Skipping mechanics instruction: "${issue.message}"`);
-      return null; // Skip these - they're instructions, not highlightable errors
+    // FIRST: If we have a quote field, use that instead of trusting AI offsets
+    if (issue.quote && issue.quote.trim().length > 0) {
+      const searchText = issue.quote.trim();
+      console.log(`\n[OFFSET DEBUG] Processing issue: "${issue.message}"`);
+      console.log(`[OFFSET DEBUG] Looking for quote: "${searchText}"`);
+      console.log(`[OFFSET DEBUG] AI provided offsets: ${issue.offsets?.start}-${issue.offsets?.end}`);
+      if (issue.offsets?.start !== undefined && issue.offsets?.end !== undefined) {
+        const aiText = text.substring(issue.offsets.start, issue.offsets.end);
+        console.log(`[OFFSET DEBUG] AI offset points to: "${aiText}"`);
+      }
+      
+      // Try exact match first
+      let index = text.indexOf(searchText);
+      if (index !== -1) {
+        console.log(`[OFFSET DEBUG] Found exact quote match at ${index}-${index + searchText.length}`);
+        return {
+          ...issue,
+          offsets: { start: index, end: index + searchText.length }
+        };
+      } else {
+        // Try case-insensitive match
+        const lowerText = text.toLowerCase();
+        const lowerSearch = searchText.toLowerCase();
+        index = lowerText.indexOf(lowerSearch);
+        if (index !== -1) {
+          console.log(`[OFFSET DEBUG] Found case-insensitive quote match at ${index}-${index + searchText.length}`);
+          return {
+            ...issue,
+            offsets: { start: index, end: index + searchText.length }
+          };
+        }
+        console.log(`[OFFSET DEBUG] Quote not found: "${searchText}"`);
+        console.log(`[OFFSET DEBUG] Text preview: "${text.substring(0, 100)}..."`);
+      }
     }
     
-    // Extract the original text from the message (before the →)
+    // SECOND: Try to use model-provided offsets (only if no quote or quote not found)
+    if (issue.offsets && 
+        typeof issue.offsets.start === 'number' && 
+        typeof issue.offsets.end === 'number' &&
+        issue.offsets.start >= 0 && 
+        issue.offsets.end <= text.length &&
+        issue.offsets.start <= issue.offsets.end) {
+      console.log(`Using model offsets: ${issue.offsets.start}-${issue.offsets.end}`);
+      return issue; // Use as-is
+    }
+    
+    // Handle comma/period suggestions with caret markers (don't skip them)
+    if ((issue.type === 'mechanics-punctuation' || issue.type === 'mechanics') && 
+        (issue.message.includes('Add comma') || issue.message.includes('Add period'))) {
+      console.log(`Creating caret marker for: "${issue.message}"`);
+      // Create zero-width span at the position where punctuation should be added
+      const caretPosition = issue.offsets?.start || 0;
+      return {
+        ...issue,
+        offsets: { start: caretPosition, end: caretPosition },
+        isCaretMarker: true // Flag for special rendering
+      };
+    }
+    
+    // FALLBACK: Extract original text from message and search
     const messageParts = issue.message.split('→');
     let originalText = messageParts[0].trim();
     
-    // Clean up common prefixes/suffixes that aren't part of the actual error
-    originalText = originalText.replace(/^(the|a|an)\s+/i, '');
-    originalText = originalText.replace(/\s+(the|a|an)$/i, '');
-    
+    // Don't strip articles - keep original phrase intact for search
     console.log(`Looking for: "${originalText}" in text`);
     
-    // Skip only if this is clearly just an instruction without highlightable text
+    // Skip only if clearly just an instruction without searchable text
     if (originalText.length < 1 || 
         originalText.toLowerCase().startsWith('add ') || 
         originalText.toLowerCase().startsWith('use ') ||
@@ -222,14 +300,23 @@ function buildSegments(text, issues) {
       });
     }
 
-    // Add issue segment
-    segments.push({
-      type: 'issue',
-      text: text.slice(issue.offsets.start, issue.offsets.end),
-      issue: issue
-    });
-
-    cursor = issue.offsets.end;
+    // Handle caret markers (zero-width spans)
+    if (issue.isCaretMarker) {
+      segments.push({
+        type: 'caret',
+        text: '', // Zero-width
+        issue: issue
+      });
+      // Don't advance cursor for zero-width markers
+    } else {
+      // Add regular issue segment
+      segments.push({
+        type: 'issue',
+        text: text.slice(issue.offsets.start, issue.offsets.end),
+        issue: issue
+      });
+      cursor = issue.offsets.end;
+    }
   }
 
   // Add remaining normal text
@@ -270,19 +357,35 @@ function renderSegmentsToHTML(segments, options = {}) {
       return editable ? 
         `<span class="text-segment" data-segment-id="${index}">${escapeHtml(segment.text)}</span>` :
         escapeHtml(segment.text);
+    } else if (segment.type === 'caret') {
+      // Render caret marker for comma/period suggestions
+      return `<span class="caret-marker" 
+                   data-type="${escapeHtml(segment.issue.type)}"
+                   data-message="${escapeHtml(segment.issue.message)}"
+                   title="${escapeHtml(segment.issue.message)}"
+                   style="color: #F57C00; font-weight: bold; position: relative;">▿</span>`;
     } else {
-      const categoryInfo = rubric.categories[segment.issue.type];
+      // Use correction guide colors for inline_issues, fallback to rubric colors
+      const correctionInfo = correctionGuideColors[segment.issue.type];
+      const categoryInfo = correctionInfo || rubric.categories[segment.issue.type];
       const color = categoryInfo?.color || '#666';
       const bgColor = categoryInfo?.backgroundColor || '#f5f5f5';
+      const textDecoration = categoryInfo?.textDecoration || 'none';
       const categoryName = categoryInfo?.name || segment.issue.type;
       
       const editableAttrs = editable ? 
         `data-segment-id="${index}" data-editable="true" class="highlighted-segment"` : '';
       
+      // Build style string with conditional properties
+      let styleProps = `color: ${color}; text-decoration: ${textDecoration}; position: relative;`;
+      if (bgColor && bgColor !== 'transparent') {
+        styleProps += ` background: ${bgColor}; padding: 2px 4px; border-radius: 2px;`;
+      }
+      
       return `<mark data-type="${escapeHtml(segment.issue.type)}" 
                    data-message="${escapeHtml(segment.issue.message)}"
                    ${editableAttrs}
-                   style="background: ${bgColor}; color: ${color}; padding: 2px 4px; border-radius: 2px; position: relative;" 
+                   style="${styleProps}" 
                    title="${escapeHtml(segment.issue.message)}">
                 ${escapeHtml(segment.text)}
                 ${editable ? `<span class="edit-indicator" style="font-size: 10px; margin-left: 2px;">✎</span>` : ''}
