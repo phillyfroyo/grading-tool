@@ -1,9 +1,17 @@
 // server.js
+
+console.log("\n=== ESL GRADING SERVER STARTING ===\n");
+console.log("[BOOT] import:", import.meta.url);
+console.log("[BOOT] cwd:", process.cwd());
+console.log("[BOOT] Node version:", process.version);
+console.log("[BOOT] Platform:", process.platform);
+
 import express from "express";
+import morgan from "morgan";
 import dotenv from "dotenv";
 import path from "path";
 import { readFileSync, writeFileSync } from 'fs';
-import { gradeEssay } from "./grader/grader.js";
+import { gradeEssay } from "./grader/grader-two-step.js";
 import { formatGradedEssay, generateCSS } from "./grader/formatter.js";
 
 // Load class profiles
@@ -11,17 +19,57 @@ function loadProfiles() {
   try {
     return JSON.parse(readFileSync('./class-profiles.json', 'utf8'));
   } catch (error) {
-    return { profiles: [] };
+    // Fallback for serverless environments - load from environment variable
+    if (process.env.CLASS_PROFILES) {
+      return JSON.parse(process.env.CLASS_PROFILES);
+    }
+    // Default profiles for fresh deployments
+    return {
+      "profiles": [
+        {
+          "id": "business_b2_fall2024",
+          "name": "Level 5 Midterm Exams - Fall 2025 Bimestre 1",
+          "cefrLevel": "B2",
+          "vocabulary": [
+            "Bills", "Fee", "Expenses", "Income", "Installments", "Budget", "Penniless", "Frugal", "Stingy", "Prodigal", "Carelessly", "Unnecessarily", "In the red", "Bankrupt", "Broke", "Savings", "Leasing", "Sublet", "Mortgage", "Down payment", "Interest rate", "Insurance", "Walkability", "Neighborhood", "Security deposit", "Amenities", "Accessibility", "Pet-friendly", "Well-lit", "Decrease in price", "Increase in price", "Landlord", "Tenant", "Furnished", "Unfurnished", "Move-in date", "Eviction", "Property tax", "Renovated", "Fandom", "Nostalgia", "Binge Watch", "Doom Scroll", "Cult classic", "Aesthetic", "Pop culture reference", "Niche", "Mainstream", "Drop", "Hype", "Trope", "Archetype", "Chronically online", "Plot", "Character", "Development", "Cinematography", "Direction", "Dialogue", "Pacing", "Theme", "Originality", "Soundtrack", "Visual Effects", "Critique", "Production design", "Zeitgeist", "Business plan", "Market research", "Fundraising", "Funding", "Revenue", "Value propositions", "Pitch", "Networking", "Mentor", "Brand identity", "Customer", "Loyalty", "Startup", "Prefixes (any word using these counts as vocab used):", "un-", "re-", "in-/im-/il-/ir-", "dis-", "pre-", "mis-", "non-", "inter-", "sub-", "super-", "anti-", "Suffixes (any word using these counts as vocab used):", "-able, -ible", "-ive", "-ness", "-ment", "-tion, -sion", "-ity", "-ence", "-ship"
+          ],
+          "grammar": [
+            "Tense and structure review", "Active vs. Passive verb forms (all tenses, modals)", "Identifying tenses in time clauses", "Pronouns and determiners review", "Personal pronouns", "Reflexive pronouns", "Indefinite pronouns", "Reciprocal pronouns", "Relative pronouns", "Articles", "Quantifiers", "Demonstratives", "Distributives", "Some / Any", "Too / Enough", "Review reported speech:", "Present (simple, continuous, perfect simple)", "Past (simple)", "Modals (can→could, will→would, may→might, should)", "Commands and instructions", "Review reporting verbs with verb patterns:", "Reporting verb + clause (agree, promise, suggest, complain, admit, explain, mention, claim)", "Reporting verb + direct object + clause (advise, warn, tell, convince, assure, persuade, notify, inform, remind)", "Reporting verb + infinitive (threaten, demand, offer, propose, refuse, ask, agree, claim, promise)", "Reporting verb + direct object + infinitive (invite, tell, beg, forbid, order, remind, advise, ask, encourage, warn [not to])", "Reporting verb + verb + ing (mention, deny, suggest, recommend, admit, propose)", "Reporting verb + preposition + verb + ing (agree [to], apologize [for], insist [on], argue [about])", "Reporting verb + direct object + preposition + verb + ing (blame [for], congratulate [on], discourage [from], criticize [for])", "Review conditional forms", "Real conditionals", "Unreal conditionals", "Mixed conditionals", "Alternatives to if in conditionals", "Conditionals without if (Inverted conditionals)", "Word building (prefixes and suffixes)"
+          ],
+          "created": "2024-09-04T00:00:00Z",
+          "lastModified": "2025-09-07T01:39:20.278Z",
+          "prompt": "Write a letter to a younger friend.\n\nWrite a letter to a younger friend who is interested in starting his/her own business. In this letter, share your insights on the importance of entrepreneurship and innovation. Highlight how innovative thinking can lead to successful ventures and provide practical advice on taking the first steps.\n\n \n\nFollow the specific pattern:\n\nParagraph 1: Introduce the topic of entrepreneurship and express your excitement about your friend's interest in starting a business.\nParagraph 2: Discuss the significance of innovation in entrepreneurship. Use reported speech to include a quote or advice from a successful entrepreneur you admire (e.g., Steve Jobs, Elon Musk, etc.)\nParagraph 3: Share practical steps your friend can take to start his/her entrepreneurial journey. Use conditional sentences to discuss potential scenarios\nParagraph 4: Summarize your main points and encourage your friend to embrace his/her entrepreneurial spirit.\nWrite your essay in 200 – 220 words. Don't forget to use linking words to make your text easier for the reader to understand. You can include the following sentence to your text:\n\nA mentor once advised me that taking calculated risks is essential for success because …\n\n \n\nIt is mandatory to use at least:\n\n6 grammar structures seen in class. Write the it between parentheses ().\n4 linkers. Write the linkers between *asterisks*.\n10 vocabulary items seen in class. Write the vocabulary items in CAPITAL LETTERS."
+        },
+        {
+          "id": "academic_c1_fall2024",
+          "name": "Level 6 Midterm Exams - Fall 2025",
+          "cefrLevel": "C1",
+          "vocabulary": [
+            "furthermore", "nevertheless", "consequently", "substantial", "comprehensive", "predominantly", "simultaneously", "phenomenon", "implications", "methodology", "hypothesis", "correlation", "criterion", "paradigm", "empirical"
+          ],
+          "grammar": [
+            "Complex conditional structures", "Subjunctive mood", "Inversion after negative adverbials", "Mixed conditionals", "Advanced passive constructions", "Participle clauses", "Cleft sentences", "Nominalization"
+          ],
+          "created": "2024-09-04T00:00:00Z",
+          "lastModified": "2025-09-04T18:19:05.753Z"
+        }
+      ]
+    };
   }
 }
 
 function saveProfiles(profiles) {
-  writeFileSync('./class-profiles.json', JSON.stringify(profiles, null, 2));
+  try {
+    writeFileSync('./class-profiles.json', JSON.stringify(profiles, null, 2));
+  } catch (error) {
+    console.warn('Cannot save to file system, profiles will not persist in serverless environment:', error.message);
+  }
 }
 
 dotenv.config();
 const app = express();
-
+// app.use(morgan("dev")); // logs every HTTP request to the terminal
+app.get("/health", (req, res) => res.send("ok"));
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 app.use(express.static('public'));
@@ -116,6 +164,18 @@ app.get('/', (req, res) => {
                 outline: 2px solid #007bff;
                 outline-offset: 2px;
             }
+            
+            /* Reset default mark element styling to prevent yellow background */
+            mark {
+                background: transparent;
+                color: inherit;
+            }
+            
+            /* Allow our custom mark elements to override the reset */
+            mark[data-type] {
+                background: unset;
+                color: unset;
+            }
         </style>
     </head>
     <body>
@@ -199,6 +259,10 @@ app.get('/', (req, res) => {
                             <label for="profileGrammar">Grammar Structures (one per line):</label>
                             <textarea id="profileGrammar" rows="4" placeholder="Present Perfect for experience&#10;Conditionals (2nd and 3rd)&#10;Passive voice"></textarea>
                         </div>
+                        <div class="form-group">
+                            <label for="profilePrompt">Custom Error Detection Prompt (optional):</label>
+                            <textarea id="profilePrompt" rows="8" placeholder="Enter a custom prompt to override the default error detection behavior for this class profile. Leave empty to use the system default prompt."></textarea>
+                        </div>
                         <div style="margin-top: 15px;">
                             <button type="submit" style="background: #28a745; color: white; padding: 10px 20px; border: none; border-radius: 4px; margin-right: 10px; cursor: pointer;">
                                 Save Profile
@@ -273,6 +337,35 @@ app.get('/', (req, res) => {
                 });
             }
             
+            // Handle profile selection change
+            document.getElementById('classProfile').addEventListener('change', function(e) {
+                const selectedProfileId = e.target.value;
+                const promptTextarea = document.getElementById('prompt');
+                const promptContainer = document.querySelector('label[for="prompt"]').parentElement;
+                
+                if (selectedProfileId) {
+                    const selectedProfile = profiles.find(p => p.id === selectedProfileId);
+                    if (selectedProfile && selectedProfile.prompt && selectedProfile.prompt.trim()) {
+                        // Profile has a built-in prompt, populate and hide the prompt field
+                        promptTextarea.value = selectedProfile.prompt;
+                        promptContainer.style.display = 'none';
+                        promptTextarea.style.display = 'none';
+                    } else {
+                        // Profile has no built-in prompt, show the prompt field
+                        promptContainer.style.display = 'block';
+                        promptTextarea.style.display = 'block';
+                        if (promptTextarea.value === '' || profiles.some(p => p.prompt === promptTextarea.value)) {
+                            promptTextarea.value = '';
+                        }
+                    }
+                } else {
+                    // No profile selected, show prompt field and clear it
+                    promptContainer.style.display = 'block';
+                    promptTextarea.style.display = 'block';
+                    promptTextarea.value = '';
+                }
+            });
+            
             // Load profiles when page loads
             loadProfilesData();
             
@@ -320,8 +413,13 @@ app.get('/', (req, res) => {
             });
             
             function displayResults(gradingResult, originalData) {
+                console.log('🎯 DISPLAY RESULTS CALLED');
+                console.log('Grading result:', gradingResult);
+                console.log('Original data:', originalData);
+                
                 const resultsDiv = document.getElementById('results');
                 
+                console.log('📤 MAKING FORMAT REQUEST...');
                 // Format the essay with color coding
                 fetch('/format', {
                     method: 'POST',
@@ -335,8 +433,12 @@ app.get('/', (req, res) => {
                         editable: true
                     })
                 })
-                .then(response => response.json())
+                .then(response => {
+                    console.log('📥 FORMAT RESPONSE STATUS:', response.status);
+                    return response.json();
+                })
                 .then(formatted => {
+                    console.log('✅ FORMAT RESPONSE RECEIVED:', formatted);
                     resultsDiv.innerHTML = \`
                         <h2>Grading Results for \${originalData.studentName}</h2>
                         \${formatted.feedbackSummary}
@@ -348,13 +450,14 @@ app.get('/', (req, res) => {
                             <div id="categoryBar" style="padding: 10px; background: #f8f9fa; border-bottom: 1px solid #ddd; border-radius: 4px 4px 0 0;">
                                 <div style="margin-bottom: 5px; font-weight: bold; font-size: 14px;">Select category then highlight text, or highlight text then select category:</div>
                                 <div id="categoryButtons" style="display: flex; flex-wrap: wrap; gap: 8px;">
-                                    <button class="category-btn" data-category="grammar" style="background: #A855F7; color: #FFFFFF; border: 2px solid #A855F7; padding: 8px 12px; border-radius: 20px; cursor: pointer; font-weight: bold; transition: all 0.2s;">Grammar</button>
+                                    <button class="category-btn" data-category="grammar" style="background: #FF6B6B; color: #FFFFFF; border: 2px solid #FF6B6B; padding: 8px 12px; border-radius: 20px; cursor: pointer; font-weight: bold; transition: all 0.2s;">Grammar</button>
                                     <button class="category-btn" data-category="mechanics-punctuation" style="background: #6B7280; color: #FFFFFF; border: 2px solid #6B7280; padding: 8px 12px; border-radius: 20px; cursor: pointer; font-weight: bold; transition: all 0.2s;">Mechanics & Punctuation</button>
                                     <button class="category-btn" data-category="redundancy" style="background: #84CC16; color: #111827; border: 2px solid #84CC16; padding: 8px 12px; border-radius: 20px; cursor: pointer; font-weight: bold; transition: all 0.2s;">Redundancy</button>
-                                    <button class="category-btn" data-category="vocabulary-structure" style="background: #06B6D4; color: #111827; border: 2px solid #06B6D4; padding: 8px 12px; border-radius: 20px; cursor: pointer; font-weight: bold; transition: all 0.2s;">Vocabulary / Structure</button>
+                                    <button class="category-btn" data-category="vocabulary-structure" style="background: transparent; color: #4ECDC4; border: 2px solid #4ECDC4; padding: 8px 12px; border-radius: 20px; cursor: pointer; font-weight: bold; transition: all 0.2s;">Vocabulary / Structure</button>
                                     <button class="category-btn" data-category="needs-rephrasing" style="background: #38BDF8; color: #111827; border: 2px solid #38BDF8; padding: 8px 12px; border-radius: 20px; cursor: pointer; font-weight: bold; transition: all 0.2s;">Needs rephrasing</button>
-                                    <button class="category-btn" data-category="non-suitable-words" style="background: #111827; color: #FFFFFF; border: 2px solid #111827; padding: 8px 12px; border-radius: 20px; cursor: pointer; font-weight: bold; transition: all 0.2s;">Non-suitable words</button>
-                                    <button class="category-btn" data-category="spelling" style="background: #EF4444; color: #FFFFFF; border: 2px solid #EF4444; padding: 8px 12px; border-radius: 20px; cursor: pointer; font-weight: bold; transition: all 0.2s;">Spelling</button>
+                                    <button class="category-btn" data-category="non-suitable-words" style="background: transparent; color: #000000; border: 2px solid #000000; padding: 8px 12px; border-radius: 20px; cursor: pointer; font-weight: bold; transition: all 0.2s; text-decoration: line-through;">Non-suitable words</button>
+                                    <button class="category-btn" data-category="spelling" style="background: transparent; color: #F57C00; border: 2px solid #F57C00; padding: 8px 12px; border-radius: 20px; cursor: pointer; font-weight: bold; transition: all 0.2s;">Spelling</button>
+                                    <button class="category-btn" data-category="fluency" style="background: transparent; color: #9333EA; border: 2px solid #9333EA; padding: 8px 12px; border-radius: 20px; cursor: pointer; font-weight: bold; transition: all 0.2s; text-decoration: underline;">Fluency coaching</button>
                                     <button class="category-btn" data-category="professor-comments" style="background: #FACC15; color: #111827; border: 2px solid #FACC15; padding: 8px 12px; border-radius: 20px; cursor: pointer; font-weight: bold; transition: all 0.2s;">Professor's comments</button>
                                     <button id="clearSelectionBtn" onclick="clearSelection()" style="background: #f5f5f5; color: #666; border: 2px solid #ccc; padding: 8px 12px; border-radius: 4px; cursor: pointer; margin-left: 10px;">Clear Selection</button>
                                 </div>
@@ -364,13 +467,14 @@ app.get('/', (req, res) => {
                                 <div style="margin-top: 10px; padding-top: 10px; border-top: 1px solid #ddd;">
                                     <div style="font-weight: bold; font-size: 12px; margin-bottom: 6px; color: #666;">📖 Correction Guide:</div>
                                     <div style="display: flex; flex-wrap: wrap; gap: 4px; font-size: 10px;">
-                                        <span style="background: #A855F7; color: #FFFFFF; padding: 2px 6px; border-radius: 12px; font-weight: 500;">Grammar</span>
+                                        <span style="background: #FF6B6B; color: #FFFFFF; padding: 2px 6px; border-radius: 12px; font-weight: 500;">Grammar</span>
                                         <span style="background: #6B7280; color: #FFFFFF; padding: 2px 6px; border-radius: 12px; font-weight: 500;">Mechanics & Punctuation</span>
                                         <span style="background: #84CC16; color: #111827; padding: 2px 6px; border-radius: 12px; font-weight: 500;">Redundancy</span>
-                                        <span style="background: #06B6D4; color: #111827; padding: 2px 6px; border-radius: 12px; font-weight: 500;">Vocabulary / Structure</span>
+                                        <span style="background: transparent; color: #4ECDC4; padding: 2px 6px; border-radius: 12px; font-weight: 500; border: 1px solid #4ECDC4;">Vocabulary / Structure</span>
                                         <span style="background: #38BDF8; color: #111827; padding: 2px 6px; border-radius: 12px; font-weight: 500;">Needs rephrasing</span>
-                                        <span style="background: #111827; color: #FFFFFF; padding: 2px 6px; border-radius: 12px; font-weight: 500;">Non-suitable words</span>
-                                        <span style="background: #EF4444; color: #FFFFFF; padding: 2px 6px; border-radius: 12px; font-weight: 500;">Spelling</span>
+                                        <span style="background: transparent; color: #000000; padding: 2px 6px; border-radius: 12px; font-weight: 500; border: 1px solid #000000; text-decoration: line-through;">Non-suitable words</span>
+                                        <span style="background: transparent; color: #F57C00; padding: 2px 6px; border-radius: 12px; font-weight: 500; border: 1px solid #F57C00;">Spelling</span>
+                                        <span style="background: transparent; color: #9333EA; padding: 2px 6px; border-radius: 12px; font-weight: 500; border: 1px solid #9333EA; text-decoration: underline;">Fluency coaching</span>
                                         <span style="background: #FACC15; color: #111827; padding: 2px 6px; border-radius: 12px; font-weight: 500;">Professor's comments</span>
                                     </div>
                                 </div>
@@ -465,15 +569,16 @@ app.get('/', (req, res) => {
             let pendingSelection = null;
             
             // Category colors mapping
-            // New rubric-aligned highlight categories
+            // Rubric-aligned highlight categories matching formatter.js
             const categoryColors = {
-                'grammar': { color: '#FFFFFF', bg: '#A855F7' },
+                'grammar': { color: '#FFFFFF', bg: '#FF6B6B' }, // Pink highlight to match rubric
                 'mechanics-punctuation': { color: '#FFFFFF', bg: '#6B7280' },
                 'redundancy': { color: '#111827', bg: '#84CC16' },
-                'vocabulary-structure': { color: '#111827', bg: '#06B6D4' },
+                'vocabulary-structure': { color: '#4ECDC4', bg: 'transparent' }, // Blue text, no highlight
                 'needs-rephrasing': { color: '#111827', bg: '#38BDF8' },
-                'non-suitable-words': { color: '#FFFFFF', bg: '#111827' },
-                'spelling': { color: '#FFFFFF', bg: '#EF4444' },
+                'non-suitable-words': { color: '#000000', bg: 'transparent', textDecoration: 'line-through' }, // Black strikethrough
+                'spelling': { color: '#F57C00', bg: 'transparent' }, // Orange/reddish text, no highlight
+                'fluency': { color: '#9333EA', bg: 'transparent', textDecoration: 'underline' }, // Purple underline for coaching
                 'professor-comments': { color: '#111827', bg: '#FACC15' }
             };
 
@@ -549,7 +654,14 @@ app.get('/', (req, res) => {
                         
                         // Update styling
                         const colors = categoryColors[newCategory];
-                        mark.style.cssText = 'background: ' + colors.bg + '; color: ' + colors.color + '; padding: 2px 4px; border-radius: 2px; position: relative; cursor: pointer;';
+                        let styleProps = 'color: ' + colors.color + '; position: relative; cursor: pointer;';
+                        if (colors.textDecoration) {
+                            styleProps += ' text-decoration: ' + colors.textDecoration + ';';
+                        }
+                        if (colors.bg && colors.bg !== 'transparent') {
+                            styleProps += ' background: ' + colors.bg + '; padding: 2px 4px; border-radius: 2px;';
+                        }
+                        mark.style.cssText = styleProps;
                     }
                 });
             }
@@ -634,7 +746,14 @@ app.get('/', (req, res) => {
                 mark.setAttribute('data-message', \`Manual \${category} highlight\`);
                 mark.setAttribute('data-editable', 'true');
                 mark.className = 'highlighted-segment';
-                mark.style.cssText = 'background: ' + colors.bg + '; color: ' + colors.color + '; padding: 2px 4px; border-radius: 2px; position: relative; cursor: pointer;';
+                let styleProps = 'color: ' + colors.color + '; position: relative; cursor: pointer;';
+                if (colors.textDecoration) {
+                    styleProps += ' text-decoration: ' + colors.textDecoration + ';';
+                }
+                if (colors.bg && colors.bg !== 'transparent') {
+                    styleProps += ' background: ' + colors.bg + '; padding: 2px 4px; border-radius: 2px;';
+                }
+                mark.style.cssText = styleProps;
                 mark.innerHTML = text + '<span class="edit-indicator" style="font-size: 10px; margin-left: 2px;">✎</span>';
                 
                 // Add click listener for editing
@@ -834,7 +953,7 @@ app.get('/', (req, res) => {
                     return;
                 }
                 
-                // Get the essay content safely and process footnotes
+                // Get the essay content safely
                 const essayElement = document.querySelector('.formatted-essay-content');
                 let essayContent = essayElement ? essayElement.innerHTML : 'Essay content not available';
                 let feedbackNotes = [];
@@ -868,215 +987,249 @@ app.get('/', (req, res) => {
                     essayContent = tempDiv.innerHTML;
                 }
                 
-                // Create a new window with print-optimized content
-                const printWindow = window.open('', '_blank');
-                const htmlContent = \`
-                    <!DOCTYPE html>
-                    <html>
-                    <head>
-                        <title>Midterm Writing Exam Grade - \${currentOriginalData.studentName}</title>
-                        <style>
-                            @media print {
-                                @page { 
-                                    margin: 0.5in; 
-                                    size: A4;
-                                }
-                                body { 
-                                    print-color-adjust: exact !important; 
-                                    -webkit-print-color-adjust: exact !important;
-                                    color-adjust: exact !important;
-                                    padding: 10px !important;
-                                    margin: 0 !important;
-                                    max-width: none !important;
-                                }
-                                .no-print { display: none !important; }
-                                .page-break { page-break-before: always; }
-                                
-                                /* Reduce spacing for print */
-                                h1 { 
-                                    margin-bottom: 15px !important; 
-                                    font-size: 20px !important;
-                                    padding-bottom: 5px !important;
-                                }
-                                h2 { 
-                                    margin-top: 15px !important; 
-                                    margin-bottom: 10px !important; 
-                                    font-size: 16px !important;
-                                    padding-bottom: 3px !important;
-                                }
-                                .score-box { 
-                                    padding: 15px !important; 
-                                    margin: 10px 0 !important; 
-                                    font-size: 24px !important;
-                                }
-                                .category-item { 
-                                    margin: 8px 0 !important; 
-                                    padding: 10px !important; 
-                                }
-                                .essay-container { 
-                                    padding: 15px !important; 
-                                    margin: 10px 0 !important; 
-                                    line-height: 1.5 !important;
-                                }
-                                .teacher-notes { 
-                                    padding: 12px !important; 
-                                    margin: 10px 0 !important; 
-                                }
-                            }
-                            
-                            body {
-                                font-family: Arial, sans-serif;
-                                max-width: 800px;
-                                margin: 0 auto;
-                                padding: 20px;
-                                color: #000;
-                                background: white;
-                                line-height: 1.4;
-                            }
-                            
-                            h1 {
-                                color: #333;
-                                text-align: center;
-                                margin-bottom: 30px;
-                                font-size: 24px;
-                                border-bottom: 3px solid #333;
-                                padding-bottom: 10px;
-                            }
-                            
-                            h2 {
-                                color: #333;
-                                border-bottom: 2px solid #333;
-                                padding-bottom: 5px;
-                                margin-top: 30px;
-                                margin-bottom: 15px;
-                                font-size: 18px;
-                            }
-                            
-                            .score-box {
-                                font-size: 28px;
-                                font-weight: bold;
-                                color: #333;
-                                text-align: center;
-                                background: #f5f5f5 !important;
-                                padding: 20px;
-                                border: 2px solid #ccc;
-                                margin: 20px 0;
-                                border-radius: 8px;
-                            }
-                            
-                            .category-item {
-                                margin: 15px 0;
-                                padding: 15px;
-                                border: 1px solid #ccc;
-                                background: #fafafa !important;
-                                border-radius: 8px;
-                                page-break-inside: avoid;
-                            }
-                            
-                            .category-title {
-                                font-weight: bold;
-                                font-size: 16px;
-                                color: #333;
-                                margin-bottom: 8px;
-                            }
-                            
-                            .category-feedback {
-                                font-size: 14px;
-                                color: #666;
-                                line-height: 1.6;
-                            }
-                            
-                            .essay-container {
-                                border: 2px solid #ddd;
-                                padding: 20px;
-                                margin: 20px 0;
-                                background: white !important;
-                                font-family: 'Times New Roman', serif;
-                                font-size: 14px;
-                                line-height: 1.8;
-                                border-radius: 8px;
-                            }
-                            
-                            .teacher-notes {
-                                background: #e8f5e8 !important;
-                                padding: 20px;
-                                border-left: 6px solid #4CAF50;
-                                margin: 20px 0;
-                                font-size: 14px;
-                                line-height: 1.6;
-                                border-radius: 8px;
-                            }
-                            
-                            /* Preserve highlight colors */
-                            mark {
-                                print-color-adjust: exact !important;
-                                -webkit-print-color-adjust: exact !important;
-                                color-adjust: exact !important;
-                            }
-                            
-                            .print-button {
-                                background: #007bff;
-                                color: white;
-                                border: none;
-                                padding: 15px 30px;
-                                font-size: 16px;
-                                border-radius: 5px;
-                                cursor: pointer;
-                                margin: 20px;
-                                display: block;
-                                margin-left: auto;
-                                margin-right: auto;
-                            }
-                            
-                            .print-button:hover {
-                                background: #0056b3;
-                            }
-                        </style>
-                    </head>
-                    <body>
-                        <div class="instructions no-print" style="background: #e3f2fd; padding: 20px; margin: 20px; border-radius: 8px; border-left: 6px solid #2196F3; text-align: center;">
-                            <h3 style="margin-top: 0; color: #1976D2;">📄 How to Save as PDF</h3>
-                            <p style="font-size: 16px; margin: 10px 0;"><strong>Press Ctrl+P (Windows) or Cmd+P (Mac)</strong></p>
-                            <p style="font-size: 14px; margin: 10px 0;">Then in the print dialog:</p>
-                            <ol style="text-align: left; display: inline-block; font-size: 14px;">
-                                <li>Change destination to <strong>"Save as PDF"</strong></li>
-                                <li>Click <strong>"Save"</strong></li>
-                                <li>Choose where to save your PDF</li>
-                            </ol>
-                            <button class="print-button" onclick="window.print();">
-                                🖨️ Open Print Dialog to Save as PDF
-                            </button>
+                // Create the HTML content for print
+                const printContent = \`
+                <!DOCTYPE html>
+                <html>
+                <head>
+                    <title>Graded Essay - \${currentOriginalData.studentName}</title>
+                    <style>
+                        @media print {
+                            body { margin: 0; }
+                            .no-print { display: none !important; }
+                        }
+                        body {
+                            font-family: Arial, sans-serif;
+                            max-width: 800px;
+                            margin: 0 auto;
+                            padding: 20px;
+                            color: #000;
+                            background: white;
+                            line-height: 1.4;
+                        }
+                        h1 {
+                            color: #333;
+                            text-align: center;
+                            margin-bottom: 30px;
+                            font-size: 24px;
+                            border-bottom: 3px solid #333;
+                            padding-bottom: 10px;
+                        }
+                        h2 {
+                            color: #333;
+                            border-bottom: 2px solid #333;
+                            padding-bottom: 5px;
+                            margin-top: 30px;
+                            margin-bottom: 15px;
+                            font-size: 18px;
+                        }
+                        .score-box {
+                            font-size: 28px;
+                            font-weight: bold;
+                            color: #333;
+                            text-align: center;
+                            background: #f5f5f5;
+                            padding: 20px;
+                            border: 2px solid #ccc;
+                            margin: 20px 0;
+                            border-radius: 8px;
+                        }
+                        .category {
+                            margin: 15px 0;
+                            padding: 15px;
+                            border: 1px solid #ccc;
+                            background: #fafafa;
+                            border-radius: 8px;
+                            page-break-inside: avoid;
+                        }
+                        .essay-content {
+                            background: white;
+                            padding: 25px;
+                            border: 1px solid #ddd;
+                            border-radius: 8px;
+                            line-height: 1.8;
+                            font-size: 16px;
+                        }
+                    </style>
+                </head>
+                <body>
+                    <h1>Midterm Writing Exam Grade - \${currentOriginalData.studentName}</h1>
+                    
+                    <h2>Overall Score</h2>
+                    <div class="score-box">\${currentGradingData.total.points}/\${currentGradingData.total.out_of}</div>
+                    
+                    <h2>Category Breakdown</h2>
+                    \${Object.entries(currentGradingData.scores).map(([category, score]) => \`
+                        <div class="category">
+                            <div style="font-weight: bold; font-size: 16px; color: #333; margin-bottom: 8px;">
+                                \${category.charAt(0).toUpperCase() + category.slice(1)}: \${score.points}/\${score.out_of}
+                            </div>
+                            <div style="font-size: 14px; color: #666; line-height: 1.6;">
+                                \${score.rationale}
+                            </div>
                         </div>
+                    \`).join('')}
+                    
+                    <h2>Your Essay with Corrections</h2>
+                    <div class="essay-content">\${essayContent}</div>
+                    
+                    \${feedbackNotes.length > 0 ? \`
+                        <h2>Detailed Feedback</h2>
+                        <div style="background: #f8f9fa; padding: 20px; border-radius: 8px; border: 1px solid #ddd;">
+                            \${feedbackNotes.map(note => \`
+                                <div style="margin: 15px 0; padding: 15px; background: white; border-radius: 6px; border-left: 4px solid #007bff;">
+                                    <div style="font-weight: bold; color: #333; margin-bottom: 5px;">
+                                        [\${note.number}] "\${note.text}" (\${note.category})
+                                    </div>
+                                    <div style="color: #666; font-size: 14px; line-height: 1.5;">
+                                        \${note.feedback}
+                                    </div>
+                                </div>
+                            \`).join('')}
+                        </div>
+                    \` : ''}
+                </body>
+                </html>
+                \`;
+                
+                // Open print preview in new window
+                const printWindow = window.open('', '_blank');
+                printWindow.document.write(printContent);
+                printWindow.document.close();
+                printWindow.focus();
+                
+                // Trigger print dialog after content loads
+                setTimeout(() => {
+                    printWindow.print();
+                }, 500);
+            }
+
+            function UNUSED_exportToPDF_old() {
+                console.log('PDF Export - currentGradingData:', currentGradingData);
+                console.log('PDF Export - currentOriginalData:', currentOriginalData);
+                
+                if (!currentGradingData || !currentOriginalData) {
+                    alert('No grading data available for export.');
+                    return;
+                }
+                
+                // Show loading message
+                const button = event.target;
+                const originalText = button.textContent;
+                button.textContent = '⏳ Generating PDF...';
+                button.disabled = true;
+                
+                // Get the essay content safely
+                const essayElement = document.querySelector('.formatted-essay-content');
+                let essayContent = essayElement ? essayElement.innerHTML : 'Essay content not available';
+                let feedbackNotes = [];
+                
+                // Process essay content to add footnotes and collect feedback
+                if (essayElement) {
+                    const tempDiv = document.createElement('div');
+                    tempDiv.innerHTML = essayContent;
+                    
+                    const highlights = tempDiv.querySelectorAll('mark[data-message]');
+                    highlights.forEach((mark, index) => {
+                        const footnoteNumber = index + 1;
+                        const message = mark.getAttribute('data-message') || '';
+                        const category = mark.getAttribute('data-type') || 'general';
+                        const highlightedText = mark.textContent.replace('✎', '').trim();
                         
-                        <h1>Midterm Writing Exam Grade - \${currentOriginalData.studentName}</h1>
+                        // Add footnote number to highlight
+                        mark.innerHTML = mark.innerHTML + \`<sup style="font-size: 10px; color: #666; font-weight: bold;">[\${footnoteNumber}]</sup>\`;
                         
-                        <h2>Overall Score</h2>
-                        <div class="score-box">
+                        // Collect feedback for footnotes section
+                        if (message && !message.includes('Manual') && message.trim() !== '') {
+                            feedbackNotes.push({
+                                number: footnoteNumber,
+                                text: highlightedText,
+                                category: category.charAt(0).toUpperCase() + category.slice(1),
+                                feedback: message
+                            });
+                        }
+                    });
+                    
+                    essayContent = tempDiv.innerHTML;
+                }
+                
+                // Create the HTML content for PDF
+                const pdfContent = \`
+                    <div style="font-family: Arial, sans-serif; max-width: 800px; margin: 0 auto; padding: 20px; color: #000; background: white; line-height: 1.4;">
+                        <h1 style="color: #333; text-align: center; margin-bottom: 30px; font-size: 24px; border-bottom: 3px solid #333; padding-bottom: 10px;">
+                            Midterm Writing Exam Grade - \${currentOriginalData.studentName}
+                        </h1>
+                        
+                        <h2 style="color: #333; border-bottom: 2px solid #333; padding-bottom: 5px; margin-top: 30px; margin-bottom: 15px; font-size: 18px;">Overall Score</h2>
+                        <div style="font-size: 28px; font-weight: bold; color: #333; text-align: center; background: #f5f5f5; padding: 20px; border: 2px solid #ccc; margin: 20px 0; border-radius: 8px;">
                             \${currentGradingData.total.points}/\${currentGradingData.total.out_of}
                         </div>
                         
-                        <h2>Category Breakdown</h2>
+                        <h2 style="color: #333; border-bottom: 2px solid #333; padding-bottom: 5px; margin-top: 30px; margin-bottom: 15px; font-size: 18px;">Category Breakdown</h2>
                         \${Object.entries(currentGradingData.scores).map(([category, score]) => \`
-                            <div class="category-item">
-                                <div class="category-title">
+                            <div style="margin: 15px 0; padding: 15px; border: 1px solid #ccc; background: #fafafa; border-radius: 8px; page-break-inside: avoid;">
+                                <div style="font-weight: bold; font-size: 16px; color: #333; margin-bottom: 8px;">
                                     \${category.charAt(0).toUpperCase() + category.slice(1)}: \${score.points}/\${score.out_of}
                                 </div>
-                                <div class="category-feedback">
+                                <div style="font-size: 14px; color: #666; line-height: 1.6;">
                                     \${score.rationale}
                                 </div>
                             </div>
                         \`).join('')}
                         
-                        <div class="page-break"></div>
+                        <div style="page-break-before: always;"></div>
                         
-                        <h2>Color-Coded Essay</h2>
-                        <div class="essay-container">
+                        <h2 style="color: #333; border-bottom: 2px solid #333; padding-bottom: 5px; margin-top: 30px; margin-bottom: 15px; font-size: 18px;">📖 Correction Guide</h2>
+                        <div style="background: #f8f9fa; padding: 20px; border-radius: 8px; border: 1px solid #ddd; margin: 20px 0;">
+                            <p style="font-size: 14px; color: #666; margin-top: 0; margin-bottom: 15px;">The highlighted colors in your essay correspond to different types of corrections:</p>
+                            <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px;">
+                                <div style="display: flex; align-items: center; padding: 8px; background: white; border-radius: 6px; border: 1px solid #ddd;">
+                                    <span style="background: #FF6B6B; color: #FFFFFF; padding: 4px 12px; border-radius: 15px; font-weight: bold; font-size: 12px; margin-right: 10px; min-width: 80px; text-align: center;">Grammar</span>
+                                    <span style="font-size: 13px; color: #333;">Verb tenses, agreement, structures, word order</span>
+                                </div>
+                                <div style="display: flex; align-items: center; padding: 8px; background: white; border-radius: 6px; border: 1px solid #ddd;">
+                                    <span style="background: #6B7280; color: #FFFFFF; padding: 4px 12px; border-radius: 15px; font-weight: bold; font-size: 12px; margin-right: 10px; min-width: 80px; text-align: center;">Mechanics</span>
+                                    <span style="font-size: 13px; color: #333;">Punctuation, capitalization, run-on sentences</span>
+                                </div>
+                                <div style="display: flex; align-items: center; padding: 8px; background: white; border-radius: 6px; border: 1px solid #ddd;">
+                                    <span style="background: #84CC16; color: #111827; padding: 4px 12px; border-radius: 15px; font-weight: bold; font-size: 12px; margin-right: 10px; min-width: 80px; text-align: center;">Redundancy</span>
+                                    <span style="font-size: 13px; color: #333;">Repetitive words or phrases</span>
+                                </div>
+                                <div style="display: flex; align-items: center; padding: 8px; background: white; border-radius: 6px; border: 1px solid #ddd;">
+                                    <span style="background: transparent; color: #4ECDC4; padding: 4px 12px; border-radius: 15px; font-weight: bold; font-size: 12px; margin-right: 10px; min-width: 80px; text-align: center; border: 2px solid #4ECDC4;">Vocabulary</span>
+                                    <span style="font-size: 13px; color: #333;">Word choice, collocations, awkward phrasing</span>
+                                </div>
+                                <div style="display: flex; align-items: center; padding: 8px; background: white; border-radius: 6px; border: 1px solid #ddd;">
+                                    <span style="background: #38BDF8; color: #111827; padding: 4px 12px; border-radius: 15px; font-weight: bold; font-size: 12px; margin-right: 10px; min-width: 80px; text-align: center;">Rephrasing</span>
+                                    <span style="font-size: 13px; color: #333;">Unclear sentences that need restructuring</span>
+                                </div>
+                                <div style="display: flex; align-items: center; padding: 8px; background: white; border-radius: 6px; border: 1px solid #ddd;">
+                                    <span style="background: transparent; color: #000000; padding: 4px 12px; border-radius: 15px; font-weight: bold; font-size: 12px; margin-right: 10px; min-width: 80px; text-align: center; border: 2px solid #000000; text-decoration: line-through;">Word Choice</span>
+                                    <span style="font-size: 13px; color: #333;">Inappropriate or unsuitable word choices</span>
+                                </div>
+                                <div style="display: flex; align-items: center; padding: 8px; background: white; border-radius: 6px; border: 1px solid #ddd;">
+                                    <span style="background: transparent; color: #F57C00; padding: 4px 12px; border-radius: 15px; font-weight: bold; font-size: 12px; margin-right: 10px; min-width: 80px; text-align: center; border: 2px solid #F57C00;">Spelling</span>
+                                    <span style="font-size: 13px; color: #333;">Misspellings and typos</span>
+                                </div>
+                                <div style="display: flex; align-items: center; padding: 8px; background: white; border-radius: 6px; border: 1px solid #ddd;">
+                                    <span style="background: transparent; color: #9333EA; padding: 4px 12px; border-radius: 15px; font-weight: bold; font-size: 12px; margin-right: 10px; min-width: 80px; text-align: center; border: 2px solid #9333EA; text-decoration: underline;">Coaching</span>
+                                    <span style="font-size: 13px; color: #333;">Natural language improvements and suggestions</span>
+                                </div>
+                                <div style="display: flex; align-items: center; padding: 8px; background: white; border-radius: 6px; border: 1px solid #ddd;">
+                                    <span style="background: #FACC15; color: #111827; padding: 4px 12px; border-radius: 15px; font-weight: bold; font-size: 12px; margin-right: 10px; min-width: 80px; text-align: center;">Comments</span>
+                                    <span style="font-size: 13px; color: #333;">General feedback and suggestions</span>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <h2 style="color: #333; border-bottom: 2px solid #333; padding-bottom: 5px; margin-top: 30px; margin-bottom: 15px; font-size: 18px;">Color-Coded Essay</h2>
+                        <div style="border: 2px solid #ddd; padding: 20px; margin: 20px 0; background: white; font-family: 'Times New Roman', serif; font-size: 14px; line-height: 1.8; border-radius: 8px;">
                             \${essayContent}
                         </div>
                         
                         \${feedbackNotes.length > 0 ? \`
-                            <div class="page-break"></div>
-                            <h2>📝 Feedback Notes</h2>
+                            <div style="page-break-before: always;"></div>
+                            <h2 style="color: #333; border-bottom: 2px solid #333; padding-bottom: 5px; margin-top: 30px; margin-bottom: 15px; font-size: 18px;">📝 Feedback Notes</h2>
                             <div style="background: #f8f9fa; padding: 20px; border-radius: 8px; border: 1px solid #ddd;">
                                 <p style="font-size: 14px; color: #666; margin-top: 0;">The numbers in brackets [1], [2], etc. in the essay above correspond to the feedback below:</p>
                                 \${feedbackNotes.map(note => \`
@@ -1094,22 +1247,74 @@ app.get('/', (req, res) => {
                         \` : ''}
                         
                         \${currentGradingData.teacher_notes ? \`
-                            <h2>Teacher Notes</h2>
-                            <div class="teacher-notes">
+                            <h2 style="color: #333; border-bottom: 2px solid #333; padding-bottom: 5px; margin-top: 30px; margin-bottom: 15px; font-size: 18px;">Teacher Notes</h2>
+                            <div style="background: #e8f5e8; padding: 20px; border-left: 6px solid #4CAF50; margin: 20px 0; font-size: 14px; line-height: 1.6; border-radius: 8px;">
                                 \${currentGradingData.teacher_notes}
                             </div>
                         \` : ''}
-                    </body>
-                    </html>
+                    </div>
                 \`;
                 
-                printWindow.document.write(htmlContent);
-                printWindow.document.close();
+                // Debug: Log the PDF content before processing
+                console.log('PDF Content length:', pdfContent.length);
+                console.log('PDF Content preview:', pdfContent.substring(0, 500) + '...');
                 
-                // Focus the new window but don't auto-print
-                setTimeout(() => {
-                    printWindow.focus();
-                }, 100);
+                // Create temporary element for html2pdf
+                const element = document.createElement('div');
+                element.innerHTML = pdfContent;
+                element.style.position = 'fixed';
+                element.style.top = '0';
+                element.style.left = '0';
+                element.style.width = '210mm'; // A4 width
+                element.style.zIndex = '-1000';
+                element.style.visibility = 'hidden'; // Hide from user but keep in rendering context
+                document.body.appendChild(element);
+                
+                console.log('Element innerHTML length:', element.innerHTML.length);
+                
+                console.log('Creating filename...');
+                // Generate filename  
+                const studentName = currentOriginalData.studentName.replace(/[^a-zA-Z0-9]/g, '_');
+                const filename = \`\${studentName}_graded_essay.pdf\`;
+                console.log('Filename created:', filename);
+                
+                console.log('Configuring PDF options...');
+                // Configure html2pdf options
+                const opt = {
+                    margin: 0.5,
+                    filename: filename,
+                    image: { type: 'jpeg', quality: 0.98 },
+                    html2canvas: { scale: 2, useCORS: true },
+                    jsPDF: { unit: 'in', format: 'a4', orientation: 'portrait' }
+                };
+                console.log('PDF options configured:', opt);
+                
+                // Check if html2pdf is available
+                if (typeof html2pdf === 'undefined') {
+                    console.error('html2pdf library not loaded!');
+                    alert('PDF library not loaded. Please refresh the page and try again.');
+                    button.textContent = originalText;
+                    button.disabled = false;
+                    return;
+                }
+                
+                console.log('Starting PDF generation with html2pdf...');
+                
+                // Generate and download PDF
+                html2pdf().set(opt).from(element).save().then(() => {
+                    console.log('PDF generation completed successfully!');
+                    // Clean up
+                    document.body.removeChild(element);
+                    button.textContent = originalText;
+                    button.disabled = false;
+                }).catch((error) => {
+                    console.error('PDF generation failed:', error);
+                    console.error('Error details:', error.message, error.stack);
+                    document.body.removeChild(element);
+                    button.textContent = originalText;
+                    button.disabled = false;
+                    alert('Failed to generate PDF: ' + error.message);
+                });
             }
             
             function exportToHTML() {
@@ -1227,6 +1432,7 @@ app.get('/', (req, res) => {
                         document.getElementById('profileCefr').value = profile.cefrLevel;
                         document.getElementById('profileVocab').value = profile.vocabulary.join('\\n');
                         document.getElementById('profileGrammar').value = profile.grammar.join('\\n');
+                        document.getElementById('profilePrompt').value = profile.prompt || '';
                     }
                 } else {
                     title.textContent = 'Create New Profile';
@@ -1263,7 +1469,8 @@ app.get('/', (req, res) => {
                     name: document.getElementById('profileName').value,
                     cefrLevel: document.getElementById('profileCefr').value,
                     vocabulary: document.getElementById('profileVocab').value.split('\\n').map(v => v.trim()).filter(v => v),
-                    grammar: document.getElementById('profileGrammar').value.split('\\n').map(g => g.trim()).filter(g => g)
+                    grammar: document.getElementById('profileGrammar').value.split('\\n').map(g => g.trim()).filter(g => g),
+                    prompt: document.getElementById('profilePrompt').value.trim()
                 };
                 
                 try {
@@ -1294,15 +1501,27 @@ app.get('/', (req, res) => {
   `);
 });
 
+app.get("/health", (req, res) => {
+  res.send("ok");
+});
+
 // Grade essay endpoint
 app.post("/grade", async (req, res) => {
   const { studentText, prompt, classProfile } = req.body;
 
+  console.log("\n🔥 GRADING REQUEST RECEIVED 🔥");
+  console.log("Student text length:", studentText?.length || 0, "characters");
+  console.log("Class profile:", classProfile);
+  console.log("Timestamp:", new Date().toLocaleString());
+  
   try {
+    console.log("\n⚡ STARTING TWO-STEP GRADING PROCESS...");
     const result = await gradeEssay(studentText, prompt, classProfile);
+    console.log("\n✅ GRADING COMPLETED SUCCESSFULLY!");
+    console.log("Final score:", result.total?.points + "/" + result.total?.out_of);
     res.json(result);
   } catch (error) {
-    console.error(error);
+    console.error("\n❌ GRADING ERROR:", error);
     res.status(500).json({ error: "Error grading essay", details: error.message });
   }
 });
@@ -1340,6 +1559,7 @@ app.post("/api/profiles", (req, res) => {
       cefrLevel: req.body.cefrLevel,
       vocabulary: req.body.vocabulary || [],
       grammar: req.body.grammar || [],
+      prompt: req.body.prompt || '',
       created: new Date().toISOString(),
       lastModified: new Date().toISOString()
     };
@@ -1367,6 +1587,7 @@ app.put("/api/profiles/:id", (req, res) => {
       cefrLevel: req.body.cefrLevel,
       vocabulary: req.body.vocabulary || [],
       grammar: req.body.grammar || [],
+      prompt: req.body.prompt || '',
       lastModified: new Date().toISOString()
     };
     
@@ -1395,4 +1616,15 @@ app.delete("/api/profiles/:id", (req, res) => {
 });
 
 const PORT = 3001;
-app.listen(PORT, () => console.log(`Grader running on http://localhost:${PORT}`));
+// Heartbeat disabled
+// setInterval(() => {
+//   console.log("[tick] server alive -", new Date().toLocaleTimeString());
+//   console.log("[tick] memory usage:", Math.round(process.memoryUsage().heapUsed / 1024 / 1024), "MB");
+// }, 15000);
+
+app.listen(PORT, () => {
+  console.log("\n=== SERVER SUCCESSFULLY STARTED ===\n");
+  console.log(`🌐 Grader running on http://localhost:${PORT}`);
+  console.log("📝 Submit essays to see grading logs here");
+  console.log("⏱️  Heartbeat every 15 seconds\n");
+});
