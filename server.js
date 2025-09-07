@@ -1768,16 +1768,16 @@ async function gradeEssayServerless(studentText, prompt, profileData) {
     apiKey: process.env.OPENAI_API_KEY,
   });
 
-  const gradingPrompt = \`You are an ESL teacher grading a \${profileData.cefrLevel}-level student essay.
+  const gradingPrompt = `You are an ESL teacher grading a ${profileData.cefrLevel}-level student essay.
 
-Class Profile: \${profileData.name}
-Expected Vocabulary: \${profileData.vocabulary.slice(0, 10).join(', ')}\${profileData.vocabulary.length > 10 ? '...' : ''}
-Expected Grammar: \${profileData.grammar.slice(0, 5).join(', ')}\${profileData.grammar.length > 5 ? '...' : ''}
+Class Profile: ${profileData.name}
+Expected Vocabulary: ${profileData.vocabulary.slice(0, 10).join(', ')}${profileData.vocabulary.length > 10 ? '...' : ''}
+Expected Grammar: ${profileData.grammar.slice(0, 5).join(', ')}${profileData.grammar.length > 5 ? '...' : ''}
 
-Assignment Prompt: \${prompt}
+Assignment Prompt: ${prompt}
 
 Student Essay:
-\${studentText}
+${studentText}
 
 Grade this essay on a 100-point scale across these categories:
 - Grammar (25 points): Accuracy and complexity of grammar structures
@@ -1810,7 +1810,7 @@ Return ONLY valid JSON in this exact format:
     "transition_words_found": ["however", "therefore"],
     "grammar_structures_used": ["structure1", "structure2"]
   }
-}\`;
+}`;
 
   const response = await openai.chat.completions.create({
     model: "gpt-4o-mini",
