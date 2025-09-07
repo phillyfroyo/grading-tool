@@ -1926,10 +1926,18 @@ const PORT = 3001;
 //   console.log("[tick] memory usage:", Math.round(process.memoryUsage().heapUsed / 1024 / 1024), "MB");
 // }, 15000);
 
-// Start the server for both local and Vercel (traditional Express hosting)
-app.listen(PORT, () => {
-  console.log("\n=== SERVER SUCCESSFULLY STARTED ===\n");
-  console.log(`🌐 Grader running on http://localhost:${PORT}`);
-  console.log("📝 Submit essays to see grading logs here");
-  console.log("⏱️  Heartbeat every 15 seconds\n");
-});
+// For local development, start the server
+// For Vercel serverless, export the app
+if (!isVercel) {
+  app.listen(PORT, () => {
+    console.log("\n=== SERVER SUCCESSFULLY STARTED ===\n");
+    console.log(`🌐 Grader running on http://localhost:${PORT}`);
+    console.log("📝 Submit essays to see grading logs here");
+    console.log("⏱️  Heartbeat every 15 seconds\n");
+  });
+} else {
+  console.log("🚀 Configured for Vercel serverless deployment");
+}
+
+// Export for Vercel serverless functions
+export default app;
