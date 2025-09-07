@@ -181,6 +181,22 @@
       ],
       "created": "2024-09-04T00:00:00Z",
       "lastModified": "2025-09-04T18:19:05.753Z"
+    },
+    {
+      "id": "profile_1757260658799",
+      "name": "Test Profile",
+      "cefrLevel": "A2",
+      "vocabulary": [
+        "test",
+        "example"
+      ],
+      "grammar": [
+        "Simple present",
+        "Past tense"
+      ],
+      "prompt": "",
+      "created": "2025-09-07T15:57:38.799Z",
+      "lastModified": "2025-09-07T15:57:38.799Z"
     }
   ]
 }
