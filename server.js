@@ -1756,19 +1756,30 @@ app.post("/api/grade", async (req, res) => {
 // Serverless-compatible grading function
 async function gradeEssayServerless(studentText, prompt, profileData) {
   console.log('=== STARTING SERVERLESS GRADING ===');
+  console.log('Profile data:', JSON.stringify(profileData, null, 2));
+  console.log('Student text length:', studentText?.length);
+  console.log('Prompt:', prompt);
   
-  // Import OpenAI dynamically for serverless
-  const OpenAI = (await import("openai")).default;
-  
-  if (!process.env.OPENAI_API_KEY) {
-    throw new Error("OPENAI_API_KEY environment variable is required");
-  }
-  
-  const openai = new OpenAI({
-    apiKey: process.env.OPENAI_API_KEY,
-  });
+  try {
+    // Import OpenAI dynamically for serverless
+    console.log('📦 Importing OpenAI...');
+    const OpenAI = (await import("openai")).default;
+    console.log('✅ OpenAI imported successfully');
+    
+    if (!process.env.OPENAI_API_KEY) {
+      console.error('❌ OPENAI_API_KEY environment variable is missing');
+      throw new Error("OPENAI_API_KEY environment variable is required");
+    }
+    console.log('✅ OPENAI_API_KEY found (length:', process.env.OPENAI_API_KEY.length, ')');
+    
+    console.log('🔑 Creating OpenAI client...');
+    const openai = new OpenAI({
+      apiKey: process.env.OPENAI_API_KEY,
+    });
+    console.log('✅ OpenAI client created');
 
-  const gradingPrompt = `You are an ESL teacher grading a ${profileData.cefrLevel}-level student essay.
+    console.log('📝 Building grading prompt...');
+    const gradingPrompt = `You are an ESL teacher grading a ${profileData.cefrLevel}-level student essay.
 
 Class Profile: ${profileData.name}
 Expected Vocabulary: ${profileData.vocabulary.slice(0, 10).join(', ')}${profileData.vocabulary.length > 10 ? '...' : ''}
@@ -1812,24 +1823,44 @@ Return ONLY valid JSON in this exact format:
   }
 }`;
 
-  const response = await openai.chat.completions.create({
-    model: "gpt-4o-mini",
-    messages: [{ role: "user", content: gradingPrompt }],
-    temperature: 0.3,
-    max_tokens: 2000
-  });
+    console.log('✅ Grading prompt built (length:', gradingPrompt.length, ')');
+    console.log('🤖 Calling OpenAI API...');
+    
+    const response = await openai.chat.completions.create({
+      model: "gpt-4o-mini",
+      messages: [{ role: "user", content: gradingPrompt }],
+      temperature: 0.3,
+      max_tokens: 2000
+    });
 
-  const gradingText = response.choices[0].message.content;
-  
-  // Parse the JSON response
-  const cleanedResponse = gradingText.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
-  const result = JSON.parse(cleanedResponse);
-  
-  // Ensure total is calculated correctly
-  const totalPoints = Object.values(result.scores).reduce((sum, score) => sum + score.points, 0);
-  result.total = { points: totalPoints, out_of: 100 };
-  
-  return result;
+    console.log('✅ OpenAI API response received');
+    console.log('Response usage:', response.usage);
+    
+    const gradingText = response.choices[0].message.content;
+    console.log('📄 Raw OpenAI response:', gradingText.substring(0, 200) + '...');
+    
+    // Parse the JSON response
+    console.log('🔄 Parsing JSON response...');
+    const cleanedResponse = gradingText.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
+    console.log('🧹 Cleaned response:', cleanedResponse.substring(0, 200) + '...');
+    
+    const result = JSON.parse(cleanedResponse);
+    console.log('✅ JSON parsed successfully');
+    
+    // Ensure total is calculated correctly
+    const totalPoints = Object.values(result.scores).reduce((sum, score) => sum + score.points, 0);
+    result.total = { points: totalPoints, out_of: 100 };
+    
+    console.log('🎯 Final result total:', result.total);
+    console.log('=== SERVERLESS GRADING COMPLETED ===');
+    
+    return result;
+    
+  } catch (error) {
+    console.error('❌ SERVERLESS GRADING ERROR:', error);
+    console.error('Error stack:', error.stack);
+    throw error;
+  }
 }
 
 const PORT = 3001;
