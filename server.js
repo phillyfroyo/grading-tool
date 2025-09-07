@@ -2141,11 +2141,21 @@ Return ONLY this JSON format:
     const totalPoints = Object.values(gradingResult.scores).reduce((sum, score) => sum + score.points, 0);
     gradingResult.total = { points: totalPoints, out_of: 100 };
 
-    // Add error detection results for highlighting
-    gradingResult.errors = errorResults.errors || [];
+    // Convert errors to inline_issues format for the formatter
+    gradingResult.inline_issues = (errorResults.errors || []).map(error => ({
+      category: error.category,
+      text: error.text,
+      start: studentText.indexOf(error.text),
+      end: studentText.indexOf(error.text) + error.text.length,
+      correction: error.correction,
+      explanation: error.explanation
+    })).filter(issue => issue.start !== -1); // Only include found text
+
     gradingResult.rubric = rubric;
+    gradingResult.encouragement_next_steps = gradingResult.teacher_notes;
 
     console.log('✅ UNIFIED GRADING COMPLETED:', gradingResult.total);
+    console.log('🎨 Generated', gradingResult.inline_issues.length, 'inline issues for highlighting');
     return gradingResult;
     
   } catch (error) {

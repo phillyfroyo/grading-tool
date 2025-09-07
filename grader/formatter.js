@@ -1,10 +1,57 @@
-import { readFileSync } from 'fs';
-import { fileURLToPath } from 'url';
-import { dirname, join } from 'path';
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = dirname(__filename);
-const rubric = JSON.parse(readFileSync(join(__dirname, 'rubric.json'), 'utf8'));
+// Embedded rubric data - no file dependencies!
+const rubric = {
+  "categories": {
+    "grammar": {
+      "id": "grammar",
+      "name": "Grammar", 
+      "color": "#FF6B6B",
+      "backgroundColor": "#FFE5E5",
+      "weight": 15
+    },
+    "vocabulary": {
+      "id": "vocabulary",
+      "name": "Vocabulary",
+      "color": "#4ECDC4", 
+      "backgroundColor": "#E8F8F7",
+      "weight": 15
+    },
+    "spelling": {
+      "id": "spelling",
+      "name": "Spelling",
+      "color": "#45B7D1",
+      "backgroundColor": "#E3F2FD", 
+      "weight": 15
+    },
+    "mechanics": {
+      "id": "mechanics",
+      "name": "Mechanics & Punctuation",
+      "color": "#F7B731",
+      "backgroundColor": "#FFF8E1",
+      "weight": 15
+    },
+    "fluency": {
+      "id": "fluency", 
+      "name": "Fluency",
+      "color": "#A855F7",
+      "backgroundColor": "#F3E8FF",
+      "weight": 10
+    },
+    "layout": {
+      "id": "layout",
+      "name": "Layout & Follow Specs", 
+      "color": "#16A34A",
+      "backgroundColor": "#DCFCE7",
+      "weight": 15
+    },
+    "content": {
+      "id": "content",
+      "name": "Content & Information",
+      "color": "#DC2626", 
+      "backgroundColor": "#FEE2E2",
+      "weight": 15
+    }
+  }
+};
 
 // Correction guide color mapping for highlighting (matches rubric colors)
 const correctionGuideColors = {
