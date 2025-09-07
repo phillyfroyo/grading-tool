@@ -223,7 +223,7 @@ app.get('/', (req, res) => {
             <h1>ESL Essay Grader</h1>
             <form id="gradingForm">
                 <div class="form-group">
-                    <label for="studentName">Student Name (optional):</label>
+                    <label for="studentName">Student Name:</label>
                     <input type="text" id="studentName" name="studentName">
                 </div>
                 
@@ -502,22 +502,6 @@ app.get('/', (req, res) => {
                                     <button id="clearSelectionBtn" onclick="clearSelection()" style="background: #f5f5f5; color: #666; border: 2px solid #ccc; padding: 8px 12px; border-radius: 4px; cursor: pointer; margin-left: 10px;">Clear Selection</button>
                                 </div>
                                 <div id="selectionStatus" style="margin-top: 8px; font-size: 12px; color: #666; min-height: 16px;"></div>
-                                
-                                <!-- Correction Guide Legend -->
-                                <div style="margin-top: 10px; padding-top: 10px; border-top: 1px solid #ddd;">
-                                    <div style="font-weight: bold; font-size: 12px; margin-bottom: 6px; color: #666;">📖 Correction Guide:</div>
-                                    <div style="display: flex; flex-wrap: wrap; gap: 4px; font-size: 10px;">
-                                        <span style="background: #FF6B6B; color: #FFFFFF; padding: 2px 6px; border-radius: 12px; font-weight: 500;">Grammar</span>
-                                        <span style="background: #6B7280; color: #FFFFFF; padding: 2px 6px; border-radius: 12px; font-weight: 500;">Mechanics & Punctuation</span>
-                                        <span style="background: #84CC16; color: #111827; padding: 2px 6px; border-radius: 12px; font-weight: 500;">Redundancy</span>
-                                        <span style="background: transparent; color: #4ECDC4; padding: 2px 6px; border-radius: 12px; font-weight: 500; border: 1px solid #4ECDC4;">Vocabulary / Structure</span>
-                                        <span style="background: #38BDF8; color: #111827; padding: 2px 6px; border-radius: 12px; font-weight: 500;">Needs rephrasing</span>
-                                        <span style="background: transparent; color: #000000; padding: 2px 6px; border-radius: 12px; font-weight: 500; border: 1px solid #000000; text-decoration: line-through;">Non-suitable words</span>
-                                        <span style="background: transparent; color: #F57C00; padding: 2px 6px; border-radius: 12px; font-weight: 500; border: 1px solid #F57C00;">Spelling</span>
-                                        <span style="background: transparent; color: #9333EA; padding: 2px 6px; border-radius: 12px; font-weight: 500; border: 1px solid #9333EA; text-decoration: underline;">Fluency coaching</span>
-                                        <span style="background: #FACC15; color: #111827; padding: 2px 6px; border-radius: 12px; font-weight: 500;">Professor's comments</span>
-                                    </div>
-                                </div>
                             </div>
                             
                             <!-- Essay text area -->

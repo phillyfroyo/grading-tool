@@ -580,27 +580,6 @@ function generateFeedbackSummary(scores, total, meta, teacherNotes, encouragemen
             : `<li style="margin: 8px 0; color: #856404;">${escapeHtml(encouragementSteps)}</li>`}
         </ul>
       </div>` : ''}
-      
-      <div class="legend" style="margin-top: 30px; padding-top: 20px; border-top: 1px solid #eee;">
-        <h3>📍 Error Highlight Legend:</h3>
-        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 10px;">`;
-  
-  Object.entries(rubric.categories).forEach(([key, category]) => {
-    html += `
-      <div class="legend-item" style="display: flex; align-items: center; margin: 5px 0; padding: 8px; background: #f8f9fa; border-radius: 4px;">
-        <mark data-type="${key}" style="background: ${category.backgroundColor}; color: ${category.color}; padding: 4px 8px; border-radius: 3px; margin-right: 10px;">
-          sample
-        </mark>
-        <div>
-          <strong style="color: ${category.color};">${category.name}</strong><br>
-          <small style="color: #666;">${category.description}</small>
-        </div>
-      </div>`;
-  });
-  
-  html += `
-        </div>
-      </div>
     </div>`;
   
   return html;
