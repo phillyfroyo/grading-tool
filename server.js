@@ -1706,6 +1706,132 @@ app.delete("/api/profiles/:id", async (req, res) => {
   }
 });
 
+// Add API route for grade endpoint (for compatibility with unified UI)
+app.post("/api/grade", async (req, res) => {
+  const { studentText, prompt, classProfile } = req.body;
+
+  console.log("\n🔥 API GRADING REQUEST RECEIVED 🔥");
+  console.log("Student text length:", studentText?.length || 0, "characters");
+  console.log("Class profile:", classProfile);
+  console.log("Environment:", isVercel ? 'Vercel' : 'Local');
+  
+  try {
+    if (isVercel) {
+      // For Vercel, use the serverless-compatible grading
+      console.log("\n⚡ STARTING SERVERLESS GRADING...");
+      
+      // Get profile data
+      let profileData;
+      if (useDatabase && prisma) {
+        profileData = await prisma.classProfile.findFirst({
+          where: { id: classProfile }
+        });
+      } else {
+        const profiles = await loadProfiles();
+        profileData = profiles.profiles.find(p => p.id === classProfile);
+      }
+      
+      if (!profileData) {
+        return res.status(404).json({ error: "Class profile not found" });
+      }
+      
+      // Use simplified grading for serverless
+      const result = await gradeEssayServerless(studentText, prompt, profileData);
+      console.log("\n✅ SERVERLESS GRADING COMPLETED!");
+      res.json(result);
+      
+    } else {
+      // For local, use the full two-step grading system
+      console.log("\n⚡ STARTING LOCAL TWO-STEP GRADING...");
+      const result = await gradeEssay(studentText, prompt, classProfile);
+      console.log("\n✅ LOCAL GRADING COMPLETED!");
+      res.json(result);
+    }
+  } catch (error) {
+    console.error("\n❌ GRADING ERROR:", error);
+    res.status(500).json({ error: "Error grading essay", details: error.message });
+  }
+});
+
+// Serverless-compatible grading function
+async function gradeEssayServerless(studentText, prompt, profileData) {
+  console.log('=== STARTING SERVERLESS GRADING ===');
+  
+  // Import OpenAI dynamically for serverless
+  const OpenAI = (await import("openai")).default;
+  
+  if (!process.env.OPENAI_API_KEY) {
+    throw new Error("OPENAI_API_KEY environment variable is required");
+  }
+  
+  const openai = new OpenAI({
+    apiKey: process.env.OPENAI_API_KEY,
+  });
+
+  const gradingPrompt = \`You are an ESL teacher grading a \${profileData.cefrLevel}-level student essay.
+
+Class Profile: \${profileData.name}
+Expected Vocabulary: \${profileData.vocabulary.slice(0, 10).join(', ')}\${profileData.vocabulary.length > 10 ? '...' : ''}
+Expected Grammar: \${profileData.grammar.slice(0, 5).join(', ')}\${profileData.grammar.length > 5 ? '...' : ''}
+
+Assignment Prompt: \${prompt}
+
+Student Essay:
+\${studentText}
+
+Grade this essay on a 100-point scale across these categories:
+- Grammar (25 points): Accuracy and complexity of grammar structures
+- Vocabulary (25 points): Use of appropriate and varied vocabulary  
+- Mechanics (25 points): Spelling, punctuation, capitalization, organization
+- Content (25 points): Task completion, coherence, and development
+
+For each category, provide:
+1. Points earned (out of 25)
+2. Brief rationale (1-2 sentences)
+
+Also identify:
+- Word count
+- Class vocabulary words used (from the vocabulary list)
+- Grammar structures demonstrated
+
+Return ONLY valid JSON in this exact format:
+{
+  "total": {"points": [sum], "out_of": 100},
+  "scores": {
+    "grammar": {"points": [0-25], "out_of": 25, "rationale": "..."},
+    "vocabulary": {"points": [0-25], "out_of": 25, "rationale": "..."},
+    "mechanics": {"points": [0-25], "out_of": 25, "rationale": "..."},
+    "content": {"points": [0-25], "out_of": 25, "rationale": "..."}
+  },
+  "teacher_notes": "Overall feedback...",
+  "meta": {
+    "word_count": [number],
+    "class_vocabulary_used": ["word1", "word2"],
+    "transition_words_found": ["however", "therefore"],
+    "grammar_structures_used": ["structure1", "structure2"]
+  }
+}\`;
+
+  const response = await openai.chat.completions.create({
+    model: "gpt-4o-mini",
+    messages: [{ role: "user", content: gradingPrompt }],
+    temperature: 0.3,
+    max_tokens: 2000
+  });
+
+  const gradingText = response.choices[0].message.content;
+  
+  // Parse the JSON response
+  const cleanedResponse = gradingText.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
+  const result = JSON.parse(cleanedResponse);
+  
+  // Ensure total is calculated correctly
+  const totalPoints = Object.values(result.scores).reduce((sum, score) => sum + score.points, 0);
+  result.total = { points: totalPoints, out_of: 100 };
+  
+  return result;
+}
+
 const PORT = 3001;
 // Heartbeat disabled
 // setInterval(() => {
