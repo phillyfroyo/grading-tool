@@ -426,7 +426,7 @@ app.get('/', (req, res) => {
                 document.getElementById('gradeButton').disabled = true;
                 
                 try {
-                    const response = await fetch('/grade', {
+                    const response = await fetch('/api/grade', {
                         method: 'POST',
                         headers: {
                             'Content-Type': 'application/json'
