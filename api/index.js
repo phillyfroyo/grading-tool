@@ -148,9 +148,14 @@ app.get('/', (req, res) => {
                 
                 <div class="form-group">
                     <label for="classProfile">Class Profile:</label>
-                    <select id="classProfile" name="classProfile" required>
-                        <option value="">Loading profiles...</option>
-                    </select>
+                    <div style="display: flex; gap: 10px; align-items: center;">
+                        <select id="classProfile" name="classProfile" required style="flex: 1;">
+                            <option value="">Loading profiles...</option>
+                        </select>
+                        <button type="button" id="manageProfilesBtn" style="padding: 10px 15px; background: #28a745; white-space: nowrap;">
+                            Manage Profiles
+                        </button>
+                    </div>
                 </div>
                 
                 <div class="form-group">
@@ -173,6 +178,65 @@ app.get('/', (req, res) => {
             </div>
             
             <div id="results"></div>
+        </div>
+
+        <!-- Profile Management Modal -->
+        <div id="profileModal" style="display: none; position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.4);">
+            <div style="background-color: white; margin: 5% auto; padding: 20px; border-radius: 8px; width: 80%; max-width: 600px; max-height: 80vh; overflow-y: auto;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                    <h2>Manage Class Profiles</h2>
+                    <button id="closeModal" style="background: #dc3545; color: white; border: none; padding: 5px 10px; border-radius: 4px; cursor: pointer;">&times;</button>
+                </div>
+                
+                <div id="profilesList"></div>
+                
+                <button id="addNewProfile" style="background: #007bff; color: white; padding: 10px 20px; border: none; border-radius: 4px; margin-top: 15px; cursor: pointer;">
+                    Add New Profile
+                </button>
+                
+                <!-- Profile Form -->
+                <div id="profileForm" style="display: none; margin-top: 20px; border: 1px solid #ddd; padding: 15px; border-radius: 4px;">
+                    <h3 id="profileFormTitle">Create New Profile</h3>
+                    <form id="profileEditForm">
+                        <input type="hidden" id="profileId">
+                        <div class="form-group">
+                            <label for="profileName">Profile Name:</label>
+                            <input type="text" id="profileName" required placeholder="e.g. Business English B2 - Fall 2024">
+                        </div>
+                        <div class="form-group">
+                            <label for="profileCefr">CEFR Level:</label>
+                            <select id="profileCefr" required>
+                                <option value="A1">A1 - Beginner</option>
+                                <option value="A2">A2 - Elementary</option>
+                                <option value="B1">B1 - Intermediate</option>
+                                <option value="B2">B2 - Upper Intermediate</option>
+                                <option value="C1">C1 - Advanced</option>
+                                <option value="C2">C2 - Proficiency</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="profileVocab">Vocabulary (one per line):</label>
+                            <textarea id="profileVocab" rows="6" placeholder="stakeholder&#10;revenue&#10;implement&#10;strategy&#10;collaborate"></textarea>
+                        </div>
+                        <div class="form-group">
+                            <label for="profileGrammar">Grammar Structures (one per line):</label>
+                            <textarea id="profileGrammar" rows="4" placeholder="Present Perfect for experience&#10;Conditionals (2nd and 3rd)&#10;Passive voice"></textarea>
+                        </div>
+                        <div class="form-group">
+                            <label for="profilePrompt">Custom Assignment Prompt (optional):</label>
+                            <textarea id="profilePrompt" rows="8" placeholder="Enter a custom prompt for this class profile. When selected, this prompt will be used automatically and the prompt field will be hidden."></textarea>
+                        </div>
+                        <div style="margin-top: 15px;">
+                            <button type="submit" style="background: #28a745; color: white; padding: 10px 20px; border: none; border-radius: 4px; margin-right: 10px; cursor: pointer;">
+                                Save Profile
+                            </button>
+                            <button type="button" id="cancelProfileForm" style="background: #6c757d; color: white; padding: 10px 20px; border: none; border-radius: 4px; cursor: pointer;">
+                                Cancel
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
         </div>
 
         <script>
@@ -218,6 +282,153 @@ app.get('/', (req, res) => {
                     select.appendChild(option);
                 });
             }
+            
+            // Handle profile selection change - hide/show prompt field
+            document.getElementById('classProfile').addEventListener('change', function(e) {
+                const selectedProfileId = e.target.value;
+                const promptTextarea = document.getElementById('prompt');
+                const promptContainer = document.querySelector('label[for="prompt"]').parentElement;
+                
+                if (selectedProfileId) {
+                    const selectedProfile = profiles.find(p => p.id === selectedProfileId);
+                    if (selectedProfile && selectedProfile.prompt && selectedProfile.prompt.trim()) {
+                        // Profile has a built-in prompt, populate and hide the prompt field
+                        promptTextarea.value = selectedProfile.prompt;
+                        promptContainer.style.display = 'none';
+                    } else {
+                        // Profile has no built-in prompt, show the prompt field
+                        promptContainer.style.display = 'block';
+                        if (promptTextarea.value === '' || profiles.some(p => p.prompt === promptTextarea.value)) {
+                            promptTextarea.value = '';
+                        }
+                    }
+                } else {
+                    // No profile selected, show prompt field and clear it
+                    promptContainer.style.display = 'block';
+                    promptTextarea.value = '';
+                }
+            });
+            
+            // Profile management functionality
+            document.getElementById('manageProfilesBtn').addEventListener('click', function() {
+                document.getElementById('profileModal').style.display = 'block';
+                loadProfilesList();
+            });
+            
+            document.getElementById('closeModal').addEventListener('click', function() {
+                document.getElementById('profileModal').style.display = 'none';
+                document.getElementById('profileForm').style.display = 'none';
+            });
+            
+            document.getElementById('addNewProfile').addEventListener('click', function() {
+                showProfileForm();
+            });
+            
+            document.getElementById('cancelProfileForm').addEventListener('click', function() {
+                document.getElementById('profileForm').style.display = 'none';
+            });
+            
+            function loadProfilesList() {
+                const listDiv = document.getElementById('profilesList');
+                listDiv.innerHTML = '';
+                
+                if (profiles.length === 0) {
+                    listDiv.innerHTML = '<p>No profiles created yet.</p>';
+                    return;
+                }
+                
+                profiles.forEach(profile => {
+                    const profileDiv = document.createElement('div');
+                    profileDiv.style.cssText = 'border: 1px solid #ddd; padding: 10px; margin: 10px 0; border-radius: 4px;';
+                    profileDiv.innerHTML = \`
+                        <div style="display: flex; justify-content: space-between; align-items: center;">
+                            <div>
+                                <strong>\${profile.name}</strong> (\${profile.cefrLevel})
+                                <br><small>\${profile.vocabulary.length} vocab words, \${profile.grammar.length} grammar topics</small>
+                            </div>
+                            <div>
+                                <button onclick="editProfile('\${profile.id}')" style="background: #007bff; color: white; border: none; padding: 5px 10px; margin: 0 5px; border-radius: 3px; cursor: pointer;">Edit</button>
+                                <button onclick="deleteProfile('\${profile.id}')" style="background: #dc3545; color: white; border: none; padding: 5px 10px; border-radius: 3px; cursor: pointer;">Delete</button>
+                            </div>
+                        </div>
+                    \`;
+                    listDiv.appendChild(profileDiv);
+                });
+            }
+            
+            function showProfileForm(profileId = null) {
+                const form = document.getElementById('profileForm');
+                const title = document.getElementById('profileFormTitle');
+                
+                if (profileId) {
+                    const profile = profiles.find(p => p.id === profileId);
+                    if (profile) {
+                        title.textContent = 'Edit Profile';
+                        document.getElementById('profileId').value = profile.id;
+                        document.getElementById('profileName').value = profile.name;
+                        document.getElementById('profileCefr').value = profile.cefrLevel;
+                        document.getElementById('profileVocab').value = profile.vocabulary.join('\\n');
+                        document.getElementById('profileGrammar').value = profile.grammar.join('\\n');
+                        document.getElementById('profilePrompt').value = profile.prompt || '';
+                    }
+                } else {
+                    title.textContent = 'Create New Profile';
+                    document.getElementById('profileEditForm').reset();
+                    document.getElementById('profileId').value = '';
+                }
+                
+                form.style.display = 'block';
+            }
+            
+            window.editProfile = function(profileId) {
+                showProfileForm(profileId);
+            };
+            
+            window.deleteProfile = async function(profileId) {
+                if (!confirm('Are you sure you want to delete this profile?')) return;
+                
+                try {
+                    const response = await fetch(\`/api/profiles/\${profileId}\`, { method: 'DELETE' });
+                    if (response.ok) {
+                        await loadProfilesData();
+                        loadProfilesList();
+                    }
+                } catch (error) {
+                    alert('Error deleting profile');
+                }
+            };
+            
+            document.getElementById('profileEditForm').addEventListener('submit', async function(e) {
+                e.preventDefault();
+                
+                const profileId = document.getElementById('profileId').value;
+                const profileData = {
+                    name: document.getElementById('profileName').value,
+                    cefrLevel: document.getElementById('profileCefr').value,
+                    vocabulary: document.getElementById('profileVocab').value.split('\\n').map(v => v.trim()).filter(v => v),
+                    grammar: document.getElementById('profileGrammar').value.split('\\n').map(g => g.trim()).filter(g => g),
+                    prompt: document.getElementById('profilePrompt').value.trim()
+                };
+                
+                try {
+                    const method = profileId ? 'PUT' : 'POST';
+                    const url = profileId ? \`/api/profiles/\${profileId}\` : '/api/profiles';
+                    
+                    const response = await fetch(url, {
+                        method: method,
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(profileData)
+                    });
+                    
+                    if (response.ok) {
+                        await loadProfilesData();
+                        loadProfilesList();
+                        document.getElementById('profileForm').style.display = 'none';
+                    }
+                } catch (error) {
+                    alert('Error saving profile');
+                }
+            });
             
             // Load profiles when page loads
             loadProfilesData();
@@ -379,17 +590,37 @@ app.post("/api/profiles", async (req, res) => {
 
 app.put("/api/profiles/:id", async (req, res) => {
   try {
-    const updatedProfile = await prisma.classProfile.update({
-      where: { id: req.params.id },
-      data: {
+    if (useDatabase && prisma) {
+      const updatedProfile = await prisma.classProfile.update({
+        where: { id: req.params.id },
+        data: {
+          name: req.body.name,
+          cefrLevel: req.body.cefrLevel,
+          vocabulary: req.body.vocabulary || [],
+          grammar: req.body.grammar || [],
+          prompt: req.body.prompt || '',
+        }
+      });
+      res.json(updatedProfile);
+    } else {
+      // Fallback to in-memory storage
+      const profileIndex = sessionProfiles.profiles.findIndex(p => p.id === req.params.id);
+      if (profileIndex === -1) {
+        return res.status(404).json({ error: "Profile not found" });
+      }
+      
+      sessionProfiles.profiles[profileIndex] = {
+        ...sessionProfiles.profiles[profileIndex],
         name: req.body.name,
         cefrLevel: req.body.cefrLevel,
         vocabulary: req.body.vocabulary || [],
         grammar: req.body.grammar || [],
         prompt: req.body.prompt || '',
-      }
-    });
-    res.json(updatedProfile);
+        lastModified: new Date().toISOString()
+      };
+      
+      res.json(sessionProfiles.profiles[profileIndex]);
+    }
   } catch (error) {
     if (error.code === 'P2025') {
       return res.status(404).json({ error: "Profile not found" });
@@ -401,10 +632,21 @@ app.put("/api/profiles/:id", async (req, res) => {
 
 app.delete("/api/profiles/:id", async (req, res) => {
   try {
-    await prisma.classProfile.delete({
-      where: { id: req.params.id }
-    });
-    res.json({ success: true });
+    if (useDatabase && prisma) {
+      await prisma.classProfile.delete({
+        where: { id: req.params.id }
+      });
+      res.json({ success: true });
+    } else {
+      // Fallback to in-memory storage
+      const profileIndex = sessionProfiles.profiles.findIndex(p => p.id === req.params.id);
+      if (profileIndex === -1) {
+        return res.status(404).json({ error: "Profile not found" });
+      }
+      
+      sessionProfiles.profiles.splice(profileIndex, 1);
+      res.json({ success: true });
+    }
   } catch (error) {
     if (error.code === 'P2025') {
       return res.status(404).json({ error: "Profile not found" });
