@@ -1753,6 +1753,62 @@ app.post("/api/grade", async (req, res) => {
   }
 });
 
+// Debug endpoint to test serverless function components
+app.get("/api/debug", async (req, res) => {
+  try {
+    console.log("=== DEBUG ENDPOINT CALLED ===");
+    const debugInfo = {
+      environment: {
+        isVercel: process.env.VERCEL === '1',
+        nodeEnv: process.env.NODE_ENV,
+        hasOpenAIKey: !!process.env.OPENAI_API_KEY,
+        openAIKeyLength: process.env.OPENAI_API_KEY?.length || 0
+      },
+      database: {
+        useDatabase,
+        prismaAvailable: !!prisma
+      },
+      server: {
+        platform: process.platform,
+        nodeVersion: process.version,
+        timestamp: new Date().toISOString()
+      }
+    };
+    
+    // Test profile loading
+    try {
+      const profiles = await loadProfiles();
+      debugInfo.profiles = {
+        count: profiles.profiles?.length || 0,
+        source: useDatabase ? 'database' : 'file/fallback'
+      };
+    } catch (error) {
+      debugInfo.profiles = {
+        error: error.message
+      };
+    }
+    
+    // Test OpenAI import
+    try {
+      const OpenAI = (await import("openai")).default;
+      debugInfo.openai = {
+        imported: true,
+        version: "imported successfully"
+      };
+    } catch (error) {
+      debugInfo.openai = {
+        imported: false,
+        error: error.message
+      };
+    }
+    
+    res.json(debugInfo);
+  } catch (error) {
+    console.error("Debug endpoint error:", error);
+    res.status(500).json({ error: "Debug endpoint failed", details: error.message });
+  }
+});
+
 // Serverless-compatible grading function
 async function gradeEssayServerless(studentText, prompt, profileData) {
   console.log('=== STARTING SERVERLESS GRADING ===');
