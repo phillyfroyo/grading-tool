@@ -1719,21 +1719,31 @@ app.post("/api/grade", async (req, res) => {
     if (isVercel) {
       // For Vercel, use the serverless-compatible grading
       console.log("\n⚡ STARTING SERVERLESS GRADING...");
+      console.log("🔍 Looking for profile:", classProfile);
       
       // Get profile data
       let profileData;
       if (useDatabase && prisma) {
+        console.log("📊 Searching database for profile...");
         profileData = await prisma.classProfile.findFirst({
           where: { id: classProfile }
         });
+        console.log("🎯 Database search result:", profileData ? "FOUND" : "NOT FOUND");
       } else {
+        console.log("📁 Searching file system for profile...");
         const profiles = await loadProfiles();
+        console.log("📋 Available profiles:", profiles.profiles?.map(p => p.id) || []);
         profileData = profiles.profiles.find(p => p.id === classProfile);
+        console.log("🎯 File search result:", profileData ? "FOUND" : "NOT FOUND");
       }
       
       if (!profileData) {
-        return res.status(404).json({ error: "Class profile not found" });
+        console.log("❌ Profile not found, returning 404");
+        return res.status(404).json({ error: "Class profile not found", requested: classProfile });
       }
+      
+      console.log("✅ Profile found:", profileData.name);
+      console.log("🤖 Calling serverless grading function...");
       
       // Use simplified grading for serverless
       const result = await gradeEssayServerless(studentText, prompt, profileData);
