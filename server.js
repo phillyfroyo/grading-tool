@@ -1743,11 +1743,11 @@ app.post("/api/grade", async (req, res) => {
       }
       
       console.log("✅ Profile found:", profileData.name);
-      console.log("🤖 Calling serverless grading function...");
+      console.log("🤖 Using FULL grading system for Vercel...");
       
-      // Use simplified grading for serverless
-      const result = await gradeEssayServerless(studentText, prompt, profileData);
-      console.log("\n✅ SERVERLESS GRADING COMPLETED!");
+      // Use the same full two-step grading system as local
+      const result = await gradeEssay(studentText, prompt, classProfile);
+      console.log("\n✅ FULL GRADING COMPLETED!");
       res.json(result);
       
     } else {
