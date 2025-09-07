@@ -66,7 +66,9 @@ ${errorDetectionResults.inline_issues.map(issue =>
   `- ${issue.category || issue.type}: ${issue.explanation || issue.message || `${issue.text} → ${issue.correction}`}`
 ).join('\n')}
 
-OUTPUT FORMAT (JSON only):
+**CRITICAL: RETURN ONLY VALID JSON - NO TEXT BEFORE OR AFTER**
+
+OUTPUT FORMAT (valid JSON only):
 {
   "scores": {
     "grammar": {"points": 11, "out_of": 15, "rationale": "Positive feedback first, then specific coaching with examples"},
@@ -77,7 +79,7 @@ OUTPUT FORMAT (JSON only):
     "layout": {"points": 12, "out_of": 15, "rationale": "Credit structure, suggest enhancements"},
     "content": {"points": 13, "out_of": 15, "rationale": "Value ideas and personal connection, suggest depth"}
   },
-  "total": {"points": [calculated_total], "out_of": 100},
+  "total": {"points": 85, "out_of": 100},
   "teacher_notes": "Encouraging overall comment highlighting student's strengths and growth",
   "encouragement_next_steps": [
     "Specific, actionable suggestion with example",
@@ -85,6 +87,12 @@ OUTPUT FORMAT (JSON only):
     "Third encouraging improvement tip"
   ]
 }
+
+**IMPORTANT JSON RULES:**
+- All rationale text must be properly escaped (use \\" for quotes)
+- No line breaks inside strings - use \\n if needed  
+- Calculate total points as sum of all category points
+- Return ONLY the JSON object - no explanations or markdown
 
 Categories must be exactly: grammar, vocabulary, spelling, mechanics, fluency, layout, content
 

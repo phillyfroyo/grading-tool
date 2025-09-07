@@ -2137,8 +2137,23 @@ Return ONLY this JSON format:
     });
 
     const gradingText = gradingResponse.choices[0].message.content;
+    console.log('=== RAW GRADING RESPONSE ===');
+    console.log(gradingText);
+    console.log('=== END RAW GRADING RESPONSE ===');
+    
     const cleanedGrading = gradingText.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
-    const gradingResult = JSON.parse(cleanedGrading);
+    console.log('=== CLEANED GRADING JSON ===');
+    console.log(cleanedGrading);
+    console.log('=== END CLEANED JSON ===');
+    
+    let gradingResult;
+    try {
+      gradingResult = JSON.parse(cleanedGrading);
+    } catch (error) {
+      console.error('JSON parsing failed:', error.message);
+      console.error('Invalid JSON at character position:', error.message.match(/position (\d+)/)?.[1]);
+      throw error;
+    }
 
     // Calculate total points correctly
     const totalPoints = Object.values(gradingResult.scores).reduce((sum, score) => sum + score.points, 0);

@@ -124,8 +124,20 @@ async function gradeWithMercy(studentText, classProfile, cefrLevel, errorDetecti
   console.log('=== END RAW RESPONSE ===');
   
   try {
-    // Clean JSON - remove markdown code blocks
+    // Clean JSON - remove markdown code blocks and extra text
     content = content.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
+    
+    // Find JSON object boundaries
+    const jsonStart = content.indexOf('{');
+    const jsonEnd = content.lastIndexOf('}');
+    
+    if (jsonStart !== -1 && jsonEnd !== -1 && jsonEnd > jsonStart) {
+      content = content.substring(jsonStart, jsonEnd + 1);
+    }
+    
+    console.log(`Cleaned JSON length: ${content.length} chars`);
+    console.log(`JSON preview: ${content.substring(0, 200)}...`);
+    
     const result = JSON.parse(content);
     
     // Ensure scores have correct category names
