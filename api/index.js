@@ -54,6 +54,13 @@ app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
 app.get("/health", (req, res) => res.send("ok"));
 
+app.get("/api/status", (req, res) => {
+  res.json({ 
+    databaseConnected: useDatabase,
+    timestamp: new Date().toISOString()
+  });
+});
+
 // Serve the main grading interface
 app.get('/', (req, res) => {
   res.send(`
@@ -130,8 +137,8 @@ app.get('/', (req, res) => {
     </head>
     <body>
         <div class="container">
-            <h1>ESL Essay Grader (Serverless)</h1>
-            <p><strong>Note:</strong> This is running on Vercel serverless. Profile changes won't persist between sessions, but will be shared during active use.</p>
+            <h1>ESL Essay Grader</h1>
+            <p id="dbStatus"><strong>🔄 Checking database connection...</strong></p>
             
             <form id="gradingForm">
                 <div class="form-group">
@@ -171,15 +178,33 @@ app.get('/', (req, res) => {
         <script>
             // Load profiles on page load
             let profiles = [];
+            let isDatabaseConnected = false;
             
             async function loadProfilesData() {
                 try {
                     const response = await fetch('/api/profiles');
                     const data = await response.json();
                     profiles = data.profiles || [];
+                    
+                    // Check if we got database data (has proper timestamps) or fallback data
+                    isDatabaseConnected = profiles.length > 0 && profiles.some(p => 
+                        p.created && p.created.includes('T') && p.lastModified && p.lastModified.includes('T')
+                    );
+                    
+                    updateDatabaseStatus();
                     updateProfileDropdown();
                 } catch (error) {
                     console.error('Error loading profiles:', error);
+                    updateDatabaseStatus(false);
+                }
+            }
+            
+            function updateDatabaseStatus(connected = isDatabaseConnected) {
+                const statusElement = document.getElementById('dbStatus');
+                if (connected) {
+                    statusElement.innerHTML = '<strong style="color: #28a745;">✅ Database Connected:</strong> Profile changes are saved permanently and shared across all users.';
+                } else {
+                    statusElement.innerHTML = '<strong style="color: #ffc107;">⚠️ Using Session Storage:</strong> Profile changes will not persist between deployments.';
                 }
             }
             
