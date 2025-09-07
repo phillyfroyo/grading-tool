@@ -2,6 +2,25 @@
 import express from "express";
 import dotenv from "dotenv";
 
+// Try to import the grading system
+let gradeEssay = null;
+let formatGradedEssay = null;
+try {
+  const graderModule = await import("../grader/grader-two-step.js");
+  gradeEssay = graderModule.gradeEssay;
+  console.log("✅ Grading system loaded successfully");
+} catch (error) {
+  console.warn("⚠️ Grading system failed to load:", error.message);
+}
+
+try {
+  const formatterModule = await import("../grader/formatter.js");
+  formatGradedEssay = formatterModule.formatGradedEssay;
+  console.log("✅ Formatter loaded successfully");
+} catch (error) {
+  console.warn("⚠️ Formatter failed to load:", error.message);
+}
+
 // Try to import Prisma, but have fallback
 let prisma = null;
 let useDatabase = false;
@@ -45,6 +64,98 @@ let sessionProfiles = fallbackProfiles;
 // saveProfiles function for compatibility
 function saveProfiles(profiles) {
   sessionProfiles = profiles;
+}
+
+// Serverless-compatible grading function
+async function gradeEssayWithProfile(studentText, prompt, profileData) {
+  console.log('=== STARTING SERVERLESS GRADING PROCESS ===');
+  const cefrLevel = profileData.cefrLevel;
+  console.log(`CEFR Level: ${cefrLevel}, Class Profile: ${profileData.name}`);
+
+  // Import OpenAI here to avoid issues with serverless cold starts
+  const OpenAI = (await import("openai")).default;
+  
+  if (!process.env.OPENAI_API_KEY) {
+    throw new Error("OPENAI_API_KEY environment variable is required");
+  }
+  
+  const openai = new OpenAI({
+    apiKey: process.env.OPENAI_API_KEY,
+  });
+
+  try {
+    // Simplified single-step grading for serverless
+    console.log('\n=== RUNNING AI GRADING ===');
+    
+    const gradingPrompt = `You are an ESL teacher grading a ${cefrLevel}-level student essay. 
+
+Class Profile: ${profileData.name}
+Expected Vocabulary: ${profileData.vocabulary.slice(0, 10).join(', ')}${profileData.vocabulary.length > 10 ? '...' : ''}
+Expected Grammar: ${profileData.grammar.slice(0, 5).join(', ')}${profileData.grammar.length > 5 ? '...' : ''}
+
+Assignment Prompt: ${prompt}
+
+Student Essay:
+${studentText}
+
+Grade this essay on a 100-point scale across these categories:
+- Grammar (25 points): Accuracy and complexity of grammar structures
+- Vocabulary (25 points): Use of appropriate and varied vocabulary  
+- Mechanics (25 points): Spelling, punctuation, capitalization, organization
+- Content (25 points): Task completion, coherence, and development
+
+For each category, provide:
+1. Points earned (out of 25)
+2. Brief rationale (1-2 sentences)
+
+Also identify:
+- Word count
+- Class vocabulary words used (from the vocabulary list)
+- Grammar structures demonstrated
+
+Return ONLY valid JSON in this exact format:
+{
+  "total": {"points": [sum], "out_of": 100},
+  "scores": {
+    "grammar": {"points": [0-25], "out_of": 25, "rationale": "..."},
+    "vocabulary": {"points": [0-25], "out_of": 25, "rationale": "..."},
+    "mechanics": {"points": [0-25], "out_of": 25, "rationale": "..."},
+    "content": {"points": [0-25], "out_of": 25, "rationale": "..."}
+  },
+  "teacher_notes": "Overall feedback...",
+  "meta": {
+    "word_count": [number],
+    "class_vocabulary_used": ["word1", "word2"],
+    "transition_words_found": ["however", "therefore"],
+    "grammar_structures_used": ["structure1", "structure2"]
+  }
+}`;
+
+    const response = await openai.chat.completions.create({
+      model: "gpt-4o-mini",
+      messages: [{ role: "user", content: gradingPrompt }],
+      temperature: 0.3,
+      max_tokens: 2000
+    });
+
+    const gradingText = response.choices[0].message.content;
+    console.log('Raw AI response received');
+    
+    // Parse the JSON response
+    const cleanedResponse = gradingText.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
+    const result = JSON.parse(cleanedResponse);
+    
+    // Ensure total is calculated correctly
+    const totalPoints = Object.values(result.scores).reduce((sum, score) => sum + score.points, 0);
+    result.total = { points: totalPoints, out_of: 100 };
+    
+    console.log('\n✅ SERVERLESS GRADING COMPLETED SUCCESSFULLY!');
+    return result;
+    
+  } catch (error) {
+    console.error('❌ SERVERLESS GRADING ERROR:', error);
+    throw error;
+  }
 }
 
 dotenv.config();
@@ -492,28 +603,58 @@ app.post("/api/grade", async (req, res) => {
   console.log("Timestamp:", new Date().toLocaleString());
   
   try {
-    console.log("\n⚡ STARTING SIMPLE GRADING PROCESS...");
-    // Simple grading for serverless - return mock data for now
-    const result = {
-      total: { points: 85, out_of: 100 },
-      scores: {
-        grammar: { points: 20, out_of: 25, rationale: "Good grammar usage overall with minor issues." },
-        vocabulary: { points: 18, out_of: 25, rationale: "Appropriate vocabulary for level." },
-        mechanics: { points: 22, out_of: 25, rationale: "Well structured with good punctuation." },
-        content: { points: 25, out_of: 25, rationale: "Excellent content and organization." }
-      },
-      teacher_notes: "Well-written essay demonstrating good understanding of the topic.",
-      meta: {
-        word_count: studentText.split(' ').length,
-        class_vocabulary_used: [],
-        transition_words_found: [],
-        grammar_structures_used: []
+    if (gradeEssay) {
+      console.log("\n⚡ STARTING REAL AI GRADING PROCESS...");
+      
+      // Get the profile data
+      let profileData;
+      if (useDatabase && prisma) {
+        const profile = await prisma.classProfile.findFirst({
+          where: { id: classProfile }
+        });
+        if (!profile) {
+          return res.status(404).json({ error: "Class profile not found" });
+        }
+        profileData = profile;
+      } else {
+        // Use fallback profiles
+        const profile = sessionProfiles.profiles.find(p => p.id === classProfile);
+        if (!profile) {
+          return res.status(404).json({ error: "Class profile not found" });
+        }
+        profileData = profile;
       }
-    };
-    
-    console.log("\n✅ GRADING COMPLETED SUCCESSFULLY!");
-    console.log("Final score:", result.total?.points + "/" + result.total?.out_of);
-    res.json(result);
+      
+      // Call the real grading system with profile data
+      const result = await gradeEssayWithProfile(studentText, prompt, profileData);
+      
+      console.log("\n✅ REAL GRADING COMPLETED SUCCESSFULLY!");
+      console.log("Final score:", result.total?.points + "/" + result.total?.out_of);
+      res.json(result);
+      
+    } else {
+      console.log("\n⚡ USING FALLBACK GRADING (grader not loaded)...");
+      // Fallback grading when real grader isn't available
+      const result = {
+        total: { points: 85, out_of: 100 },
+        scores: {
+          grammar: { points: 20, out_of: 25, rationale: "Good grammar usage overall with minor issues." },
+          vocabulary: { points: 18, out_of: 25, rationale: "Appropriate vocabulary for level." },
+          mechanics: { points: 22, out_of: 25, rationale: "Well structured with good punctuation." },
+          content: { points: 25, out_of: 25, rationale: "Excellent content and organization." }
+        },
+        teacher_notes: "Well-written essay demonstrating good understanding of the topic. (Note: Using fallback grading - AI grader unavailable)",
+        meta: {
+          word_count: studentText.split(' ').length,
+          class_vocabulary_used: [],
+          transition_words_found: [],
+          grammar_structures_used: []
+        }
+      };
+      
+      console.log("\n✅ FALLBACK GRADING COMPLETED!");
+      res.json(result);
+    }
   } catch (error) {
     console.error("\n❌ GRADING ERROR:", error);
     res.status(500).json({ error: "Error grading essay", details: error.message });
@@ -525,12 +666,18 @@ app.post("/api/format", async (req, res) => {
   const { studentText, gradingResults, studentName } = req.body;
   
   try {
-    // Simple formatting for serverless
-    const formatted = {
-      formattedText: studentText.replace(/\n/g, '<br>'),
-      feedbackSummary: `<h2>Grade: ${gradingResults.total.points}/${gradingResults.total.out_of}</h2><p>${gradingResults.teacher_notes || 'Good work overall.'}</p>`
-    };
-    res.json(formatted);
+    if (formatGradedEssay) {
+      // Use real formatting when available
+      const formatted = formatGradedEssay(studentText, gradingResults, { studentName });
+      res.json(formatted);
+    } else {
+      // Fallback formatting
+      const formatted = {
+        formattedText: studentText.replace(/\n/g, '<br>'),
+        feedbackSummary: `<h2>Grade: ${gradingResults.total.points}/${gradingResults.total.out_of}</h2><p>${gradingResults.teacher_notes || 'Good work overall.'}</p>`
+      };
+      res.json(formatted);
+    }
   } catch (error) {
     console.error(error);
     res.status(500).json({ error: "Error formatting essay", details: error.message });
