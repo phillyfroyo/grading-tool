@@ -63,7 +63,7 @@ STUDENT TEXT:
 
 DETECTED ERRORS SUMMARY:
 ${errorDetectionResults.inline_issues.map(issue => 
-  `- ${issue.type}: ${issue.message}`
+  `- ${issue.category || issue.type}: ${issue.explanation || issue.message || `${issue.text} → ${issue.correction}`}`
 ).join('\n')}
 
 OUTPUT FORMAT (JSON only):

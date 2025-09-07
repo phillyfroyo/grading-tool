@@ -418,18 +418,19 @@ function renderSegmentsToHTML(segments, options = {}) {
       // Render caret marker for comma/period suggestions
       const issueDesc = segment.issue.message || `${segment.issue.text} → ${segment.issue.correction}`;
       return `<span class="caret-marker" 
-                   data-type="${escapeHtml(segment.issue.type)}"
+                   data-type="${escapeHtml(segment.issue.category || segment.issue.type || '')}"
                    data-message="${escapeHtml(issueDesc)}"
                    title="${escapeHtml(issueDesc)}"
                    style="color: #F57C00; font-weight: bold; position: relative;">▿</span>`;
     } else {
       // Use correction guide colors for inline_issues, fallback to rubric colors
-      const correctionInfo = correctionGuideColors[segment.issue.type];
-      const categoryInfo = correctionInfo || rubric.categories[segment.issue.type];
+      const issueCategory = segment.issue.category || segment.issue.type || '';
+      const correctionInfo = correctionGuideColors[issueCategory];
+      const categoryInfo = correctionInfo || rubric.categories[issueCategory];
       const color = categoryInfo?.color || '#666';
       const bgColor = categoryInfo?.backgroundColor || '#f5f5f5';
       const textDecoration = categoryInfo?.textDecoration || 'none';
-      const categoryName = categoryInfo?.name || segment.issue.type;
+      const categoryName = categoryInfo?.name || issueCategory;
       
       const editableAttrs = editable ? 
         `data-segment-id="${index}" data-editable="true" class="highlighted-segment"` : '';
@@ -440,9 +441,16 @@ function renderSegmentsToHTML(segments, options = {}) {
         styleProps += ` background: ${bgColor}; padding: 2px 4px; border-radius: 2px;`;
       }
       
+      // Special styling for coaching-only fluency suggestions
+      if (segment.issue.coaching_only && issueCategory === 'fluency') {
+        styleProps = `color: #A855F7; text-decoration: underline dotted; position: relative; opacity: 0.8;`;
+      }
+      
       const issueDesc = segment.issue.message || `${segment.issue.text} → ${segment.issue.correction}`;
-      return `<mark data-type="${escapeHtml(segment.issue.type)}" 
+      const coachingAttr = segment.issue.coaching_only ? 'data-coaching-only="true"' : '';
+      return `<mark data-type="${escapeHtml(issueCategory)}" 
                    data-message="${escapeHtml(issueDesc)}"
+                   ${coachingAttr}
                    ${editableAttrs}
                    style="${styleProps}" 
                    title="${escapeHtml(issueDesc)}">
@@ -563,11 +571,13 @@ function generateFeedbackSummary(scores, total, meta, teacherNotes, encouragemen
   html += `
       </div>
       
-      ${encouragementSteps && encouragementSteps.length > 0 ? `
+      ${encouragementSteps ? `
       <div class="encouragement" style="background: #fff3cd; border: 1px solid #ffeaa7; padding: 20px; border-radius: 8px; margin: 20px 0;">
         <h3 style="color: #856404; margin-top: 0;">🌟 Next Steps to Improve:</h3>
         <ul style="margin: 10px 0; padding-left: 20px;">
-          ${encouragementSteps.map(step => `<li style="margin: 8px 0; color: #856404;">${escapeHtml(step)}</li>`).join('')}
+          ${Array.isArray(encouragementSteps) 
+            ? encouragementSteps.map(step => `<li style="margin: 8px 0; color: #856404;">${escapeHtml(step)}</li>`).join('')
+            : `<li style="margin: 8px 0; color: #856404;">${escapeHtml(encouragementSteps)}</li>`}
         </ul>
       </div>` : ''}
       

@@ -613,13 +613,16 @@ app.get('/', (req, res) => {
             const categoryColors = {
                 'grammar': { color: '#FFFFFF', bg: '#FF6B6B' }, // Pink highlight to match rubric
                 'mechanics-punctuation': { color: '#FFFFFF', bg: '#6B7280' },
+                'mechanics': { color: '#FFFFFF', bg: '#6B7280' }, // Same as mechanics-punctuation
                 'redundancy': { color: '#111827', bg: '#84CC16' },
                 'vocabulary-structure': { color: '#4ECDC4', bg: 'transparent' }, // Blue text, no highlight
+                'vocabulary': { color: '#4ECDC4', bg: 'transparent' }, // Same as vocabulary-structure
                 'needs-rephrasing': { color: '#111827', bg: '#38BDF8' },
                 'non-suitable-words': { color: '#000000', bg: 'transparent', textDecoration: 'line-through' }, // Black strikethrough
                 'spelling': { color: '#F57C00', bg: 'transparent' }, // Orange/reddish text, no highlight
                 'fluency': { color: '#9333EA', bg: 'transparent', textDecoration: 'underline' }, // Purple underline for coaching
-                'professor-comments': { color: '#111827', bg: '#FACC15' }
+                'professor-comments': { color: '#111827', bg: '#FACC15' },
+                '': { color: '#6B7280', bg: '#F3F4F6' } // Default for empty categories
             };
 
             // Legacy mapping for backward compatibility
@@ -687,21 +690,23 @@ app.get('/', (req, res) => {
             function migrateLegacyHighlights(essayContent) {
                 const marks = essayContent.querySelectorAll('mark[data-type]');
                 marks.forEach(mark => {
-                    const oldCategory = mark.getAttribute('data-type');
+                    const oldCategory = mark.getAttribute('data-type') || '';
                     if (!categoryColors[oldCategory]) {
                         const newCategory = mapLegacyCategory(oldCategory);
                         mark.setAttribute('data-type', newCategory);
                         
-                        // Update styling
-                        const colors = categoryColors[newCategory];
-                        let styleProps = 'color: ' + colors.color + '; position: relative; cursor: pointer;';
-                        if (colors.textDecoration) {
-                            styleProps += ' text-decoration: ' + colors.textDecoration + ';';
+                        // Update styling with error handling
+                        const colors = categoryColors[newCategory] || categoryColors[''];
+                        if (colors) {
+                            let styleProps = 'color: ' + colors.color + '; position: relative; cursor: pointer;';
+                            if (colors.textDecoration) {
+                                styleProps += ' text-decoration: ' + colors.textDecoration + ';';
+                            }
+                            if (colors.bg && colors.bg !== 'transparent') {
+                                styleProps += ' background: ' + colors.bg + '; padding: 2px 4px; border-radius: 2px;';
+                            }
+                            mark.style.cssText = styleProps;
                         }
-                        if (colors.bg && colors.bg !== 'transparent') {
-                            styleProps += ' background: ' + colors.bg + '; padding: 2px 4px; border-radius: 2px;';
-                        }
-                        mark.style.cssText = styleProps;
                     }
                 });
             }
@@ -780,7 +785,7 @@ app.get('/', (req, res) => {
             }
             
             function applyHighlight(range, text, category) {
-                const colors = categoryColors[category];
+                const colors = categoryColors[category] || categoryColors[''];
                 const mark = document.createElement('mark');
                 mark.setAttribute('data-type', category);
                 mark.setAttribute('data-message', \`Manual \${category} highlight\`);

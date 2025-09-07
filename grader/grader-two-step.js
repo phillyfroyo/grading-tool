@@ -88,6 +88,7 @@ async function detectErrors(studentText, classProfile) {
     if (result.inline_issues) {
       console.log(`GPT found ${result.inline_issues.length} errors before patching`);
       
+      result.inline_issues = splitLongSpans(studentText, result.inline_issues);
       result.inline_issues = patchHomeworkCollocations(studentText, result.inline_issues);
       result.inline_issues = patchCommonErrors(studentText, result.inline_issues);
       result.inline_issues = patchModalAndTooUsage(studentText, result.inline_issues);
@@ -161,17 +162,19 @@ function patchHomeworkCollocations(text, issues) {
     for (const match of text.matchAll(regex)) {
       if (!isAlreadyCovered(match.index, match.index + col.wrong.length, issues)) {
         newIssues.push({
-          type: "vocabulary-structure",
-          subtype: "collocation",
-          message: `${col.wrong} → ${col.correct}`,
-          offsets: { start: match.index, end: match.index + col.wrong.length }
+          category: "vocabulary-structure",
+          text: col.wrong,
+          start: match.index,
+          end: match.index + col.wrong.length,
+          correction: col.correct,
+          explanation: `Collocation error: "${col.wrong}" should be "${col.correct}"`
         });
       }
     }
   }
   
   if (newIssues.length > 0) {
-    console.log(`Added ${newIssues.length} homework collocation fixes:`, newIssues.map(i => i.message));
+    console.log(`Added ${newIssues.length} homework collocation fixes:`, newIssues.map(i => `${i.text} → ${i.correction}`));
   }
   
   return [...issues, ...newIssues];
@@ -185,10 +188,12 @@ function patchCommonErrors(text, issues) {
   for (const match of text.matchAll(iRegex)) {
     if (!isAlreadyCovered(match.index + 1, match.index + 2, issues)) {
       newIssues.push({
-        type: "mechanics-punctuation",
-        subtype: "capitalization",
-        message: "i→I",
-        offsets: { start: match.index + 1, end: match.index + 2 }
+        category: "mechanics-punctuation",
+        text: "i",
+        start: match.index + 1,
+        end: match.index + 2,
+        correction: "I",
+        explanation: "Personal pronoun 'I' must always be capitalized"
       });
     }
   }
@@ -206,17 +211,19 @@ function patchCommonErrors(text, issues) {
     for (const match of text.matchAll(regex)) {
       if (!isAlreadyCovered(match.index, match.index + error.wrong.length, issues)) {
         newIssues.push({
-          type: "spelling",
-          subtype: "misspelling",
-          message: `${error.wrong}→${error.correct}`,
-          offsets: { start: match.index, end: match.index + error.wrong.length }
+          category: "spelling",
+          text: error.wrong,
+          start: match.index,
+          end: match.index + error.wrong.length,
+          correction: error.correct,
+          explanation: `Misspelling: "${error.wrong}" should be "${error.correct}"`
         });
       }
     }
   }
   
   if (newIssues.length > 0) {
-    console.log(`Added ${newIssues.length} missing common errors:`, newIssues.map(i => i.message));
+    console.log(`Added ${newIssues.length} missing common errors:`, newIssues.map(i => `${i.text} → ${i.correction}`));
   }
   
   return [...issues, ...newIssues];
@@ -230,10 +237,12 @@ function patchModalAndTooUsage(text, issues) {
     const start = m.index, end = start + m[0].length;
     if (!isAlreadyCovered(start, end, issues)) {
       newIssues.push({
-        type: "grammar",
-        subtype: "modal_usage",
-        message: "to can → to be able to",
-        offsets: { start, end }
+        category: "grammar",
+        text: m[0],
+        start,
+        end,
+        correction: "to be able to",
+        explanation: "Modal 'can' cannot follow 'to' - use 'be able to' instead"
       });
     }
   }
@@ -244,10 +253,12 @@ function patchModalAndTooUsage(text, issues) {
     const modal = m[1].toLowerCase();
     if (!isAlreadyCovered(start, end, issues)) {
       newIssues.push({
-        type: "grammar",
-        subtype: "modal_usage",
-        message: `${modal} to → ${modal}`,
-        offsets: { start, end }
+        category: "grammar",
+        text: m[0],
+        start,
+        end,
+        correction: modal,
+        explanation: `Modal '${modal}' doesn't need 'to' after it`
       });
     }
   }
@@ -260,26 +271,30 @@ function patchModalAndTooUsage(text, issues) {
     const canStart = text.indexOf("to can", wholeStart);
     if (canStart !== -1 && !isAlreadyCovered(canStart, canStart + 6, issues)) {
       newIssues.push({
-        type: "grammar",
-        subtype: "modal_usage",
-        message: "to can → to be able to",
-        offsets: { start: canStart, end: canStart + 6 }
+        category: "grammar",
+        text: "to can",
+        start: canStart,
+        end: canStart + 6,
+        correction: "to be able to",
+        explanation: "Modal 'can' cannot follow 'to' - use 'be able to' instead"
       });
     }
 
     // (b) 'too' choice (only when it doesn't express excess)
     if (!isAlreadyCovered(wholeStart, wholeEnd, issues)) {
       newIssues.push({
-        type: "grammar",
-        subtype: "word_choice",
-        message: "too … (non-excess) → very/so …",
-        offsets: { start: wholeStart, end: wholeEnd }
+        category: "grammar",
+        text: m[0],
+        start: wholeStart,
+        end: wholeEnd,
+        correction: m[0].replace(/too/, "very").replace(/to can/, "to be able to"),
+        explanation: "Consider using 'very' or 'so' instead of 'too' when not expressing excess"
       });
     }
   }
 
   if (newIssues.length > 0) {
-    console.log(`Added ${newIssues.length} modal/too usage errors:`, newIssues.map(i => i.message));
+    console.log(`Added ${newIssues.length} modal/too usage errors:`, newIssues.map(i => `${i.text} → ${i.correction}`));
   }
 
   return [...issues, ...newIssues];
@@ -287,8 +302,56 @@ function patchModalAndTooUsage(text, issues) {
 
 function isAlreadyCovered(start, end, existingIssues) {
   return existingIssues.some(issue => {
-    if (!issue.offsets) return false;
+    // Handle both old (offsets) and new (start/end) formats
+    const issueStart = issue.offsets?.start ?? issue.start;
+    const issueEnd = issue.offsets?.end ?? issue.end;
+    if (issueStart === undefined || issueEnd === undefined) return false;
     // Check for any overlap
-    return !(start >= issue.offsets.end || end <= issue.offsets.start);
+    return !(start >= issueEnd || end <= issueStart);
   });
+}
+
+// Split overly long error spans into smaller, specific issues
+function splitLongSpans(text, issues) {
+  const newIssues = [];
+  const MAX_SPAN_LENGTH = 50; // characters
+  const MAX_WORD_COUNT = 10; // words
+  
+  for (const issue of issues) {
+    const start = issue.start || issue.offsets?.start;
+    const end = issue.end || issue.offsets?.end;
+    
+    if (start === undefined || end === undefined) {
+      newIssues.push(issue);
+      continue;
+    }
+    
+    const spanText = text.slice(start, end);
+    const wordCount = spanText.split(/\s+/).filter(word => word.length > 0).length;
+    const charLength = end - start;
+    
+    // If span is too long, mark it for manual review but don't auto-split
+    // (Auto-splitting could create incorrect error boundaries)
+    if (charLength > MAX_SPAN_LENGTH || wordCount > MAX_WORD_COUNT) {
+      console.warn(`⚠️ Long span detected (${wordCount} words, ${charLength} chars): "${spanText.substring(0, 50)}..."`);
+      console.warn(`   Category: ${issue.category}, Range: ${start}-${end}`);
+      
+      // Keep the original issue but add a warning flag
+      newIssues.push({
+        ...issue,
+        _warning: 'long_span',
+        _word_count: wordCount,
+        _char_length: charLength
+      });
+    } else {
+      newIssues.push(issue);
+    }
+  }
+  
+  const longSpanCount = newIssues.filter(issue => issue._warning === 'long_span').length;
+  if (longSpanCount > 0) {
+    console.warn(`🔍 Found ${longSpanCount} long spans that should be manually reviewed`);
+  }
+  
+  return newIssues;
 }
