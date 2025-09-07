@@ -1716,47 +1716,37 @@ app.post("/api/grade", async (req, res) => {
   console.log("Environment:", isVercel ? 'Vercel' : 'Local');
   
   try {
-    if (isVercel) {
-      // For Vercel, use the serverless-compatible grading
-      console.log("\n⚡ STARTING SERVERLESS GRADING...");
-      console.log("🔍 Looking for profile:", classProfile);
-      
-      // Get profile data
-      let profileData;
-      if (useDatabase && prisma) {
-        console.log("📊 Searching database for profile...");
-        profileData = await prisma.classProfile.findFirst({
-          where: { id: classProfile }
-        });
-        console.log("🎯 Database search result:", profileData ? "FOUND" : "NOT FOUND");
-      } else {
-        console.log("📁 Searching file system for profile...");
-        const profiles = await loadProfiles();
-        console.log("📋 Available profiles:", profiles.profiles?.map(p => p.id) || []);
-        profileData = profiles.profiles.find(p => p.id === classProfile);
-        console.log("🎯 File search result:", profileData ? "FOUND" : "NOT FOUND");
-      }
-      
-      if (!profileData) {
-        console.log("❌ Profile not found, returning 404");
-        return res.status(404).json({ error: "Class profile not found", requested: classProfile });
-      }
-      
-      console.log("✅ Profile found:", profileData.name);
-      console.log("🤖 Using FULL grading system for Vercel...");
-      
-      // Use the same full two-step grading system as local
-      const result = await gradeEssay(studentText, prompt, classProfile);
-      console.log("\n✅ FULL GRADING COMPLETED!");
-      res.json(result);
-      
+    console.log("\n⚡ STARTING UNIFIED GRADING SYSTEM...");
+    console.log("🔍 Looking for profile:", classProfile);
+    
+    // Get profile data (unified for both environments)
+    let profileData;
+    if (useDatabase && prisma) {
+      console.log("📊 Searching database for profile...");
+      profileData = await prisma.classProfile.findFirst({
+        where: { id: classProfile }
+      });
+      console.log("🎯 Database search result:", profileData ? "FOUND" : "NOT FOUND");
     } else {
-      // For local, use the full two-step grading system
-      console.log("\n⚡ STARTING LOCAL TWO-STEP GRADING...");
-      const result = await gradeEssay(studentText, prompt, classProfile);
-      console.log("\n✅ LOCAL GRADING COMPLETED!");
-      res.json(result);
+      console.log("📁 Searching file system for profile...");
+      const profiles = await loadProfiles();
+      console.log("📋 Available profiles:", profiles.profiles?.map(p => p.id) || []);
+      profileData = profiles.profiles.find(p => p.id === classProfile);
+      console.log("🎯 File search result:", profileData ? "FOUND" : "NOT FOUND");
     }
+    
+    if (!profileData) {
+      console.log("❌ Profile not found, returning 404");
+      return res.status(404).json({ error: "Class profile not found", requested: classProfile });
+    }
+    
+    console.log("✅ Profile found:", profileData.name);
+    console.log("🤖 Using UNIFIED grading system (identical local & Vercel)...");
+    
+    // Use unified grading system (works identically everywhere)
+    const result = await gradeEssayUnified(studentText, prompt, profileData);
+    console.log("\n✅ UNIFIED GRADING COMPLETED!");
+    res.json(result);
   } catch (error) {
     console.error("\n❌ GRADING ERROR:", error);
     console.error("Error stack:", error.stack);
@@ -1850,8 +1840,8 @@ app.post("/api/test-grade", async (req, res) => {
       grammar: ["present tense", "adjectives"]
     };
     
-    console.log("Testing serverless grading function...");
-    const result = await gradeEssayServerless(testText, testPrompt, testProfile);
+    console.log("Testing unified grading function...");
+    const result = await gradeEssayUnified(testText, testPrompt, testProfile);
     
     res.json({ success: true, result });
   } catch (error) {
@@ -1923,7 +1913,7 @@ app.post("/api/debug-grade", async (req, res) => {
       }
       
       console.log("Profile found, attempting grading...");
-      const result = await gradeEssayServerless(studentText, prompt, profileData);
+      const result = await gradeEssayUnified(studentText, prompt, profileData);
       
       res.json({
         success: true,
@@ -1957,66 +1947,175 @@ app.post("/api/debug-grade", async (req, res) => {
   }
 });
 
-// Serverless-compatible grading function
-async function gradeEssayServerless(studentText, prompt, profileData) {
-  console.log('=== STARTING SERVERLESS GRADING ===');
-  console.log('Profile data:', JSON.stringify(profileData, null, 2));
+// UNIFIED GRADING FUNCTION - Works identically local and Vercel
+async function gradeEssayUnified(studentText, prompt, profileData) {
+  console.log('=== STARTING UNIFIED TWO-STEP GRADING ===');
+  console.log('Profile:', profileData.name);
   console.log('Student text length:', studentText?.length);
-  console.log('Prompt:', prompt);
   
   try {
-    // Import OpenAI dynamically for serverless
-    console.log('📦 Importing OpenAI...');
+    // Import OpenAI dynamically for serverless compatibility
     const OpenAI = (await import("openai")).default;
-    console.log('✅ OpenAI imported successfully');
     
     if (!process.env.OPENAI_API_KEY) {
-      console.error('❌ OPENAI_API_KEY environment variable is missing');
       throw new Error("OPENAI_API_KEY environment variable is required");
     }
-    console.log('✅ OPENAI_API_KEY found (length:', process.env.OPENAI_API_KEY.length, ')');
     
-    console.log('🔑 Creating OpenAI client...');
     const openai = new OpenAI({
       apiKey: process.env.OPENAI_API_KEY,
     });
-    console.log('✅ OpenAI client created');
 
-    console.log('📝 Building grading prompt...');
-    const gradingPrompt = `You are an ESL teacher grading a ${profileData.cefrLevel}-level student essay.
+    // Embedded rubric data (from rubric.json) - no file dependencies!
+    const rubric = {
+      "categories": {
+        "grammar": {
+          "id": "grammar",
+          "name": "Grammar", 
+          "color": "#FF6B6B",
+          "backgroundColor": "#FFE5E5",
+          "weight": 15
+        },
+        "vocabulary": {
+          "id": "vocabulary",
+          "name": "Vocabulary",
+          "color": "#4ECDC4", 
+          "backgroundColor": "#E8F8F7",
+          "weight": 15
+        },
+        "spelling": {
+          "id": "spelling",
+          "name": "Spelling",
+          "color": "#45B7D1",
+          "backgroundColor": "#E3F2FD", 
+          "weight": 15
+        },
+        "mechanics": {
+          "id": "mechanics",
+          "name": "Mechanics & Punctuation",
+          "color": "#F7B731",
+          "backgroundColor": "#FFF8E1",
+          "weight": 15
+        },
+        "fluency": {
+          "id": "fluency", 
+          "name": "Fluency",
+          "color": "#A855F7",
+          "backgroundColor": "#F3E8FF",
+          "weight": 10
+        },
+        "layout": {
+          "id": "layout",
+          "name": "Layout & Follow Specs", 
+          "color": "#16A34A",
+          "backgroundColor": "#DCFCE7",
+          "weight": 15
+        },
+        "content": {
+          "id": "content",
+          "name": "Content & Information",
+          "color": "#DC2626", 
+          "backgroundColor": "#FEE2E2",
+          "weight": 15
+        }
+      }
+    };
+
+    console.log('🔍 STEP 1: Error Detection & Highlighting...');
+    
+    // STEP 1: Error Detection with color-coded highlighting
+    const errorDetectionPrompt = `Please grade the below essay and identify specific errors. You are good at analyzing natural language.
+
+Mark the essay using these categories:
+- grammar (tense, agreement, articles, word order, modal/auxiliary use)
+- mechanics-punctuation (capitalization, commas, periods, run-ons)  
+- spelling (misspellings)
+- vocabulary-structure (word choice, collocations)
+- needs-rephrasing (unclear sentence that needs restructuring)
+- redundancy
+- non-suitable-words (words that should be removed)
+- fluency (naturalness coaching)
 
 Class Profile: ${profileData.name}
-Expected Vocabulary: ${profileData.vocabulary.slice(0, 10).join(', ')}${profileData.vocabulary.length > 10 ? '...' : ''}
-Expected Grammar: ${profileData.grammar.slice(0, 5).join(', ')}${profileData.grammar.length > 5 ? '...' : ''}
+Expected Vocabulary: ${profileData.vocabulary.slice(0, 10).join(', ')}
+Expected Grammar: ${profileData.grammar.slice(0, 5).join(', ')}
+
+Student Essay:
+${studentText}
+
+For each error found, return this JSON format:
+{
+  "errors": [
+    {
+      "category": "grammar|mechanics-punctuation|spelling|vocabulary-structure|needs-rephrasing|redundancy|non-suitable-words|fluency",
+      "text": "exact text from essay with error",
+      "correction": "suggested correction",
+      "explanation": "brief explanation of the error"
+    }
+  ]
+}
+
+Return ONLY valid JSON.`;
+
+    const errorResponse = await openai.chat.completions.create({
+      model: "gpt-4o-mini",
+      messages: [{ role: "user", content: errorDetectionPrompt }],
+      temperature: 0.3,
+      max_tokens: 2000
+    });
+
+    let errorResults = { errors: [] };
+    try {
+      const errorText = errorResponse.choices[0].message.content;
+      const cleanedErrorText = errorText.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
+      errorResults = JSON.parse(cleanedErrorText);
+    } catch (e) {
+      console.warn('Error parsing error detection:', e.message);
+    }
+
+    console.log('🔍 Found', errorResults.errors?.length || 0, 'errors');
+    console.log('📊 STEP 2: Comprehensive Grading...');
+
+    // STEP 2: Comprehensive grading based on rubric
+    const gradingPrompt = `You are an ESL teacher grading a ${profileData.cefrLevel}-level student essay using a detailed rubric.
+
+Class Profile: ${profileData.name}
+Expected Vocabulary: ${profileData.vocabulary.join(', ')}
+Expected Grammar: ${profileData.grammar.join(', ')}
 
 Assignment Prompt: ${prompt}
 
 Student Essay:
 ${studentText}
 
-Grade this essay on a 100-point scale across these categories:
-- Grammar (25 points): Accuracy and complexity of grammar structures
-- Vocabulary (25 points): Use of appropriate and varied vocabulary  
-- Mechanics (25 points): Spelling, punctuation, capitalization, organization
-- Content (25 points): Task completion, coherence, and development
+Errors Found: ${JSON.stringify(errorResults.errors || [])}
 
-For each category, provide:
-1. Points earned (out of 25)
-2. Brief rationale (1-2 sentences)
+Grade this essay using the following rubric (total 100 points):
+- Grammar (15 points): Tenses, subject/verb agreement, structures from class
+- Vocabulary (15 points): Correct use of class vocabulary  
+- Spelling (15 points): Accuracy of spelling
+- Mechanics & Punctuation (15 points): Capitalization, commas, periods
+- Fluency (10 points): Organization and logical flow
+- Layout & Specs (15 points): Structure, length, transition words
+- Content & Information (15 points): Completeness and relevance of ideas
 
+For each category, provide points earned and brief rationale.
 Also identify:
 - Word count
-- Class vocabulary words used (from the vocabulary list)
-- Grammar structures demonstrated
+- Class vocabulary words used
+- Grammar structures demonstrated  
+- Transition words found
 
-Return ONLY valid JSON in this exact format:
+Return ONLY this JSON format:
 {
-  "total": {"points": [sum], "out_of": 100},
+  "total": {"points": [total], "out_of": 100},
   "scores": {
-    "grammar": {"points": [0-25], "out_of": 25, "rationale": "..."},
-    "vocabulary": {"points": [0-25], "out_of": 25, "rationale": "..."},
-    "mechanics": {"points": [0-25], "out_of": 25, "rationale": "..."},
-    "content": {"points": [0-25], "out_of": 25, "rationale": "..."}
+    "grammar": {"points": [0-15], "out_of": 15, "rationale": "..."},
+    "vocabulary": {"points": [0-15], "out_of": 15, "rationale": "..."},
+    "spelling": {"points": [0-15], "out_of": 15, "rationale": "..."},
+    "mechanics": {"points": [0-15], "out_of": 15, "rationale": "..."},
+    "fluency": {"points": [0-10], "out_of": 10, "rationale": "..."},
+    "layout": {"points": [0-15], "out_of": 15, "rationale": "..."},
+    "content": {"points": [0-15], "out_of": 15, "rationale": "..."}
   },
   "teacher_notes": "Overall feedback...",
   "meta": {
@@ -2027,42 +2126,30 @@ Return ONLY valid JSON in this exact format:
   }
 }`;
 
-    console.log('✅ Grading prompt built (length:', gradingPrompt.length, ')');
-    console.log('🤖 Calling OpenAI API...');
-    
-    const response = await openai.chat.completions.create({
-      model: "gpt-4o-mini",
+    const gradingResponse = await openai.chat.completions.create({
+      model: "gpt-4o-mini", 
       messages: [{ role: "user", content: gradingPrompt }],
       temperature: 0.3,
       max_tokens: 2000
     });
 
-    console.log('✅ OpenAI API response received');
-    console.log('Response usage:', response.usage);
-    
-    const gradingText = response.choices[0].message.content;
-    console.log('📄 Raw OpenAI response:', gradingText.substring(0, 200) + '...');
-    
-    // Parse the JSON response
-    console.log('🔄 Parsing JSON response...');
-    const cleanedResponse = gradingText.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
-    console.log('🧹 Cleaned response:', cleanedResponse.substring(0, 200) + '...');
-    
-    const result = JSON.parse(cleanedResponse);
-    console.log('✅ JSON parsed successfully');
-    
-    // Ensure total is calculated correctly
-    const totalPoints = Object.values(result.scores).reduce((sum, score) => sum + score.points, 0);
-    result.total = { points: totalPoints, out_of: 100 };
-    
-    console.log('🎯 Final result total:', result.total);
-    console.log('=== SERVERLESS GRADING COMPLETED ===');
-    
-    return result;
+    const gradingText = gradingResponse.choices[0].message.content;
+    const cleanedGrading = gradingText.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
+    const gradingResult = JSON.parse(cleanedGrading);
+
+    // Calculate total points correctly
+    const totalPoints = Object.values(gradingResult.scores).reduce((sum, score) => sum + score.points, 0);
+    gradingResult.total = { points: totalPoints, out_of: 100 };
+
+    // Add error detection results for highlighting
+    gradingResult.errors = errorResults.errors || [];
+    gradingResult.rubric = rubric;
+
+    console.log('✅ UNIFIED GRADING COMPLETED:', gradingResult.total);
+    return gradingResult;
     
   } catch (error) {
-    console.error('❌ SERVERLESS GRADING ERROR:', error);
-    console.error('Error stack:', error.stack);
+    console.error('❌ UNIFIED GRADING ERROR:', error);
     throw error;
   }
 }
