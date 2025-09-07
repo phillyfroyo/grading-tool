@@ -29,10 +29,46 @@ export async function gradeEssay(studentText, prompt, classProfileId) {
   const levelInfo = rubric.cefr_levels[cefrLevel] || rubric.cefr_levels['C1'];
   const categories = Object.keys(rubric.categories);
   
-  const systemPrompt = `You are an expert ESL writing grader following university standards. 
+  const systemPrompt = `You are an expert ESL writing grader with TWO SEPARATE RESPONSIBILITIES:
+
+═══════════════════════════════════════════════════════════════════════════════
+PART A: COLOR-CODED ESSAY MARKINGS (AGGRESSIVE ERROR DETECTION)
+═══════════════════════════════════════════════════════════════════════════════
+
+Be EXTREMELY AGGRESSIVE and comprehensive in error detection for the inline_issues array.
+
+MARK EVERY SINGLE ISSUE including:
+- Grammar errors (even minor ones)
+- Awkward phrasing and unnatural expressions  
+- Spelling mistakes
+- Punctuation problems
+- Vocabulary misuse
+- Style issues
+- Any deviation from natural English
+
+MARKING POLICY:
+- If unsure whether something is an error, MARK IT ANYWAY and explain why
+- Do NOT consider mercy or leniency here - the goal is to TEACH and highlight, not to grade
+- Mark borderline cases - err on the side of being too strict rather than missing errors
+- This is like a teacher circling every mistake in red pen
+
+CORRECTION GUIDE CATEGORIES (for inline_issues):
+- "grammar" (subject-verb agreement, tenses, articles, etc.)
+- "mechanics-punctuation" (punctuation, capitalization, run-on sentences)  
+- "redundancy" (repetitive words/phrases)
+- "vocabulary-structure" (word choice, collocations, awkward phrasing)
+- "needs-rephrasing" (unclear sentences that need restructuring)
+- "non-suitable-words" (inappropriate word choices)
+- "spelling" (misspellings and typos)
+- "fluency" (natural language coaching - coaching_only: true)
+- "professor-comments" (general feedback)
+
+═══════════════════════════════════════════════════════════════════════════════
+PART B: CATEGORY SCORING (MERCIFUL GRADING)  
+═══════════════════════════════════════════════════════════════════════════════
 
 CEFR Level: ${cefrLevel} (${levelInfo.name})
-Strictness: ${levelInfo.description}
+Grading Approach: ${levelInfo.description}
 
 ZERO SCORE RULES (automatic 0 if any apply):
 ${rubric.zero_rules.map(rule => `- ${rule}`).join('\n')}
@@ -51,14 +87,25 @@ CLASS-SPECIFIC REQUIREMENTS:
 VOCABULARY TAUGHT IN CLASS (must be counted specifically):
 ${classProfile.vocabulary.join(', ')}
 
-GRAMMAR STRUCTURES TAUGHT IN CLASS (must be identified and counted):
+GRAMMAR STRUCTURES TAUGHT IN CLASS (must be identified and counted BY OCCURRENCE):
 ${classProfile.grammar.join(', ')}
+CRITICAL: Count EACH individual use, not just categories. If "Present Perfect" appears 3 times, report "Present Perfect: 3 occurrences"
 
-CORRECTION DEPTH & POLICY (teach, don't rewrite):
+CORRECTION DEPTH & POLICY:
 
-Goal: produce a minimally corrected version that is grammatical and faithful to the student's meaning.
+Goal: mark all errors that fall into one of the correction guide categories. The corrections must be grammatical while remaining faithful to the student's meaning.
 
-Do NOT fully rewrite sentences for style. Only fix objective errors (grammar, spelling, mechanics, articles, prepositions, agreement, basic word order, proper-noun capitalization).
+*"When deciding whether to mark something as grammar or fluency:
+
+If it is ungrammatical → always grammar.
+
+If it is grammatical but awkward → fluency (coaching_only).
+
+If unsure → grammar."*
+
+Always mark truly incorrect grammar
+
+In the color-coded essay, mark phrases that use unnatural or awkward English without reducing the grade.
 
 Keep the student's clause order unless ungrammatical.
 
@@ -70,8 +117,6 @@ Prefer atomic edits (replace/insert/delete short spans). Avoid adding new ideas.
 
 Proper nouns must be capitalized (e.g., Interstellar, Christopher Nolan).
 
-"soundtrack" is one word; fix common film terms.
-
 Sentence Repair Order (apply in this order, then stop):
 1. Capitalization & punctuation (proper nouns, sentence starts)
 2. Articles/determiners for singular count nouns (a/an/the)
@@ -80,18 +125,15 @@ Sentence Repair Order (apply in this order, then stop):
 5. High-confidence vocabulary misuses (history → story)
 6. Split run-ons only when necessary for grammar
 
-"Too broken" rule: If a sentence is beyond minimal repair without inventing content, perform the smallest grammatical repair you can and explain the rest in feedback.
+SCORING LENIENCY RULES (PART B ONLY - DO NOT APPLY TO PART A MARKINGS):
 
-IMPORTANT: Apply leniency_mode=easy for merciful but thorough grading:
-
-LENIENCY RULES:
-• Mark every error with gentle explanation and suggested fix
 • Do not assign lowest band unless comprehension is impeded  
 • Cap per-category deductions for frequent minor issues at -40% of category weight
 • If word count within target ±25 words, don't drop Layout below middle band solely for transitions
 • If no class vocabulary provided, don't penalize - evaluate natural variety instead
-• Always include 2 positives before critical feedback in each category (praise-then-coach)
+• Try to include 2 positives before critical feedback in each category (praise-then-coach)
 • Set soft floor of 80/100 unless comprehension broken, off-topic, or zero-rule triggered
+• Be merciful and supportive in score assignment - even if many errors are marked in Part A
 
 PERFECT PERFORMANCE RULE:
 • If no errors are found in a category, award FULL POINTS (15/15 for major categories, 10/10 for fluency)
@@ -153,9 +195,8 @@ CRITICAL: Return ONLY valid JSON - no markdown, no code blocks, no extra text. J
 {
   "meta": {
     "word_count": 109,
-    "transition_words_found": ["then", "unfortunately", "also"],
     "class_vocabulary_used": ["stakeholder", "revenue"] OR "N/A (no list provided)",
-    "grammar_structures_used": ["Present Perfect", "Conditionals"]
+    "grammar_structures_used": ["Present Perfect: 2 occurrences", "Conditionals: 3 occurrences"]
   },
   "corrected_text_minimal": "<string>",
   "suggested_polish_one_sentence": "<string>",
@@ -163,16 +204,17 @@ CRITICAL: Return ONLY valid JSON - no markdown, no code blocks, no extra text. J
     "grammar": {"points": 11, "out_of": 15, "rationale": "Add past tense consistency: 'went' not 'go'. Try: 'Last Friday, I went to school early.' This makes the timeline clearer."},
     "vocabulary": {"points": 11, "out_of": 15, "rationale": "Use more descriptive words: 'interesting' → 'fascinating'. Try: 'The fascinating movie kept us engaged.' This adds more impact."},
     "spelling": {"points": 12, "out_of": 15, "rationale": "You're doing well with spelling accuracy. Fix: 'wekend' → 'weekend'. Try: 'Last weekend was amazing.' This avoids confusion."},
-    "mechanics": {"points": 10, "out_of": 15, "rationale": "Add periods to avoid run-ons: split long sentences. Try: 'I went home. Then I played games.' This makes ideas clearer."},
+    "mechanics-punctuation": {"points": 10, "out_of": 15, "rationale": "Add periods to avoid run-ons: split long sentences. Try: 'I went home. Then I played games.' This makes ideas clearer."},
     "fluency": {"points": 7, "out_of": 10, "rationale": "Connect ideas better with transitions: 'then, afterward, finally'. Try: 'First I studied, then I relaxed.' This guides the reader."},
     "layout": {"points": 12, "out_of": 15, "rationale": "Add 2-3 more transitions for smooth flow. Try adding: 'moreover, however, in conclusion.' This improves readability."},
     "content": {"points": 13, "out_of": 15, "rationale": "Nice work developing your personal story. Add more specific details: what games? which friends? Try: 'I played chess with my neighbor Tom.' This makes it more vivid."}
   },
-  "total": {"points": 76, "out_of": 100},
+  "total": {"points": [calculated_total], "out_of": 100},
   "inline_issues": [
     {"type": "spelling", "subtype": "misspelling", "message": "wekend→weekend", "offsets": {"start": 8, "end": 14}},
     {"type": "grammar", "subtype": "tense", "message": "go→went (past tense)", "offsets": {"start": 16, "end": 18}},
-    {"type": "mechanics", "subtype": "run_on", "message": "Split into two sentences", "offsets": {"start": 55, "end": 86}}
+    {"type": "mechanics-punctuation", "subtype": "run_on", "message": "Split into two sentences", "offsets": {"start": 55, "end": 86}},
+    {"type": "fluency", "subtype": "naturalness", "message": "Consider replacing 'it's a light movie' with 'it's an easy movie' for more natural phrasing.", "offsets": {"start": 90, "end": 105}, "coaching_only": true}
   ],
   "teacher_notes": "Clear day-by-day story with good personal details. Nice effort on organization!",
   "encouragement_next_steps": [
@@ -182,7 +224,88 @@ CRITICAL: Return ONLY valid JSON - no markdown, no code blocks, no extra text. J
   ]
 }
 
-Categories must be exactly: grammar, vocabulary, spelling, mechanics, fluency, layout, content
+Categories for scores must be exactly: grammar, vocabulary, spelling, mechanics-punctuation, fluency, layout, content
+
+IMPORTANT: For inline_issues, use these correction guide categories:
+- "grammar" (verb tenses, agreement, structures, word order)
+- "mechanics-punctuation" (punctuation, capitalization, run-on sentences)  
+- "spelling" (misspellings)
+- "vocabulary-structure" (word choice, collocations, awkward phrasing)
+- "needs-rephrasing" (unclear sentences that need restructuring)
+- "redundancy" (repetitive words/phrases)
+- "non-suitable-words" (inappropriate word choices)
+- "fluency" (natural language coaching - see special instructions below)
+- "professor-comments" (general feedback, suggestions for improvement)
+
+ERROR CLASSIFICATION RULES — GRAMMAR VS FLUENCY
+
+This clarifies the exact decision process for GPT.
+
+Always mark truly incorrect grammar as grammar.
+
+Examples:
+- "too happy to can talk" → "very happy to be able to talk" or "so happy I can talk"
+- "she go to school yesterday" → "she went to school yesterday"
+- "I have 20 year old" → "I am 20 years old"
+
+Grammar mistakes must always be highlighted, even if the sentence could be interpreted.
+
+Use fluency only when grammar is correct but phrasing is unnatural.
+
+Examples:
+- "even when this show is from the 90s" → "even though this show is from the 90s"
+- "it's a light show to watch" → "it's an easy show to watch"
+- "he talks very loud" → "he talks very loudly"
+
+Priority rule:
+If you're unsure whether something is a grammar error or a fluency issue, treat it as grammar.
+Do NOT leave ungrammatical text unmarked.
+
+MODAL VERB & AUXILIARY CHECKS (MANDATORY)
+
+Always flag:
+
+Incorrect modal combinations:
+- "to can" → "to be able to"
+- "must to" → "must"
+- "should to" → "should"
+
+Missing auxiliary verbs:
+- "He going to school" → "He is going to school"
+- "She reading a book" → "She is reading a book"
+
+COACHING-ONLY ISSUES
+
+Natural language improvements should appear inline with type: fluency and "coaching_only": true.
+
+These do NOT affect grades but show up in the color-coded essay for teaching purposes.
+
+Example JSON output:
+{
+  "type": "fluency",
+  "subtype": "naturalness",
+  "message": "Consider replacing 'even when this show is from the 90s' with 'even though this show is from the 90s'",
+  "offsets": {"start": 55, "end": 84},
+  "coaching_only": true
+}
+
+FLUENCY COACHING (NATURAL LANGUAGE IMPROVEMENT):
+Detect awkward or unnatural phrasing where a more natural alternative would sound better, even if the original is grammatically correct.
+
+Examples:
+- "even when this show is from the 90s" → "even though this show is from the 90s"
+- "it's a light show to watch" → "it's an easy show to watch"
+- "people like very much this movie" → "people like this movie a lot"
+- "I am interesting in this topic" → "I am interested in this topic"
+- "This is very much important" → "This is very important"
+
+For fluency suggestions, use:
+- type: "fluency"
+- subtype: "naturalness" 
+- coaching_only: true
+- message: "Consider replacing '[original]' with '[suggestion]' for more natural phrasing."
+
+CRITICAL: DO NOT deduct points for fluency suggestions - they are coaching-only improvements.
 
 For ${cefrLevel} level, apply ${levelInfo.strictness_modifier}x strictness modifier (more lenient for B2).`;
 
@@ -220,9 +343,11 @@ STEP 3: OPTIONAL POLISH (coaching only)
 Produce suggested_polish_one_sentence: choose one representative sentence and show a more natural rewrite (coaching), but do not rewrite the whole essay.
 
 STEP 4: GRADING ANALYSIS
-1. Count total words and identify ALL transition words used
+1. Count total words (transitions will be detected automatically)
 2. Identify and count vocabulary from class list: ${classProfile.vocabulary.join(', ')}
-3. Identify and count grammar structures from class: ${classProfile.grammar.join(', ')}
+3. Identify and count ALL OCCURRENCES of grammar structures from class: ${classProfile.grammar.join(', ')} 
+   IMPORTANT: Count EACH individual use/occurrence, not just whether the category appears
+   Example: If student uses "have done" twice and "has finished" once, report "Present Perfect: 3 occurrences"
 4. Grade according to ${cefrLevel} expectations for ${classProfile.name}
 
 IMPORTANT: For inline_issues, you must find ALL errors, not just examples. Students need to see every mistake highlighted for learning. Include tense errors like "rest" → "rested", "order" → "ordered", BUT check collocation preferences first.
@@ -256,7 +381,7 @@ PAST TENSE CONTEXT DETECTION: If the essay contains past time markers ("past wee
 Be comprehensive in error detection but merciful in scoring.`,
       },
     ],
-    temperature: 0.2,
+    temperature: 0.35,
   });
 
   try {
@@ -267,10 +392,28 @@ Be comprehensive in error detection but merciful in scoring.`,
     
     const result = JSON.parse(content);
     
+    // Add transition word detection locally (more reliable than GPT)
+    const detectedTransitions = detectTransitionWords(studentText);
+    console.log("=== DEBUG: Transition Detection ===");
+    console.log("Student text length:", studentText.length);
+    console.log("First 200 chars:", studentText.substring(0, 200));
+    console.log("Detected transitions:", detectedTransitions);
+    
+    if (!result.meta) result.meta = {};
+    result.meta.transition_words_found = detectedTransitions;
+    
+    // Add class vocabulary detection locally
+    const detectedVocab = detectClassVocabulary(studentText, classProfile.vocabulary);
+    console.log("=== DEBUG: Vocabulary Detection ===");
+    console.log("Class vocabulary count:", classProfile.vocabulary.length);
+    console.log("Detected vocabulary:", detectedVocab);
+    result.meta.class_vocabulary_used = detectedVocab.length > 0 ? detectedVocab : "N/A (no matches found)";
+    
     // Safety net: Add missing common errors
     if (result.inline_issues) {
       result.inline_issues = patchHomeworkCollocations(studentText, result.inline_issues);
       result.inline_issues = patchCommonErrors(studentText, result.inline_issues);
+      result.inline_issues = patchModalAndTooUsage(studentText, result.inline_issues);
     }
     
     // Debug: Log the inline issues to see what GPT is providing
@@ -348,7 +491,7 @@ function patchHomeworkCollocations(text, issues) {
     if (!alreadyCovered) {
       console.log(`Adding missing homework collocation: "${fullMatch}" → "${suggestion}" (past context: ${isPastContext})`);
       issues.push({
-        type: "vocabulary",
+        type: "vocabulary-structure",
         subtype: "collocation", 
         message: `${fullMatch}→${suggestion}`,
         offsets: { 
@@ -372,7 +515,7 @@ function patchCommonErrors(text, issues) {
   for (const match of text.matchAll(iRegex)) {
     if (!isAlreadyCovered(match.index + 1, match.index + 2, issues)) {
       newIssues.push({
-        type: "mechanics",
+        type: "mechanics-punctuation",
         subtype: "capitalization",
         message: "i→I",
         offsets: { start: match.index + 1, end: match.index + 2 }
@@ -388,7 +531,7 @@ function patchCommonErrors(text, issues) {
     
     if (day !== properDay && !isAlreadyCovered(match.index, match.index + day.length, issues)) {
       newIssues.push({
-        type: "mechanics",
+        type: "mechanics-punctuation",
         subtype: "capitalization", 
         message: `${day}→${properDay}`,
         offsets: { start: match.index, end: match.index + day.length }
@@ -405,7 +548,7 @@ function patchCommonErrors(text, issues) {
     
     if (!phrase.includes(',') && !isAlreadyCovered(commaPos, commaPos + 1, issues)) {
       newIssues.push({
-        type: "mechanics",
+        type: "mechanics-punctuation",
         subtype: "comma",
         message: `Add comma after "${introWord}"`,
         offsets: { start: commaPos, end: commaPos + 1 }
@@ -420,7 +563,7 @@ function patchCommonErrors(text, issues) {
     const corrected = phrase.replace(/\s+to\s+/, ' for ');
     if (!isAlreadyCovered(match.index, match.index + phrase.length, issues)) {
       newIssues.push({
-        type: "grammar",
+        type: "vocabulary-structure",
         subtype: "preposition",
         message: `${phrase}→${corrected}`,
         offsets: { start: match.index, end: match.index + phrase.length }
@@ -509,10 +652,370 @@ function patchCommonErrors(text, issues) {
   return [...issues, ...newIssues];
 }
 
+function patchModalAndTooUsage(text, issues) {
+  const newIssues = [];
+
+  // 1) 'to can' → 'to be able to'
+  for (const m of text.matchAll(/\bto\s+can\b/gi)) {
+    const start = m.index, end = start + m[0].length;
+    if (!isAlreadyCovered(start, end, issues)) {
+      newIssues.push({
+        type: "grammar",
+        subtype: "modal_usage",
+        message: "to can → to be able to",
+        offsets: { start, end }
+      });
+    }
+  }
+
+  // 2) 'must to' / 'should to' → 'must' / 'should'
+  for (const m of text.matchAll(/\b(must|should)\s+to\b/gi)) {
+    const start = m.index, end = start + m[0].length;
+    const modal = m[1].toLowerCase();
+    if (!isAlreadyCovered(start, end, issues)) {
+      newIssues.push({
+        type: "grammar",
+        subtype: "modal_usage",
+        message: `${modal} to → ${modal}`,
+        offsets: { start, end }
+      });
+    }
+  }
+
+  // 3) "too ADJ to can VERB" → flag both parts
+  for (const m of text.matchAll(/\btoo\s+([a-z]+)\s+to\s+can\s+([a-z]+)\b/gi)) {
+    const wholeStart = m.index, wholeEnd = wholeStart + m[0].length;
+
+    // (a) modal fix
+    const canStart = text.indexOf("to can", wholeStart);
+    if (canStart !== -1 && !isAlreadyCovered(canStart, canStart + 6, issues)) {
+      newIssues.push({
+        type: "grammar",
+        subtype: "modal_usage",
+        message: "to can → to be able to",
+        offsets: { start: canStart, end: canStart + 6 }
+      });
+    }
+
+    // (b) 'too' choice (only when it doesn't express excess)
+    if (!isAlreadyCovered(wholeStart, wholeEnd, issues)) {
+      newIssues.push({
+        type: "grammar",
+        subtype: "word_choice",
+        message: "too … (non-excess) → very/so …",
+        offsets: { start: wholeStart, end: wholeEnd }
+      });
+    }
+  }
+
+  if (newIssues.length > 0) {
+    console.log(`Added ${newIssues.length} modal/too usage errors:`, newIssues.map(i => i.message));
+  }
+
+  return [...issues, ...newIssues];
+}
+
 function isAlreadyCovered(start, end, existingIssues) {
   return existingIssues.some(issue => {
     if (!issue.offsets) return false;
     // Check for any overlap
     return !(start >= issue.offsets.end || end <= issue.offsets.start);
   });
+}
+
+// Helper function for fuzzy string matching
+function levenshteinDistance(str1, str2) {
+  const matrix = [];
+  
+  for (let i = 0; i <= str2.length; i++) {
+    matrix[i] = [i];
+  }
+  
+  for (let j = 0; j <= str1.length; j++) {
+    matrix[0][j] = j;
+  }
+  
+  for (let i = 1; i <= str2.length; i++) {
+    for (let j = 1; j <= str1.length; j++) {
+      if (str2.charAt(i - 1) === str1.charAt(j - 1)) {
+        matrix[i][j] = matrix[i - 1][j - 1];
+      } else {
+        matrix[i][j] = Math.min(
+          matrix[i - 1][j - 1] + 1, // substitution
+          matrix[i][j - 1] + 1,     // insertion
+          matrix[i - 1][j] + 1      // deletion
+        );
+      }
+    }
+  }
+  
+  return matrix[str2.length][str1.length];
+}
+
+function detectTransitionWords(text) {
+  // Comprehensive list of transition words and phrases
+  const transitionWords = {
+    // Sequence/Time
+    sequence: ['first', 'first of all', 'firstly', 'second', 'secondly', 'third', 'thirdly', 'then', 'next', 'after', 'before', 'during', 'while', 'when', 'finally', 'eventually', 'meanwhile', 'simultaneously', 'afterward', 'afterwards', 'later', 'soon', 'previously', 'formerly', 'initially', 'ultimately', 'subsequently'],
+    
+    // Addition
+    addition: ['also', 'and', 'furthermore', 'moreover', 'in addition', 'additionally', 'besides', 'plus', 'as well as', 'too', 'again', 'another', 'along with', 'likewise', 'similarly'],
+    
+    // Contrast/Opposition  
+    contrast: ['but', 'however', 'although', 'though', 'even though', 'despite', 'in spite of', 'nevertheless', 'nonetheless', 'on the other hand', 'in contrast', 'conversely', 'whereas', 'while', 'yet', 'still', 'otherwise', 'instead'],
+    
+    // Cause/Effect
+    causality: ['because', 'since', 'therefore', 'thus', 'consequently', 'as a result', 'so', 'hence', 'accordingly', 'due to', 'owing to', 'for this reason', 'that is why', 'leads to', 'causes', 'results in'],
+    
+    // Example/Emphasis
+    example: ['for example', 'for instance', 'such as', 'including', 'especially', 'particularly', 'notably', 'specifically', 'in fact', 'indeed', 'certainly', 'clearly', 'obviously'],
+    
+    // Conclusion
+    conclusion: ['in conclusion', 'to conclude', 'in summary', 'to summarize', 'overall', 'all in all', 'in short', 'briefly', 'to sum up', 'on the whole', 'generally', 'basically'],
+    
+    // Comparison
+    comparison: ['like', 'unlike', 'similar to', 'different from', 'compared to', 'in comparison', 'equally', 'both', 'neither', 'either'],
+    
+    // Frequency
+    frequency: ['always', 'usually', 'often', 'sometimes', 'occasionally', 'rarely', 'never', 'frequently', 'seldom', 'hardly ever', 'once in a while']
+  };
+
+  // Flatten all transition words into a single array
+  const allTransitions = Object.values(transitionWords).flat();
+  
+  const foundTransitions = [];
+  
+  // First pass: Exact matches (case insensitive, word boundaries)
+  allTransitions.forEach(transition => {
+    // Handle multi-word transitions (like "in addition")
+    const escapedTransition = transition.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const pattern = new RegExp(`\\b${escapedTransition}\\b`, 'gi');
+    
+    const matches = [...text.matchAll(pattern)];
+    matches.forEach(match => {
+      // Avoid duplicates
+      if (!foundTransitions.some(t => t.word === match[0].toLowerCase() && t.position === match.index)) {
+        foundTransitions.push({
+          word: match[0].toLowerCase(),
+          position: match.index,
+          category: Object.keys(transitionWords).find(cat => 
+            transitionWords[cat].includes(transition.toLowerCase())
+          ),
+          original: match[0]
+        });
+      }
+    });
+  });
+  
+  // Second pass: Fuzzy matching for single-word transitions only (to avoid false positives with phrases)
+  const singleWordTransitions = allTransitions.filter(t => !t.includes(' '));
+  const words = text.match(/\b[a-zA-Z]+\b/g) || [];
+  
+  words.forEach((word, wordIndex) => {
+    const wordLower = word.toLowerCase();
+    
+    // Skip if already found as exact match
+    if (foundTransitions.some(t => t.original.toLowerCase() === wordLower)) {
+      return;
+    }
+    
+    singleWordTransitions.forEach(transition => {
+      const distance = levenshteinDistance(wordLower, transition.toLowerCase());
+      const maxDistance = transition.length <= 4 ? 1 : 2; // Allow 1 error for short words, 2 for longer
+      
+      if (distance > 0 && distance <= maxDistance) {
+        // Get word position in original text
+        const wordPattern = new RegExp(`\\b${word.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`, 'gi');
+        const wordMatches = [...text.matchAll(wordPattern)];
+        
+        wordMatches.forEach(match => {
+          // Avoid duplicates and don't add if we already found a closer match
+          if (!foundTransitions.some(t => Math.abs(t.position - match.index) < 10)) {
+            foundTransitions.push({
+              word: transition.toLowerCase(),
+              position: match.index,
+              category: Object.keys(transitionWords).find(cat => 
+                transitionWords[cat].includes(transition.toLowerCase())
+              ),
+              original: match[0],
+              misspelled: true,
+              corrected_from: word
+            });
+          }
+        });
+      }
+    });
+  });
+  
+  // Sort by position in text
+  foundTransitions.sort((a, b) => a.position - b.position);
+  
+  // Debug output for misspelled transitions
+  const misspelledTransitions = foundTransitions.filter(t => t.misspelled);
+  if (misspelledTransitions.length > 0) {
+    console.log("=== DEBUG: Misspelled Transitions Found ===");
+    misspelledTransitions.forEach(t => {
+      console.log(`"${t.corrected_from}" → "${t.word}" (${t.category})`);
+    });
+  }
+  
+  // Return just the words for compatibility with existing code
+  return foundTransitions.map(t => t.word);
+}
+
+function detectClassVocabulary(text, classVocabulary) {
+  if (!classVocabulary || classVocabulary.length === 0) {
+    return [];
+  }
+  
+  const foundVocab = [];
+  const textLower = text.toLowerCase();
+  
+  // Separate exact words, prefixes, and suffixes
+  const exactWords = [];
+  const prefixes = [];
+  const suffixes = [];
+  
+  let currentSection = 'words';
+  
+  for (const item of classVocabulary) {
+    const itemLower = item.toLowerCase().trim();
+    
+    if (itemLower.includes('prefixes')) {
+      currentSection = 'prefixes';
+      continue;
+    } else if (itemLower.includes('suffixes')) {
+      currentSection = 'suffixes';
+      continue;
+    }
+    
+    if (currentSection === 'prefixes' && itemLower.endsWith('-')) {
+      // Handle compound prefixes like "in-/im-/il-/ir-"
+      const prefixParts = itemLower.replace('-', '').split('/');
+      prefixParts.forEach(part => {
+        const cleanPart = part.replace(/-/g, '').trim();
+        if (cleanPart.length > 0) {
+          prefixes.push(cleanPart);
+        }
+      });
+    } else if (currentSection === 'suffixes' && itemLower.startsWith('-')) {
+      suffixes.push(itemLower.replace('-', '').replace(/,.*$/, '').trim()); // Handle cases like "-able, -ible"
+    } else if (currentSection === 'words') {
+      exactWords.push(item);
+    }
+  }
+  
+  // Find exact word matches (case insensitive)
+  exactWords.forEach(word => {
+    const wordLower = word.toLowerCase();
+    const regex = new RegExp(`\\b${wordLower.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`, 'gi');
+    const matches = [...text.matchAll(regex)];
+    
+    matches.forEach(match => {
+      if (!foundVocab.some(v => v.word.toLowerCase() === match[0].toLowerCase() && v.position === match.index)) {
+        foundVocab.push({
+          word: match[0],
+          position: match.index,
+          type: 'exact',
+          matchedFrom: word
+        });
+      }
+    });
+  });
+  
+  // Find fuzzy matches for exact words (only single words to avoid false positives with phrases)
+  const singleWordVocab = exactWords.filter(word => !word.includes(' ') && word.length > 3); // Only check words longer than 3 chars
+  const textWords = text.match(/\b[a-zA-Z]+\b/g) || [];
+  
+  textWords.forEach(textWord => {
+    const textWordLower = textWord.toLowerCase();
+    
+    // Skip if already found as exact match
+    if (foundVocab.some(v => v.word.toLowerCase() === textWordLower)) {
+      return;
+    }
+    
+    singleWordVocab.forEach(vocabWord => {
+      const vocabWordLower = vocabWord.toLowerCase();
+      const distance = levenshteinDistance(textWordLower, vocabWordLower);
+      const maxDistance = vocabWord.length <= 5 ? 1 : 2; // Allow 1 error for short words, 2 for longer
+      
+      if (distance > 0 && distance <= maxDistance) {
+        // Get word position in original text
+        const wordPattern = new RegExp(`\\b${textWord.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`, 'gi');
+        const wordMatches = [...text.matchAll(wordPattern)];
+        
+        wordMatches.forEach(match => {
+          // Avoid duplicates and don't add if we already found a closer match
+          if (!foundVocab.some(v => Math.abs(v.position - match.index) < 5)) {
+            foundVocab.push({
+              word: vocabWord, // Use the correct vocabulary word
+              position: match.index,
+              type: 'exact_fuzzy',
+              matchedFrom: vocabWord,
+              misspelled: true,
+              corrected_from: textWord
+            });
+          }
+        });
+      }
+    });
+  });
+  
+  // Find prefix matches
+  prefixes.forEach(prefix => {
+    // Look for words that start with this prefix
+    const regex = new RegExp(`\\b${prefix}[a-zA-Z]+\\b`, 'gi');
+    const matches = [...text.matchAll(regex)];
+    
+    matches.forEach(match => {
+      const word = match[0];
+      if (!foundVocab.some(v => v.word.toLowerCase() === word.toLowerCase() && v.position === match.index)) {
+        foundVocab.push({
+          word: word,
+          position: match.index,
+          type: 'prefix',
+          matchedFrom: prefix + '-'
+        });
+      }
+    });
+  });
+  
+  // Find suffix matches
+  suffixes.forEach(suffix => {
+    // Handle compound suffixes like "able, ible" or "tion, sion"
+    const suffixVariants = suffix.split(',').map(s => s.trim());
+    
+    suffixVariants.forEach(variant => {
+      if (variant && variant.length > 1) {
+        const regex = new RegExp(`\\b[a-zA-Z]+${variant}\\b`, 'gi');
+        const matches = [...text.matchAll(regex)];
+        
+        matches.forEach(match => {
+          const word = match[0];
+          if (!foundVocab.some(v => v.word.toLowerCase() === word.toLowerCase() && v.position === match.index)) {
+            foundVocab.push({
+              word: word,
+              position: match.index,
+              type: 'suffix',
+              matchedFrom: '-' + variant
+            });
+          }
+        });
+      }
+    });
+  });
+  
+  // Debug output for misspelled vocabulary
+  const misspelledVocab = foundVocab.filter(v => v.misspelled);
+  if (misspelledVocab.length > 0) {
+    console.log("=== DEBUG: Misspelled Vocabulary Found ===");
+    misspelledVocab.forEach(v => {
+      console.log(`"${v.corrected_from}" → "${v.word}" (${v.type})`);
+    });
+  }
+  
+  // Sort by position and return just the words
+  foundVocab.sort((a, b) => a.position - b.position);
+  return foundVocab.map(v => v.word);
 }
