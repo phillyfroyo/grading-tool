@@ -1571,12 +1571,26 @@ app.post("/format", async (req, res) => {
   const { studentText, gradingResults, studentName, editable, options } = req.body;
   const finalOptions = { ...options, editable };
   
+  console.log("=== FORMAT ENDPOINT CALLED ===");
+  console.log("Student text length:", studentText?.length);
+  console.log("Grading results keys:", Object.keys(gradingResults || {}));
+  console.log("Inline issues count:", gradingResults?.inline_issues?.length || 0);
+  console.log("Final options:", finalOptions);
+  
   try {
+    console.log("🎨 Calling formatGradedEssay...");
     const formatted = formatGradedEssay(studentText, gradingResults, finalOptions);
+    console.log("✅ Format completed successfully");
     res.json(formatted);
   } catch (error) {
-    console.error(error);
-    res.status(500).json({ error: "Error formatting essay", details: error.message });
+    console.error("❌ FORMAT ERROR:", error);
+    console.error("Error stack:", error.stack);
+    res.json({ 
+      success: false, 
+      error: "Error formatting essay", 
+      details: error.message,
+      stack: error.stack 
+    });
   }
 });
 
