@@ -1,7 +1,45 @@
 // api/index.js - Serverless function entry point
 import express from "express";
 import dotenv from "dotenv";
-import { prisma } from "../lib/prisma.js";
+
+// Try to import Prisma, but have fallback
+let prisma = null;
+let useDatabase = false;
+try {
+  const { prisma: prismaClient } = await import("../lib/prisma.js");
+  prisma = prismaClient;
+  useDatabase = true;
+  console.log("✅ Prisma client loaded successfully");
+} catch (error) {
+  console.warn("⚠️ Prisma client failed to load, using fallback storage:", error.message);
+}
+
+// Fallback profiles for when database isn't available
+const fallbackProfiles = {
+  "profiles": [
+    {
+      "id": "business_b2_fall2024",
+      "name": "Level 5 Midterm Exams - Fall 2025 Bimestre 1", 
+      "cefrLevel": "B2",
+      "vocabulary": ["Bills", "Fee", "Expenses", "Income", "Installments", "Budget"],
+      "grammar": ["Tense and structure review", "Active vs. Passive verb forms"],
+      "created": "2024-09-04T00:00:00Z",
+      "lastModified": "2025-09-07T01:39:20.278Z",
+      "prompt": "Write a letter to a younger friend about entrepreneurship..."
+    },
+    {
+      "id": "academic_c1_fall2024",
+      "name": "Level 6 Midterm Exams - Fall 2025",
+      "cefrLevel": "C1", 
+      "vocabulary": ["furthermore", "nevertheless", "consequently"],
+      "grammar": ["Complex conditional structures", "Subjunctive mood"],
+      "created": "2024-09-04T00:00:00Z",
+      "lastModified": "2025-09-04T18:19:05.753Z"
+    }
+  ]
+};
+
+let sessionProfiles = fallbackProfiles;
 
 // Load class profiles for serverless environment
 function loadProfiles() {
@@ -300,31 +338,51 @@ app.post("/api/format", async (req, res) => {
   }
 });
 
-// Profile management API endpoints (using Prisma)
+// Profile management API endpoints (database + fallback)
 app.get("/api/profiles", async (req, res) => {
   try {
-    const profiles = await prisma.classProfile.findMany({
-      orderBy: { lastModified: 'desc' }
-    });
-    res.json({ profiles });
+    if (useDatabase && prisma) {
+      const profiles = await prisma.classProfile.findMany({
+        orderBy: { lastModified: 'desc' }
+      });
+      res.json({ profiles });
+    } else {
+      res.json(sessionProfiles);
+    }
   } catch (error) {
-    console.error('Error loading profiles:', error);
-    res.status(500).json({ error: "Error loading profiles" });
+    console.error('Error loading profiles, using fallback:', error);
+    res.json(sessionProfiles);
   }
 });
 
 app.post("/api/profiles", async (req, res) => {
   try {
-    const newProfile = await prisma.classProfile.create({
-      data: {
+    if (useDatabase && prisma) {
+      const newProfile = await prisma.classProfile.create({
+        data: {
+          name: req.body.name,
+          cefrLevel: req.body.cefrLevel,
+          vocabulary: req.body.vocabulary || [],
+          grammar: req.body.grammar || [],
+          prompt: req.body.prompt || '',
+        }
+      });
+      res.json(newProfile);
+    } else {
+      // Fallback to in-memory storage
+      const newProfile = {
+        id: `profile_${Date.now()}`,
         name: req.body.name,
         cefrLevel: req.body.cefrLevel,
         vocabulary: req.body.vocabulary || [],
         grammar: req.body.grammar || [],
         prompt: req.body.prompt || '',
-      }
-    });
-    res.json(newProfile);
+        created: new Date().toISOString(),
+        lastModified: new Date().toISOString()
+      };
+      sessionProfiles.profiles.push(newProfile);
+      res.json(newProfile);
+    }
   } catch (error) {
     console.error('Error creating profile:', error);
     res.status(500).json({ error: "Error creating profile" });

@@ -7,6 +7,8 @@
     "test": "echo \"Error: no test specified\" && exit 1",
     "dev": "nodemon server.js",
     "start": "node server.js",
+    "build": "npx prisma generate",
+    "postinstall": "npx prisma generate",
     "db:setup": "npx prisma migrate dev --name init && npx prisma generate && node scripts/migrate-profiles.js",
     "db:reset": "npx prisma migrate reset",
     "db:studio": "npx prisma studio"
