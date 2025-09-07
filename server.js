@@ -14,8 +14,41 @@ import { readFileSync, writeFileSync } from 'fs';
 import { gradeEssay } from "./grader/grader-two-step.js";
 import { formatGradedEssay, generateCSS } from "./grader/formatter.js";
 
-// Load class profiles
-function loadProfiles() {
+// Environment detection
+const isVercel = process.env.VERCEL === '1';
+const isProduction = process.env.NODE_ENV === 'production';
+
+console.log(`[ENV] Running in: ${isVercel ? 'Vercel' : 'Local'} environment`);
+
+// Try to import Prisma, but have fallback for local development
+let prisma = null;
+let useDatabase = false;
+try {
+  const { prisma: prismaClient } = await import("./lib/prisma.js");
+  prisma = prismaClient;
+  useDatabase = true;
+  console.log("✅ Prisma database connected");
+} catch (error) {
+  console.warn("⚠️ Database unavailable, using file storage:", error.message);
+}
+
+// Unified profile loading - works with both database and files
+async function loadProfiles() {
+  if (useDatabase && prisma) {
+    console.log("[PROFILES] Loading from database");
+    try {
+      const profiles = await prisma.classProfile.findMany({
+        orderBy: { lastModified: 'desc' }
+      });
+      return { profiles };
+    } catch (error) {
+      console.error("[PROFILES] Database error, falling back to file:", error.message);
+    }
+  }
+
+  // Fallback to file system (local development)
+  console.log("[PROFILES] Loading from file system");
+  // Original file loading logic below:
   try {
     return JSON.parse(readFileSync('./class-profiles.json', 'utf8'));
   } catch (error) {
@@ -58,11 +91,18 @@ function loadProfiles() {
   }
 }
 
-function saveProfiles(profiles) {
+async function saveProfiles(profiles) {
+  if (useDatabase && prisma) {
+    console.log("[PROFILES] Database saving handled by individual endpoints");
+    return;
+  }
+
+  // Fallback to file system (local development)
+  console.log("[PROFILES] Saving to file system");
   try {
     writeFileSync('./class-profiles.json', JSON.stringify(profiles, null, 2));
   } catch (error) {
-    console.warn('Cannot save to file system, profiles will not persist in serverless environment:', error.message);
+    console.warn('Cannot save to file system:', error.message);
   }
 }
 
@@ -1541,76 +1581,127 @@ app.post("/format", async (req, res) => {
 });
 
 // Profile management API endpoints
-app.get("/api/profiles", (req, res) => {
+app.get("/api/profiles", async (req, res) => {
   try {
-    const profiles = loadProfiles();
-    res.json(profiles);
+    if (useDatabase && prisma) {
+      const profiles = await prisma.classProfile.findMany({
+        orderBy: { lastModified: 'desc' }
+      });
+      res.json({ profiles });
+    } else {
+      const profiles = await loadProfiles();
+      res.json(profiles);
+    }
   } catch (error) {
+    console.error('Error loading profiles:', error);
     res.status(500).json({ error: "Error loading profiles" });
   }
 });
 
-app.post("/api/profiles", (req, res) => {
+app.post("/api/profiles", async (req, res) => {
   try {
-    const profiles = loadProfiles();
-    const newProfile = {
-      id: `profile_${Date.now()}`,
-      name: req.body.name,
-      cefrLevel: req.body.cefrLevel,
-      vocabulary: req.body.vocabulary || [],
-      grammar: req.body.grammar || [],
-      prompt: req.body.prompt || '',
-      created: new Date().toISOString(),
-      lastModified: new Date().toISOString()
-    };
-    
-    profiles.profiles.push(newProfile);
-    saveProfiles(profiles);
-    res.json(newProfile);
+    if (useDatabase && prisma) {
+      const newProfile = await prisma.classProfile.create({
+        data: {
+          name: req.body.name,
+          cefrLevel: req.body.cefrLevel,
+          vocabulary: req.body.vocabulary || [],
+          grammar: req.body.grammar || [],
+          prompt: req.body.prompt || '',
+        }
+      });
+      res.json(newProfile);
+    } else {
+      const profiles = await loadProfiles();
+      const newProfile = {
+        id: `profile_${Date.now()}`,
+        name: req.body.name,
+        cefrLevel: req.body.cefrLevel,
+        vocabulary: req.body.vocabulary || [],
+        grammar: req.body.grammar || [],
+        prompt: req.body.prompt || '',
+        created: new Date().toISOString(),
+        lastModified: new Date().toISOString()
+      };
+      
+      profiles.profiles.push(newProfile);
+      await saveProfiles(profiles);
+      res.json(newProfile);
+    }
   } catch (error) {
+    console.error('Error creating profile:', error);
     res.status(500).json({ error: "Error creating profile" });
   }
 });
 
-app.put("/api/profiles/:id", (req, res) => {
+app.put("/api/profiles/:id", async (req, res) => {
   try {
-    const profiles = loadProfiles();
-    const profileIndex = profiles.profiles.findIndex(p => p.id === req.params.id);
-    
-    if (profileIndex === -1) {
+    if (useDatabase && prisma) {
+      const updatedProfile = await prisma.classProfile.update({
+        where: { id: req.params.id },
+        data: {
+          name: req.body.name,
+          cefrLevel: req.body.cefrLevel,
+          vocabulary: req.body.vocabulary || [],
+          grammar: req.body.grammar || [],
+          prompt: req.body.prompt || '',
+        }
+      });
+      res.json(updatedProfile);
+    } else {
+      const profiles = await loadProfiles();
+      const profileIndex = profiles.profiles.findIndex(p => p.id === req.params.id);
+      
+      if (profileIndex === -1) {
+        return res.status(404).json({ error: "Profile not found" });
+      }
+      
+      profiles.profiles[profileIndex] = {
+        ...profiles.profiles[profileIndex],
+        name: req.body.name,
+        cefrLevel: req.body.cefrLevel,
+        vocabulary: req.body.vocabulary || [],
+        grammar: req.body.grammar || [],
+        prompt: req.body.prompt || '',
+        lastModified: new Date().toISOString()
+      };
+      
+      await saveProfiles(profiles);
+      res.json(profiles.profiles[profileIndex]);
+    }
+  } catch (error) {
+    if (error.code === 'P2025') {
       return res.status(404).json({ error: "Profile not found" });
     }
-    
-    profiles.profiles[profileIndex] = {
-      ...profiles.profiles[profileIndex],
-      name: req.body.name,
-      cefrLevel: req.body.cefrLevel,
-      vocabulary: req.body.vocabulary || [],
-      grammar: req.body.grammar || [],
-      prompt: req.body.prompt || '',
-      lastModified: new Date().toISOString()
-    };
-    
-    saveProfiles(profiles);
-    res.json(profiles.profiles[profileIndex]);
-  } catch (error) {
+    console.error('Error updating profile:', error);
     res.status(500).json({ error: "Error updating profile" });
   }
 });
 
-app.delete("/api/profiles/:id", (req, res) => {
+app.delete("/api/profiles/:id", async (req, res) => {
   try {
-    const profiles = loadProfiles();
-    const profileIndex = profiles.profiles.findIndex(p => p.id === req.params.id);
-    
-    if (profileIndex === -1) {
+    if (useDatabase && prisma) {
+      await prisma.classProfile.delete({
+        where: { id: req.params.id }
+      });
+      res.json({ success: true });
+    } else {
+      const profiles = await loadProfiles();
+      const profileIndex = profiles.profiles.findIndex(p => p.id === req.params.id);
+      
+      if (profileIndex === -1) {
+        return res.status(404).json({ error: "Profile not found" });
+      }
+      
+      profiles.profiles.splice(profileIndex, 1);
+      await saveProfiles(profiles);
+      res.json({ success: true });
+    }
+  } catch (error) {
+    if (error.code === 'P2025') {
       return res.status(404).json({ error: "Profile not found" });
     }
-    
-    profiles.profiles.splice(profileIndex, 1);
-    saveProfiles(profiles);
-    res.json({ success: true });
-  } catch (error) {
+    console.error('Error deleting profile:', error);
     res.status(500).json({ error: "Error deleting profile" });
   }
 });
