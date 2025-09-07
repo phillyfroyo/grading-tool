@@ -1838,6 +1838,26 @@ app.post("/api/test-grade", async (req, res) => {
   }
 });
 
+// Debug endpoint to see what the form is sending
+app.post("/api/debug-form", async (req, res) => {
+  console.log("=== DEBUG FORM DATA ===");
+  console.log("Raw body:", JSON.stringify(req.body, null, 2));
+  console.log("Headers:", req.headers);
+  
+  res.json({
+    received_data: req.body,
+    data_types: {
+      studentText: typeof req.body.studentText,
+      prompt: typeof req.body.prompt,
+      classProfile: typeof req.body.classProfile
+    },
+    lengths: {
+      studentText: req.body.studentText?.length || 0,
+      prompt: req.body.prompt?.length || 0
+    }
+  });
+});
+
 // Serverless-compatible grading function
 async function gradeEssayServerless(studentText, prompt, profileData) {
   console.log('=== STARTING SERVERLESS GRADING ===');
