@@ -1926,9 +1926,19 @@ const PORT = 3001;
 //   console.log("[tick] memory usage:", Math.round(process.memoryUsage().heapUsed / 1024 / 1024), "MB");
 // }, 15000);
 
-app.listen(PORT, () => {
-  console.log("\n=== SERVER SUCCESSFULLY STARTED ===\n");
-  console.log(`🌐 Grader running on http://localhost:${PORT}`);
-  console.log("📝 Submit essays to see grading logs here");
-  console.log("⏱️  Heartbeat every 15 seconds\n");
-});
+// For Vercel serverless deployment, export the app
+// For local development, start the server
+if (isVercel) {
+  console.log("🚀 Configuring for Vercel serverless deployment");
+} else {
+  // For local development
+  app.listen(PORT, () => {
+    console.log("\n=== SERVER SUCCESSFULLY STARTED ===\n");
+    console.log(`🌐 Grader running on http://localhost:${PORT}`);
+    console.log("📝 Submit essays to see grading logs here");
+    console.log("⏱️  Heartbeat every 15 seconds\n");
+  });
+}
+
+// Export for Vercel (this works in ES modules)
+export default app;
