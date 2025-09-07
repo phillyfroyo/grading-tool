@@ -1759,7 +1759,23 @@ app.post("/api/grade", async (req, res) => {
     }
   } catch (error) {
     console.error("\n❌ GRADING ERROR:", error);
-    res.status(500).json({ error: "Error grading essay", details: error.message });
+    console.error("Error stack:", error.stack);
+    res.json({ 
+      success: false,
+      error: error.message,
+      details: error.stack,
+      debug: {
+        errorType: error.constructor.name,
+        isVercel,
+        useDatabase,
+        prismaAvailable: !!prisma,
+        requestData: {
+          hasStudentText: !!req.body.studentText,
+          hasPrompt: !!req.body.prompt,
+          classProfile: req.body.classProfile
+        }
+      }
+    });
   }
 });
 
