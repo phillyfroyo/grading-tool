@@ -1868,6 +1868,79 @@ app.post("/api/debug-form", async (req, res) => {
   });
 });
 
+// Debug endpoint that mirrors the exact grading logic with error capture
+app.post("/api/debug-grade", async (req, res) => {
+  try {
+    const { studentText, prompt, classProfile } = req.body;
+    
+    console.log("=== DEBUG GRADE ENDPOINT ===");
+    console.log("Request data:", { studentText: studentText?.length, prompt, classProfile });
+    
+    // Mirror the exact logic from /api/grade
+    if (isVercel) {
+      console.log("Environment: Vercel");
+      console.log("Looking for profile:", classProfile);
+      
+      let profileData;
+      if (useDatabase && prisma) {
+        console.log("Using database search...");
+        profileData = await prisma.classProfile.findFirst({
+          where: { id: classProfile }
+        });
+        console.log("Database result:", profileData ? "FOUND" : "NOT FOUND");
+      } else {
+        console.log("Using file system search...");
+        const profiles = await loadProfiles();
+        profileData = profiles.profiles?.find(p => p.id === classProfile);
+      }
+      
+      if (!profileData) {
+        return res.json({
+          success: false,
+          error: "Profile not found",
+          debug: {
+            requested: classProfile,
+            useDatabase,
+            prismaAvailable: !!prisma
+          }
+        });
+      }
+      
+      console.log("Profile found, attempting grading...");
+      const result = await gradeEssayServerless(studentText, prompt, profileData);
+      
+      res.json({
+        success: true,
+        result,
+        debug: {
+          profileUsed: profileData.name,
+          environment: "vercel"
+        }
+      });
+      
+    } else {
+      res.json({
+        success: false,
+        error: "Debug endpoint only works in Vercel environment"
+      });
+    }
+    
+  } catch (error) {
+    console.error("Debug grade error:", error);
+    res.json({
+      success: false,
+      error: error.message,
+      stack: error.stack,
+      debug: {
+        errorType: error.constructor.name,
+        isVercel,
+        useDatabase,
+        prismaAvailable: !!prisma
+      }
+    });
+  }
+});
+
 // Serverless-compatible grading function
 async function gradeEssayServerless(studentText, prompt, profileData) {
   console.log('=== STARTING SERVERLESS GRADING ===');
