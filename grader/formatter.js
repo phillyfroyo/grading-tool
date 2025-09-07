@@ -138,7 +138,8 @@ function findActualOffsets(text, issues) {
     // FIRST: If we have a quote field, use that instead of trusting AI offsets
     if (issue.quote && issue.quote.trim().length > 0) {
       const searchText = issue.quote.trim();
-      console.log(`\n[OFFSET DEBUG] Processing issue: "${issue.message}"`);
+      const issueDesc = issue.message || `${issue.text} → ${issue.correction}`;
+      console.log(`\n[OFFSET DEBUG] Processing issue: "${issueDesc}"`);
       console.log(`[OFFSET DEBUG] Looking for quote: "${searchText}"`);
       console.log(`[OFFSET DEBUG] AI provided offsets: ${issue.offsets?.start}-${issue.offsets?.end}`);
       if (issue.offsets?.start !== undefined && issue.offsets?.end !== undefined) {
@@ -183,9 +184,10 @@ function findActualOffsets(text, issues) {
     }
     
     // Handle comma/period suggestions with caret markers (don't skip them)
+    const issueDesc = issue.message || `${issue.text} → ${issue.correction}`;
     if ((issue.type === 'mechanics-punctuation' || issue.type === 'mechanics') && 
-        (issue.message.includes('Add comma') || issue.message.includes('Add period'))) {
-      console.log(`Creating caret marker for: "${issue.message}"`);
+        (issueDesc.includes('Add comma') || issueDesc.includes('Add period'))) {
+      console.log(`Creating caret marker for: "${issueDesc}"`);
       // Create zero-width span at the position where punctuation should be added
       const caretPosition = issue.offsets?.start || 0;
       return {
@@ -195,9 +197,16 @@ function findActualOffsets(text, issues) {
       };
     }
     
-    // FALLBACK: Extract original text from message and search
-    const messageParts = issue.message.split('→');
-    let originalText = messageParts[0].trim();
+    // UPDATED: Use new unified data structure (text, correction, explanation)
+    let originalText;
+    if (issue.message) {
+      // Legacy format: "original → corrected"  
+      const messageParts = issue.message.split('→');
+      originalText = messageParts[0].trim();
+    } else {
+      // New unified format: separate text field
+      originalText = issue.text;
+    }
     
     // Don't strip articles - keep original phrase intact for search
     console.log(`Looking for: "${originalText}" in text`);
@@ -287,7 +296,8 @@ function resolveOverlapsFixed(issues, priorityOrder) {
       seenOffsets.add(offsetKey);
       uniqueIssues.push(issue);
     } else {
-      console.log(`Removing duplicate highlight at ${offsetKey}: ${issue.message}`);
+      const issueDesc = issue.message || `${issue.text} → ${issue.correction}`;
+      console.log(`Removing duplicate highlight at ${offsetKey}: ${issueDesc}`);
     }
   }
   
@@ -406,10 +416,11 @@ function renderSegmentsToHTML(segments, options = {}) {
         escapeHtml(segment.text);
     } else if (segment.type === 'caret') {
       // Render caret marker for comma/period suggestions
+      const issueDesc = segment.issue.message || `${segment.issue.text} → ${segment.issue.correction}`;
       return `<span class="caret-marker" 
                    data-type="${escapeHtml(segment.issue.type)}"
-                   data-message="${escapeHtml(segment.issue.message)}"
-                   title="${escapeHtml(segment.issue.message)}"
+                   data-message="${escapeHtml(issueDesc)}"
+                   title="${escapeHtml(issueDesc)}"
                    style="color: #F57C00; font-weight: bold; position: relative;">▿</span>`;
     } else {
       // Use correction guide colors for inline_issues, fallback to rubric colors
@@ -429,11 +440,12 @@ function renderSegmentsToHTML(segments, options = {}) {
         styleProps += ` background: ${bgColor}; padding: 2px 4px; border-radius: 2px;`;
       }
       
+      const issueDesc = segment.issue.message || `${segment.issue.text} → ${segment.issue.correction}`;
       return `<mark data-type="${escapeHtml(segment.issue.type)}" 
-                   data-message="${escapeHtml(segment.issue.message)}"
+                   data-message="${escapeHtml(issueDesc)}"
                    ${editableAttrs}
                    style="${styleProps}" 
-                   title="${escapeHtml(segment.issue.message)}">
+                   title="${escapeHtml(issueDesc)}">
                 ${escapeHtml(segment.text)}
                 ${editable ? `<span class="edit-indicator" style="font-size: 10px; margin-left: 2px;">✎</span>` : ''}
               </mark>`;
