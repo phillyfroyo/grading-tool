@@ -592,55 +592,49 @@ app.get('/', (req, res) => {
             let selectedRange = null;
             let pendingSelection = null;
             
-            // Category colors mapping
-            // Rubric-aligned highlight categories matching formatter.js
+            // Simplified category colors matching new system
             const categoryColors = {
-                'grammar': { color: '#FFFFFF', bg: '#FF6B6B' }, // Pink highlight to match rubric
-                'mechanics-punctuation': { color: '#FFFFFF', bg: '#6B7280' },
-                'mechanics': { color: '#FFFFFF', bg: '#6B7280' }, // Same as mechanics-punctuation
-                'redundancy': { color: '#111827', bg: '#84CC16' },
-                'vocabulary-structure': { color: '#4ECDC4', bg: 'transparent' }, // Blue text, no highlight
-                'vocabulary': { color: '#4ECDC4', bg: 'transparent' }, // Same as vocabulary-structure
-                'needs-rephrasing': { color: '#111827', bg: '#38BDF8' },
-                'non-suitable-words': { color: '#000000', bg: 'transparent', textDecoration: 'line-through' }, // Black strikethrough
-                'spelling': { color: '#F57C00', bg: 'transparent' }, // Orange/reddish text, no highlight
-                'fluency': { color: '#9333EA', bg: 'transparent', textDecoration: 'underline' }, // Purple underline for coaching
-                'professor-comments': { color: '#111827', bg: '#FACC15' },
+                'grammar': { color: '#FF8C00', bg: 'transparent' }, // Orange text
+                'vocabulary': { color: '#00A36C', bg: 'transparent' }, // Green text
+                'mechanics': { color: '#000000', bg: '#D3D3D3' }, // Gray highlight
+                'spelling': { color: '#DC143C', bg: 'transparent' }, // Red text
+                'fluency': { color: '#000000', bg: '#87CEEB' }, // Blue highlight
                 '': { color: '#6B7280', bg: '#F3F4F6' } // Default for empty categories
             };
 
             // Legacy mapping for backward compatibility
             const legacyMapping = {
                 'grammar': 'grammar',
-                'vocabulary': 'vocabulary-structure', 
+                'vocabulary': 'vocabulary',
+                'vocabulary-structure': 'vocabulary',
                 'spelling': 'spelling',
-                'mechanics': 'mechanics-punctuation',
-                'content': 'needs-rephrasing',
+                'mechanics': 'mechanics',
+                'mechanics-punctuation': 'mechanics',
+                'fluency': 'fluency',
+                'needs-rephrasing': 'fluency',
+                'redundancy': 'fluency',
+                'non-suitable-words': 'fluency',
+                'professor-comments': 'fluency',
+                'content': 'fluency',
                 'layout': null // will need manual conversion
             };
 
-            // Display order for toolbar
+            // Display order for simplified toolbar
             const categoryOrder = [
                 'grammar',
-                'mechanics-punctuation', 
-                'redundancy',
-                'vocabulary-structure',
-                'needs-rephrasing',
-                'non-suitable-words',
+                'vocabulary',
+                'mechanics',
                 'spelling',
-                'professor-comments'
+                'fluency'
             ];
 
-            // Category display names
+            // Simplified category display names
             const categoryNames = {
                 'grammar': 'Grammar',
-                'mechanics-punctuation': 'Mechanics & Punctuation',
-                'redundancy': 'Redundancy', 
-                'vocabulary-structure': 'Vocabulary / Structure',
-                'needs-rephrasing': 'Needs rephrasing',
-                'non-suitable-words': 'Non-suitable words',
+                'vocabulary': 'Vocabulary',
+                'mechanics': 'Mechanics',
                 'spelling': 'Spelling',
-                'professor-comments': "Professor's comments"
+                'fluency': 'Fluency'
             };
 
             // Function to map legacy categories to new ones
@@ -1208,47 +1202,12 @@ app.get('/', (req, res) => {
                         
                         <div style="page-break-before: always;"></div>
                         
-                        <h2 style="color: #333; border-bottom: 2px solid #333; padding-bottom: 5px; margin-top: 30px; margin-bottom: 15px; font-size: 18px;">📖 Correction Guide</h2>
-                        <div style="background: #f8f9fa; padding: 20px; border-radius: 8px; border: 1px solid #ddd; margin: 20px 0;">
-                            <p style="font-size: 14px; color: #666; margin-top: 0; margin-bottom: 15px;">The highlighted colors in your essay correspond to different types of corrections:</p>
-                            <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px;">
-                                <div style="display: flex; align-items: center; padding: 8px; background: white; border-radius: 6px; border: 1px solid #ddd;">
-                                    <span style="background: #FF6B6B; color: #FFFFFF; padding: 4px 12px; border-radius: 15px; font-weight: bold; font-size: 12px; margin-right: 10px; min-width: 80px; text-align: center;">Grammar</span>
-                                    <span style="font-size: 13px; color: #333;">Verb tenses, agreement, structures, word order</span>
-                                </div>
-                                <div style="display: flex; align-items: center; padding: 8px; background: white; border-radius: 6px; border: 1px solid #ddd;">
-                                    <span style="background: #6B7280; color: #FFFFFF; padding: 4px 12px; border-radius: 15px; font-weight: bold; font-size: 12px; margin-right: 10px; min-width: 80px; text-align: center;">Mechanics</span>
-                                    <span style="font-size: 13px; color: #333;">Punctuation, capitalization, run-on sentences</span>
-                                </div>
-                                <div style="display: flex; align-items: center; padding: 8px; background: white; border-radius: 6px; border: 1px solid #ddd;">
-                                    <span style="background: #84CC16; color: #111827; padding: 4px 12px; border-radius: 15px; font-weight: bold; font-size: 12px; margin-right: 10px; min-width: 80px; text-align: center;">Redundancy</span>
-                                    <span style="font-size: 13px; color: #333;">Repetitive words or phrases</span>
-                                </div>
-                                <div style="display: flex; align-items: center; padding: 8px; background: white; border-radius: 6px; border: 1px solid #ddd;">
-                                    <span style="background: transparent; color: #4ECDC4; padding: 4px 12px; border-radius: 15px; font-weight: bold; font-size: 12px; margin-right: 10px; min-width: 80px; text-align: center; border: 2px solid #4ECDC4;">Vocabulary</span>
-                                    <span style="font-size: 13px; color: #333;">Word choice, collocations, awkward phrasing</span>
-                                </div>
-                                <div style="display: flex; align-items: center; padding: 8px; background: white; border-radius: 6px; border: 1px solid #ddd;">
-                                    <span style="background: #38BDF8; color: #111827; padding: 4px 12px; border-radius: 15px; font-weight: bold; font-size: 12px; margin-right: 10px; min-width: 80px; text-align: center;">Rephrasing</span>
-                                    <span style="font-size: 13px; color: #333;">Unclear sentences that need restructuring</span>
-                                </div>
-                                <div style="display: flex; align-items: center; padding: 8px; background: white; border-radius: 6px; border: 1px solid #ddd;">
-                                    <span style="background: transparent; color: #000000; padding: 4px 12px; border-radius: 15px; font-weight: bold; font-size: 12px; margin-right: 10px; min-width: 80px; text-align: center; border: 2px solid #000000; text-decoration: line-through;">Word Choice</span>
-                                    <span style="font-size: 13px; color: #333;">Inappropriate or unsuitable word choices</span>
-                                </div>
-                                <div style="display: flex; align-items: center; padding: 8px; background: white; border-radius: 6px; border: 1px solid #ddd;">
-                                    <span style="background: transparent; color: #F57C00; padding: 4px 12px; border-radius: 15px; font-weight: bold; font-size: 12px; margin-right: 10px; min-width: 80px; text-align: center; border: 2px solid #F57C00;">Spelling</span>
-                                    <span style="font-size: 13px; color: #333;">Misspellings and typos</span>
-                                </div>
-                                <div style="display: flex; align-items: center; padding: 8px; background: white; border-radius: 6px; border: 1px solid #ddd;">
-                                    <span style="background: transparent; color: #9333EA; padding: 4px 12px; border-radius: 15px; font-weight: bold; font-size: 12px; margin-right: 10px; min-width: 80px; text-align: center; border: 2px solid #9333EA; text-decoration: underline;">Coaching</span>
-                                    <span style="font-size: 13px; color: #333;">Natural language improvements and suggestions</span>
-                                </div>
-                                <div style="display: flex; align-items: center; padding: 8px; background: white; border-radius: 6px; border: 1px solid #ddd;">
-                                    <span style="background: #FACC15; color: #111827; padding: 4px 12px; border-radius: 15px; font-weight: bold; font-size: 12px; margin-right: 10px; min-width: 80px; text-align: center;">Comments</span>
-                                    <span style="font-size: 13px; color: #333;">General feedback and suggestions</span>
-                                </div>
-                            </div>
+                        <div style="text-align: center; margin: 30px 0 15px 0; font-size: 12px;">
+                            <span style="background: transparent; color: #FF8C00; padding: 2px 6px; margin: 0 3px; border-radius: 3px; font-weight: bold;">grammar</span>
+                            <span style="background: transparent; color: #00A36C; padding: 2px 6px; margin: 0 3px; border-radius: 3px; font-weight: bold;">vocabulary</span>
+                            <span style="background: #D3D3D3; color: #000000; padding: 2px 6px; margin: 0 3px; border-radius: 3px;">mechanics</span>
+                            <span style="background: transparent; color: #DC143C; padding: 2px 6px; margin: 0 3px; border-radius: 3px; font-weight: bold;">spelling</span>
+                            <span style="background: #87CEEB; color: #000000; padding: 2px 6px; margin: 0 3px; border-radius: 3px;">fluency</span>
                         </div>
                         
                         <h2 style="color: #333; border-bottom: 2px solid #333; padding-bottom: 5px; margin-top: 30px; margin-bottom: 15px; font-size: 18px;">Color-Coded Essay</h2>
@@ -1990,7 +1949,7 @@ async function gradeEssayUnified(studentText, prompt, profileData) {
           "name": "Spelling",
           "color": "#45B7D1",
           "backgroundColor": "#E3F2FD", 
-          "weight": 15
+          "weight": 10
         },
         "mechanics": {
           "id": "mechanics",
@@ -2004,7 +1963,7 @@ async function gradeEssayUnified(studentText, prompt, profileData) {
           "name": "Fluency",
           "color": "#A855F7",
           "backgroundColor": "#F3E8FF",
-          "weight": 10
+          "weight": 15
         },
         "layout": {
           "id": "layout",
@@ -2114,9 +2073,9 @@ Return ONLY this JSON format:
   "scores": {
     "grammar": {"points": [0-15], "out_of": 15, "rationale": "..."},
     "vocabulary": {"points": [0-15], "out_of": 15, "rationale": "..."},
-    "spelling": {"points": [0-15], "out_of": 15, "rationale": "..."},
+    "spelling": {"points": [0-10], "out_of": 10, "rationale": "..."},
     "mechanics": {"points": [0-15], "out_of": 15, "rationale": "..."},
-    "fluency": {"points": [0-10], "out_of": 10, "rationale": "..."},
+    "fluency": {"points": [0-15], "out_of": 15, "rationale": "..."},
     "layout": {"points": [0-15], "out_of": 15, "rationale": "..."},
     "content": {"points": [0-15], "out_of": 15, "rationale": "..."}
   },

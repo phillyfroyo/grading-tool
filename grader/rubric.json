@@ -73,27 +73,27 @@
       "name": "Spelling",
       "color": "#45B7D1",
       "backgroundColor": "#E3F2FD",
-      "weight": 15,
+      "weight": 10,
       "description": "Accuracy and clarity of spelling.",
       "bands": [
         {
-          "range": "15% - 13%",
+          "range": "10% - 9%",
           "description": "Hardly any spelling errors (0-2). No errors that impede communication."
         },
         {
-          "range": "12% - 10%",
+          "range": "8% - 7%",
           "description": "Some spelling errors (3-5). Errors do not impede communication."
         },
         {
-          "range": "9% - 7%",
+          "range": "6% - 5%",
           "description": "Several spelling errors (6-8). Errors do not impede communication."
         },
         {
-          "range": "6% - 4%",
+          "range": "4% - 3%",
           "description": "Many spelling errors (8-10). Errors may obscure communication at times."
         },
         {
-          "range": "3% - 0%",
+          "range": "2% - 0%",
           "description": "Frequent and basic spelling errors (10+). Errors obscure communication."
         }
       ]
@@ -133,27 +133,27 @@
       "name": "Fluency",
       "color": "#A855F7",
       "backgroundColor": "#F3E8FF",
-      "weight": 10,
+      "weight": 15,
       "description": "Organization and logical flow of ideas.",
       "bands": [
         {
-          "range": "10% - 9%",
+          "range": "15% - 13%",
           "description": "Well-organized, coherent, and easy to follow. Valid ideas clearly connected."
         },
         {
-          "range": "8% - 7%",
+          "range": "12% - 10%",
           "description": "Mostly clear organization. Valid ideas organized logically."
         },
         {
-          "range": "6% - 5%",
+          "range": "9% - 7%",
           "description": "Some organizational issues. Main ideas are somewhat clear but choppy."
         },
         {
-          "range": "4% - 3%",
+          "range": "6% - 4%",
           "description": "Organization detracts from understanding. Ideas disorganized or repetitive."
         },
         {
-          "range": "2% - 0%",
+          "range": "3% - 0%",
           "description": "Text is unstructured. Ideas disconnected and confusing."
         }
       ]

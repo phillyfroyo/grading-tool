@@ -20,7 +20,7 @@ const rubric = {
       "name": "Spelling",
       "color": "#45B7D1",
       "backgroundColor": "#E3F2FD", 
-      "weight": 15
+      "weight": 10
     },
     "mechanics": {
       "id": "mechanics",
@@ -34,7 +34,7 @@ const rubric = {
       "name": "Fluency",
       "color": "#A855F7",
       "backgroundColor": "#F3E8FF",
-      "weight": 10
+      "weight": 15
     },
     "layout": {
       "id": "layout",
@@ -53,17 +53,19 @@ const rubric = {
   }
 };
 
-// Correction guide color mapping for highlighting (matches rubric colors)
+// Simplified color mapping for highlighting
 const correctionGuideColors = {
-  'grammar': { color: '#FFFFFF', backgroundColor: '#FF6B6B', name: 'Grammar' }, // Pink highlight to match rubric
-  'mechanics-punctuation': { color: '#FFFFFF', backgroundColor: '#6B7280', name: 'Mechanics & Punctuation' },
-  'redundancy': { color: '#111827', backgroundColor: '#84CC16', name: 'Redundancy' },
-  'vocabulary-structure': { color: '#4ECDC4', backgroundColor: 'transparent', name: 'Vocabulary / Structure' }, // Blue text, no highlight
-  'needs-rephrasing': { color: '#111827', backgroundColor: '#38BDF8', name: 'Needs rephrasing' },
-  'non-suitable-words': { color: '#000000', backgroundColor: 'transparent', textDecoration: 'line-through', name: 'Non-suitable words' }, // Black strikethrough
-  'spelling': { color: '#F57C00', backgroundColor: 'transparent', name: 'Spelling' }, // Orange/reddish text, no highlight
-  'fluency': { color: '#9333EA', backgroundColor: 'transparent', textDecoration: 'underline', name: 'Fluency Coaching' }, // Purple underline for coaching
-  'professor-comments': { color: '#111827', backgroundColor: '#FACC15', name: "Professor's comments" }
+  'grammar': { color: '#FF8C00', backgroundColor: 'transparent', name: 'Grammar' }, // Orange text
+  'vocabulary': { color: '#00A36C', backgroundColor: 'transparent', name: 'Vocabulary' }, // Green text
+  'vocabulary-structure': { color: '#00A36C', backgroundColor: 'transparent', name: 'Vocabulary' }, // Green text
+  'mechanics': { color: '#000000', backgroundColor: '#D3D3D3', name: 'Mechanics' }, // Gray highlight
+  'mechanics-punctuation': { color: '#000000', backgroundColor: '#D3D3D3', name: 'Mechanics' }, // Gray highlight
+  'spelling': { color: '#DC143C', backgroundColor: 'transparent', name: 'Spelling' }, // Red text
+  'fluency': { color: '#000000', backgroundColor: '#87CEEB', name: 'Fluency' }, // Blue highlight
+  'needs-rephrasing': { color: '#000000', backgroundColor: '#87CEEB', name: 'Fluency' }, // Blue highlight
+  'redundancy': { color: '#000000', backgroundColor: '#87CEEB', name: 'Fluency' }, // Blue highlight
+  'non-suitable-words': { color: '#000000', backgroundColor: '#87CEEB', name: 'Fluency' }, // Blue highlight
+  'professor-comments': { color: '#000000', backgroundColor: '#FACC15', name: "Comments" }
 };
 
 export function formatGradedEssay(studentText, gradingResults, options = {}) {
@@ -421,7 +423,7 @@ function renderSegmentsToHTML(segments, options = {}) {
                    data-type="${escapeHtml(segment.issue.category || segment.issue.type || '')}"
                    data-message="${escapeHtml(issueDesc)}"
                    title="${escapeHtml(issueDesc)}"
-                   style="color: #F57C00; font-weight: bold; position: relative;">▿</span>`;
+                   style="color: #DC143C; font-weight: bold; position: relative;">▿</span>`;
     } else {
       // Use correction guide colors for inline_issues, fallback to rubric colors
       const issueCategory = segment.issue.category || segment.issue.type || '';

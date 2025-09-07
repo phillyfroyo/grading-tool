@@ -54,7 +54,7 @@ SCORING LENIENCY RULES:
 - Be merciful and supportive in score assignment
 
 PERFECT PERFORMANCE RULE:
-- If no errors found in a category, award FULL POINTS (15/15 for major categories, 10/10 for fluency)
+- If no errors found in a category, award FULL POINTS (15/15 for most categories, 10/10 for spelling)
 - Don't withhold points "just in case" - if performance is excellent, give excellent grades
 - Only reduce points when you can identify specific, fixable issues
 
@@ -73,13 +73,13 @@ OUTPUT FORMAT (valid JSON only):
   "scores": {
     "grammar": {"points": 11, "out_of": 15, "rationale": "Positive feedback first, then specific coaching with examples"},
     "vocabulary": {"points": 12, "out_of": 15, "rationale": "Praise effort, suggest improvements with examples"},
-    "spelling": {"points": 13, "out_of": 15, "rationale": "Acknowledge strengths, gentle correction guidance"},
+    "spelling": {"points": 8, "out_of": 10, "rationale": "Acknowledge strengths, gentle correction guidance"},
     "mechanics": {"points": 10, "out_of": 15, "rationale": "Supportive tone with clear next steps"},
-    "fluency": {"points": 8, "out_of": 10, "rationale": "Encourage flow improvements with transition suggestions"},
+    "fluency": {"points": 12, "out_of": 15, "rationale": "Encourage flow improvements with transition suggestions"},
     "layout": {"points": 12, "out_of": 15, "rationale": "Credit structure, suggest enhancements"},
     "content": {"points": 13, "out_of": 15, "rationale": "Value ideas and personal connection, suggest depth"}
   },
-  "total": {"points": 85, "out_of": 100},
+  "total": {"points": 87, "out_of": 100},
   "teacher_notes": "Encouraging overall comment highlighting student's strengths and growth",
   "encouragement_next_steps": [
     "Specific, actionable suggestion with example",
