@@ -53,9 +53,9 @@ You are a precision error detection tool. Your job is to identify **individual, 
 - "advices" → vocabulary-structure (uncountable: "advices" → "advice")
 - "have been use" → grammar (verb form: "have been use" → "have been using")
 
-❌ **NEVER DO THIS:**
-- Mark "is create an a new BUSSINES PLAN" as one grammar error
-- Mark "If you take care with your money, you wont an a BAKRUPT" as one grammar error
+❌ 
+- **NEVER Mark "is create an a new BUSSINES PLAN" as one grammar error**
+- **NEVER Mark "If you take care with your money, you wont an a BAKRUPT" as one grammar error**
 
 ✅ **DO THIS INSTEAD:**
 - "is create" → grammar ("is create" → "is to create") 
@@ -162,7 +162,7 @@ ${classProfile.grammar.join(', ')}
 
 🔥 **FINAL ENFORCEMENT RULES - READ CAREFULLY** 🔥
 
-**MAXIMUM SPAN LENGTH:** Count the words in your "text" field. If it's more than 6 words, you're doing it wrong. Split it immediately.
+**ABSOLUTE MAXIMUM SPAN LENGTH:** Count the words in your "text" field. If it's more than 6 words, you're doing it wrong. Split it immediately.
 
 **VALIDATION CHECKLIST - Before submitting each issue, verify:**
 ✅ Does this span contain exactly ONE error type?
@@ -170,9 +170,34 @@ ${classProfile.grammar.join(', ')}
 ✅ Would a student be confused about what specific thing is wrong?
 ✅ Am I marking the smallest possible unit that captures this error?
 
+**EXAMPLES OF WHAT NOT TO DO - THESE ARE FAILURES:**
+
+❌ WRONG: {"text": "I feel too happy to can talk with you about this topic", "category": "grammar"}
+❌ WRONG: {"text": "If you take care with your money, you wont an a BAKRUPT", "category": "grammar"}  
+❌ WRONG: {"text": "all of my advices and tips that I have been use for many years", "category": "grammar"}
+❌ WRONG: {"text": "is create an a new BUSSINES PLAN for the company", "category": "grammar"}
+
+✅ CORRECT BREAKDOWN:
+For "I feel too happy to can talk with you":
+- {"text": "too", "category": "vocabulary-structure"}
+- {"text": "to can", "category": "grammar"}
+
+For "you wont an a BAKRUPT":
+- {"text": "wont", "category": "mechanics-punctuation"}
+- {"text": "an a", "category": "grammar"}
+- {"text": "BAKRUPT", "category": "spelling"}
+
+**WORD COUNT ENFORCEMENT:**
+Before submitting ANY issue, count the words in your "text" field:
+- 1 word: ✅ Good
+- 2-3 words: ✅ Acceptable if necessary
+- 4-6 words: ⚠️ Only if absolutely unavoidable
+- 7+ words: ❌ FORBIDDEN - SPLIT IMMEDIATELY
+
 **IF YOU MARK LONG SPANS, YOU ARE FAILING THE TASK.**
 **IF YOU GROUP MULTIPLE SENTENCES, YOU ARE FAILING THE TASK.**
 **IF YOU MARK ENTIRE LISTS OR EXAMPLES, YOU ARE FAILING THE TASK.**
+**IF ANY "text" FIELD HAS MORE THAN 6 WORDS, YOU HAVE FAILED.**
 
 Remember: You're a precision tool, not a sentence rewriter. Find individual mistakes, mark them specifically, move on.
 
