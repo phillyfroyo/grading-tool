@@ -236,9 +236,6 @@ app.get('/', (req, res) => {
                         <button type="button" id="manageProfilesBtn" style="padding: 10px 15px; background: #28a745; white-space: nowrap;">
                             Manage Profiles
                         </button>
-                        <button type="button" onclick="window.open('/sandbox.html', '_blank')" style="padding: 10px 15px; background: #6f42c1; color: white; white-space: nowrap;">
-                            🧪 Sandbox
-                        </button>
                     </div>
                 </div>
                 
@@ -786,7 +783,7 @@ app.get('/', (req, res) => {
                 try {
                     range.deleteContents();
                     range.insertNode(mark);
-                    updateSelectionStatus(\`"\${text.substring(0, 30)}\${text.length > 30 ? '...' : ''}" highlighted as \${category}.\`);
+                    updateSelectionStatus('"' + text.substring(0, 30) + (text.length > 30 ? '...' : '') + '" highlighted as ' + category + '.');
                     
                     // Automatically open the edit popup for manual highlights
                     setTimeout(() => editHighlight(mark), 100);
@@ -814,7 +811,7 @@ app.get('/', (req, res) => {
                 
                 // Pre-populate with existing correction if available, otherwise start blank
                 let feedbackValue = '';
-                if (message && message !== 'Manual ' + category + ' highlight') {
+                if (message && message !== `Manual ${category} highlight`) {
                     // Extract correction from existing message (could be "corrected text" or "original → corrected")
                     if (message.includes('→')) {
                         // Legacy format: "original → corrected" - extract corrected part
@@ -1206,16 +1203,16 @@ app.get('/', (req, res) => {
                         </div>
                         
                         <h2 style="color: #333; border-bottom: 2px solid #333; padding-bottom: 5px; margin-top: 30px; margin-bottom: 15px; font-size: 18px;">Category Breakdown</h2>
-                        \${Object.entries(currentGradingData.scores).map(([category, score]) => \`
-                            <div style="margin: 15px 0; padding: 15px; border: 1px solid #ccc; background: #fafafa; border-radius: 8px; page-break-inside: avoid;">
-                                <div style="font-weight: bold; font-size: 16px; color: #333; margin-bottom: 8px;">
-                                    \${category.charAt(0).toUpperCase() + category.slice(1)}: \${score.points}/\${score.out_of}
-                                </div>
-                                <div style="font-size: 14px; color: #666; line-height: 1.6;">
-                                    \${score.rationale}
-                                </div>
-                            </div>
-                        \`).join('')}
+                        \${Object.entries(currentGradingData.scores).map(([category, score]) => 
+                            '<div style="margin: 15px 0; padding: 15px; border: 1px solid #ccc; background: #fafafa; border-radius: 8px; page-break-inside: avoid;">' +
+                                '<div style="font-weight: bold; font-size: 16px; color: #333; margin-bottom: 8px;">' +
+                                    (category.charAt(0).toUpperCase() + category.slice(1)) + ': ' + score.points + '/' + score.out_of +
+                                '</div>' +
+                                '<div style="font-size: 14px; color: #666; line-height: 1.6;">' +
+                                    score.rationale +
+                                '</div>' +
+                            '</div>'
+                        ).join('')}
                         
                         <div style="page-break-before: always;"></div>
                         
@@ -1245,31 +1242,31 @@ app.get('/', (req, res) => {
                             \${essayContent}
                         </div>
                         
-                        \${feedbackNotes.length > 0 ? \`
-                            <div style="page-break-before: always;"></div>
-                            <h2 style="color: #333; border-bottom: 2px solid #333; padding-bottom: 5px; margin-top: 30px; margin-bottom: 15px; font-size: 18px;">📝 Feedback Notes</h2>
-                            <div style="background: #f8f9fa; padding: 20px; border-radius: 8px; border: 1px solid #ddd;">
-                                <p style="font-size: 14px; color: #666; margin-top: 0;">The numbers in brackets [1], [2], etc. in the essay above correspond to the feedback below:</p>
-                                \${feedbackNotes.map(note => \`
-                                    <div style="margin: 15px 0; padding: 15px; background: white; border-left: 4px solid #007bff; border-radius: 4px;">
-                                        <div style="font-weight: bold; color: #333; margin-bottom: 8px;">
-                                            <span style="background: #007bff; color: white; padding: 3px 8px; border-radius: 12px; font-size: 12px; margin-right: 10px;">[\${note.number}]</span>
-                                            "\${note.text}" - <em style="color: #666;">\${note.category}</em>
-                                        </div>
-                                        <div style="font-size: 14px; line-height: 1.5; color: #444;">
-                                            \${note.feedback}
-                                        </div>
-                                    </div>
-                                \`).join('')}
-                            </div>
-                        \` : ''}
+                        \${feedbackNotes.length > 0 ? 
+                            '<div style="page-break-before: always;"></div>' +
+                            '<h2 style="color: #333; border-bottom: 2px solid #333; padding-bottom: 5px; margin-top: 30px; margin-bottom: 15px; font-size: 18px;">📝 Feedback Notes</h2>' +
+                            '<div style="background: #f8f9fa; padding: 20px; border-radius: 8px; border: 1px solid #ddd;">' +
+                                '<p style="font-size: 14px; color: #666; margin-top: 0;">The numbers in brackets [1], [2], etc. in the essay above correspond to the feedback below:</p>' +
+                                feedbackNotes.map(note => 
+                                    '<div style="margin: 15px 0; padding: 15px; background: white; border-left: 4px solid #007bff; border-radius: 4px;">' +
+                                        '<div style="font-weight: bold; color: #333; margin-bottom: 8px;">' +
+                                            '<span style="background: #007bff; color: white; padding: 3px 8px; border-radius: 12px; font-size: 12px; margin-right: 10px;">[' + note.number + ']</span>' +
+                                            '"' + note.text + '" - <em style="color: #666;">' + note.category + '</em>' +
+                                        '</div>' +
+                                        '<div style="font-size: 14px; line-height: 1.5; color: #444;">' +
+                                            note.feedback +
+                                        '</div>' +
+                                    '</div>'
+                                ).join('') +
+                            '</div>'
+                        : ''}
                         
-                        \${currentGradingData.teacher_notes ? \`
-                            <h2 style="color: #333; border-bottom: 2px solid #333; padding-bottom: 5px; margin-top: 30px; margin-bottom: 15px; font-size: 18px;">Teacher Notes</h2>
-                            <div style="background: #e8f5e8; padding: 20px; border-left: 6px solid #4CAF50; margin: 20px 0; font-size: 14px; line-height: 1.6; border-radius: 8px;">
-                                \${currentGradingData.teacher_notes}
-                            </div>
-                        \` : ''}
+                        \${currentGradingData.teacher_notes ? 
+                            '<h2 style="color: #333; border-bottom: 2px solid #333; padding-bottom: 5px; margin-top: 30px; margin-bottom: 15px; font-size: 18px;">Teacher Notes</h2>' +
+                            '<div style="background: #e8f5e8; padding: 20px; border-left: 6px solid #4CAF50; margin: 20px 0; font-size: 14px; line-height: 1.6; border-radius: 8px;">' +
+                                currentGradingData.teacher_notes +
+                            '</div>'
+                        : ''}
                     </div>
                 \`;
                 
@@ -1293,7 +1290,7 @@ app.get('/', (req, res) => {
                 console.log('Creating filename...');
                 // Generate filename  
                 const studentName = currentOriginalData.studentName.replace(/[^a-zA-Z0-9]/g, '_');
-                const filename = \`\${studentName}_graded_essay.pdf\`;
+                const filename = studentName + '_graded_essay.pdf';
                 console.log('Filename created:', filename);
                 
                 console.log('Configuring PDF options...');
@@ -2116,88 +2113,6 @@ Return ONLY this JSON format:
     throw error;
   }
 }
-
-// Sandbox API for testing custom prompts
-app.post("/api/sandbox/test-prompt", async (req, res) => {
-  try {
-    const { prompt, studentText } = req.body;
-    
-    console.log("=== PROMPT SANDBOX TEST ===");
-    console.log("Custom prompt length:", prompt?.length);
-    console.log("Student text length:", studentText?.length);
-    
-    if (!prompt || !studentText) {
-      return res.status(400).json({
-        error: "Both prompt and studentText are required"
-      });
-    }
-
-    // Import OpenAI dynamically
-    const OpenAI = (await import("openai")).default;
-    
-    if (!process.env.OPENAI_API_KEY) {
-      return res.status(500).json({
-        error: "OpenAI API key not configured"
-      });
-    }
-    
-    const openai = new OpenAI({
-      apiKey: process.env.OPENAI_API_KEY
-    });
-
-    // Simple direct prompt test - combine user prompt with student text
-    const fullPrompt = `${prompt}
-
-STUDENT ESSAY:
-"""${studentText}"""`;
-
-    console.log("Testing custom prompt...");
-    
-    const response = await openai.chat.completions.create({
-      model: "gpt-4-1106-preview",
-      messages: [
-        {
-          role: "user",
-          content: fullPrompt
-        }
-      ],
-      temperature: 0.1,
-      max_tokens: 2000
-    });
-
-    const result = response.choices[0].message.content;
-    console.log("Raw AI response length:", result?.length);
-
-    // Try to parse as JSON first, otherwise return raw text
-    let parsedResult;
-    try {
-      parsedResult = JSON.parse(result);
-    } catch (parseError) {
-      parsedResult = {
-        raw_response: result,
-        parsing_error: "Response was not valid JSON"
-      };
-    }
-
-    res.json({
-      success: true,
-      result: parsedResult,
-      metadata: {
-        model: "gpt-4-1106-preview",
-        prompt_length: fullPrompt.length,
-        response_length: result?.length,
-        parsed_successfully: typeof parsedResult.raw_response === 'undefined'
-      }
-    });
-
-  } catch (error) {
-    console.error("Sandbox test error:", error);
-    res.status(500).json({
-      error: error.message,
-      type: error.constructor.name
-    });
-  }
-});
 
 const PORT = 3001;
 // Heartbeat disabled
