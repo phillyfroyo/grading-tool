@@ -44,14 +44,17 @@ CLASS-SPECIFIC REQUIREMENTS:
 - Vocabulary to count: ${classProfile.vocabulary.join(', ')}
 - Grammar structures to identify: ${classProfile.grammar.join(', ')}
 
-SCORING LENIENCY RULES:
-- Do not assign lowest band unless comprehension is impeded  
-- Cap per-category deductions for frequent minor issues at -40% of category weight
-- If word count within target ±25 words, don't drop Layout below middle band solely for transitions
-- If no class vocabulary provided, don't penalize - evaluate natural variety instead
-- Try to include 2 positives before critical feedback in each category (praise-then-coach)
-- Score naturally based on performance, don't artificially floor scores
-- Be merciful and supportive in score assignment
+GENEROUS SCORING RULES - BE VERY LENIENT:
+- Default to middle band scores (80-85%) unless major issues prevent communication
+- Minor errors should not drop scores below 70% in any category
+- Only assign failing scores (<60%) when writing is truly difficult to understand
+- Cap total deductions per category at 30% maximum for frequent minor issues
+- If word count within target ±30 words, consider layout requirement met
+- If no class vocabulary provided, don't penalize - credit natural variety
+- Always start with 2-3 positives before any criticism in each category
+- When in doubt between two grade bands, choose the HIGHER one
+- Credit student effort and communication over perfection
+- Be generous - students need encouragement to improve
 
 PERFECT PERFORMANCE RULE:
 - If no errors found in a category, award FULL POINTS (15/15 for most categories, 10/10 for spelling)
@@ -71,15 +74,15 @@ ${errorDetectionResults.inline_issues.map(issue =>
 OUTPUT FORMAT (valid JSON only):
 {
   "scores": {
-    "grammar": {"points": 11, "out_of": 15, "rationale": "Positive feedback first, then specific coaching with examples"},
-    "vocabulary": {"points": 12, "out_of": 15, "rationale": "Praise effort, suggest improvements with examples"},
+    "grammar": {"points": 13, "out_of": 15, "rationale": "Positive feedback first, then specific coaching with examples"},
+    "vocabulary": {"points": 13, "out_of": 15, "rationale": "Praise effort, suggest improvements with examples"},
     "spelling": {"points": 8, "out_of": 10, "rationale": "Acknowledge strengths, gentle correction guidance"},
-    "mechanics": {"points": 10, "out_of": 15, "rationale": "Supportive tone with clear next steps"},
-    "fluency": {"points": 12, "out_of": 15, "rationale": "Encourage flow improvements with transition suggestions"},
-    "layout": {"points": 12, "out_of": 15, "rationale": "Credit structure, suggest enhancements"},
-    "content": {"points": 13, "out_of": 15, "rationale": "Value ideas and personal connection, suggest depth"}
+    "mechanics": {"points": 12, "out_of": 15, "rationale": "Supportive tone with clear next steps"},
+    "fluency": {"points": 13, "out_of": 15, "rationale": "Encourage flow improvements with transition suggestions"},
+    "layout": {"points": 13, "out_of": 15, "rationale": "Credit structure, suggest enhancements"},
+    "content": {"points": 14, "out_of": 15, "rationale": "Value ideas and personal connection, suggest depth"}
   },
-  "total": {"points": 87, "out_of": 100},
+  "total": {"points": 86, "out_of": 100},
   "teacher_notes": "Encouraging overall comment highlighting student's strengths and growth",
   "encouragement_next_steps": [
     "Specific, actionable suggestion with example",

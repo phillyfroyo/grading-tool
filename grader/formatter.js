@@ -140,7 +140,7 @@ function findActualOffsets(text, issues) {
     // FIRST: If we have a quote field, use that instead of trusting AI offsets
     if (issue.quote && issue.quote.trim().length > 0) {
       const searchText = issue.quote.trim();
-      const issueDesc = issue.message || `${issue.text} → ${issue.correction}`;
+      const issueDesc = issue.message || issue.correction || issue.text;
       console.log(`\n[OFFSET DEBUG] Processing issue: "${issueDesc}"`);
       console.log(`[OFFSET DEBUG] Looking for quote: "${searchText}"`);
       console.log(`[OFFSET DEBUG] AI provided offsets: ${issue.offsets?.start}-${issue.offsets?.end}`);
@@ -202,7 +202,7 @@ function findActualOffsets(text, issues) {
     // UPDATED: Use new unified data structure (text, correction, explanation)
     let originalText;
     if (issue.message) {
-      // Legacy format: "original → corrected"  
+      // Legacy format: "original → corrected" - extract just corrected text
       const messageParts = issue.message.split('→');
       originalText = messageParts[0].trim();
     } else {
@@ -298,7 +298,7 @@ function resolveOverlapsFixed(issues, priorityOrder) {
       seenOffsets.add(offsetKey);
       uniqueIssues.push(issue);
     } else {
-      const issueDesc = issue.message || `${issue.text} → ${issue.correction}`;
+      const issueDesc = issue.message || issue.correction || issue.text;
       console.log(`Removing duplicate highlight at ${offsetKey}: ${issueDesc}`);
     }
   }
@@ -418,7 +418,7 @@ function renderSegmentsToHTML(segments, options = {}) {
         escapeHtml(segment.text);
     } else if (segment.type === 'caret') {
       // Render caret marker for comma/period suggestions
-      const issueDesc = segment.issue.message || `${segment.issue.text} → ${segment.issue.correction}`;
+      const issueDesc = segment.issue.message || segment.issue.correction || segment.issue.text;
       return `<span class="caret-marker" 
                    data-type="${escapeHtml(segment.issue.category || segment.issue.type || '')}"
                    data-message="${escapeHtml(issueDesc)}"
@@ -448,7 +448,7 @@ function renderSegmentsToHTML(segments, options = {}) {
         styleProps = `color: #A855F7; text-decoration: underline dotted; position: relative; opacity: 0.8;`;
       }
       
-      const issueDesc = segment.issue.message || `${segment.issue.text} → ${segment.issue.correction}`;
+      const issueDesc = segment.issue.message || segment.issue.correction || segment.issue.text;
       const coachingAttr = segment.issue.coaching_only ? 'data-coaching-only="true"' : '';
       return `<mark data-type="${escapeHtml(issueCategory)}" 
                    data-message="${escapeHtml(issueDesc)}"

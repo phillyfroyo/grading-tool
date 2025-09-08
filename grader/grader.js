@@ -136,7 +136,7 @@ SCORING LENIENCY RULES (PART B ONLY - DO NOT APPLY TO PART A MARKINGS):
 • Be merciful and supportive in score assignment - even if many errors are marked in Part A
 
 PERFECT PERFORMANCE RULE:
-• If no errors are found in a category, award FULL POINTS (15/15 for major categories, 10/10 for fluency)
+• If no errors are found in a category, award FULL POINTS (15/15 for most categories, 10/10 for spelling)
 • Don't withhold points "just in case" - if performance is truly excellent, give excellent grades
 • Only reduce points when you can identify specific, fixable issues
 
@@ -203,9 +203,9 @@ CRITICAL: Return ONLY valid JSON - no markdown, no code blocks, no extra text. J
   "scores": {
     "grammar": {"points": 11, "out_of": 15, "rationale": "Add past tense consistency: 'went' not 'go'. Try: 'Last Friday, I went to school early.' This makes the timeline clearer."},
     "vocabulary": {"points": 11, "out_of": 15, "rationale": "Use more descriptive words: 'interesting' → 'fascinating'. Try: 'The fascinating movie kept us engaged.' This adds more impact."},
-    "spelling": {"points": 12, "out_of": 15, "rationale": "You're doing well with spelling accuracy. Fix: 'wekend' → 'weekend'. Try: 'Last weekend was amazing.' This avoids confusion."},
+    "spelling": {"points": 8, "out_of": 10, "rationale": "You're doing well with spelling accuracy. Fix: 'wekend' → 'weekend'. Try: 'Last weekend was amazing.' This avoids confusion."},
     "mechanics-punctuation": {"points": 10, "out_of": 15, "rationale": "Add periods to avoid run-ons: split long sentences. Try: 'I went home. Then I played games.' This makes ideas clearer."},
-    "fluency": {"points": 7, "out_of": 10, "rationale": "Connect ideas better with transitions: 'then, afterward, finally'. Try: 'First I studied, then I relaxed.' This guides the reader."},
+    "fluency": {"points": 11, "out_of": 15, "rationale": "Connect ideas better with transitions: 'then, afterward, finally'. Try: 'First I studied, then I relaxed.' This guides the reader."},
     "layout": {"points": 12, "out_of": 15, "rationale": "Add 2-3 more transitions for smooth flow. Try adding: 'moreover, however, in conclusion.' This improves readability."},
     "content": {"points": 13, "out_of": 15, "rationale": "Nice work developing your personal story. Add more specific details: what games? which friends? Try: 'I played chess with my neighbor Tom.' This makes it more vivid."}
   },

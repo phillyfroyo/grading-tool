@@ -490,15 +490,11 @@ app.get('/', (req, res) => {
                             <div id="categoryBar" style="padding: 10px; background: #f8f9fa; border-bottom: 1px solid #ddd; border-radius: 4px 4px 0 0;">
                                 <div style="margin-bottom: 5px; font-weight: bold; font-size: 14px;">Select category then highlight text, or highlight text then select category:</div>
                                 <div id="categoryButtons" style="display: flex; flex-wrap: wrap; gap: 8px;">
-                                    <button class="category-btn" data-category="grammar" style="background: #FF6B6B; color: #FFFFFF; border: 2px solid #FF6B6B; padding: 8px 12px; border-radius: 20px; cursor: pointer; font-weight: bold; transition: all 0.2s;">Grammar</button>
-                                    <button class="category-btn" data-category="mechanics-punctuation" style="background: #6B7280; color: #FFFFFF; border: 2px solid #6B7280; padding: 8px 12px; border-radius: 20px; cursor: pointer; font-weight: bold; transition: all 0.2s;">Mechanics & Punctuation</button>
-                                    <button class="category-btn" data-category="redundancy" style="background: #84CC16; color: #111827; border: 2px solid #84CC16; padding: 8px 12px; border-radius: 20px; cursor: pointer; font-weight: bold; transition: all 0.2s;">Redundancy</button>
-                                    <button class="category-btn" data-category="vocabulary-structure" style="background: transparent; color: #4ECDC4; border: 2px solid #4ECDC4; padding: 8px 12px; border-radius: 20px; cursor: pointer; font-weight: bold; transition: all 0.2s;">Vocabulary / Structure</button>
-                                    <button class="category-btn" data-category="needs-rephrasing" style="background: #38BDF8; color: #111827; border: 2px solid #38BDF8; padding: 8px 12px; border-radius: 20px; cursor: pointer; font-weight: bold; transition: all 0.2s;">Needs rephrasing</button>
-                                    <button class="category-btn" data-category="non-suitable-words" style="background: transparent; color: #000000; border: 2px solid #000000; padding: 8px 12px; border-radius: 20px; cursor: pointer; font-weight: bold; transition: all 0.2s; text-decoration: line-through;">Non-suitable words</button>
-                                    <button class="category-btn" data-category="spelling" style="background: transparent; color: #F57C00; border: 2px solid #F57C00; padding: 8px 12px; border-radius: 20px; cursor: pointer; font-weight: bold; transition: all 0.2s;">Spelling</button>
-                                    <button class="category-btn" data-category="fluency" style="background: transparent; color: #9333EA; border: 2px solid #9333EA; padding: 8px 12px; border-radius: 20px; cursor: pointer; font-weight: bold; transition: all 0.2s; text-decoration: underline;">Fluency coaching</button>
-                                    <button class="category-btn" data-category="professor-comments" style="background: #FACC15; color: #111827; border: 2px solid #FACC15; padding: 8px 12px; border-radius: 20px; cursor: pointer; font-weight: bold; transition: all 0.2s;">Professor's comments</button>
+                                    <button class="category-btn" data-category="grammar" style="background: transparent; color: #FF8C00; border: 2px solid #FF8C00; padding: 8px 12px; border-radius: 20px; cursor: pointer; font-weight: bold; transition: all 0.2s;">Grammar Error</button>
+                                    <button class="category-btn" data-category="vocabulary" style="background: transparent; color: #00A36C; border: 2px solid #00A36C; padding: 8px 12px; border-radius: 20px; cursor: pointer; font-weight: bold; transition: all 0.2s;">Vocabulary Error</button>
+                                    <button class="category-btn" data-category="mechanics" style="background: #D3D3D3; color: #000000; border: 2px solid #D3D3D3; padding: 8px 12px; border-radius: 20px; cursor: pointer; font-weight: bold; transition: all 0.2s;">Mechanics Error</button>
+                                    <button class="category-btn" data-category="spelling" style="background: transparent; color: #DC143C; border: 2px solid #DC143C; padding: 8px 12px; border-radius: 20px; cursor: pointer; font-weight: bold; transition: all 0.2s;">Spelling Error</button>
+                                    <button class="category-btn" data-category="fluency" style="background: #87CEEB; color: #000000; border: 2px solid #87CEEB; padding: 8px 12px; border-radius: 20px; cursor: pointer; font-weight: bold; transition: all 0.2s;">Fluency Error</button>
                                     <button id="clearSelectionBtn" onclick="clearSelection()" style="background: #f5f5f5; color: #666; border: 2px solid #ccc; padding: 8px 12px; border-radius: 4px; cursor: pointer; margin-left: 10px;">Clear Selection</button>
                                 </div>
                                 <div id="selectionStatus" style="margin-top: 8px; font-size: 12px; color: #666; min-height: 16px;"></div>
@@ -512,7 +508,6 @@ app.get('/', (req, res) => {
                         
                         <div style="margin-top: 20px;">
                             <button onclick="exportToPDF()">Export to PDF</button>
-                            <button onclick="exportToHTML()">Export to HTML</button>
                         </div>
                     \`;
                     resultsDiv.style.display = 'block';
@@ -630,11 +625,11 @@ app.get('/', (req, res) => {
 
             // Simplified category display names
             const categoryNames = {
-                'grammar': 'Grammar',
-                'vocabulary': 'Vocabulary',
-                'mechanics': 'Mechanics',
-                'spelling': 'Spelling',
-                'fluency': 'Fluency'
+                'grammar': 'Grammar Error',
+                'vocabulary': 'Vocabulary Error',
+                'mechanics': 'Mechanics Error',
+                'spelling': 'Spelling Error',
+                'fluency': 'Fluency Error'
             };
 
             // Function to map legacy categories to new ones
@@ -789,6 +784,9 @@ app.get('/', (req, res) => {
                     range.deleteContents();
                     range.insertNode(mark);
                     updateSelectionStatus(\`"\${text.substring(0, 30)}\${text.length > 30 ? '...' : ''}" highlighted as \${category}.\`);
+                    
+                    // Automatically open the edit popup for manual highlights
+                    setTimeout(() => editHighlight(mark), 100);
                 } catch (error) {
                     console.error('Error adding highlight:', error);
                     updateSelectionStatus('Error adding highlight. Please try again.');
@@ -810,7 +808,7 @@ app.get('/', (req, res) => {
                 // Populate modal
                 document.getElementById('modalSelectedText').textContent = text;
                 document.getElementById('modalCategory').textContent = category.charAt(0).toUpperCase() + category.slice(1);
-                document.getElementById('modalFeedback').value = message.replace('Manual ', '').replace(' highlight', '');
+                document.getElementById('modalFeedback').value = ''; // Start with blank feedback box
                 
                 // Show modal
                 document.getElementById('highlightEditModal').style.display = 'block';
@@ -1202,12 +1200,25 @@ app.get('/', (req, res) => {
                         
                         <div style="page-break-before: always;"></div>
                         
-                        <div style="text-align: center; margin: 30px 0 15px 0; font-size: 12px;">
-                            <span style="background: transparent; color: #FF8C00; padding: 2px 6px; margin: 0 3px; border-radius: 3px; font-weight: bold;">grammar</span>
-                            <span style="background: transparent; color: #00A36C; padding: 2px 6px; margin: 0 3px; border-radius: 3px; font-weight: bold;">vocabulary</span>
-                            <span style="background: #D3D3D3; color: #000000; padding: 2px 6px; margin: 0 3px; border-radius: 3px;">mechanics</span>
-                            <span style="background: transparent; color: #DC143C; padding: 2px 6px; margin: 0 3px; border-radius: 3px; font-weight: bold;">spelling</span>
-                            <span style="background: #87CEEB; color: #000000; padding: 2px 6px; margin: 0 3px; border-radius: 3px;">fluency</span>
+                        <div style="margin: 30px 0 20px 0; padding: 15px; background: #f8f9fa; border: 1px solid #ddd; border-radius: 8px;">
+                            <h3 style="color: #333; margin-top: 0; margin-bottom: 15px; font-size: 16px; text-align: center;">Color-Coded Correction Guide</h3>
+                            <div style="font-size: 14px; line-height: 1.6;">
+                                <div style="margin: 8px 0;">
+                                    <span style="background: #D3D3D3; color: #000000; padding: 3px 8px; border-radius: 3px; font-weight: bold;">mechanics error</span>
+                                </div>
+                                <div style="margin: 8px 0;">
+                                    <span style="color: #DC143C; font-weight: bold;">spelling error</span>
+                                </div>
+                                <div style="margin: 8px 0;">
+                                    <span style="color: #FF8C00; font-weight: bold;">grammar error</span>
+                                </div>
+                                <div style="margin: 8px 0;">
+                                    <span style="color: #00A36C; font-weight: bold;">vocabulary error</span>
+                                </div>
+                                <div style="margin: 8px 0;">
+                                    <span style="background: #87CEEB; color: #000000; padding: 3px 8px; border-radius: 3px; font-weight: bold;">fluency error</span>
+                                </div>
+                            </div>
                         </div>
                         
                         <h2 style="color: #333; border-bottom: 2px solid #333; padding-bottom: 5px; margin-top: 30px; margin-bottom: 15px; font-size: 18px;">Color-Coded Essay</h2>
@@ -1305,60 +1316,6 @@ app.get('/', (req, res) => {
                 });
             }
             
-            function exportToHTML() {
-                if (!currentGradingData || !currentOriginalData) {
-                    alert('No grading data available for export.');
-                    return;
-                }
-                
-                // Generate fresh formatted content with current edited values
-                fetch('/format', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify({
-                        studentText: currentOriginalData.studentText,
-                        gradingResults: currentGradingData,
-                        studentName: currentOriginalData.studentName,
-                        editable: false
-                    })
-                })
-                .then(response => response.json())
-                .then(formatted => {
-                    const exportContent = \`
-                        <!DOCTYPE html>
-                        <html>
-                        <head>
-                            <title>Midterm Writing Exam Grade - \${currentOriginalData.studentName}</title>
-                            <style>
-                                body { font-family: Arial, sans-serif; margin: 20px; }
-                                .grading-summary { max-width: 800px; margin: 0 auto; }
-                                .formatted-essay { font-family: 'Times New Roman', serif; font-size: 16px; line-height: 1.6; margin: 20px 0; padding: 20px; border: 1px solid #ddd; border-radius: 8px; }
-                            </style>
-                        </head>
-                        <body>
-                            <h1>Midterm Writing Exam Grade - \${currentOriginalData.studentName}</h1>
-                            \${formatted.feedbackSummary}
-                            <h2>Color-Coded Essay:</h2>
-                            <div class="formatted-essay">\${formatted.formattedText}</div>
-                        </body>
-                        </html>
-                    \`;
-                    
-                    const blob = new Blob([exportContent], { type: 'text/html' });
-                    const url = URL.createObjectURL(blob);
-                    const a = document.createElement('a');
-                    a.href = url;
-                    a.download = \`graded_essay_\${currentOriginalData.studentName.replace(/\\s+/g, '_')}.html\`;
-                    a.click();
-                    URL.revokeObjectURL(url);
-                })
-                .catch(error => {
-                    console.error('Export error:', error);
-                    alert('Error generating export. Please try again.');
-                });
-            }
             
             // Profile management functionality
             document.getElementById('manageProfilesBtn').addEventListener('click', function() {
