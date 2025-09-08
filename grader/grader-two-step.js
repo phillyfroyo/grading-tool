@@ -76,6 +76,9 @@ async function detectErrors(studentText, classProfile) {
 
   console.log('=== RAW ERROR DETECTION RESPONSE ===');
   let content = response.choices[0].message.content;
+  console.log('RAW RESPONSE LENGTH:', content?.length);
+  console.log('RAW RESPONSE PREVIEW:', content?.substring(0, 500));
+  console.log('FULL RAW RESPONSE:');
   console.log(content);
   console.log('=== END RAW RESPONSE ===');
   
@@ -87,13 +90,27 @@ async function detectErrors(studentText, classProfile) {
     // Apply safety net patches
     if (result.inline_issues) {
       console.log(`GPT found ${result.inline_issues.length} errors before patching`);
+      console.log('BEFORE PATCHING - First 3 issues:');
+      result.inline_issues.slice(0, 3).forEach((issue, i) => {
+        console.log(`  ${i}: "${issue.text}" (${issue.start}-${issue.end}) [${issue.category}]`);
+      });
       
       result.inline_issues = splitLongSpans(studentText, result.inline_issues);
-      result.inline_issues = patchHomeworkCollocations(studentText, result.inline_issues);
-      result.inline_issues = patchCommonErrors(studentText, result.inline_issues);
-      result.inline_issues = patchModalAndTooUsage(studentText, result.inline_issues);
+      console.log(`After splitLongSpans: ${result.inline_issues.length} errors`);
       
-      console.log(`After patching: ${result.inline_issues.length} total errors`);
+      result.inline_issues = patchHomeworkCollocations(studentText, result.inline_issues);
+      console.log(`After patchHomeworkCollocations: ${result.inline_issues.length} errors`);
+      
+      result.inline_issues = patchCommonErrors(studentText, result.inline_issues);
+      console.log(`After patchCommonErrors: ${result.inline_issues.length} errors`);
+      
+      result.inline_issues = patchModalAndTooUsage(studentText, result.inline_issues);
+      console.log(`After patchModalAndTooUsage: ${result.inline_issues.length} errors`);
+      
+      console.log('AFTER ALL PATCHING - First 3 issues:');
+      result.inline_issues.slice(0, 3).forEach((issue, i) => {
+        console.log(`  ${i}: "${issue.text}" (${issue.start}-${issue.end}) [${issue.category}]`);
+      });
     }
     
     return result;
