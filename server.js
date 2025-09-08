@@ -1960,18 +1960,41 @@ async function gradeEssayUnified(studentText, prompt, profileData) {
 
     console.log('🔍 STEP 1: Error Detection & Highlighting...');
     
-    // STEP 1: Error Detection with color-coded highlighting
-    const errorDetectionPrompt = `Please grade the below essay and identify specific errors. You are good at analyzing natural language.
+    // STEP 1: ATOMIC Error Detection with strict word limits
+    const errorDetectionPrompt = `You are an expert ESL writing grader. Your task is to analyze the student's essay and return detailed feedback.
 
-Mark the essay using these categories:
-- grammar (tense, agreement, articles, word order, modal/auxiliary use)
-- mechanics-punctuation (capitalization, commas, periods, run-ons)  
-- spelling (misspellings)
-- vocabulary-structure (word choice, collocations)
-- needs-rephrasing (unclear sentence that needs restructuring)
-- redundancy
-- non-suitable-words (words that should be removed)
-- fluency (naturalness coaching)
+## GOAL
+You are a precision error detection tool. Your job is to identify **individual, specific errors** - NOT to fix sentences.
+
+**THINK LIKE A COPY EDITOR:** Circle each mistake individually, don't rewrite sentences.
+
+**CRITICAL RULE: NO LONG SPANS**
+- **ABSOLUTE MAXIMUM: 6 words per issue** - if longer, you MUST split it up
+- Each **distinct mistake** must be a **separate issue** in the JSON output  
+- **NEVER mark entire sentences or paragraphs** as one error
+
+## CATEGORIES
+- grammar — tense, agreement, articles, prepositions, modals, sentence structure
+- mechanics-punctuation — capitalization, commas, periods, run-ons, missing apostrophes
+- spelling — misspelled words
+- vocabulary-structure — wrong word, collocation, or part of speech
+- fluency — naturalness coaching for awkward but technically correct language
+
+## HOW TO MARK ISSUES
+**ATOMIC ERROR EXAMPLES:**
+
+❌ **WRONG WAY:** "I feel too happy to can talk with you" → grammar (fix whole phrase)
+
+✅ **RIGHT WAY:**
+- "too" → vocabulary-structure (wrong word: "too" → "so")  
+- "to can" → grammar (modal error: "to can" → "to be able to")
+
+**BEFORE MARKING EACH ERROR, ASK:**
+- "Is this the smallest possible span that captures this specific error?"
+- "Does this span contain only ONE type of error?"
+- "Is this span 6 words or fewer?"
+
+**IF ANY ERROR SPAN HAS MORE THAN 6 WORDS, YOU HAVE FAILED.**
 
 Class Profile: ${profileData.name}
 Expected Vocabulary: ${profileData.vocabulary.slice(0, 10).join(', ')}
@@ -1980,24 +2003,27 @@ Expected Grammar: ${profileData.grammar.slice(0, 5).join(', ')}
 Student Essay:
 ${studentText}
 
-For each error found, return this JSON format:
+Return ONLY this JSON format:
 {
   "errors": [
     {
-      "category": "grammar|mechanics-punctuation|spelling|vocabulary-structure|needs-rephrasing|redundancy|non-suitable-words|fluency",
-      "text": "exact text from essay with error",
-      "correction": "suggested correction",
-      "explanation": "brief explanation of the error"
+      "category": "grammar",
+      "text": "to can",
+      "correction": "to be able to",
+      "explanation": "Modal 'can' cannot follow 'to'"
     }
   ]
 }
 
-Return ONLY valid JSON.`;
+Remember: You're a precision tool, not a sentence rewriter. Find individual mistakes, mark them specifically, move on.`;
 
     const errorResponse = await openai.chat.completions.create({
-      model: "gpt-4o-mini",
-      messages: [{ role: "user", content: errorDetectionPrompt }],
-      temperature: 0.3,
+      model: "gpt-4o",
+      messages: [
+        { role: "system", content: errorDetectionPrompt },
+        { role: "user", content: `Analyze this text for errors: "${studentText}"` }
+      ],
+      temperature: 0.5,
       max_tokens: 2000
     });
 
