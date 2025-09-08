@@ -808,7 +808,23 @@ app.get('/', (req, res) => {
                 // Populate modal
                 document.getElementById('modalSelectedText').textContent = text;
                 document.getElementById('modalCategory').textContent = category.charAt(0).toUpperCase() + category.slice(1);
-                document.getElementById('modalFeedback').value = ''; // Start with blank feedback box
+                
+                // Pre-populate with existing correction if available, otherwise start blank
+                let feedbackValue = '';
+                if (message && message !== 'Manual ' + category + ' highlight') {
+                    // Extract correction from existing message (could be "corrected text" or "original → corrected")
+                    if (message.includes('→')) {
+                        // Legacy format: "original → corrected" - extract corrected part
+                        const parts = message.split('→');
+                        if (parts.length > 1) {
+                            feedbackValue = parts[1].trim();
+                        }
+                    } else if (!message.toLowerCase().includes('manual') && !message.toLowerCase().includes('highlight')) {
+                        // Direct correction text
+                        feedbackValue = message.trim();
+                    }
+                }
+                document.getElementById('modalFeedback').value = feedbackValue;
                 
                 // Show modal
                 document.getElementById('highlightEditModal').style.display = 'block';
