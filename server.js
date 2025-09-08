@@ -2145,23 +2145,15 @@ app.post("/api/sandbox/test-prompt", async (req, res) => {
       apiKey: process.env.OPENAI_API_KEY
     });
 
-    // Simple direct prompt test - combine user prompt with student text
-    const fullPrompt = `${prompt}
-
-STUDENT ESSAY:
-"""${studentText}"""`;
-
     console.log("Testing custom prompt...");
     
     const response = await openai.chat.completions.create({
-      model: "gpt-4-1106-preview",
+      model: "gpt-4o",
       messages: [
-        {
-          role: "user",
-          content: fullPrompt
-        }
+        { role: "system", content: prompt },
+        { role: "user", content: `Analyze this text for errors: "${studentText}"` }
       ],
-      temperature: 0.1,
+      temperature: 0.5,
       max_tokens: 2000
     });
 
@@ -2183,8 +2175,8 @@ STUDENT ESSAY:
       success: true,
       result: parsedResult,
       metadata: {
-        model: "gpt-4-1106-preview",
-        prompt_length: fullPrompt.length,
+        model: "gpt-4o",
+        prompt_length: prompt.length,
         response_length: result?.length,
         parsed_successfully: typeof parsedResult.raw_response === 'undefined'
       }
