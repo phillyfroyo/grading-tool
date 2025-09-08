@@ -1200,7 +1200,9 @@ app.get('/', (req, res) => {
                         
                         <div style="page-break-before: always;"></div>
                         
-                        <div style="margin: 30px 0 20px 0; padding: 15px; background: #f8f9fa; border: 1px solid #ddd; border-radius: 8px;">
+                        <h2 style="color: #333; border-bottom: 2px solid #333; padding-bottom: 5px; margin-top: 30px; margin-bottom: 15px; font-size: 18px;">Color-Coded Essay</h2>
+                        
+                        <div style="margin: 0 0 20px 0; padding: 15px; background: #f8f9fa; border: 1px solid #ddd; border-radius: 8px;">
                             <h3 style="color: #333; margin-top: 0; margin-bottom: 15px; font-size: 16px; text-align: center;">Color-Coded Correction Guide</h3>
                             <div style="font-size: 14px; line-height: 1.6;">
                                 <div style="margin: 8px 0;">
@@ -1220,8 +1222,6 @@ app.get('/', (req, res) => {
                                 </div>
                             </div>
                         </div>
-                        
-                        <h2 style="color: #333; border-bottom: 2px solid #333; padding-bottom: 5px; margin-top: 30px; margin-bottom: 15px; font-size: 18px;">Color-Coded Essay</h2>
                         <div style="border: 2px solid #ddd; padding: 20px; margin: 20px 0; background: white; font-family: 'Times New Roman', serif; font-size: 14px; line-height: 1.8; border-radius: 8px;">
                             \${essayContent}
                         </div>
