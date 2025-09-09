@@ -201,13 +201,13 @@ CRITICAL: Return ONLY valid JSON - no markdown, no code blocks, no extra text. J
   "corrected_text_minimal": "<string>",
   "suggested_polish_one_sentence": "<string>",
   "scores": {
-    "grammar": {"points": 11, "out_of": 15, "rationale": "Add past tense consistency: 'went' not 'go'. Try: 'Last Friday, I went to school early.' This makes the timeline clearer."},
-    "vocabulary": {"points": 11, "out_of": 15, "rationale": "Use more descriptive words: 'interesting' → 'fascinating'. Try: 'The fascinating movie kept us engaged.' This adds more impact."},
-    "spelling": {"points": 8, "out_of": 10, "rationale": "You're doing well with spelling accuracy. Fix: 'wekend' → 'weekend'. Try: 'Last weekend was amazing.' This avoids confusion."},
-    "mechanics-punctuation": {"points": 10, "out_of": 15, "rationale": "Add periods to avoid run-ons: split long sentences. Try: 'I went home. Then I played games.' This makes ideas clearer."},
-    "fluency": {"points": 11, "out_of": 15, "rationale": "Connect ideas better with transitions: 'then, afterward, finally'. Try: 'First I studied, then I relaxed.' This guides the reader."},
-    "layout": {"points": 12, "out_of": 15, "rationale": "Add 2-3 more transitions for smooth flow. Try adding: 'moreover, however, in conclusion.' This improves readability."},
-    "content": {"points": 13, "out_of": 15, "rationale": "Nice work developing your personal story. Add more specific details: what games? which friends? Try: 'I played chess with my neighbor Tom.' This makes it more vivid."}
+    "grammar": {"points": 11, "out_of": 15, "rationale": "Good work with sentence structure! I can see you're trying different tenses. To improve further, consider using 'went' instead of 'go' for past events."},
+    "vocabulary": {"points": 11, "out_of": 15, "rationale": "Nice effort with descriptive language! I noticed you used some interesting words. To improve further, consider using 'fascinating' instead of 'interesting' for more impact."},
+    "spelling": {"points": 8, "out_of": 10, "rationale": "Well done on spelling most words correctly! Good effort with longer words. To improve further, double-check 'weekend' spelling."},
+    "mechanics": {"points": 10, "out_of": 15, "rationale": "Good work with punctuation! I can see you're using periods well. To improve further, consider splitting longer sentences for clarity."},
+    "fluency": {"points": 11, "out_of": 15, "rationale": "Nice flow in your writing! I can see clear connections between ideas. To improve further, consider adding transition words like 'then' and 'afterward'."},
+    "layout": {"points": 12, "out_of": 15, "rationale": "Good paragraph organization! I can see logical structure in your ideas. To improve further, consider adding more transition words for smoother flow."},
+    "content": {"points": 13, "out_of": 15, "rationale": "Excellent personal story development! I really enjoyed reading about your experiences. Great job including specific details and examples."}
   },
   "total": {"points": [calculated_total], "out_of": 100},
   "inline_issues": [
