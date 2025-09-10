@@ -236,9 +236,6 @@ app.get('/', (req, res) => {
                         <button type="button" id="manageProfilesBtn" style="padding: 10px 15px; background: #28a745; white-space: nowrap;">
                             Manage Profiles
                         </button>
-                        <button type="button" onclick="window.open('/sandbox.html', '_blank')" style="padding: 10px 15px; background: #6f42c1; color: white; white-space: nowrap;">
-                            🧪 Sandbox
-                        </button>
                     </div>
                 </div>
                 
@@ -334,21 +331,6 @@ app.get('/', (req, res) => {
                 </div>
                 
                 <div style="margin: 20px 0;">
-                    <label for="modalErrorType" style="display: block; margin-bottom: 8px; font-weight: bold; color: #333;">
-                        Error Type:
-                    </label>
-                    <select id="modalErrorType" style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 4px; font-size: 14px; background: white;">
-                        <option value="grammar">Grammar</option>
-                        <option value="vocabulary-structure">Vocabulary/Structure</option>
-                        <option value="spelling">Spelling</option>
-                        <option value="mechanics-punctuation">Mechanics & Punctuation</option>
-                        <option value="fluency">Fluency</option>
-                        <option value="layout">Layout</option>
-                        <option value="content">Content</option>
-                    </select>
-                </div>
-                
-                <div style="margin: 20px 0;">
                     <label for="modalFeedback" style="display: block; margin-bottom: 8px; font-weight: bold; color: #333;">
                         Teacher Feedback/Note:
                     </label>
@@ -363,29 +345,6 @@ app.get('/', (req, res) => {
                         Cancel
                     </button>
                     <button id="saveEditBtn" style="background: #28a745; color: white; border: none; padding: 10px 20px; border-radius: 6px; cursor: pointer; font-size: 14px;">
-                        💾 Save Changes
-                    </button>
-                </div>
-            </div>
-        </div>
-
-        <!-- Custom Teacher Notes Edit Modal -->
-        <div id="teacherNotesModal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 1000;">
-            <div style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); background: white; padding: 30px; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.3); max-width: 600px; width: 90%;">
-                <h3 style="margin-top: 0; color: #333; font-size: 20px;">📝 Edit Teacher Notes</h3>
-                
-                <div style="margin: 20px 0;">
-                    <label for="teacherNotesTextarea" style="display: block; margin-bottom: 8px; font-weight: bold; color: #333;">
-                        Teacher Notes:
-                    </label>
-                    <textarea id="teacherNotesTextarea" rows="8" style="width: 100%; padding: 12px; border: 1px solid #ddd; border-radius: 6px; font-size: 14px; resize: vertical; font-family: system-ui, -apple-system, sans-serif; line-height: 1.5;" placeholder="Enter your teacher notes here..."></textarea>
-                </div>
-                
-                <div style="display: flex; gap: 10px; justify-content: flex-end; margin-top: 25px;">
-                    <button id="cancelTeacherNotesBtn" style="background: #6c757d; color: white; border: none; padding: 12px 24px; border-radius: 6px; cursor: pointer; font-size: 14px;">
-                        Cancel
-                    </button>
-                    <button id="saveTeacherNotesBtn" style="background: #28a745; color: white; border: none; padding: 12px 24px; border-radius: 6px; cursor: pointer; font-size: 14px;">
                         💾 Save Changes
                     </button>
                 </div>
@@ -544,6 +503,16 @@ app.get('/', (req, res) => {
                             <!-- Essay text area -->
                             <div class="formatted-essay-content" style="padding: 15px; line-height: 1.6; user-select: text;">
                                 \${formatted.formattedText}
+                            </div>
+                            
+                            <!-- Color Legend -->
+                            <div style="padding: 10px 15px; border-top: 1px solid #ddd; background: #f9f9f9; font-size: 12px;">
+                                <strong>Highlight Meanings:</strong>
+                                <span style="color: #FF8C00; font-weight: bold; margin-left: 10px;">grammar</span>
+                                <span style="color: #00A36C; font-weight: bold; margin-left: 15px;">vocabulary</span>
+                                <span style="color: #DC143C; font-weight: bold; margin-left: 15px;">spelling</span>
+                                <span style="background: #D3D3D3; color: #000; padding: 2px 6px; border-radius: 3px; font-weight: bold; margin-left: 15px;">mechanics</span>
+                                <span style="background: #87CEEB; color: #000; padding: 2px 6px; border-radius: 3px; font-weight: bold; margin-left: 15px;">fluency</span>
                             </div>
                         </div>
                         
@@ -849,26 +818,7 @@ app.get('/', (req, res) => {
                 // Populate modal
                 document.getElementById('modalSelectedText').textContent = text;
                 document.getElementById('modalCategory').textContent = category.charAt(0).toUpperCase() + category.slice(1);
-                
-                // Set the error type dropdown to the current category
-                document.getElementById('modalErrorType').value = category;
-                
-                // Pre-populate with existing correction if available, otherwise start blank
-                let feedbackValue = '';
-                if (message && message !== 'Manual ' + category + ' highlight') {
-                    // Extract correction from existing message (could be "corrected text" or "original → corrected")
-                    if (message.includes('→')) {
-                        // Legacy format: "original → corrected" - extract corrected part
-                        const parts = message.split('→');
-                        if (parts.length > 1) {
-                            feedbackValue = parts[1].trim();
-                        }
-                    } else if (!message.toLowerCase().includes('manual') && !message.toLowerCase().includes('highlight')) {
-                        // Direct correction text
-                        feedbackValue = message.trim();
-                    }
-                }
-                document.getElementById('modalFeedback').value = feedbackValue;
+                document.getElementById('modalFeedback').value = ''; // Start with blank feedback box
                 
                 // Show modal
                 document.getElementById('highlightEditModal').style.display = 'block';
@@ -890,22 +840,8 @@ app.get('/', (req, res) => {
                 document.getElementById('saveEditBtn').addEventListener('click', function() {
                     if (currentEditingElement) {
                         const newNote = document.getElementById('modalFeedback').value.trim();
-                        const newErrorType = document.getElementById('modalErrorType').value;
-                        const finalNote = newNote || \`Manual \${newErrorType} highlight\`;
-                        
-                        // Update the error type and styling if it changed
-                        const oldErrorType = currentEditingElement.getAttribute('data-type');
-                        if (newErrorType !== oldErrorType) {
-                            // Update the data-type attribute
-                            currentEditingElement.setAttribute('data-type', newErrorType);
-                            
-                            // Update the CSS class for proper color coding
-                            currentEditingElement.className = currentEditingElement.className
-                                .replace(new RegExp('\\\\b' + oldErrorType + '\\\\b', 'g'), newErrorType);
-                                
-                            // Also update the modal category display
-                            document.getElementById('modalCategory').textContent = newErrorType.charAt(0).toUpperCase() + newErrorType.slice(1);
-                        }
+                        const category = currentEditingElement.getAttribute('data-type');
+                        const finalNote = newNote || \`Manual \${category} highlight\`;
                         
                         currentEditingElement.setAttribute('data-message', finalNote);
                         currentEditingElement.title = finalNote;
@@ -927,49 +863,11 @@ app.get('/', (req, res) => {
                     }
                     closeEditModal();
                 });
-
-                // Teacher Notes Modal Event Listeners
-                document.getElementById('teacherNotesModal').addEventListener('click', function(e) {
-                    if (e.target === this) {
-                        closeTeacherNotesModal();
-                    }
-                });
-
-                document.getElementById('cancelTeacherNotesBtn').addEventListener('click', closeTeacherNotesModal);
-
-                document.getElementById('saveTeacherNotesBtn').addEventListener('click', function() {
-                    if (currentTeacherNotesElement) {
-                        const newNotes = document.getElementById('teacherNotesTextarea').value;
-                        currentTeacherNotesElement.querySelector('.teacher-notes-content').textContent = newNotes;
-                        // Update the stored grading data
-                        if (currentGradingData) {
-                            currentGradingData.teacher_notes = newNotes;
-                        }
-                    }
-                    closeTeacherNotesModal();
-                });
-
-                // Keyboard shortcuts for teacher notes modal
-                document.getElementById('teacherNotesTextarea').addEventListener('keydown', function(e) {
-                    if (e.key === 'Escape') {
-                        closeTeacherNotesModal();
-                    } else if (e.ctrlKey && e.key === 'Enter') {
-                        document.getElementById('saveTeacherNotesBtn').click();
-                    }
-                });
             });
             
             function closeEditModal() {
                 document.getElementById('highlightEditModal').style.display = 'none';
                 currentEditingElement = null;
-            }
-
-            // Teacher Notes Modal Variables and Functions
-            let currentTeacherNotesElement = null;
-
-            function closeTeacherNotesModal() {
-                document.getElementById('teacherNotesModal').style.display = 'none';
-                currentTeacherNotesElement = null;
             }
             
             function clearSelection() {
@@ -996,18 +894,14 @@ app.get('/', (req, res) => {
             // Functions for editing statistics and teacher notes
             function editTeacherNotes(element) {
                 const currentContent = element.querySelector('.teacher-notes-content').textContent;
-                
-                // Set up the modal
-                currentTeacherNotesElement = element;
-                document.getElementById('teacherNotesTextarea').value = currentContent;
-                
-                // Show modal
-                document.getElementById('teacherNotesModal').style.display = 'block';
-                
-                // Focus on textarea for immediate editing
-                setTimeout(() => {
-                    document.getElementById('teacherNotesTextarea').focus();
-                }, 100);
+                const newNotes = prompt('Edit teacher notes:', currentContent);
+                if (newNotes !== null && newNotes !== currentContent) {
+                    element.querySelector('.teacher-notes-content').textContent = newNotes;
+                    // Update the stored grading data
+                    if (currentGradingData) {
+                        currentGradingData.teacher_notes = newNotes;
+                    }
+                }
             }
 
             function editStat(element, statType) {
@@ -1124,6 +1018,7 @@ app.get('/', (req, res) => {
                     essayContent = tempDiv.innerHTML;
                 }
                 
+                
                 // Create the HTML content for print
                 const printContent = \`
                 <!DOCTYPE html>
@@ -1134,6 +1029,63 @@ app.get('/', (req, res) => {
                         @media print {
                             body { margin: 0; }
                             .no-print { display: none !important; }
+                            
+                            /* PRINT-SPECIFIC: Force background colors for error highlighting */
+                            * { -webkit-print-color-adjust: exact !important; color-adjust: exact !important; }
+                            
+                            /* Mechanics errors - gray background - PRINT MEDIA */
+                            .essay-content mark[data-type="mechanics"][style],
+                            .essay-content mark[data-type="mechanics-punctuation"][style],
+                            .essay-content mark[data-category="mechanics"][style],
+                            .essay-content mark[data-category="mechanics-punctuation"][style],
+                            mark[data-type="mechanics"],
+                            mark[data-type="mechanics-punctuation"],
+                            mark[data-category="mechanics"],
+                            mark[data-category="mechanics-punctuation"] {
+                                color: #000000 !important;
+                                background-color: #D3D3D3 !important;
+                                background: #D3D3D3 !important;
+                                padding: 2px 4px !important;
+                                border-radius: 3px !important;
+                                font-weight: bold !important;
+                            }
+                            
+                            /* Fluency errors - blue background - PRINT MEDIA */
+                            .essay-content mark[data-type="fluency"][style],
+                            .essay-content mark[data-type="needs-rephrasing"][style],
+                            .essay-content mark[data-type="redundancy"][style],
+                            .essay-content mark[data-type="non-suitable-words"][style],
+                            .essay-content mark[data-type="professor-comments"][style],
+                            .essay-content mark[data-category="fluency"][style],
+                            .essay-content mark[data-category="needs-rephrasing"][style],
+                            .essay-content mark[data-category="redundancy"][style],
+                            .essay-content mark[data-category="non-suitable-words"][style],
+                            .essay-content mark[data-category="professor-comments"][style],
+                            .essay-content mark[data-category="content"][style],
+                            mark[data-type="fluency"],
+                            mark[data-type="needs-rephrasing"],
+                            mark[data-type="redundancy"],
+                            mark[data-type="non-suitable-words"],
+                            mark[data-type="professor-comments"],
+                            mark[data-category="fluency"],
+                            mark[data-category="needs-rephrasing"],
+                            mark[data-category="redundancy"],
+                            mark[data-category="non-suitable-words"],
+                            mark[data-category="professor-comments"],
+                            mark[data-category="content"] {
+                                color: #000000 !important;
+                                background-color: #87CEEB !important;
+                                background: #87CEEB !important;
+                                padding: 2px 4px !important;
+                                border-radius: 3px !important;
+                                font-weight: bold !important;
+                            }
+                            
+                            /* Legend styling for PDF */
+                            .color-legend {
+                                border: 1px solid #ddd !important;
+                                background: #f9f9f9 !important;
+                            }
                         }
                         body {
                             font-family: Arial, sans-serif;
@@ -1188,44 +1140,35 @@ app.get('/', (req, res) => {
                             font-size: 16px;
                         }
                         
-                        /* Override default mark styling - remove default yellow background */
-                        mark {
-                            background: none !important;
+                        /* Error highlighting styles for PDF export */
+                        mark[data-type] {
+                            background: unset;
+                            color: unset;
                         }
                         
-                        /* Error category specific styles for PDF */
-                        mark[data-type="grammar"] {
+                        /* Grammar errors - orange text */
+                        mark[data-type="grammar"],
+                        mark[data-category="grammar"] {
                             color: #FF8C00 !important;
                             background: transparent !important;
+                            font-weight: bold;
                         }
-                        mark[data-type="vocabulary"], mark[data-type="vocabulary-structure"] {
+                        
+                        /* Vocabulary errors - green text */  
+                        mark[data-type="vocabulary"],
+                        mark[data-category="vocabulary"],
+                        mark[data-category="vocabulary-structure"] {
                             color: #00A36C !important;
                             background: transparent !important;
+                            font-weight: bold;
                         }
-                        mark[data-type="spelling"] {
+                        
+                        /* Spelling errors - red text */
+                        mark[data-type="spelling"],
+                        mark[data-category="spelling"] {
                             color: #DC143C !important;
                             background: transparent !important;
-                        }
-                        mark[data-type="mechanics"], mark[data-type="mechanics-punctuation"] {
-                            color: #000000 !important;
-                            background-color: #D3D3D3 !important;
-                            padding: 2px 4px !important;
-                            border-radius: 2px !important;
-                            display: inline !important;
-                        }
-                        mark[data-type="fluency"] {
-                            color: #000000 !important;
-                            background-color: #87CEEB !important;
-                            padding: 2px 4px !important;
-                            border-radius: 2px !important;
-                            display: inline !important;
-                        }
-                        mark[data-type="layout"], mark[data-type="content"] {
-                            color: #6B7280 !important;
-                            background-color: #F3F4F6 !important;
-                            padding: 2px 4px !important;
-                            border-radius: 2px !important;
-                            display: inline !important;
+                            font-weight: bold;
                         }
                     </style>
                 </head>
@@ -1249,6 +1192,16 @@ app.get('/', (req, res) => {
                     
                     <h2>Your Essay with Corrections</h2>
                     <div class="essay-content">\${essayContent}</div>
+                    
+                    <!-- Color Legend -->
+                    <div class="color-legend" style="padding: 10px 15px; border-top: 1px solid #ddd; background: #f9f9f9; font-size: 12px; margin-top: 10px;">
+                        <strong>Highlight Meanings:</strong>
+                        <span style="color: #FF8C00; font-weight: bold; margin-left: 10px;">grammar</span>
+                        <span style="color: #00A36C; font-weight: bold; margin-left: 15px;">vocabulary</span>
+                        <span style="color: #DC143C; font-weight: bold; margin-left: 15px;">spelling</span>
+                        <span style="background: #D3D3D3; color: #000; padding: 2px 6px; border-radius: 3px; font-weight: bold; margin-left: 15px;">mechanics</span>
+                        <span style="background: #87CEEB; color: #000; padding: 2px 6px; border-radius: 3px; font-weight: bold; margin-left: 15px;">fluency</span>
+                    </div>
                     
                     \${feedbackNotes.length > 0 ? \`
                         <h2>Detailed Feedback</h2>
@@ -2097,41 +2050,18 @@ async function gradeEssayUnified(studentText, prompt, profileData) {
 
     console.log('🔍 STEP 1: Error Detection & Highlighting...');
     
-    // STEP 1: ATOMIC Error Detection with strict word limits
-    const errorDetectionPrompt = `You are an expert ESL writing grader. Your task is to analyze the student's essay and return detailed feedback.
+    // STEP 1: Error Detection with color-coded highlighting
+    const errorDetectionPrompt = `Please grade the below essay and identify specific errors. You are good at analyzing natural language.
 
-## GOAL
-You are a precision error detection tool. Your job is to identify **individual, specific errors** - NOT to fix sentences.
-
-**THINK LIKE A COPY EDITOR:** Circle each mistake individually, don't rewrite sentences.
-
-**CRITICAL RULE: NO LONG SPANS**
-- **ABSOLUTE MAXIMUM: 6 words per issue** - if longer, you MUST split it up
-- Each **distinct mistake** must be a **separate issue** in the JSON output  
-- **NEVER mark entire sentences or paragraphs** as one error
-
-## CATEGORIES
-- grammar — tense, agreement, articles, prepositions, modals, sentence structure
-- mechanics-punctuation — capitalization, commas, periods, run-ons, missing apostrophes
-- spelling — misspelled words
-- vocabulary-structure — wrong word, collocation, or part of speech
-- fluency — naturalness coaching for awkward but technically correct language
-
-## HOW TO MARK ISSUES
-**ATOMIC ERROR EXAMPLES:**
-
-❌ **WRONG WAY:** "I feel too happy to can talk with you" → grammar (fix whole phrase)
-
-✅ **RIGHT WAY:**
-- "too" → vocabulary-structure (wrong word: "too" → "so")  
-- "to can" → grammar (modal error: "to can" → "to be able to")
-
-**BEFORE MARKING EACH ERROR, ASK:**
-- "Is this the smallest possible span that captures this specific error?"
-- "Does this span contain only ONE type of error?"
-- "Is this span 6 words or fewer?"
-
-**IF ANY ERROR SPAN HAS MORE THAN 6 WORDS, YOU HAVE FAILED.**
+Mark the essay using these categories:
+- grammar (tense, agreement, articles, word order, modal/auxiliary use)
+- mechanics-punctuation (capitalization, commas, periods, run-ons)  
+- spelling (misspellings)
+- vocabulary-structure (word choice, collocations)
+- needs-rephrasing (unclear sentence that needs restructuring)
+- redundancy
+- non-suitable-words (words that should be removed)
+- fluency (naturalness coaching)
 
 Class Profile: ${profileData.name}
 Expected Vocabulary: ${profileData.vocabulary.slice(0, 10).join(', ')}
@@ -2140,27 +2070,24 @@ Expected Grammar: ${profileData.grammar.slice(0, 5).join(', ')}
 Student Essay:
 ${studentText}
 
-Return ONLY this JSON format:
+For each error found, return this JSON format:
 {
   "errors": [
     {
-      "category": "grammar",
-      "text": "to can",
-      "correction": "to be able to",
-      "explanation": "Modal 'can' cannot follow 'to'"
+      "category": "grammar|mechanics-punctuation|spelling|vocabulary-structure|needs-rephrasing|redundancy|non-suitable-words|fluency",
+      "text": "exact text from essay with error",
+      "correction": "suggested correction",
+      "explanation": "brief explanation of the error"
     }
   ]
 }
 
-Remember: You're a precision tool, not a sentence rewriter. Find individual mistakes, mark them specifically, move on.`;
+Return ONLY valid JSON.`;
 
     const errorResponse = await openai.chat.completions.create({
-      model: "gpt-4o",
-      messages: [
-        { role: "system", content: errorDetectionPrompt },
-        { role: "user", content: `Analyze this text for errors: "${studentText}"` }
-      ],
-      temperature: 0.5,
+      model: "gpt-4o-mini",
+      messages: [{ role: "user", content: errorDetectionPrompt }],
+      temperature: 0.3,
       max_tokens: 2000
     });
 
@@ -2177,125 +2104,55 @@ Remember: You're a precision tool, not a sentence rewriter. Find individual mist
     console.log('📊 STEP 2: Comprehensive Grading...');
 
     // STEP 2: Comprehensive grading based on rubric
-    const gradingPrompt = `You are an expert ESL writing grader focused ONLY on fair, supportive scoring.
+    const gradingPrompt = `You are an ESL teacher grading a ${profileData.cefrLevel}-level student essay using a detailed rubric.
 
-⚠️  MANDATORY RULE #1: ALL FEEDBACK MUST START POSITIVE ⚠️
-NEVER begin any rationale with errors, problems, or negatives.
-ALWAYS start with encouragement: "Good work", "Nice effort", "Well done", etc.
-
-═══════════════════════════════════════════════════════════════════════════════
-SINGLE RESPONSIBILITY: MERCIFUL GRADING
-═══════════════════════════════════════════════════════════════════════════════
-
-YOUR ONLY JOB: Assign fair, encouraging scores based on the rubric.
-
-NOW GRADE WITH EXTREME MERCY AND ENCOURAGEMENT:
-- Errors are learning opportunities, NOT reasons to fail students
-- Focus on communication success, effort, and any attempt at the assignment
-- Give generous credit for what students accomplish, no matter how small
-- Default assumption: students are trying their best and deserve encouragement
-- Remember: Your job is to build confidence and motivate continued learning
-
-Class Profile: ${profileData.name} (${profileData.cefrLevel} level)
+Class Profile: ${profileData.name}
 Expected Vocabulary: ${profileData.vocabulary.join(', ')}
 Expected Grammar: ${profileData.grammar.join(', ')}
+
+Assignment Prompt: ${prompt}
 
 Student Essay:
 ${studentText}
 
-Errors Already Found: ${JSON.stringify(errorResults.errors || [])}
+Errors Found: ${JSON.stringify(errorResults.errors || [])}
 
-GENEROUS SCORING RULES - BE EXTREMELY LENIENT AND ENCOURAGING:
-- HARD MINIMUM FLOORS: Never score below these minimums:
-  * Grammar: 8/15 minimum (no exceptions)
-  * Vocabulary: 8/15 minimum (no exceptions)  
-  * Spelling: 5/10 minimum (equivalent of 8/15)
-  * Mechanics: 8/15 minimum (no exceptions)
-  * Fluency: 8/15 minimum (no exceptions)
-  * Layout: 8/15 minimum (no exceptions)
-  * Content: 8/15 minimum (no exceptions)
-- Default to high band scores (85-90%) for any reasonable attempt at communication
-- Increase ALL final scores by 30% after initial grading to ensure generous results
-- MANDATORY: Start EVERY category feedback with 2-3 specific positive observations
-- When in doubt between grade bands, ALWAYS choose the HIGHER one
-- Credit student effort, creativity, and any communication success
-- Be extremely generous - focus on what students DID accomplish
-
-CRITICAL FEEDBACK FORMAT - POSITIVE FIRST IS MANDATORY:
-- EVERY single rationale MUST begin with positive observations - NO EXCEPTIONS
-- Required format: "[Positive 1]. [Positive 2]. [Optional gentle suggestion]"
-- NO EXCLAMATION MARKS ALLOWED - keep feedback natural and conversational
-- Even with errors present, find something good first: "Good effort here", "Nice try", "Not bad overall", "Pretty solid work"
-
-🚨 CRITICAL POSITIVE FEEDBACK ENFORCEMENT 🚨
-EVERY SINGLE RATIONALE MUST START WITH POSITIVES - ABSOLUTELY NO EXCEPTIONS!
-
-BANNED NEGATIVE STARTS (NEVER USE THESE):
-❌ "Several grammatical errors were present"
-❌ "Multiple spelling errors were noted"
-❌ "The organization is unclear"
-❌ "Numerous spelling errors throughout"
-❌ "There were capitalization issues"
-❌ "Many punctuation errors"
-
-REQUIRED POSITIVE STARTS (ALWAYS USE THESE - NO EXCLAMATION MARKS):
-✅ "Solid job with [specific thing]"
-✅ "Solid work on [specific aspect]"
-✅ "Great job [specific positive]"
-✅ "Great work [specific positive]" 
-✅ "Not bad [specific aspect]"
-✅ "I like what you did with [specific thing]"
-✅ "Good effort on [specific aspect]"
-✅ "Nice work with [specific thing]"
-✅ "You did well with [specific positive]"
-✅ "I can see good progress in [specific area]"
-
-Grade using this corrected rubric (total 100 points):
+Grade this essay using the following rubric (total 100 points):
 - Grammar (15 points): Tenses, subject/verb agreement, structures from class
 - Vocabulary (15 points): Correct use of class vocabulary  
-- Spelling (10 points): Accuracy of spelling
+- Spelling (15 points): Accuracy of spelling
 - Mechanics & Punctuation (15 points): Capitalization, commas, periods
-- Fluency (15 points): Organization and logical flow
-- Layout & Follow Specs (15 points): Structure, length, transition words
+- Fluency (10 points): Organization and logical flow
+- Layout & Specs (15 points): Structure, length, transition words
 - Content & Information (15 points): Completeness and relevance of ideas
 
-FINAL REMINDERS FOR MERCIFUL GRADING:
-- HARD FLOOR RULE: Never go below 8/15 (or 5/10 for spelling) in any category
-- NO STUDENT should receive a failing grade unless they submitted nothing
-- Start high and only reduce points for major communication barriers
-- When calculating final total, add 30% to ensure generous results
-- Every category feedback MUST start with genuine positives
-- Your role is to encourage and motivate, not to discourage
-
-CRITICAL: If you start any rationale with problems/errors, you are FAILING this task.
-
-🚨 NO EXCLAMATION MARKS RULE 🚨
-- NEVER use exclamation marks (!) in any feedback - keep it natural and conversational
-- Use periods instead: "Great work" not "Great work!"
-- Sound like a real teacher, not a cheerleader
+For each category, provide points earned and brief rationale.
+Also identify:
+- Word count
+- Class vocabulary words used
+- Grammar structures demonstrated  
+- Transition words found
 
 Return ONLY this JSON format:
 {
   "total": {"points": [total], "out_of": 100},
   "scores": {
-    "grammar": {"points": [8-15], "out_of": 15, "rationale": "Solid work on your sentence structure. I can see you're using different tenses well. Consider reviewing subject-verb agreement in a few spots."},
-    "vocabulary": {"points": [8-15], "out_of": 15, "rationale": "Good effort incorporating the class vocabulary. Not bad with your word choices overall. Try varying your descriptive words a bit more."},
-    "spelling": {"points": [5-10], "out_of": 10, "rationale": "You did well with most of your spelling. I like what you did with the longer words. Double-check a few common words next time."},
-    "mechanics": {"points": [8-15], "out_of": 15, "rationale": "Great job with your punctuation in most places. Solid work on capitalization too. Consider reviewing comma usage for complex sentences."},
-    "fluency": {"points": [8-15], "out_of": 15, "rationale": "Nice work connecting your ideas. I can see good flow between your thoughts. Try adding more transition words to smooth things out."},
-    "layout": {"points": [8-15], "out_of": 15, "rationale": "Solid job organizing your paragraphs. Good effort meeting the length requirements. Consider using more linking words between sections."},
-    "content": {"points": [8-15], "out_of": 15, "rationale": "I really enjoyed your creative ideas. Great work developing your main points. You stayed on topic throughout, which is excellent."}
+    "grammar": {"points": [0-15], "out_of": 15, "rationale": "..."},
+    "vocabulary": {"points": [0-15], "out_of": 15, "rationale": "..."},
+    "spelling": {"points": [0-10], "out_of": 10, "rationale": "..."},
+    "mechanics": {"points": [0-15], "out_of": 15, "rationale": "..."},
+    "fluency": {"points": [0-15], "out_of": 15, "rationale": "..."},
+    "layout": {"points": [0-15], "out_of": 15, "rationale": "..."},
+    "content": {"points": [0-15], "out_of": 15, "rationale": "..."}
   },
-  "teacher_notes": "Nice work on this assignment. Your writing shows good effort and some solid ideas. Keep practicing and you'll continue to improve.",
+  "teacher_notes": "Overall feedback...",
   "meta": {
     "word_count": [number],
     "class_vocabulary_used": ["word1", "word2"],
     "transition_words_found": ["however", "therefore"],
     "grammar_structures_used": ["structure1", "structure2"]
   }
-}
-
-Be extremely generous and supportive in all scoring. Students need encouragement to grow.`;
+}`;
 
     const gradingResponse = await openai.chat.completions.create({
       model: "gpt-4o-mini", 
@@ -2349,80 +2206,6 @@ Be extremely generous and supportive in all scoring. Students need encouragement
     throw error;
   }
 }
-
-// Sandbox API for testing custom prompts
-app.post("/api/sandbox/test-prompt", async (req, res) => {
-  try {
-    const { prompt, studentText } = req.body;
-    
-    console.log("=== PROMPT SANDBOX TEST ===");
-    console.log("Custom prompt length:", prompt?.length);
-    console.log("Student text length:", studentText?.length);
-    
-    if (!prompt || !studentText) {
-      return res.status(400).json({
-        error: "Both prompt and studentText are required"
-      });
-    }
-
-    // Import OpenAI dynamically
-    const OpenAI = (await import("openai")).default;
-    
-    if (!process.env.OPENAI_API_KEY) {
-      return res.status(500).json({
-        error: "OpenAI API key not configured"
-      });
-    }
-    
-    const openai = new OpenAI({
-      apiKey: process.env.OPENAI_API_KEY
-    });
-
-    console.log("Testing custom prompt...");
-    
-    const response = await openai.chat.completions.create({
-      model: "gpt-4o",
-      messages: [
-        { role: "system", content: prompt },
-        { role: "user", content: `Analyze this text for errors: "${studentText}"` }
-      ],
-      temperature: 0.5,
-      max_tokens: 2000
-    });
-
-    const result = response.choices[0].message.content;
-    console.log("Raw AI response length:", result?.length);
-
-    // Try to parse as JSON first, otherwise return raw text
-    let parsedResult;
-    try {
-      parsedResult = JSON.parse(result);
-    } catch (parseError) {
-      parsedResult = {
-        raw_response: result,
-        parsing_error: "Response was not valid JSON"
-      };
-    }
-
-    res.json({
-      success: true,
-      result: parsedResult,
-      metadata: {
-        model: "gpt-4o",
-        prompt_length: prompt.length,
-        response_length: result?.length,
-        parsed_successfully: typeof parsedResult.raw_response === 'undefined'
-      }
-    });
-
-  } catch (error) {
-    console.error("Sandbox test error:", error);
-    res.status(500).json({
-      error: error.message,
-      type: error.constructor.name
-    });
-  }
-});
 
 const PORT = 3001;
 // Heartbeat disabled
