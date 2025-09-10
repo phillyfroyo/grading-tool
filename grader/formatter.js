@@ -92,9 +92,15 @@ export function formatGradedEssay(studentText, gradingResults, options = {}) {
 
 function renderWithOffsets(studentText, inlineIssues, options = {}) {
   if (!inlineIssues || inlineIssues.length === 0) {
-    return options.editable ? 
-      `<span class="text-segment" data-segment-id="0">${escapeHtml(studentText)}</span>` :
-      escapeHtml(studentText);
+    const formattedText = options.editable ? 
+      `<span class="text-segment" data-segment-id="0">${escapeHtmlWithFormatting(studentText)}</span>` :
+      escapeHtmlWithFormatting(studentText);
+    
+    // Wrap in paragraph tags if needed
+    if (formattedText.includes('</p><p>')) {
+      return '<p>' + formattedText + '</p>';
+    }
+    return formattedText;
   }
 
   // Normalize essay to NFC (do not change whitespace or line breaks)
@@ -411,11 +417,11 @@ function mergeAdjacentSegments(segments) {
 function renderSegmentsToHTML(segments, options = {}) {
   const { editable = false } = options;
   
-  return segments.map((segment, index) => {
+  const htmlContent = segments.map((segment, index) => {
     if (segment.type === 'normal') {
       return editable ? 
-        `<span class="text-segment" data-segment-id="${index}">${escapeHtml(segment.text)}</span>` :
-        escapeHtml(segment.text);
+        `<span class="text-segment" data-segment-id="${index}">${escapeHtmlWithFormatting(segment.text)}</span>` :
+        escapeHtmlWithFormatting(segment.text);
     } else if (segment.type === 'caret') {
       // Render caret marker for comma/period suggestions
       const issueDesc = segment.issue.message || segment.issue.correction || segment.issue.text;
@@ -456,11 +462,18 @@ function renderSegmentsToHTML(segments, options = {}) {
                    ${editableAttrs}
                    style="${styleProps}" 
                    title="${escapeHtml(issueDesc)}">
-                ${escapeHtml(segment.text)}
+                ${escapeHtmlWithFormatting(segment.text)}
                 ${editable ? `<span class="edit-indicator" style="font-size: 10px; margin-left: 2px;">✎</span>` : ''}
               </mark>`;
     }
   }).join('');
+  
+  // Wrap content in paragraph tags if it contains paragraph breaks
+  if (htmlContent.includes('</p><p>')) {
+    return '<p>' + htmlContent + '</p>';
+  }
+  
+  return htmlContent;
 }
 
 
@@ -604,6 +617,22 @@ function escapeHtml(text) {
     .replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;')
     .replace(/'/g, '&#039;');
+}
+
+function escapeHtmlWithFormatting(text) {
+  if (!text) return '';
+  
+  return text
+    // First escape HTML characters
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;')
+    // Then preserve formatting
+    .replace(/\n\n+/g, '</p><p>')  // Multiple line breaks = paragraph breaks
+    .replace(/\n/g, '<br>')        // Single line breaks = line breaks
+    .replace(/  +/g, (match) => '&nbsp;'.repeat(match.length)); // Multiple spaces = non-breaking spaces
 }
 
 // Export function to generate CSS styles
