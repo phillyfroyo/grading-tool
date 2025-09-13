@@ -107,6 +107,15 @@ async function detectErrors(studentText, classProfile) {
       result.inline_issues = patchModalAndTooUsage(studentText, result.inline_issues);
       console.log(`After patchModalAndTooUsage: ${result.inline_issues.length} errors`);
       
+      result.inline_issues = patchContextualCorrections(studentText, result.inline_issues);
+      console.log(`After patchContextualCorrections: ${result.inline_issues.length} errors`);
+      
+      result.inline_issues = patchVocabularyUsage(studentText, result.inline_issues);
+      console.log(`After patchVocabularyUsage: ${result.inline_issues.length} errors`);
+      
+      result.inline_issues = attemptSmartSplitting(studentText, result.inline_issues);
+      console.log(`After attemptSmartSplitting: ${result.inline_issues.length} errors`);
+      
       console.log('AFTER ALL PATCHING - First 3 issues:');
       result.inline_issues.slice(0, 3).forEach((issue, i) => {
         console.log(`  ${i}: "${issue.text}" (${issue.start}-${issue.end}) [${issue.category}]`);
@@ -169,6 +178,51 @@ async function gradeWithMercy(studentText, classProfile, cefrLevel, errorDetecti
       delete result.scores['mechanics-punctuation'];
     }
     
+    // STEP 1: ENFORCE HARD MINIMUM FLOORS (50% minimum)
+    console.log('\n=== ENFORCING 50% MINIMUM FLOORS ===');
+    for (const [category, scoreData] of Object.entries(result.scores || {})) {
+      const originalPoints = scoreData.points;
+      const maxPoints = scoreData.out_of;
+      const minimumFloor = Math.ceil(maxPoints * 0.5); // 50% floor
+      
+      if (originalPoints < minimumFloor) {
+        scoreData.points = minimumFloor;
+        console.log(`🛡️ FLOOR APPLIED - ${category}: ${originalPoints} → ${minimumFloor} (50% minimum)`);
+      }
+    }
+    
+    // STEP 2: Apply merciful scoring boost - increase all scores by 20% (post-floor adjustment)
+    console.log('\n=== APPLYING MERCIFUL SCORING BOOST ===');
+    let originalTotal = 0;
+    
+    for (const [category, scoreData] of Object.entries(result.scores || {})) {
+      const preBoostPoints = scoreData.points; // After floor but before boost
+      const maxPoints = scoreData.out_of;
+      
+      // Calculate 20% boost, but cap at maximum possible points
+      const boostedPoints = Math.min(
+        Math.round(preBoostPoints * 1.2), 
+        maxPoints
+      );
+      
+      scoreData.points = boostedPoints;
+      originalTotal += preBoostPoints;
+      
+      console.log(`${category}: ${preBoostPoints} → ${boostedPoints} (out of ${maxPoints})`);
+    }
+    
+    // Update total score
+    const newTotal = Object.values(result.scores || {}).reduce((sum, score) => sum + score.points, 0);
+    const maxTotal = Object.values(result.scores || {}).reduce((sum, score) => sum + score.out_of, 0);
+    
+    if (result.total) {
+      result.total.points = newTotal;
+      result.total.out_of = maxTotal;
+    }
+    
+    console.log(`TOTAL SCORE: ${originalTotal} → ${newTotal} (out of ${maxTotal})`);
+    console.log('=== MERCIFUL BOOST APPLIED ===\n');
+    
     return result;
   } catch (error) {
     console.error('Error parsing JSON from grading:', error);
@@ -191,7 +245,7 @@ function patchHomeworkCollocations(text, issues) {
     for (const match of text.matchAll(regex)) {
       if (!isAlreadyCovered(match.index, match.index + col.wrong.length, issues)) {
         newIssues.push({
-          category: "vocabulary-structure",
+          category: "vocabulary",
           text: col.wrong,
           start: match.index,
           end: match.index + col.wrong.length,
@@ -343,8 +397,9 @@ function isAlreadyCovered(start, end, existingIssues) {
 // Split overly long error spans into smaller, specific issues
 function splitLongSpans(text, issues) {
   const newIssues = [];
-  const MAX_SPAN_LENGTH = 50; // characters
-  const MAX_WORD_COUNT = 10; // words
+  const MAX_SPAN_LENGTH = 30; // Reduced from 50 to 30 characters
+  const MAX_WORD_COUNT = 4; // Reduced from 6 to 4 words max (very strict)
+  const MECHANICS_MAX_WORDS = 2; // Even stricter for mechanics (1-2 words only)
   
   for (const issue of issues) {
     const start = issue.start || issue.offsets?.start;
@@ -358,12 +413,24 @@ function splitLongSpans(text, issues) {
     const spanText = text.slice(start, end);
     const wordCount = spanText.split(/\s+/).filter(word => word.length > 0).length;
     const charLength = end - start;
+    const category = issue.category || issue.type || '';
     
-    // If span is too long, mark it for manual review but don't auto-split
-    // (Auto-splitting could create incorrect error boundaries)
-    if (charLength > MAX_SPAN_LENGTH || wordCount > MAX_WORD_COUNT) {
+    // Special handling for mechanics-punctuation - be extra strict
+    const isMechanics = category.includes('mechanics') || category.includes('punctuation');
+    const maxWords = isMechanics ? MECHANICS_MAX_WORDS : MAX_WORD_COUNT;
+    
+    // If span is too long, either reject it or try to fix it
+    if (charLength > MAX_SPAN_LENGTH || wordCount > maxWords) {
       console.warn(`⚠️ Long span detected (${wordCount} words, ${charLength} chars): "${spanText.substring(0, 50)}..."`);
-      console.warn(`   Category: ${issue.category}, Range: ${start}-${end}`);
+      console.warn(`   Category: ${category}, Range: ${start}-${end}`);
+      
+      // For mechanics errors, try to find a more specific target
+      if (isMechanics && wordCount > MECHANICS_MAX_WORDS) {
+        console.warn(`❌ REJECTING overly broad mechanics error: "${spanText}"`);
+        console.warn(`   Mechanics errors should target specific punctuation spots, not entire sentences`);
+        // Skip this issue entirely - it's too broad for mechanics
+        continue;
+      }
       
       // Keep the original issue but add a warning flag
       newIssues.push({
@@ -378,9 +445,198 @@ function splitLongSpans(text, issues) {
   }
   
   const longSpanCount = newIssues.filter(issue => issue._warning === 'long_span').length;
+  const rejectedCount = issues.length - newIssues.length;
+  
   if (longSpanCount > 0) {
     console.warn(`🔍 Found ${longSpanCount} long spans that should be manually reviewed`);
   }
+  if (rejectedCount > 0) {
+    console.warn(`❌ Rejected ${rejectedCount} overly broad error spans (likely mechanics)`);
+  }
   
   return newIssues;
+}
+
+// Improve contextual word corrections based on surrounding grammar
+function patchContextualCorrections(text, issues) {
+  const correctedIssues = [];
+  
+  for (const issue of issues) {
+    let correctedIssue = { ...issue };
+    
+    // Handle verb vs noun confusion in corrections
+    if (issue.category === 'spelling' || issue.category === 'vocabulary') {
+      const start = issue.start || issue.offsets?.start;
+      const end = issue.end || issue.offsets?.end;
+      
+      if (start !== undefined && end !== undefined) {
+        const beforeText = text.slice(Math.max(0, start - 20), start).toLowerCase();
+        const afterText = text.slice(end, Math.min(text.length, end + 20)).toLowerCase();
+        const errorText = issue.text.toLowerCase();
+        
+        // Check for common verb/noun confusion patterns
+        const verbIndicators = ['to ', 'want to', 'going to', 'need to', 'like to', 'have to'];
+        const nounIndicators = ['the ', 'a ', 'an ', 'this ', 'that ', 'my ', 'your'];
+        
+        const needsVerb = verbIndicators.some(indicator => beforeText.endsWith(indicator));
+        const needsNoun = nounIndicators.some(indicator => beforeText.endsWith(indicator));
+        
+        // Fix specific known patterns
+        if (errorText.includes('negosation') && needsVerb) {
+          correctedIssue.correction = 'negotiate';
+          correctedIssue.explanation = 'After "to", use the verb form "negotiate" not the noun "negotiation"';
+        } else if (errorText.includes('negosation') && needsNoun) {
+          correctedIssue.correction = 'negotiation';
+          correctedIssue.explanation = 'As a noun, the correct spelling is "negotiation"';
+        }
+        
+        // Other common verb/noun confusions
+        const verbNounFixes = {
+          'creation': { verb: 'create', noun: 'creation' },
+          'organization': { verb: 'organize', noun: 'organization' },
+          'preparation': { verb: 'prepare', noun: 'preparation' },
+          'communication': { verb: 'communicate', noun: 'communication' }
+        };
+        
+        for (const [baseWord, forms] of Object.entries(verbNounFixes)) {
+          if (errorText.includes(baseWord.slice(0, -2))) { // Partial match
+            if (needsVerb && issue.correction === baseWord) {
+              correctedIssue.correction = forms.verb;
+              correctedIssue.explanation = `After "to", use the verb form "${forms.verb}" not the noun "${forms.noun}"`;
+            }
+          }
+        }
+      }
+    }
+    
+    correctedIssues.push(correctedIssue);
+  }
+  
+  const changedCount = correctedIssues.filter((issue, i) => 
+    issue.correction !== issues[i].correction
+  ).length;
+  
+  if (changedCount > 0) {
+    console.log(`✏️ Fixed ${changedCount} contextual corrections based on grammar patterns`);
+  }
+  
+  return correctedIssues;
+}
+
+// Validate vocabulary usage patterns and collocations
+function patchVocabularyUsage(text, issues) {
+  const newIssues = [];
+  
+  // Business vocabulary usage patterns
+  const vocabularyPatterns = [
+    {
+      wrong: /\bcircle back\s+that\s+we\s+have\b/gi,
+      wrongPhrase: "circle back that we have",
+      correction: "circling back about what we discussed",
+      explanation: "We don't 'have' circle backs. Use 'circle back about' or 'circle back on' what was discussed"
+    },
+    {
+      wrong: /\bdo\s+business\s+with\b/gi,
+      wrongPhrase: "do business with",
+      correction: "do business with",
+      explanation: "Correct usage - 'do business with' someone",
+      skip: true // This is actually correct
+    },
+    {
+      wrong: /\bmake\s+a\s+deal\s+with\b/gi,
+      wrongPhrase: "make a deal with",
+      correction: "make a deal with",
+      explanation: "Correct usage",
+      skip: true // This is actually correct
+    },
+    {
+      wrong: /\bdrop\s+all\s+the\s+questions\b/gi,
+      wrongPhrase: "drop all the questions",
+      correction: "ask all the questions",
+      explanation: "'Drop questions' is unusual - typically we 'ask questions' or 'address questions'"
+    },
+    {
+      wrong: /\bteamwork\s+have\b/gi,
+      wrongPhrase: "teamwork have",
+      correction: "team has",
+      explanation: "Use 'team' (countable) when referring to people, not 'teamwork' (uncountable concept)"
+    },
+    {
+      wrong: /\bgive\s+us\s+feedback\b/gi,
+      wrongPhrase: "give us feedback",
+      correction: "give us feedback",
+      explanation: "Correct usage",
+      skip: true // This is actually correct
+    }
+  ];
+  
+  for (const pattern of vocabularyPatterns) {
+    if (pattern.skip) continue; // Skip patterns that are actually correct
+    
+    for (const match of text.matchAll(pattern.wrong)) {
+      const start = match.index;
+      const end = start + match[0].length;
+      
+      if (!isAlreadyCovered(start, end, issues)) {
+        newIssues.push({
+          category: "vocabulary",
+          text: pattern.wrongPhrase,
+          start,
+          end,
+          correction: pattern.correction,
+          explanation: pattern.explanation
+        });
+      }
+    }
+  }
+  
+  // Check for common collocation errors
+  const collocationErrors = [
+    {
+      wrong: /\bmake\s+homework\b/gi,
+      phrase: "make homework",
+      correction: "do homework",
+      explanation: "Use 'do homework', not 'make homework'"
+    },
+    {
+      wrong: /\bmake\s+a\s+mistake\b/gi,
+      phrase: "make a mistake", 
+      correction: "make a mistake",
+      explanation: "Correct usage",
+      skip: true
+    },
+    {
+      wrong: /\bdo\s+a\s+mistake\b/gi,
+      phrase: "do a mistake",
+      correction: "make a mistake", 
+      explanation: "Use 'make a mistake', not 'do a mistake'"
+    }
+  ];
+  
+  for (const error of collocationErrors) {
+    if (error.skip) continue;
+    
+    for (const match of text.matchAll(error.wrong)) {
+      const start = match.index;
+      const end = start + match[0].length;
+      
+      if (!isAlreadyCovered(start, end, issues)) {
+        newIssues.push({
+          category: "vocabulary",
+          text: error.phrase,
+          start,
+          end,
+          correction: error.correction,
+          explanation: error.explanation
+        });
+      }
+    }
+  }
+  
+  if (newIssues.length > 0) {
+    console.log(`📚 Added ${newIssues.length} vocabulary usage/collocation errors:`, 
+      newIssues.map(i => `"${i.text}" → "${i.correction}"`));
+  }
+  
+  return [...issues, ...newIssues];
 }

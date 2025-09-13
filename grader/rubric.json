@@ -26,15 +26,7 @@
         },
         {
           "range": "9% - 7%",
-          "description": "A few grammatical errors (6-9). Good tense agreement but some mistakes. Uses 2 structures taught in class."
-        },
-        {
-          "range": "6% - 4%",
-          "description": "Several grammatical errors (10-15). Tense agreement mostly incorrect. Only uses 1 structure taught in class."
-        },
-        {
-          "range": "3% - 0%",
-          "description": "Many basic grammatical errors (15+). No correct tense agreement. Does not use any structure taught in class."
+          "description": "Some grammatical errors present, but communication remains clear. Shows good effort with grammar structures taught in class."
         }
       ]
     },
@@ -56,15 +48,7 @@
         },
         {
           "range": "9% - 7%",
-          "description": "Adequate vocabulary use (5-6 correct words)."
-        },
-        {
-          "range": "6% - 4%",
-          "description": "Limited vocabulary use (3-4 correct words)."
-        },
-        {
-          "range": "3% - 0%",
-          "description": "Incorrect or almost no correct vocabulary use (0-2 words)."
+          "description": "Reasonable vocabulary attempt. Shows effort with word choice and some correct usage of class vocabulary."
         }
       ]
     },
@@ -86,15 +70,7 @@
         },
         {
           "range": "6% - 5%",
-          "description": "Several spelling errors (6-8). Errors do not impede communication."
-        },
-        {
-          "range": "4% - 3%",
-          "description": "Many spelling errors (8-10). Errors may obscure communication at times."
-        },
-        {
-          "range": "2% - 0%",
-          "description": "Frequent and basic spelling errors (10+). Errors obscure communication."
+          "description": "Several spelling errors present, but meaning remains clear. Shows good effort with challenging words."
         }
       ]
     },
@@ -116,15 +92,7 @@
         },
         {
           "range": "9% - 7%",
-          "description": "A few punctuation errors (5-10, mostly minor)."
-        },
-        {
-          "range": "6% - 4%",
-          "description": "Many punctuation errors (10-20)."
-        },
-        {
-          "range": "3% - 0%",
-          "description": "Frequent or basic punctuation errors (20+). Text difficult to understand due to lack of punctuation."
+          "description": "Some punctuation errors present, but text remains readable. Shows understanding of basic punctuation rules."
         }
       ]
     },
@@ -146,15 +114,7 @@
         },
         {
           "range": "9% - 7%",
-          "description": "Some organizational issues. Main ideas are somewhat clear but choppy."
-        },
-        {
-          "range": "6% - 4%",
-          "description": "Organization detracts from understanding. Ideas disorganized or repetitive."
-        },
-        {
-          "range": "3% - 0%",
-          "description": "Text is unstructured. Ideas disconnected and confusing."
+          "description": "Ideas are understandable with some organizational challenges. Shows effort to connect thoughts logically."
         }
       ]
     },
@@ -176,15 +136,7 @@
         },
         {
           "range": "9% - 7%",
-          "description": "Several inconsistencies. Length moderately off target (16-17 words under OR 21-25 words over). Uses 4 transition words."
-        },
-        {
-          "range": "6% - 4%",
-          "description": "Barely meets structure or length requirements (18-19 words under OR 26-30 words over). Uses 2-3 transition words."
-        },
-        {
-          "range": "3% - 0%",
-          "description": "Does not meet structure or length requirements (20+ words under OR 31+ words over). No cohesive devices used."
+          "description": "Reasonable attempt at required structure and length. Shows understanding of assignment format with some cohesive devices used."
         }
       ]
     },
@@ -207,14 +159,6 @@
         {
           "range": "9% - 7%",
           "description": "Some valid ideas. Some content points elaborated. Main ideas stand out but choppy."
-        },
-        {
-          "range": "6% - 4%",
-          "description": "Limited ideas. Few content points elaborated. Minimal detail."
-        },
-        {
-          "range": "3% - 0%",
-          "description": "Insufficient treatment of topic. No relevant content or off-topic."
         }
       ]
     }

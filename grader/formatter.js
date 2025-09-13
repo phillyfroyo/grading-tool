@@ -57,7 +57,6 @@ const rubric = {
 const correctionGuideColors = {
   'grammar': { color: '#FF8C00', backgroundColor: 'transparent', name: 'Grammar' }, // Orange text
   'vocabulary': { color: '#00A36C', backgroundColor: 'transparent', name: 'Vocabulary' }, // Green text
-  'vocabulary-structure': { color: '#00A36C', backgroundColor: 'transparent', name: 'Vocabulary' }, // Green text
   'mechanics': { color: '#000000', backgroundColor: '#D3D3D3', name: 'Mechanics' }, // Gray highlight
   'mechanics-punctuation': { color: '#000000', backgroundColor: '#D3D3D3', name: 'Mechanics' }, // Gray highlight
   'spelling': { color: '#DC143C', backgroundColor: 'transparent', name: 'Spelling' }, // Red text
@@ -65,7 +64,8 @@ const correctionGuideColors = {
   'needs-rephrasing': { color: '#000000', backgroundColor: '#87CEEB', name: 'Fluency' }, // Blue highlight
   'redundancy': { color: '#000000', backgroundColor: '#87CEEB', name: 'Fluency' }, // Blue highlight
   'non-suitable-words': { color: '#000000', backgroundColor: '#87CEEB', name: 'Fluency' }, // Blue highlight
-  'professor-comments': { color: '#000000', backgroundColor: '#FACC15', name: "Comments" }
+  'professor-comments': { color: '#000000', backgroundColor: '#FACC15', name: "Comments" },
+  'delete': { color: '#000000', backgroundColor: 'transparent', name: 'Delete', strikethrough: true } // Black strikethrough
 };
 
 export function formatGradedEssay(studentText, gradingResults, options = {}) {
@@ -449,8 +449,12 @@ function renderSegmentsToHTML(segments, options = {}) {
         styleProps += ` background: ${bgColor}; padding: 2px 4px; border-radius: 2px;`;
       }
       
+      // Special styling for delete category (strikethrough)
+      if (issueCategory === 'delete') {
+        styleProps = `color: #000000; text-decoration: line-through; position: relative; font-weight: bold;`;
+      }
       // Special styling for coaching-only fluency suggestions
-      if (segment.issue.coaching_only && issueCategory === 'fluency') {
+      else if (segment.issue.coaching_only && issueCategory === 'fluency') {
         styleProps = `color: #A855F7; text-decoration: underline dotted; position: relative; opacity: 0.8;`;
       }
       

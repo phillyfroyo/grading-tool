@@ -495,6 +495,7 @@ app.get('/', (req, res) => {
                                     <button class="category-btn" data-category="mechanics" style="background: #D3D3D3; color: #000000; border: 2px solid #D3D3D3; padding: 8px 12px; border-radius: 20px; cursor: pointer; font-weight: bold; transition: all 0.2s;">Mechanics Error</button>
                                     <button class="category-btn" data-category="spelling" style="background: transparent; color: #DC143C; border: 2px solid #DC143C; padding: 8px 12px; border-radius: 20px; cursor: pointer; font-weight: bold; transition: all 0.2s;">Spelling Error</button>
                                     <button class="category-btn" data-category="fluency" style="background: #87CEEB; color: #000000; border: 2px solid #87CEEB; padding: 8px 12px; border-radius: 20px; cursor: pointer; font-weight: bold; transition: all 0.2s;">Fluency Error</button>
+                                    <button class="category-btn" data-category="delete" style="background: transparent; color: #000000; border: 2px solid #000000; padding: 8px 12px; border-radius: 20px; cursor: pointer; font-weight: bold; text-decoration: line-through; transition: all 0.2s;">Delete Word</button>
                                     <button id="clearSelectionBtn" onclick="clearSelection()" style="background: #f5f5f5; color: #666; border: 2px solid #ccc; padding: 8px 12px; border-radius: 4px; cursor: pointer; margin-left: 10px;">Clear Selection</button>
                                 </div>
                                 <div id="selectionStatus" style="margin-top: 8px; font-size: 12px; color: #666; min-height: 16px;"></div>
@@ -513,6 +514,7 @@ app.get('/', (req, res) => {
                                 <span style="color: #DC143C; font-weight: bold; margin-left: 15px;">spelling</span>
                                 <span style="background: #D3D3D3; color: #000; padding: 2px 6px; border-radius: 3px; font-weight: bold; margin-left: 15px;">mechanics</span>
                                 <span style="background: #87CEEB; color: #000; padding: 2px 6px; border-radius: 3px; font-weight: bold; margin-left: 15px;">fluency</span>
+                                <span style="color: #000; text-decoration: line-through; font-weight: bold; margin-left: 15px;">delete</span>
                             </div>
                         </div>
                         
@@ -604,6 +606,7 @@ app.get('/', (req, res) => {
                 'mechanics': { color: '#000000', bg: '#D3D3D3' }, // Gray highlight
                 'spelling': { color: '#DC143C', bg: 'transparent' }, // Red text
                 'fluency': { color: '#000000', bg: '#87CEEB' }, // Blue highlight
+                'delete': { color: '#000000', bg: 'transparent', strikethrough: true }, // Black strikethrough
                 '': { color: '#6B7280', bg: '#F3F4F6' } // Default for empty categories
             };
 
@@ -775,11 +778,17 @@ app.get('/', (req, res) => {
                 mark.setAttribute('data-editable', 'true');
                 mark.className = 'highlighted-segment';
                 let styleProps = 'color: ' + colors.color + '; position: relative; cursor: pointer;';
-                if (colors.textDecoration) {
-                    styleProps += ' text-decoration: ' + colors.textDecoration + ';';
-                }
-                if (colors.bg && colors.bg !== 'transparent') {
-                    styleProps += ' background: ' + colors.bg + '; padding: 2px 4px; border-radius: 2px;';
+                
+                // Special handling for delete category (strikethrough)
+                if (category === 'delete') {
+                    styleProps += ' text-decoration: line-through; font-weight: bold;';
+                } else {
+                    if (colors.textDecoration) {
+                        styleProps += ' text-decoration: ' + colors.textDecoration + ';';
+                    }
+                    if (colors.bg && colors.bg !== 'transparent') {
+                        styleProps += ' background: ' + colors.bg + '; padding: 2px 4px; border-radius: 2px;';
+                    }
                 }
                 mark.style.cssText = styleProps;
                 mark.innerHTML = text + '<span class="edit-indicator" style="font-size: 10px; margin-left: 2px;">✎</span>';
@@ -818,7 +827,7 @@ app.get('/', (req, res) => {
                 // Populate modal
                 document.getElementById('modalSelectedText').textContent = text;
                 document.getElementById('modalCategory').textContent = category.charAt(0).toUpperCase() + category.slice(1);
-                document.getElementById('modalFeedback').value = ''; // Start with blank feedback box
+                document.getElementById('modalFeedback').value = message || ''; // Pre-populate with existing note/suggestion
                 
                 // Show modal
                 document.getElementById('highlightEditModal').style.display = 'block';
@@ -984,6 +993,8 @@ app.get('/', (req, res) => {
                     return;
                 }
                 
+                console.log('📄 PDF Export - Teacher Notes:', currentGradingData.teacher_notes);
+                
                 // Get the essay content safely
                 const essayElement = document.querySelector('.formatted-essay-content');
                 let essayContent = essayElement ? essayElement.innerHTML : 'Essay content not available';
@@ -1079,6 +1090,17 @@ app.get('/', (req, res) => {
                                 padding: 2px 4px !important;
                                 border-radius: 3px !important;
                                 font-weight: bold !important;
+                            }
+                            
+                            /* Delete category - black strikethrough */
+                            mark[data-type="delete"],
+                            mark[data-category="delete"] {
+                                color: #000000 !important;
+                                text-decoration: line-through !important;
+                                background-color: transparent !important;
+                                background: transparent !important;
+                                font-weight: bold !important;
+                                padding: 0 !important;
                             }
                             
                             /* Legend styling for PDF */
@@ -1178,6 +1200,13 @@ app.get('/', (req, res) => {
                     <h2>Overall Score</h2>
                     <div class="score-box">\${currentGradingData.total.points}/\${currentGradingData.total.out_of}</div>
                     
+                    \${currentGradingData.teacher_notes ? \`
+                        <h2>Teacher Notes</h2>
+                        <div style="background: #e8f5e8; padding: 20px; border-left: 6px solid #4CAF50; margin: 20px 0; font-size: 14px; line-height: 1.6; border-radius: 8px;">
+                            \${currentGradingData.teacher_notes}
+                        </div>
+                    \` : ''}
+                    
                     <h2>Category Breakdown</h2>
                     \${Object.entries(currentGradingData.scores).map(([category, score]) => \`
                         <div class="category">
@@ -1201,6 +1230,7 @@ app.get('/', (req, res) => {
                         <span style="color: #DC143C; font-weight: bold; margin-left: 15px;">spelling</span>
                         <span style="background: #D3D3D3; color: #000; padding: 2px 6px; border-radius: 3px; font-weight: bold; margin-left: 15px;">mechanics</span>
                         <span style="background: #87CEEB; color: #000; padding: 2px 6px; border-radius: 3px; font-weight: bold; margin-left: 15px;">fluency</span>
+                        <span style="color: #000; text-decoration: line-through; font-weight: bold; margin-left: 15px;">delete</span>
                     </div>
                     
                     \${feedbackNotes.length > 0 ? \`
@@ -1295,6 +1325,13 @@ app.get('/', (req, res) => {
                             \${currentGradingData.total.points}/\${currentGradingData.total.out_of}
                         </div>
                         
+                        \${currentGradingData.teacher_notes ? \`
+                            <h2 style="color: #333; border-bottom: 2px solid #333; padding-bottom: 5px; margin-top: 30px; margin-bottom: 15px; font-size: 18px;">Teacher Notes</h2>
+                            <div style="background: #e8f5e8; padding: 20px; border-left: 6px solid #4CAF50; margin: 20px 0; font-size: 14px; line-height: 1.6; border-radius: 8px;">
+                                \${currentGradingData.teacher_notes}
+                            </div>
+                        \` : ''}
+                        
                         <h2 style="color: #333; border-bottom: 2px solid #333; padding-bottom: 5px; margin-top: 30px; margin-bottom: 15px; font-size: 18px;">Category Breakdown</h2>
                         \${Object.entries(currentGradingData.scores).map(([category, score]) => \`
                             <div style="margin: 15px 0; padding: 15px; border: 1px solid #ccc; background: #fafafa; border-radius: 8px; page-break-inside: avoid;">
@@ -1351,13 +1388,6 @@ app.get('/', (req, res) => {
                                         </div>
                                     </div>
                                 \`).join('')}
-                            </div>
-                        \` : ''}
-                        
-                        \${currentGradingData.teacher_notes ? \`
-                            <h2 style="color: #333; border-bottom: 2px solid #333; padding-bottom: 5px; margin-top: 30px; margin-bottom: 15px; font-size: 18px;">Teacher Notes</h2>
-                            <div style="background: #e8f5e8; padding: 20px; border-left: 6px solid #4CAF50; margin: 20px 0; font-size: 14px; line-height: 1.6; border-radius: 8px;">
-                                \${currentGradingData.teacher_notes}
                             </div>
                         \` : ''}
                     </div>
@@ -2120,9 +2150,9 @@ Errors Found: ${JSON.stringify(errorResults.errors || [])}
 Grade this essay using the following rubric (total 100 points):
 - Grammar (15 points): Tenses, subject/verb agreement, structures from class
 - Vocabulary (15 points): Correct use of class vocabulary  
-- Spelling (15 points): Accuracy of spelling
+- Spelling (10 points): Accuracy of spelling
 - Mechanics & Punctuation (15 points): Capitalization, commas, periods
-- Fluency (10 points): Organization and logical flow
+- Fluency (15 points): Organization and logical flow
 - Layout & Specs (15 points): Structure, length, transition words
 - Content & Information (15 points): Completeness and relevance of ideas
 
