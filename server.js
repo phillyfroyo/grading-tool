@@ -221,6 +221,21 @@ app.get('/', (req, res) => {
     <body>
         <div class="container">
             <h1>ESL Essay Grader</h1>
+
+            <!-- Grading Mode Tabs -->
+            <div class="tab-container" style="margin-bottom: 30px;">
+                <div class="tab-buttons" style="display: flex; border-bottom: 2px solid #e9ecef; margin-bottom: 20px;">
+                    <button class="tab-button active" data-tab="gpt-grader" style="flex: 1; padding: 15px 20px; border: none; background: #007bff; color: white; cursor: pointer; border-radius: 8px 8px 0 0; margin-right: 2px; font-size: 16px; font-weight: bold;">
+                        🤖 GPT Powered Grader
+                    </button>
+                    <button class="tab-button" data-tab="manual-grader" style="flex: 1; padding: 15px 20px; border: none; background: #f8f9fa; color: #6c757d; cursor: pointer; border-radius: 8px 8px 0 0; margin-left: 2px; font-size: 16px; font-weight: bold;">
+                        ✏️ Manual Grading
+                    </button>
+                </div>
+            </div>
+
+            <!-- GPT Powered Grader Tab Content -->
+            <div class="tab-content" id="gpt-grader-content">
             <form id="gradingForm">
                 <div class="form-group">
                     <label for="studentName">Student Name:</label>
@@ -259,6 +274,31 @@ app.get('/', (req, res) => {
             </div>
             
             <div id="results"></div>
+            </div>
+
+            <!-- Manual Grading Tab Content -->
+            <div class="tab-content" id="manual-grader-content" style="display: none;">
+                <div class="form-group">
+                    <label for="manualStudentName">Student Name:</label>
+                    <input type="text" id="manualStudentName" placeholder="Enter student name">
+                </div>
+
+                <div class="form-group">
+                    <label for="manualEssayText">Student Essay:</label>
+                    <div id="manualEssayDisplay" style="border: 1px solid #ddd; padding: 15px; border-radius: 4px; min-height: 200px; background: white; font-family: Georgia, serif; line-height: 1.6;">
+                        <em>Paste student essay text here to begin manual grading...</em>
+                    </div>
+                    <textarea id="manualEssayInput" rows="10" placeholder="Paste the student's essay here..." style="width: 100%; margin-top: 10px; padding: 10px; border: 1px solid #ddd; border-radius: 4px;"></textarea>
+                    <button type="button" id="loadManualEssay" style="margin-top: 10px; background: #28a745; color: white; padding: 8px 15px; border: none; border-radius: 4px; cursor: pointer;">
+                        Load Essay for Manual Grading
+                    </button>
+                </div>
+
+                <!-- Manual Grading Results Area -->
+                <div id="manualResults" style="display: none;">
+                    <!-- This will be populated with empty grading interface -->
+                </div>
+            </div>
         </div>
 
         <!-- Profile Management Modal -->
@@ -834,6 +874,269 @@ app.get('/', (req, res) => {
             }
             
             // Modal event listeners
+            // Manual grading interface function
+            function showManualGradingInterface(studentName, essayText) {
+                const manualResults = document.getElementById('manualResults');
+
+                // Create the manual grading interface (mimics post-AI grading but empty)
+                manualResults.innerHTML = \`
+                    <div style="background: white; border: 1px solid #ddd; border-radius: 8px; padding: 20px; margin-top: 20px;">
+                        <h2 style="color: #333; margin-bottom: 20px;">Manual Grading Interface - \${studentName}</h2>
+
+                        <!-- Manual Essay Display with Highlighting -->
+                        <div style="margin-bottom: 30px;">
+                            <h3 style="color: #333; margin-bottom: 15px;">Student Essay</h3>
+                            <div style="display: flex; gap: 10px; margin-bottom: 10px; flex-wrap: wrap;">
+                                <button class="category-btn" data-category="grammar" style="background: #dc3545; color: white; border: none; padding: 8px 15px; border-radius: 4px; cursor: pointer; font-size: 12px;">Grammar</button>
+                                <button class="category-btn" data-category="vocabulary" style="background: #fd7e14; color: white; border: none; padding: 8px 15px; border-radius: 4px; cursor: pointer; font-size: 12px;">Vocabulary</button>
+                                <button class="category-btn" data-category="mechanics" style="background: #6f42c1; color: white; border: none; padding: 8px 15px; border-radius: 4px; cursor: pointer; font-size: 12px;">Mechanics</button>
+                                <button class="category-btn" data-category="fluency" style="background: #20c997; color: white; border: none; padding: 8px 15px; border-radius: 4px; cursor: pointer; font-size: 12px;">Fluency</button>
+                                <button class="category-btn" data-category="delete" style="background: #6c757d; color: white; border: none; padding: 8px 15px; border-radius: 4px; cursor: pointer; font-size: 12px;">Delete</button>
+                            </div>
+                            <div id="manualGradedEssay" style="border: 1px solid #ddd; padding: 15px; border-radius: 4px; background: white; font-family: Georgia, serif; line-height: 1.6; white-space: pre-wrap; user-select: text;">\${essayText}</div>
+                        </div>
+
+                        <!-- Manual Rubric Sections -->
+                        <div style="margin-bottom: 30px;">
+                            <h3 style="color: #333; margin-bottom: 15px;">Grading Rubric</h3>
+
+                            <div class="rubric-section" style="margin-bottom: 20px; border: 1px solid #e9ecef; border-radius: 8px; padding: 15px;">
+                                <h4 style="color: #495057; margin-bottom: 10px;">Grammar (__ / 25)</h4>
+                                <textarea placeholder="Enter grammar feedback and score..." style="width: 100%; height: 80px; padding: 8px; border: 1px solid #ddd; border-radius: 4px; resize: vertical;"></textarea>
+                                <div style="margin-top: 8px;">
+                                    <label style="font-weight: bold;">Score: </label>
+                                    <input type="number" min="0" max="25" placeholder="0-25" style="width: 80px; padding: 4px; border: 1px solid #ddd; border-radius: 4px;">
+                                    <span style="margin-left: 10px; color: #6c757d;">/ 25</span>
+                                </div>
+                            </div>
+
+                            <div class="rubric-section" style="margin-bottom: 20px; border: 1px solid #e9ecef; border-radius: 8px; padding: 15px;">
+                                <h4 style="color: #495057; margin-bottom: 10px;">Vocabulary (__ / 25)</h4>
+                                <textarea placeholder="Enter vocabulary feedback and score..." style="width: 100%; height: 80px; padding: 8px; border: 1px solid #ddd; border-radius: 4px; resize: vertical;"></textarea>
+                                <div style="margin-top: 8px;">
+                                    <label style="font-weight: bold;">Score: </label>
+                                    <input type="number" min="0" max="25" placeholder="0-25" style="width: 80px; padding: 4px; border: 1px solid #ddd; border-radius: 4px;">
+                                    <span style="margin-left: 10px; color: #6c757d;">/ 25</span>
+                                </div>
+                            </div>
+
+                            <div class="rubric-section" style="margin-bottom: 20px; border: 1px solid #e9ecef; border-radius: 8px; padding: 15px;">
+                                <h4 style="color: #495057; margin-bottom: 10px;">Mechanics (__ / 25)</h4>
+                                <textarea placeholder="Enter mechanics feedback and score..." style="width: 100%; height: 80px; padding: 8px; border: 1px solid #ddd; border-radius: 4px; resize: vertical;"></textarea>
+                                <div style="margin-top: 8px;">
+                                    <label style="font-weight: bold;">Score: </label>
+                                    <input type="number" min="0" max="25" placeholder="0-25" style="width: 80px; padding: 4px; border: 1px solid #ddd; border-radius: 4px;">
+                                    <span style="margin-left: 10px; color: #6c757d;">/ 25</span>
+                                </div>
+                            </div>
+
+                            <div class="rubric-section" style="margin-bottom: 20px; border: 1px solid #e9ecef; border-radius: 8px; padding: 15px;">
+                                <h4 style="color: #495057; margin-bottom: 10px;">Fluency (__ / 25)</h4>
+                                <textarea placeholder="Enter fluency feedback and score..." style="width: 100%; height: 80px; padding: 8px; border: 1px solid #ddd; border-radius: 4px; resize: vertical;"></textarea>
+                                <div style="margin-top: 8px;">
+                                    <label style="font-weight: bold;">Score: </label>
+                                    <input type="number" min="0" max="25" placeholder="0-25" style="width: 80px; padding: 4px; border: 1px solid #ddd; border-radius: 4px;">
+                                    <span style="margin-left: 10px; color: #6c757d;">/ 25</span>
+                                </div>
+                            </div>
+
+                            <!-- Total Score -->
+                            <div style="background: #f8f9fa; border: 2px solid #007bff; border-radius: 8px; padding: 15px; text-align: center;">
+                                <h4 style="color: #333; margin-bottom: 10px;">Total Score</h4>
+                                <div style="font-size: 24px; font-weight: bold; color: #007bff;">
+                                    <span id="manualTotalScore">0</span> / 100
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Teacher Notes -->
+                        <div style="margin-bottom: 30px;">
+                            <h3 style="color: #333; margin-bottom: 15px;">Teacher Notes</h3>
+                            <textarea id="manualTeacherNotes" placeholder="Enter overall comments and feedback for the student..." style="width: 100%; height: 120px; padding: 12px; border: 1px solid #ddd; border-radius: 4px; resize: vertical;"></textarea>
+                        </div>
+
+                        <!-- Action Buttons -->
+                        <div style="display: flex; gap: 15px; justify-content: center; margin-top: 30px;">
+                            <button id="saveManualGrade" style="background: #28a745; color: white; padding: 12px 24px; border: none; border-radius: 6px; font-size: 16px; cursor: pointer; font-weight: bold;">
+                                💾 Save Manual Grade
+                            </button>
+                            <button id="exportManualPDF" style="background: #dc3545; color: white; padding: 12px 24px; border: none; border-radius: 6px; font-size: 16px; cursor: pointer; font-weight: bold;">
+                                📄 Export PDF
+                            </button>
+                        </div>
+                    </div>
+                \`;
+
+                // Show the manual results
+                manualResults.style.display = 'block';
+
+                // Initialize manual highlighting and score calculation
+                initializeManualGrading();
+            }
+
+            // Initialize manual grading functionality
+            function initializeManualGrading() {
+                // Manual highlighting functionality
+                let selectedCategory = null;
+
+                // Category button selection
+                document.querySelectorAll('.category-btn').forEach(btn => {
+                    btn.addEventListener('click', function() {
+                        // Reset all buttons
+                        document.querySelectorAll('.category-btn').forEach(b => {
+                            b.style.transform = 'scale(1)';
+                            b.style.boxShadow = 'none';
+                        });
+
+                        // Highlight selected button
+                        this.style.transform = 'scale(1.05)';
+                        this.style.boxShadow = '0 4px 8px rgba(0,0,0,0.2)';
+                        selectedCategory = this.getAttribute('data-category');
+                    });
+                });
+
+                // Text selection for highlighting
+                document.getElementById('manualGradedEssay').addEventListener('mouseup', function() {
+                    if (!selectedCategory) {
+                        alert('Please select a category first (Grammar, Vocabulary, etc.)');
+                        return;
+                    }
+
+                    const selection = window.getSelection();
+                    if (selection.toString().trim()) {
+                        highlightSelectedText(selection, selectedCategory);
+                    }
+                });
+
+                // Score calculation
+                function updateTotalScore() {
+                    const scores = document.querySelectorAll('.rubric-section input[type="number"]');
+                    let total = 0;
+                    scores.forEach(input => {
+                        const value = parseInt(input.value) || 0;
+                        total += value;
+                    });
+                    document.getElementById('manualTotalScore').textContent = total;
+                }
+
+                // Add event listeners to score inputs
+                document.querySelectorAll('.rubric-section input[type="number"]').forEach(input => {
+                    input.addEventListener('input', updateTotalScore);
+                });
+
+                // Save and export functionality
+                document.getElementById('saveManualGrade').addEventListener('click', function() {
+                    alert('Manual grade saved successfully!');
+                });
+
+                document.getElementById('exportManualPDF').addEventListener('click', function() {
+                    alert('PDF export functionality will be implemented next!');
+                });
+            }
+
+            // Manual text highlighting function
+            function highlightSelectedText(selection, category) {
+                const range = selection.getRangeAt(0);
+                const selectedText = selection.toString();
+
+                // Create highlight element
+                const highlight = document.createElement('mark');
+                highlight.style.backgroundColor = getCategoryColor(category);
+                highlight.style.color = 'white';
+                highlight.style.padding = '2px 4px';
+                highlight.style.borderRadius = '2px';
+                highlight.style.cursor = 'pointer';
+                highlight.setAttribute('data-category', category);
+                highlight.setAttribute('data-editable', 'true');
+
+                // Add click listener for editing
+                highlight.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    // Use existing edit highlight functionality
+                    editHighlight(this);
+                });
+
+                try {
+                    range.surroundContents(highlight);
+                } catch (e) {
+                    // Fallback for complex selections
+                    const contents = range.extractContents();
+                    highlight.appendChild(contents);
+                    range.insertNode(highlight);
+                }
+
+                selection.removeAllRanges();
+            }
+
+            // Get category colors
+            function getCategoryColor(category) {
+                const colors = {
+                    'grammar': '#dc3545',
+                    'vocabulary': '#fd7e14',
+                    'mechanics': '#6f42c1',
+                    'fluency': '#20c997',
+                    'delete': '#6c757d'
+                };
+                return colors[category] || '#007bff';
+            }
+
+            // Tab switching functionality
+            function switchTab(tabName) {
+                // Hide all tab contents
+                document.querySelectorAll('.tab-content').forEach(content => {
+                    content.style.display = 'none';
+                });
+
+                // Remove active class from all buttons
+                document.querySelectorAll('.tab-button').forEach(button => {
+                    button.classList.remove('active');
+                    button.style.background = '#f8f9fa';
+                    button.style.color = '#6c757d';
+                });
+
+                // Show selected tab content
+                document.getElementById(tabName + '-content').style.display = 'block';
+
+                // Add active class to selected button
+                const activeButton = document.querySelector('[data-tab="' + tabName + '"]');
+                activeButton.classList.add('active');
+                activeButton.style.background = '#007bff';
+                activeButton.style.color = 'white';
+            }
+
+            // Initialize tab functionality
+            document.addEventListener('DOMContentLoaded', function() {
+                // Tab button event listeners
+                document.querySelectorAll('.tab-button').forEach(button => {
+                    button.addEventListener('click', function() {
+                        const tabName = this.getAttribute('data-tab');
+                        switchTab(tabName);
+                    });
+                });
+
+                // Manual essay loading functionality
+                document.getElementById('loadManualEssay').addEventListener('click', function() {
+                    const essayText = document.getElementById('manualEssayInput').value.trim();
+                    const studentName = document.getElementById('manualStudentName').value.trim();
+
+                    if (!essayText) {
+                        alert('Please paste an essay first.');
+                        return;
+                    }
+
+                    if (!studentName) {
+                        alert('Please enter a student name.');
+                        return;
+                    }
+
+                    // Load essay into display area with highlighting capability
+                    document.getElementById('manualEssayDisplay').innerHTML = essayText;
+
+                    // Show manual grading interface
+                    showManualGradingInterface(studentName, essayText);
+                });
+            });
+
             document.addEventListener('DOMContentLoaded', function() {
                 // Close modal when clicking background
                 document.getElementById('highlightEditModal').addEventListener('click', function(e) {
