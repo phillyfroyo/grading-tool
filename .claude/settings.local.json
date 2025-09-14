@@ -15,7 +15,10 @@
       "Bash(curl:*)",
       "Bash(npm install:*)",
       "Bash(npx prisma:*)",
-      "Bash(sed:*)"
+      "Bash(sed:*)",
+      "Bash(rg:*)",
+      "Bash(npm run dev:*)",
+      "Bash(git checkout:*)"
     ],
     "deny": [],
     "ask": []
