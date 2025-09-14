@@ -123,18 +123,23 @@ app.get('/', (req, res) => {
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
         <title>ESL Essay Grader</title>
+        <link rel="icon" type="image/png" href="/images/LMGM-favicon.png">
         <style>
             body {
                 font-family: Arial, sans-serif;
                 margin: 0;
                 padding: 20px;
                 background: #f5f5f5;
+                min-height: 100vh;
+                display: flex;
+                align-items: center;
+                justify-content: center;
             }
             .container {
                 max-width: 1200px;
-                margin: 0 auto;
+                width: 100%;
                 background: white;
-                padding: 20px;
+                padding: 40px;
                 border-radius: 8px;
                 box-shadow: 0 2px 4px rgba(0,0,0,0.1);
             }
@@ -152,6 +157,7 @@ app.get('/', (req, res) => {
                 border: 1px solid #ddd;
                 border-radius: 4px;
                 font-size: 14px;
+                box-sizing: border-box;
             }
             button {
                 background: #007bff;
@@ -220,7 +226,10 @@ app.get('/', (req, res) => {
     </head>
     <body>
         <div class="container">
-            <h1>ESL Essay Grader</h1>
+            <!-- App Branding Header -->
+            <div style="text-align: center; margin-bottom: 30px; padding: 30px 0; border-bottom: 2px solid #e9ecef;">
+                <img src="/images/LMGM.svg" alt="LMGM - Lean Mean Grading Machine" style="height: 120px; max-width: 100%;">
+            </div>
             <form id="gradingForm">
                 <div class="form-group">
                     <label for="studentName">Student Name:</label>
@@ -314,12 +323,34 @@ app.get('/', (req, res) => {
                     </form>
                 </div>
             </div>
+
+            <!-- Footer -->
+            <div style="text-align: right; margin-top: 30px; padding-top: 20px; border-top: 1px solid #f0f0f0;">
+                <div style="font-size: 10px; color: #adb5bd; font-family: 'Courier New', monospace; letter-spacing: 1px;">LEAN.MEAN.GRADING.MACHINE</div>
+            </div>
         </div>
 
         <!-- Custom Highlight Edit Modal -->
         <div id="highlightEditModal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 1000;">
-            <div style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); background: white; padding: 30px; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.3); max-width: 500px; width: 90%;">
-                <h3 id="modalTitle" style="margin-top: 0; color: #333; font-size: 20px;">✏️ Edit Highlight</h3>
+            <div id="modalContent" style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); background: white; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.3); max-width: 500px; width: 90%; cursor: default;">
+                <div id="modalHeader" style="background: #f8f9fa; padding: 15px 30px; border-radius: 12px 12px 0 0; border-bottom: 1px solid #dee2e6; cursor: move; user-select: none;">
+                    <h3 id="modalTitle" style="margin: 0; color: #333; font-size: 20px;">✏️ Edit Highlight</h3>
+                    <div style="font-size: 12px; color: #6c757d; margin-top: 2px;">Drag this header to move the window</div>
+                </div>
+                <div style="padding: 30px;">
+                
+                <!-- Modal Category Selector -->
+                <div style="margin-bottom: 20px;">
+                    <div style="font-size: 14px; color: #333; margin-bottom: 10px; font-weight: bold;">Categories:</div>
+                    <div id="modalCategoryButtons" style="display: flex; flex-wrap: wrap; gap: 6px;">
+                        <button class="modal-category-btn" data-category="grammar" style="background: transparent; color: #FF8C00; border: 2px solid #FF8C00; padding: 4px 8px; border-radius: 12px; cursor: pointer; font-weight: bold; font-size: 12px; transition: all 0.2s;">Grammar</button>
+                        <button class="modal-category-btn" data-category="vocabulary" style="background: transparent; color: #00A36C; border: 2px solid #00A36C; padding: 4px 8px; border-radius: 12px; cursor: pointer; font-weight: bold; font-size: 12px; transition: all 0.2s;">Vocabulary</button>
+                        <button class="modal-category-btn" data-category="spelling" style="background: transparent; color: #DC143C; border: 2px solid #DC143C; padding: 4px 8px; border-radius: 12px; cursor: pointer; font-weight: bold; font-size: 12px; transition: all 0.2s;">Spelling</button>
+                        <button class="modal-category-btn" data-category="mechanics" style="background: #D3D3D3; color: #000000; border: 2px solid #D3D3D3; padding: 4px 8px; border-radius: 12px; cursor: pointer; font-weight: bold; font-size: 12px; transition: all 0.2s;">Mechanics</button>
+                        <button class="modal-category-btn" data-category="fluency" style="background: #87CEEB; color: #000000; border: 2px solid #87CEEB; padding: 4px 8px; border-radius: 12px; cursor: pointer; font-weight: bold; font-size: 12px; transition: all 0.2s;">Fluency</button>
+                        <button class="modal-category-btn" data-category="delete" style="background: transparent; color: #000000; border: 2px solid #000000; padding: 4px 8px; border-radius: 12px; cursor: pointer; font-weight: bold; font-size: 12px; text-decoration: line-through; transition: all 0.2s;">Delete</button>
+                    </div>
+                </div>
                 
                 <div style="margin: 20px 0; padding: 15px; background: #f8f9fa; border-radius: 8px; border-left: 4px solid #007bff;">
                     <div style="font-weight: bold; color: #333; margin-bottom: 8px;">
@@ -347,6 +378,35 @@ app.get('/', (req, res) => {
                     <button id="saveEditBtn" style="background: #28a745; color: white; border: none; padding: 10px 20px; border-radius: 6px; cursor: pointer; font-size: 14px;">
                         💾 Save Changes
                     </button>
+                </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Custom Teacher Notes Edit Modal -->
+        <div id="teacherNotesModal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 1000;">
+            <div id="teacherModalContent" style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); background: white; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.3); max-width: 600px; width: 90%; cursor: default;">
+                <div id="teacherModalHeader" style="background: #f8f9fa; padding: 15px 30px; border-radius: 12px 12px 0 0; border-bottom: 1px solid #dee2e6; cursor: move; user-select: none;">
+                    <h3 style="margin: 0; color: #333; font-size: 20px;">📝 Edit Teacher Notes</h3>
+                    <div style="font-size: 12px; color: #6c757d; margin-top: 2px;">Drag this header to move the window</div>
+                </div>
+
+                <div style="padding: 30px;">
+                    <div style="margin: 20px 0;">
+                        <label for="teacherNotesTextarea" style="display: block; margin-bottom: 8px; font-weight: bold; color: #333;">
+                            Teacher Notes:
+                        </label>
+                        <textarea id="teacherNotesTextarea" rows="8" style="width: 100%; padding: 12px; border: 1px solid #ddd; border-radius: 4px; font-size: 14px; resize: vertical; font-family: inherit;" placeholder="Enter your overall notes about this student's essay..."></textarea>
+                    </div>
+
+                    <div style="display: flex; gap: 10px; justify-content: flex-end; margin-top: 25px;">
+                        <button id="cancelTeacherNotesBtn" style="background: #6c757d; color: white; border: none; padding: 10px 20px; border-radius: 6px; cursor: pointer; font-size: 14px;">
+                            Cancel
+                        </button>
+                        <button id="saveTeacherNotesBtn" style="background: #28a745; color: white; border: none; padding: 10px 20px; border-radius: 6px; cursor: pointer; font-size: 14px;">
+                            💾 Save Notes
+                        </button>
+                    </div>
                 </div>
             </div>
         </div>
@@ -774,7 +834,7 @@ app.get('/', (req, res) => {
                 const colors = categoryColors[category] || categoryColors[''];
                 const mark = document.createElement('mark');
                 mark.setAttribute('data-type', category);
-                mark.setAttribute('data-message', \`Manual \${category} highlight\`);
+                mark.setAttribute('data-message', '');
                 mark.setAttribute('data-editable', 'true');
                 mark.className = 'highlighted-segment';
                 let styleProps = 'color: ' + colors.color + '; position: relative; cursor: pointer;';
@@ -829,12 +889,240 @@ app.get('/', (req, res) => {
                 document.getElementById('modalCategory').textContent = category.charAt(0).toUpperCase() + category.slice(1);
                 document.getElementById('modalFeedback').value = message || ''; // Pre-populate with existing note/suggestion
                 
+                // Initialize category selection for this highlight
+                initializeModalCategories(markElement);
+                
+                // Set up category button event listeners
+                setupModalCategoryListeners();
+                
                 // Show modal
                 document.getElementById('highlightEditModal').style.display = 'block';
             }
             
+            // Modal category selection variables
+            let modalSelectedCategories = []; // Array of selected categories
+            let modalPrimaryCategory = null; // First selected category (for visual highlighting)
+            
+            // Toggle category selection in modal
+            function toggleModalCategory(category) {
+                console.log('Toggle category:', category, 'Current selection:', modalSelectedCategories);
+                const index = modalSelectedCategories.indexOf(category);
+                
+                if (index === -1) {
+                    // Add category
+                    modalSelectedCategories.push(category);
+                    
+                    // Set as primary if it's the first one selected
+                    if (modalSelectedCategories.length === 1) {
+                        modalPrimaryCategory = category;
+                    }
+                } else {
+                    // Remove category
+                    modalSelectedCategories.splice(index, 1);
+                    
+                    // If we removed the primary category, reset primary logic
+                    if (modalPrimaryCategory === category) {
+                        modalPrimaryCategory = modalSelectedCategories.length > 0 ? modalSelectedCategories[0] : null;
+                    }
+                }
+                
+                // Update visual feedback
+                updateModalCategoryButtons();
+            }
+            
+            // Update visual feedback for modal category buttons
+            function updateModalCategoryButtons() {
+                document.querySelectorAll('.modal-category-btn').forEach(btn => {
+                    const category = btn.dataset.category;
+                    const isSelected = modalSelectedCategories.includes(category);
+                    const isPrimary = category === modalPrimaryCategory;
+                    
+                    if (isSelected) {
+                        // Selected state - add shadow and slight transform
+                        btn.style.boxShadow = '0 2px 8px rgba(0,0,0,0.3)';
+                        btn.style.transform = 'translateY(-1px)';
+                        
+                        // Primary category gets extra visual emphasis
+                        if (isPrimary) {
+                            btn.style.outline = '2px solid rgba(0,0,0,0.4)';
+                            btn.style.outlineOffset = '1px';
+                        } else {
+                            btn.style.outline = 'none';
+                        }
+                    } else {
+                        // Unselected state
+                        btn.style.boxShadow = 'none';
+                        btn.style.transform = 'none';
+                        btn.style.outline = 'none';
+                    }
+                });
+            }
+            
+            // Update highlight visual styling based on primary category
+            function updateHighlightVisualStyling(element, primaryCategory) {
+                const categoryColors = {
+                    'grammar': { color: '#FF8C00', bg: 'transparent' }, // Orange text
+                    'vocabulary': { color: '#00A36C', bg: 'transparent' }, // Green text
+                    'mechanics': { color: '#000000', bg: '#D3D3D3' }, // Gray highlight
+                    'spelling': { color: '#DC143C', bg: 'transparent' }, // Red text
+                    'fluency': { color: '#000000', bg: '#87CEEB' }, // Blue highlight
+                    'delete': { color: '#000000', bg: 'transparent', strikethrough: true } // Black strikethrough
+                };
+                
+                const colors = categoryColors[primaryCategory];
+                if (colors) {
+                    element.style.color = colors.color;
+                    element.style.backgroundColor = colors.bg;
+                    
+                    // Handle special cases
+                    if (primaryCategory === 'delete') {
+                        element.style.textDecoration = 'line-through';
+                        element.style.fontWeight = 'bold';
+                    } else {
+                        element.style.textDecoration = 'none';
+                        element.style.fontWeight = 'normal';
+                    }
+                    
+                    // Add some visual emphasis for multi-category highlights
+                    const categoriesData = element.getAttribute('data-categories');
+                    let categories = [];
+                    try {
+                        categories = JSON.parse(categoriesData) || [primaryCategory];
+                    } catch (e) {
+                        categories = [primaryCategory];
+                    }
+                    
+                    // Add subtle border for multi-category highlights
+                    if (categories.length > 1) {
+                        element.style.border = '1px solid rgba(0,0,0,0.2)';
+                        element.style.borderRadius = '2px';
+                        element.style.padding = '1px 2px';
+                    } else {
+                        element.style.border = 'none';
+                        element.style.borderRadius = '0';
+                        element.style.padding = '0';
+                    }
+                }
+            }
+            
+            // Initialize modal categories from existing highlight data
+            function initializeModalCategories(element) {
+                // Reset selection
+                modalSelectedCategories = [];
+                modalPrimaryCategory = null;
+                
+                // Get existing categories from the element
+                const primaryCategory = element.getAttribute('data-type');
+                const categoriesData = element.getAttribute('data-categories');
+                
+                if (categoriesData) {
+                    try {
+                        modalSelectedCategories = JSON.parse(categoriesData);
+                        modalPrimaryCategory = primaryCategory;
+                    } catch (e) {
+                        console.warn('Failed to parse categories data:', e);
+                        // Fallback to single category
+                        if (primaryCategory) {
+                            modalSelectedCategories = [primaryCategory];
+                            modalPrimaryCategory = primaryCategory;
+                        }
+                    }
+                } else if (primaryCategory) {
+                    // Legacy single category support
+                    modalSelectedCategories = [primaryCategory];
+                    modalPrimaryCategory = primaryCategory;
+                }
+                
+                // Update button visual states
+                updateModalCategoryButtons();
+            }
+            
             // Modal event listeners
+            // Set up modal category button event listeners (called when modal opens)
+            function setupModalCategoryListeners() {
+                document.querySelectorAll('.modal-category-btn').forEach(btn => {
+                    // Remove existing listener to avoid duplicates
+                    btn.removeEventListener('click', btn._categoryClickHandler);
+                    
+                    // Create new handler
+                    btn._categoryClickHandler = function() {
+                        const category = this.dataset.category;
+                        console.log('Category button clicked:', category);
+                        toggleModalCategory(category);
+                    };
+                    
+                    // Add the new listener
+                    btn.addEventListener('click', btn._categoryClickHandler);
+                });
+            }
+            
             document.addEventListener('DOMContentLoaded', function() {
+                
+                // Modal dragging functionality
+                let isDragging = false;
+                let startX, startY, startLeft, startTop;
+                const modal = document.getElementById('modalContent');
+                const header = document.getElementById('modalHeader');
+                
+                header.addEventListener('mousedown', function(e) {
+                    isDragging = true;
+                    
+                    // Get initial cursor position
+                    startX = e.clientX;
+                    startY = e.clientY;
+                    
+                    // Get initial modal position (remove transform and get computed position)
+                    const rect = modal.getBoundingClientRect();
+                    modal.style.transform = 'none';
+                    modal.style.left = rect.left + 'px';
+                    modal.style.top = rect.top + 'px';
+                    
+                    startLeft = rect.left;
+                    startTop = rect.top;
+                    
+                    // Add visual feedback
+                    header.style.background = '#e9ecef';
+                    document.body.style.userSelect = 'none';
+                    document.body.style.cursor = 'move';
+                    
+                    e.preventDefault();
+                });
+                
+                document.addEventListener('mousemove', function(e) {
+                    if (!isDragging) return;
+                    
+                    e.preventDefault();
+                    
+                    // Calculate new position
+                    const deltaX = e.clientX - startX;
+                    const deltaY = e.clientY - startY;
+                    
+                    const newLeft = startLeft + deltaX;
+                    const newTop = startTop + deltaY;
+                    
+                    // Keep modal within viewport bounds
+                    const modalRect = modal.getBoundingClientRect();
+                    const maxLeft = window.innerWidth - modalRect.width;
+                    const maxTop = window.innerHeight - modalRect.height;
+                    
+                    const boundedLeft = Math.max(0, Math.min(newLeft, maxLeft));
+                    const boundedTop = Math.max(0, Math.min(newTop, maxTop));
+                    
+                    modal.style.left = boundedLeft + 'px';
+                    modal.style.top = boundedTop + 'px';
+                });
+                
+                document.addEventListener('mouseup', function() {
+                    if (isDragging) {
+                        isDragging = false;
+                        
+                        // Remove visual feedback
+                        header.style.background = '#f8f9fa';
+                        document.body.style.userSelect = '';
+                        document.body.style.cursor = '';
+                    }
+                });
+                
                 // Close modal when clicking background
                 document.getElementById('highlightEditModal').addEventListener('click', function(e) {
                     if (e.target === this) {
@@ -847,13 +1135,35 @@ app.get('/', (req, res) => {
                 
                 // Save button
                 document.getElementById('saveEditBtn').addEventListener('click', function() {
+                    // Debug logging
+                    console.log('Save button clicked:', {
+                        selectedCategories: modalSelectedCategories,
+                        primaryCategory: modalPrimaryCategory,
+                        categoriesLength: modalSelectedCategories.length
+                    });
+                    
+                    // Validation: require at least one category
+                    if (modalSelectedCategories.length === 0) {
+                        alert('Please select at least one category before saving.');
+                        return;
+                    }
+                    
                     if (currentEditingElement) {
                         const newNote = document.getElementById('modalFeedback').value.trim();
-                        const category = currentEditingElement.getAttribute('data-type');
-                        const finalNote = newNote || \`Manual \${category} highlight\`;
+                        const primaryCategory = modalPrimaryCategory;
+                        const categoriesList = modalSelectedCategories.slice(); // Copy array
                         
+                        // Use the note as entered by the user, even if empty
+                        const finalNote = newNote;
+                        
+                        // Update element attributes
+                        currentEditingElement.setAttribute('data-type', primaryCategory); // Primary for visual styling
+                        currentEditingElement.setAttribute('data-categories', JSON.stringify(categoriesList)); // Full list
                         currentEditingElement.setAttribute('data-message', finalNote);
                         currentEditingElement.title = finalNote;
+                        
+                        // Update visual styling based on primary category
+                        updateHighlightVisualStyling(currentEditingElement, primaryCategory);
                     }
                     closeEditModal();
                 });
@@ -873,9 +1183,73 @@ app.get('/', (req, res) => {
                     closeEditModal();
                 });
             });
-            
+
+            // Teacher Notes Modal Event Listeners
+            document.addEventListener('DOMContentLoaded', function() {
+                // Close modal when clicking background
+                document.getElementById('teacherNotesModal').addEventListener('click', function(e) {
+                    if (e.target === this) {
+                        closeTeacherNotesModal();
+                    }
+                });
+
+                // Cancel button
+                document.getElementById('cancelTeacherNotesBtn').addEventListener('click', closeTeacherNotesModal);
+
+                // Save button
+                document.getElementById('saveTeacherNotesBtn').addEventListener('click', saveTeacherNotes);
+
+                // Modal dragging functionality for teacher notes
+                let isTeacherDragging = false;
+                let teacherStartX, teacherStartY, teacherStartLeft, teacherStartTop;
+                const teacherModal = document.getElementById('teacherModalContent');
+                const teacherHeader = document.getElementById('teacherModalHeader');
+
+                teacherHeader.addEventListener('mousedown', function(e) {
+                    isTeacherDragging = true;
+
+                    const rect = teacherModal.getBoundingClientRect();
+                    teacherStartX = e.clientX;
+                    teacherStartY = e.clientY;
+                    teacherStartLeft = rect.left;
+                    teacherStartTop = rect.top;
+
+                    teacherModal.style.transform = 'none';
+                    teacherModal.style.left = teacherStartLeft + 'px';
+                    teacherModal.style.top = teacherStartTop + 'px';
+
+                    document.addEventListener('mousemove', onTeacherMouseMove);
+                    document.addEventListener('mouseup', onTeacherMouseUp);
+
+                    e.preventDefault();
+                });
+
+                function onTeacherMouseMove(e) {
+                    if (!isTeacherDragging) return;
+
+                    const deltaX = e.clientX - teacherStartX;
+                    const deltaY = e.clientY - teacherStartY;
+
+                    teacherModal.style.left = (teacherStartLeft + deltaX) + 'px';
+                    teacherModal.style.top = (teacherStartTop + deltaY) + 'px';
+                }
+
+                function onTeacherMouseUp() {
+                    isTeacherDragging = false;
+                    document.removeEventListener('mousemove', onTeacherMouseMove);
+                    document.removeEventListener('mouseup', onTeacherMouseUp);
+                }
+            });
+
             function closeEditModal() {
                 document.getElementById('highlightEditModal').style.display = 'none';
+                
+                // Reset modal position to center for next time
+                const modal = document.getElementById('modalContent');
+                modal.style.transform = 'translate(-50%, -50%)';
+                modal.style.left = '50%';
+                modal.style.top = '50%';
+                
                 currentEditingElement = null;
             }
             
@@ -900,17 +1274,51 @@ app.get('/', (req, res) => {
                 }
             }
 
-            // Functions for editing statistics and teacher notes
-            function editTeacherNotes(element) {
+            // Teacher Notes Modal Functions
+            let currentTeacherNotesElement = null;
+
+            function openTeacherNotesModal(element) {
                 const currentContent = element.querySelector('.teacher-notes-content').textContent;
-                const newNotes = prompt('Edit teacher notes:', currentContent);
-                if (newNotes !== null && newNotes !== currentContent) {
-                    element.querySelector('.teacher-notes-content').textContent = newNotes;
-                    // Update the stored grading data
-                    if (currentGradingData) {
-                        currentGradingData.teacher_notes = newNotes;
+                currentTeacherNotesElement = element;
+
+                // Pre-populate the textarea with existing notes
+                document.getElementById('teacherNotesTextarea').value = currentContent;
+
+                // Show modal
+                document.getElementById('teacherNotesModal').style.display = 'block';
+            }
+
+            function closeTeacherNotesModal() {
+                document.getElementById('teacherNotesModal').style.display = 'none';
+
+                // Reset modal position to center for next time
+                const teacherModal = document.getElementById('teacherModalContent');
+                teacherModal.style.transform = 'translate(-50%, -50%)';
+                teacherModal.style.left = '50%';
+                teacherModal.style.top = '50%';
+
+                currentTeacherNotesElement = null;
+            }
+
+            function saveTeacherNotes() {
+                if (currentTeacherNotesElement) {
+                    const newNotes = document.getElementById('teacherNotesTextarea').value;
+                    const currentContent = currentTeacherNotesElement.querySelector('.teacher-notes-content').textContent;
+
+                    if (newNotes !== currentContent) {
+                        currentTeacherNotesElement.querySelector('.teacher-notes-content').textContent = newNotes;
+                        // Update the stored grading data
+                        if (currentGradingData) {
+                            currentGradingData.teacher_notes = newNotes;
+                        }
                     }
                 }
+                closeTeacherNotesModal();
+            }
+
+            // Functions for editing statistics and teacher notes
+            function editTeacherNotes(element) {
+                openTeacherNotesModal(element);
             }
 
             function editStat(element, statType) {
@@ -1009,21 +1417,36 @@ app.get('/', (req, res) => {
                     highlights.forEach((mark, index) => {
                         const footnoteNumber = index + 1;
                         const message = mark.getAttribute('data-message') || '';
-                        const category = mark.getAttribute('data-type') || 'general';
+                        const primaryCategory = mark.getAttribute('data-type') || 'general';
+                        const categoriesData = mark.getAttribute('data-categories');
                         const highlightedText = mark.textContent.replace('✎', '').trim();
+                        
+                        // Parse multiple categories for PDF display
+                        let categories = [primaryCategory];
+                        if (categoriesData) {
+                            try {
+                                categories = JSON.parse(categoriesData);
+                            } catch (e) {
+                                console.warn('Failed to parse categories for PDF:', e);
+                                categories = [primaryCategory];
+                            }
+                        }
+                        
+                        // Format categories for display (e.g., "Grammar & Vocabulary")
+                        const categoryDisplay = categories.length > 1 
+                            ? categories.map(cat => cat.charAt(0).toUpperCase() + cat.slice(1)).join(' & ')
+                            : primaryCategory.charAt(0).toUpperCase() + primaryCategory.slice(1);
                         
                         // Add footnote number to highlight
                         mark.innerHTML = mark.innerHTML + \`<sup style="font-size: 10px; color: #666; font-weight: bold;">[\${footnoteNumber}]</sup>\`;
                         
                         // Collect feedback for footnotes section
-                        if (message && !message.includes('Manual') && message.trim() !== '') {
-                            feedbackNotes.push({
-                                number: footnoteNumber,
-                                text: highlightedText,
-                                category: category.charAt(0).toUpperCase() + category.slice(1),
-                                feedback: message
-                            });
-                        }
+                        feedbackNotes.push({
+                            number: footnoteNumber,
+                            text: highlightedText,
+                            category: categoryDisplay, // Now shows all categories (e.g., "Grammar & Vocabulary")
+                            feedback: message || '' // Include empty feedback for highlights without notes
+                        });
                     });
                     
                     essayContent = tempDiv.innerHTML;
@@ -1293,21 +1716,36 @@ app.get('/', (req, res) => {
                     highlights.forEach((mark, index) => {
                         const footnoteNumber = index + 1;
                         const message = mark.getAttribute('data-message') || '';
-                        const category = mark.getAttribute('data-type') || 'general';
+                        const primaryCategory = mark.getAttribute('data-type') || 'general';
+                        const categoriesData = mark.getAttribute('data-categories');
                         const highlightedText = mark.textContent.replace('✎', '').trim();
+                        
+                        // Parse multiple categories for PDF display
+                        let categories = [primaryCategory];
+                        if (categoriesData) {
+                            try {
+                                categories = JSON.parse(categoriesData);
+                            } catch (e) {
+                                console.warn('Failed to parse categories for PDF:', e);
+                                categories = [primaryCategory];
+                            }
+                        }
+                        
+                        // Format categories for display (e.g., "Grammar & Vocabulary")
+                        const categoryDisplay = categories.length > 1 
+                            ? categories.map(cat => cat.charAt(0).toUpperCase() + cat.slice(1)).join(' & ')
+                            : primaryCategory.charAt(0).toUpperCase() + primaryCategory.slice(1);
                         
                         // Add footnote number to highlight
                         mark.innerHTML = mark.innerHTML + \`<sup style="font-size: 10px; color: #666; font-weight: bold;">[\${footnoteNumber}]</sup>\`;
                         
                         // Collect feedback for footnotes section
-                        if (message && !message.includes('Manual') && message.trim() !== '') {
-                            feedbackNotes.push({
-                                number: footnoteNumber,
-                                text: highlightedText,
-                                category: category.charAt(0).toUpperCase() + category.slice(1),
-                                feedback: message
-                            });
-                        }
+                        feedbackNotes.push({
+                            number: footnoteNumber,
+                            text: highlightedText,
+                            category: categoryDisplay, // Now shows all categories (e.g., "Grammar & Vocabulary")
+                            feedback: message || '' // Include empty feedback for highlights without notes
+                        });
                     });
                     
                     essayContent = tempDiv.innerHTML;
