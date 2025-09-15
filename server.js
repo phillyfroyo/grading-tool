@@ -14,6 +14,44 @@ import { readFileSync, writeFileSync } from 'fs';
 import { gradeEssay } from "./grader/grader-two-step.js";
 import { formatGradedEssay, generateCSS } from "./grader/formatter.js";
 
+// Apply temperature adjustment to grading results
+function applyTemperatureAdjustment(gradingResult, temperature) {
+  if (temperature === 0) {
+    return gradingResult; // No adjustment needed
+  }
+
+  console.log(`\n🌡️ APPLYING TEMPERATURE ADJUSTMENT: ${temperature}`);
+
+  const adjustedResult = JSON.parse(JSON.stringify(gradingResult)); // Deep clone
+
+  for (const [category, scoreData] of Object.entries(adjustedResult.scores || {})) {
+    const originalPoints = scoreData.points;
+    const maxPoints = scoreData.out_of;
+
+    // Calculate adjustment: +1 temp = +10% of max points
+    const adjustment = maxPoints * (temperature * 0.1);
+    const adjustedPoints = Math.min(maxPoints, Math.max(0, originalPoints + adjustment));
+
+    scoreData.points = Math.round(adjustedPoints);
+
+    console.log(`  ${category}: ${originalPoints} → ${scoreData.points} (out of ${maxPoints}) [+${Math.round(adjustment)}]`);
+  }
+
+  // Update total score
+  const newTotal = Object.values(adjustedResult.scores || {}).reduce((sum, score) => sum + score.points, 0);
+  const maxTotal = Object.values(adjustedResult.scores || {}).reduce((sum, score) => sum + score.out_of, 0);
+
+  if (adjustedResult.total) {
+    adjustedResult.total.points = newTotal;
+    adjustedResult.total.out_of = maxTotal;
+  }
+
+  console.log(`  TOTAL: ${gradingResult.total?.points || 0} → ${newTotal} (out of ${maxTotal})`);
+  console.log(`🌡️ TEMPERATURE ADJUSTMENT COMPLETE\n`);
+
+  return adjustedResult;
+}
+
 // Environment detection
 const isVercel = process.env.VERCEL === '1';
 const isProduction = process.env.NODE_ENV === 'production';
@@ -34,7 +72,8 @@ try {
 
 // Unified profile loading - works with both database and files
 async function loadProfiles() {
-  if (useDatabase && prisma) {
+  // Temporarily force file system usage to match endpoint behavior
+  if (false && useDatabase && prisma) {
     console.log("[PROFILES] Loading from database");
     try {
       const profiles = await prisma.classProfile.findMany({
@@ -92,7 +131,8 @@ async function loadProfiles() {
 }
 
 async function saveProfiles(profiles) {
-  if (useDatabase && prisma) {
+  // Temporarily force file system usage for profile updates to avoid DB schema issues
+  if (false && useDatabase && prisma) {
     console.log("[PROFILES] Database saving handled by individual endpoints");
     return;
   }
@@ -254,7 +294,7 @@ app.get('/', (req, res) => {
                 <div class="form-group">
                     <label for="classProfile">Class Profile:</label>
                     <div style="display: flex; gap: 10px; align-items: center;">
-                        <select id="classProfile" name="classProfile" required style="flex: 1;">
+                        <select id="classProfile" name="classProfile" style="flex: 1;">
                             <option value="">Loading profiles...</option>
                         </select>
                         <button type="button" id="manageProfilesBtn" style="padding: 10px 15px; background: #28a745; white-space: nowrap;">
@@ -265,10 +305,23 @@ app.get('/', (req, res) => {
                 
                 <div class="form-group">
                     <label for="prompt">Assignment Prompt:</label>
-                    <textarea id="prompt" name="prompt" rows="3" required 
+                    <textarea id="prompt" name="prompt" rows="3" required
                               placeholder="Enter the essay prompt or assignment instructions..."></textarea>
                 </div>
-                
+
+                <div class="form-group" id="temperatureContainer">
+                    <label for="temperature">Grade Temperature: <span id="temperatureValue">0</span></label>
+                    <div style="margin-top: 5px;">
+                        <input type="range" id="temperature" name="temperature" min="-5" max="5" value="0"
+                               style="width: 100%;" oninput="updateTemperatureDisplay(this.value)">
+                        <div style="display: flex; justify-content: space-between; font-size: 12px; color: #666; margin-top: 5px;">
+                            <span>Harsh (-5)</span>
+                            <span>Rubric (0)</span>
+                            <span>Merciful (+5)</span>
+                        </div>
+                    </div>
+                </div>
+
                 <div class="form-group">
                     <label for="studentText">Student Essay:</label>
                     <textarea id="studentText" name="studentText" rows="15" required 
@@ -328,7 +381,7 @@ app.get('/', (req, res) => {
                         <input type="hidden" id="profileId">
                         <div class="form-group">
                             <label for="profileName">Profile Name:</label>
-                            <input type="text" id="profileName" required placeholder="e.g. Business English B2 - Fall 2024">
+                            <input type="text" id="profileName" required placeholder="e.g. Business English B2 - Fall 2024" maxlength="55">
                         </div>
                         <div class="form-group">
                             <label for="profileCefr">CEFR Level:</label>
@@ -336,6 +389,18 @@ app.get('/', (req, res) => {
                                 <option value="B2">B2 - Upper Intermediate</option>
                                 <option value="C1">C1 - Advanced</option>
                             </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="profileTemperature">Default Temperature: <span id="profileTemperatureValue">0</span></label>
+                            <div style="margin-top: 5px;">
+                                <input type="range" id="profileTemperature" min="-5" max="5"
+                                       style="width: 100%;" oninput="updateProfileTemperatureDisplay(this.value)">
+                                <div style="display: flex; justify-content: space-between; font-size: 12px; color: #666; margin-top: 5px;">
+                                    <span>Harsh (-5)</span>
+                                    <span>Rubric (0)</span>
+                                    <span>Merciful (+5)</span>
+                                </div>
+                            </div>
                         </div>
                         <div class="form-group">
                             <label for="profileVocab">Vocabulary (one per line):</label>
@@ -454,9 +519,11 @@ app.get('/', (req, res) => {
             
             async function loadProfilesData() {
                 try {
-                    const response = await fetch('/api/profiles');
+                    console.log('🔄 Loading profiles data...');
+                    const response = await fetch('/api/profiles?' + Date.now()); // Add cache buster
                     const data = await response.json();
                     profiles = data.profiles || [];
+                    console.log('📊 Loaded profiles:', profiles.length);
                     updateProfileDropdown();
                 } catch (error) {
                     console.error('Error loading profiles:', error);
@@ -473,15 +540,27 @@ app.get('/', (req, res) => {
                     select.appendChild(option);
                 });
             }
-            
+
+            function updateTemperatureDisplay(value) {
+                document.getElementById('temperatureValue').textContent = value;
+            }
+
+            function updateProfileTemperatureDisplay(value) {
+                document.getElementById('profileTemperatureValue').textContent = value;
+            }
+
             // Handle profile selection change
             document.getElementById('classProfile').addEventListener('change', function(e) {
                 const selectedProfileId = e.target.value;
                 const promptTextarea = document.getElementById('prompt');
                 const promptContainer = document.querySelector('label[for="prompt"]').parentElement;
-                
+                const temperatureContainer = document.getElementById('temperatureContainer');
+                const temperatureSlider = document.getElementById('temperature');
+
                 if (selectedProfileId) {
                     const selectedProfile = profiles.find(p => p.id === selectedProfileId);
+
+                    // Handle prompt visibility
                     if (selectedProfile && selectedProfile.prompt && selectedProfile.prompt.trim()) {
                         // Profile has a built-in prompt, populate and hide the prompt field
                         promptTextarea.value = selectedProfile.prompt;
@@ -495,11 +574,23 @@ app.get('/', (req, res) => {
                             promptTextarea.value = '';
                         }
                     }
+
+                    // Hide temperature slider when profile is selected (profile has default temp)
+                    temperatureContainer.style.display = 'none';
+
+                    // Set temperature from profile (if available)
+                    if (selectedProfile && selectedProfile.temperature !== undefined) {
+                        temperatureSlider.value = selectedProfile.temperature;
+                        updateTemperatureDisplay(selectedProfile.temperature);
+                    }
                 } else {
-                    // No profile selected, show prompt field and clear it
+                    // No profile selected, show prompt field and temperature slider
                     promptContainer.style.display = 'block';
                     promptTextarea.style.display = 'block';
                     promptTextarea.value = '';
+                    temperatureContainer.style.display = 'block';
+                    temperatureSlider.value = 0;
+                    updateTemperatureDisplay(0);
                 }
             });
             
@@ -510,11 +601,23 @@ app.get('/', (req, res) => {
                 e.preventDefault();
                 
                 const formData = new FormData(this);
+                const selectedProfileId = formData.get('classProfile');
+                let temperature = 0;
+
+                // If no profile selected, use slider value; if profile selected, use profile's temperature
+                if (selectedProfileId) {
+                    const selectedProfile = profiles.find(p => p.id === selectedProfileId);
+                    temperature = selectedProfile?.temperature || 0;
+                } else {
+                    temperature = parseInt(formData.get('temperature')) || 0;
+                }
+
                 const data = {
                     studentText: formData.get('studentText'),
                     prompt: formData.get('prompt'),
                     studentName: formData.get('studentName') || 'Anonymous',
-                    classProfile: formData.get('classProfile')
+                    classProfile: selectedProfileId,
+                    temperature: temperature
                 };
                 
                 // Show loading, hide results
@@ -2352,9 +2455,10 @@ app.get('/', (req, res) => {
             });
             
             function loadProfilesList() {
+                console.log('📋 Refreshing profiles list UI with', profiles.length, 'profiles');
                 const listDiv = document.getElementById('profilesList');
                 listDiv.innerHTML = '';
-                
+
                 if (profiles.length === 0) {
                     listDiv.innerHTML = '<p>No profiles created yet.</p>';
                     return;
@@ -2365,8 +2469,8 @@ app.get('/', (req, res) => {
                     profileDiv.style.cssText = 'border: 1px solid #ddd; padding: 10px; margin: 10px 0; border-radius: 4px;';
                     profileDiv.innerHTML = \`
                         <div style="display: flex; justify-content: space-between; align-items: center;">
-                            <div>
-                                <strong>\${profile.name}</strong> (\${profile.cefrLevel})
+                            <div style="flex: 1; min-width: 0;">
+                                <strong style="display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">\${profile.name}</strong> (\${profile.cefrLevel})
                                 <br><small>\${profile.vocabulary.length} vocab words, \${profile.grammar.length} grammar topics</small>
                             </div>
                             <div>
@@ -2393,11 +2497,15 @@ app.get('/', (req, res) => {
                         document.getElementById('profileVocab').value = profile.vocabulary.join('\\n');
                         document.getElementById('profileGrammar').value = profile.grammar.join('\\n');
                         document.getElementById('profilePrompt').value = profile.prompt || '';
+                        document.getElementById('profileTemperature').value = profile.temperature || 0;
+                        updateProfileTemperatureDisplay(profile.temperature || 0);
                     }
                 } else {
                     title.textContent = 'Create New Profile';
                     document.getElementById('profileEditForm').reset();
                     document.getElementById('profileId').value = '';
+                    // Reset temperature display after form reset
+                    updateProfileTemperatureDisplay(0);
                 }
                 
                 form.style.display = 'block';
@@ -2430,7 +2538,8 @@ app.get('/', (req, res) => {
                     cefrLevel: document.getElementById('profileCefr').value,
                     vocabulary: document.getElementById('profileVocab').value.split('\\n').map(v => v.trim()).filter(v => v),
                     grammar: document.getElementById('profileGrammar').value.split('\\n').map(g => g.trim()).filter(g => g),
-                    prompt: document.getElementById('profilePrompt').value.trim()
+                    prompt: document.getElementById('profilePrompt').value.trim(),
+                    temperature: parseInt(document.getElementById('profileTemperature').value) || 0
                 };
                 
                 try {
@@ -2444,12 +2553,56 @@ app.get('/', (req, res) => {
                     });
                     
                     if (response.ok) {
-                        await loadProfilesData();
+                        const savedProfile = await response.json();
+                        console.log('✅ Profile saved successfully:', savedProfile);
+
+                        // Update the local profiles array immediately for UI feedback
+                        if (profileId) {
+                            const profileIndex = profiles.findIndex(p => p.id === profileId);
+                            console.log('📍 Looking for profile to update:', profileId, 'at index:', profileIndex);
+                            if (profileIndex !== -1) {
+                                console.log('📍 Before update:', profiles[profileIndex].name, profiles[profileIndex].temperature);
+                                profiles[profileIndex] = savedProfile;
+                                console.log('📍 After update:', profiles[profileIndex].name, profiles[profileIndex].temperature);
+                                console.log('🔄 Updated local profiles array with saved data');
+                            }
+                        } else {
+                            profiles.push(savedProfile);
+                        }
+
+                        console.log('🔄 Refreshing UI components...');
                         loadProfilesList();
-                        document.getElementById('profileForm').style.display = 'none';
+                        updateProfileDropdown();
+
+                        // If editing an existing profile, show the saved data in form and close after delay
+                        if (profileId) {
+                            console.log('🔄 Using saved profile data to refresh form:', savedProfile);
+                            document.getElementById('profileName').value = savedProfile.name;
+                            document.getElementById('profileCefr').value = savedProfile.cefrLevel;
+                            document.getElementById('profileVocab').value = savedProfile.vocabulary.join('\\n');
+                            document.getElementById('profileGrammar').value = savedProfile.grammar.join('\\n');
+                            document.getElementById('profilePrompt').value = savedProfile.prompt || '';
+                            document.getElementById('profileTemperature').value = savedProfile.temperature || 0;
+                            updateProfileTemperatureDisplay(savedProfile.temperature || 0);
+
+                            // Close the form after a short delay to show the updated values
+                            setTimeout(() => {
+                                document.getElementById('profileForm').style.display = 'none';
+                                console.log('✅ Profile edit form closed');
+                            }, 1000);
+                        } else {
+                            // For new profiles, close the form immediately
+                            document.getElementById('profileForm').style.display = 'none';
+                        }
+                    } else {
+                        console.error('❌ Profile save failed:', response.status, response.statusText);
+                        const errorText = await response.text();
+                        console.error('Error response:', errorText);
+                        alert('Error saving profile: ' + response.status);
                     }
                 } catch (error) {
-                    alert('Error saving profile');
+                    console.error('❌ Profile save error:', error);
+                    alert('Error saving profile: ' + error.message);
                 }
             });
         </script>
@@ -2467,19 +2620,25 @@ app.get("/health", (req, res) => {
 
 // Grade essay endpoint
 app.post("/grade", async (req, res) => {
-  const { studentText, prompt, classProfile } = req.body;
+  const { studentText, prompt, classProfile, temperature } = req.body;
 
   console.log("\n🔥 GRADING REQUEST RECEIVED 🔥");
   console.log("Student text length:", studentText?.length || 0, "characters");
   console.log("Class profile:", classProfile);
+  console.log("Temperature:", temperature || 0);
   console.log("Timestamp:", new Date().toLocaleString());
-  
+
   try {
     console.log("\n⚡ STARTING TWO-STEP GRADING PROCESS...");
     const result = await gradeEssay(studentText, prompt, classProfile);
     console.log("\n✅ GRADING COMPLETED SUCCESSFULLY!");
-    console.log("Final score:", result.total?.points + "/" + result.total?.out_of);
-    res.json(result);
+    console.log("Original score:", result.total?.points + "/" + result.total?.out_of);
+
+    // Apply temperature adjustment
+    const finalResult = applyTemperatureAdjustment(result, temperature || 0);
+    console.log("Final score after temperature:", finalResult.total?.points + "/" + finalResult.total?.out_of);
+
+    res.json(finalResult);
   } catch (error) {
     console.error("\n❌ GRADING ERROR:", error);
     res.status(500).json({ error: "Error grading essay", details: error.message });
@@ -2517,7 +2676,8 @@ app.post("/format", async (req, res) => {
 // Profile management API endpoints
 app.get("/api/profiles", async (req, res) => {
   try {
-    if (useDatabase && prisma) {
+    // Temporarily force file system usage to match PUT endpoint behavior
+    if (false && useDatabase && prisma) {
       const profiles = await prisma.classProfile.findMany({
         orderBy: { lastModified: 'desc' }
       });
@@ -2534,15 +2694,23 @@ app.get("/api/profiles", async (req, res) => {
 
 app.post("/api/profiles", async (req, res) => {
   try {
-    if (useDatabase && prisma) {
+    // Temporarily force file system usage for profile creation to avoid DB schema issues
+    if (false && useDatabase && prisma) {
+      const createData = {
+        name: req.body.name,
+        cefrLevel: req.body.cefrLevel,
+        vocabulary: req.body.vocabulary || [],
+        grammar: req.body.grammar || [],
+        prompt: req.body.prompt || '',
+      };
+
+      // Only add temperature if it exists in the request (avoid DB schema issues)
+      if (req.body.temperature !== undefined) {
+        createData.temperature = req.body.temperature || 0;
+      }
+
       const newProfile = await prisma.classProfile.create({
-        data: {
-          name: req.body.name,
-          cefrLevel: req.body.cefrLevel,
-          vocabulary: req.body.vocabulary || [],
-          grammar: req.body.grammar || [],
-          prompt: req.body.prompt || '',
-        }
+        data: createData
       });
       res.json(newProfile);
     } else {
@@ -2554,6 +2722,7 @@ app.post("/api/profiles", async (req, res) => {
         vocabulary: req.body.vocabulary || [],
         grammar: req.body.grammar || [],
         prompt: req.body.prompt || '',
+        temperature: req.body.temperature || 0,
         created: new Date().toISOString(),
         lastModified: new Date().toISOString()
       };
@@ -2570,16 +2739,24 @@ app.post("/api/profiles", async (req, res) => {
 
 app.put("/api/profiles/:id", async (req, res) => {
   try {
-    if (useDatabase && prisma) {
+    // Temporarily force file system usage for profile updates to avoid DB schema issues
+    if (false && useDatabase && prisma) {
+      const updateData = {
+        name: req.body.name,
+        cefrLevel: req.body.cefrLevel,
+        vocabulary: req.body.vocabulary || [],
+        grammar: req.body.grammar || [],
+        prompt: req.body.prompt || '',
+      };
+
+      // Only add temperature if it exists in the request (avoid DB schema issues)
+      if (req.body.temperature !== undefined) {
+        updateData.temperature = req.body.temperature || 0;
+      }
+
       const updatedProfile = await prisma.classProfile.update({
         where: { id: req.params.id },
-        data: {
-          name: req.body.name,
-          cefrLevel: req.body.cefrLevel,
-          vocabulary: req.body.vocabulary || [],
-          grammar: req.body.grammar || [],
-          prompt: req.body.prompt || '',
-        }
+        data: updateData
       });
       res.json(updatedProfile);
     } else {
@@ -2590,6 +2767,10 @@ app.put("/api/profiles/:id", async (req, res) => {
         return res.status(404).json({ error: "Profile not found" });
       }
       
+      console.log('📝 UPDATING PROFILE:', req.params.id);
+      console.log('📝 Request body:', req.body);
+      console.log('📝 Profile found at index:', profileIndex);
+
       profiles.profiles[profileIndex] = {
         ...profiles.profiles[profileIndex],
         name: req.body.name,
@@ -2597,18 +2778,26 @@ app.put("/api/profiles/:id", async (req, res) => {
         vocabulary: req.body.vocabulary || [],
         grammar: req.body.grammar || [],
         prompt: req.body.prompt || '',
+        temperature: req.body.temperature || 0,
         lastModified: new Date().toISOString()
       };
-      
+
+      console.log('📝 Updated profile:', profiles.profiles[profileIndex]);
+
       await saveProfiles(profiles);
+      console.log('📝 Profile saved successfully');
       res.json(profiles.profiles[profileIndex]);
     }
   } catch (error) {
     if (error.code === 'P2025') {
       return res.status(404).json({ error: "Profile not found" });
     }
-    console.error('Error updating profile:', error);
-    res.status(500).json({ error: "Error updating profile" });
+    console.error('❌ ERROR UPDATING PROFILE:', error);
+    console.error('Error details:', error.message);
+    console.error('Error stack:', error.stack);
+    console.error('Request body:', req.body);
+    console.error('Profile ID:', req.params.id);
+    res.status(500).json({ error: "Error updating profile", details: error.message });
   }
 });
 
@@ -2642,11 +2831,12 @@ app.delete("/api/profiles/:id", async (req, res) => {
 
 // Add API route for grade endpoint (for compatibility with unified UI)
 app.post("/api/grade", async (req, res) => {
-  const { studentText, prompt, classProfile } = req.body;
+  const { studentText, prompt, classProfile, temperature } = req.body;
 
   console.log("\n🔥 API GRADING REQUEST RECEIVED 🔥");
   console.log("Student text length:", studentText?.length || 0, "characters");
   console.log("Class profile:", classProfile);
+  console.log("Temperature:", temperature || 0);
   console.log("Environment:", isVercel ? 'Vercel' : 'Local');
   
   try {
@@ -2676,11 +2866,18 @@ app.post("/api/grade", async (req, res) => {
     
     console.log("✅ Profile found:", profileData.name);
     console.log("🤖 Using UNIFIED grading system (identical local & Vercel)...");
-    
+
     // Use unified grading system (works identically everywhere)
     const result = await gradeEssayUnified(studentText, prompt, profileData);
     console.log("\n✅ UNIFIED GRADING COMPLETED!");
-    res.json(result);
+    console.log("Original score:", result.total?.points + "/" + result.total?.out_of);
+
+    // Apply temperature adjustment using profile temperature or explicit temperature
+    const finalTemperature = temperature !== undefined ? temperature : (profileData.temperature || 0);
+    const finalResult = applyTemperatureAdjustment(result, finalTemperature);
+    console.log("Final score after temperature:", finalResult.total?.points + "/" + finalResult.total?.out_of);
+
+    res.json(finalResult);
   } catch (error) {
     console.error("\n❌ GRADING ERROR:", error);
     console.error("Error stack:", error.stack);
