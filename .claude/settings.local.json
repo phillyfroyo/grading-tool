@@ -18,7 +18,9 @@
       "Bash(sed:*)",
       "Bash(rg:*)",
       "Bash(npm run dev:*)",
-      "Bash(git checkout:*)"
+      "Bash(git checkout:*)",
+      "Bash(taskkill:*)",
+      "Bash(timeout:*)"
     ],
     "deny": [],
     "ask": []
