@@ -2,28 +2,26 @@
 
 This file contains ideas for future development that haven't been implemented yet due to bandwidth constraints.
 
+## 🔥 High Priority UI/UX Improvements
+
+### Compact Batch Results UI
+- [ ] **Compact the UI of the grader after results come in** - Show only student names initially
+  - Clicking on a student name expands to show full grading details for that student only
+  - This will organize the UI and improve UX for batch grading
+  - Add status checkboxes for each student:
+    - "Done" or "Mark Complete" checkbox after reviewing an essay
+    - "Needs Review" checkbox to flag essays for later review
+  - Individual download option next to each student name
+  - "Download All" button at the bottom for bulk export
+  - Improves organization and workflow for teachers grading multiple essays
+
+### Button Order Fix
+- [ ] **Reverse the order of "Add Another Essay" and "Grade Essay" buttons**
+  - Current order is counterintuitive and leads to clicking wrong button
+  - Grade Essay button should be more prominent/first
+  - Improves user workflow and reduces errors
+
 ## 🚀 Potential Features
-
-### Branding & Identity
-- [ ] Give grader a name: "MLGM" (Mean Lean Grading Machine)
-- [ ] Design logo/branding for MLGM
-- [ ] Add branding to UI header/footer
-
-### Manual Grading Mode
-- [ ] Add toggle at top of grading main page: "Manual Grading" / "GPT Powered Grader"
-- [ ] Manual grading mode: Empty grading interface (like post-AI grade page but blank)
-- [ ] All rubric sections ready for teacher input without AI assistance
-- [ ] Same PDF export capabilities for manual grades
-- [ ] Manual highlighting tools for errors (teacher can mark their own)
-
-### Grading Temperature/Harshness Control
-- [ ] User-selectable grading temperature/harshness level
-- [ ] Baseline: Strict adherence to rubric as provided
-- [ ] Temperature levels: Stricter (-10%, -20%) to More Lenient (+10%, +20%, +30%)
-- [ ] Post-grade percentage adjustment applied uniformly across all categories
-- [ ] Could replace current prompt complexity and merciful scoring system
-- [ ] UI slider or dropdown to select grading temperament
-- [ ] Would simplify codebase by removing hardcoded scoring adjustments
 
 ### AI & Grading Improvements
 - [ ] Multi-model grading comparison (GPT-4 vs Claude vs others)

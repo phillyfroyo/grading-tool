@@ -20,7 +20,11 @@
       "Bash(npm run dev:*)",
       "Bash(git checkout:*)",
       "Bash(taskkill:*)",
-      "Bash(timeout:*)"
+      "Bash(timeout:*)",
+      "Bash(git merge:*)",
+      "Bash(grep:*)",
+      "Bash(pkill:*)",
+      "Bash(cat:*)"
     ],
     "deny": [],
     "ask": []

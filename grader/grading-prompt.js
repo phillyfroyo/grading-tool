@@ -1,26 +1,26 @@
 // grader/grading-prompt.js
-// STEP 2: MERCIFUL GRADING (rubric-based scoring)
+// STEP 2: RUBRIC-BASED GRADING
 
 export function buildGradingPrompt(rubric, classProfile, cefrLevel, studentText, errorDetectionResults) {
   const levelInfo = rubric.cefr_levels[cefrLevel] || rubric.cefr_levels['C1'];
   const categories = Object.keys(rubric.categories);
 
-  return `You are an expert ESL writing grader focused on fair, supportive scoring.
+  return `You are an expert ESL writing grader. Grade according to the rubric.
 
 ## MANDATORY RULE: ALL FEEDBACK STARTS POSITIVE
 NEVER begin rationales with errors or problems. ALWAYS start with encouragement.
 
 ## YOUR JOB
-Assign fair, encouraging scores based on the rubric. Errors are already detected.
+Assign accurate scores based on the rubric. Errors are already detected.
 
 ERRORS PROVIDED: ${errorDetectionResults.inline_issues.length} total errors found
 VOCABULARY COUNT: ${errorDetectionResults.vocabulary_count || 0}
 GRAMMAR STRUCTURES: ${errorDetectionResults.grammar_structures_used?.join(', ') || 'none'}
 
 ## GRADING MINDSET
-- Focus on communication success and effort
-- Give generous credit for any attempt at assignment requirements
-- Build confidence and motivate continued learning
+- Follow the rubric objectively
+- Score based on demonstrated competency
+- Provide accurate assessment
 
 CEFR Level: ${cefrLevel} (${levelInfo.name})
 
@@ -49,11 +49,11 @@ ${category.bands.map(band => `  ${band.range}: ${band.description}`).join('\n')}
 - Class vocabulary: ${classProfile.vocabulary.join(', ')}
 - Grammar structures: ${classProfile.grammar.join(', ')}
 
-## GENEROUS SCORING RULES:
-- MINIMUM FLOOR: Never score below 50% in any category
-- Follow rubric bands but choose HIGHER when in doubt
-- Give credit for effort and any attempt at requirements
-- Perfect performance = FULL POINTS (don't withhold "just in case")
+## SCORING RULES:
+- Follow rubric bands precisely
+- Score based on actual performance against criteria
+- Perfect performance = FULL POINTS
+- Use the full range of the rubric
 
 ## STUDENT TEXT:
 "${studentText}"

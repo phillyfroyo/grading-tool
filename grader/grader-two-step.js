@@ -38,9 +38,9 @@ export async function gradeEssay(studentText, prompt, classProfileId) {
   console.log('\n=== STEP 1: ERROR DETECTION ===');
   const errorDetectionResults = await detectErrors(studentText, classProfile);
   
-  // STEP 2: MERCIFUL GRADING  
+  // STEP 2: RUBRIC-BASED GRADING
   console.log('\n=== STEP 2: GRADING ===');
-  const gradingResults = await gradeWithMercy(studentText, classProfile, cefrLevel, errorDetectionResults);
+  const gradingResults = await gradeBasedOnRubric(studentText, classProfile, cefrLevel, errorDetectionResults);
   
   // STEP 3: COMBINE RESULTS
   console.log('\n=== STEP 3: COMBINING RESULTS ===');
@@ -129,17 +129,17 @@ async function detectErrors(studentText, classProfile) {
   }
 }
 
-async function gradeWithMercy(studentText, classProfile, cefrLevel, errorDetectionResults) {
+async function gradeBasedOnRubric(studentText, classProfile, cefrLevel, errorDetectionResults) {
   const prompt = buildGradingPrompt(rubric, classProfile, cefrLevel, studentText, errorDetectionResults);
   
-  console.log('Calling GPT for merciful grading...');
+  console.log('Calling GPT for rubric-based grading...');
   console.log(`Errors to consider: ${errorDetectionResults.inline_issues.length} issues`);
   
   const response = await openai.chat.completions.create({
     model: "gpt-4o", 
     messages: [
       { role: "system", content: prompt },
-      { role: "user", content: `Grade this essay mercifully based on the detected errors and rubric.` }
+      { role: "user", content: `Grade this essay based on the detected errors and rubric.` }
     ],
     temperature: 0.2, // Lower for consistent grading
   });
@@ -178,50 +178,17 @@ async function gradeWithMercy(studentText, classProfile, cefrLevel, errorDetecti
       delete result.scores['mechanics-punctuation'];
     }
     
-    // STEP 1: ENFORCE HARD MINIMUM FLOORS (50% minimum)
-    console.log('\n=== ENFORCING 50% MINIMUM FLOORS ===');
-    for (const [category, scoreData] of Object.entries(result.scores || {})) {
-      const originalPoints = scoreData.points;
-      const maxPoints = scoreData.out_of;
-      const minimumFloor = Math.ceil(maxPoints * 0.5); // 50% floor
-      
-      if (originalPoints < minimumFloor) {
-        scoreData.points = minimumFloor;
-        console.log(`🛡️ FLOOR APPLIED - ${category}: ${originalPoints} → ${minimumFloor} (50% minimum)`);
-      }
-    }
-    
-    // STEP 2: Apply merciful scoring boost - increase all scores by 20% (post-floor adjustment)
-    console.log('\n=== APPLYING MERCIFUL SCORING BOOST ===');
-    let originalTotal = 0;
-    
-    for (const [category, scoreData] of Object.entries(result.scores || {})) {
-      const preBoostPoints = scoreData.points; // After floor but before boost
-      const maxPoints = scoreData.out_of;
-      
-      // Calculate 20% boost, but cap at maximum possible points
-      const boostedPoints = Math.min(
-        Math.round(preBoostPoints * 1.2), 
-        maxPoints
-      );
-      
-      scoreData.points = boostedPoints;
-      originalTotal += preBoostPoints;
-      
-      console.log(`${category}: ${preBoostPoints} → ${boostedPoints} (out of ${maxPoints})`);
-    }
-    
     // Update total score
     const newTotal = Object.values(result.scores || {}).reduce((sum, score) => sum + score.points, 0);
     const maxTotal = Object.values(result.scores || {}).reduce((sum, score) => sum + score.out_of, 0);
-    
+
     if (result.total) {
       result.total.points = newTotal;
       result.total.out_of = maxTotal;
     }
-    
-    console.log(`TOTAL SCORE: ${originalTotal} → ${newTotal} (out of ${maxTotal})`);
-    console.log('=== MERCIFUL BOOST APPLIED ===\n');
+
+    console.log(`TOTAL SCORE: ${newTotal} (out of ${maxTotal})`);
+    console.log('=== RUBRIC-BASED SCORING COMPLETE ===\n');
     
     return result;
   } catch (error) {

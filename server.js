@@ -323,12 +323,26 @@ app.get('/', (req, res) => {
                 </div>
 
                 <div class="form-group">
-                    <label for="studentText">Student Essay:</label>
-                    <textarea id="studentText" name="studentText" rows="15" required 
-                              placeholder="Paste the student's essay here..."></textarea>
+                    <label>Student Essays:</label>
+                    <div id="essaysContainer">
+                        <div class="essay-entry" data-essay-index="0">
+                            <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 8px;">
+                                <label style="margin: 0; font-weight: 500;">Essay 1:</label>
+                                <input type="text" class="student-name" placeholder="Student name (optional)" style="padding: 5px; border: 1px solid #ddd; border-radius: 4px; width: 200px;">
+                                <button type="button" class="remove-essay-btn" onclick="removeEssay(0)" style="background: #dc3545; color: white; border: none; padding: 5px 10px; border-radius: 4px; cursor: pointer; display: none;">Remove</button>
+                            </div>
+                            <textarea class="student-text" name="studentText" rows="15" required
+                                      placeholder="Paste the student&apos;s essay here..."></textarea>
+                        </div>
+                    </div>
+
+                    <div style="margin-top: 15px; display: flex; gap: 10px;">
+                        <button type="submit" id="gradeButton">Grade Essays</button>
+                        <button type="button" id="addEssayBtn" onclick="addAnotherEssay()" style="background: #28a745; color: white; border: none; padding: 10px 15px; border-radius: 4px; cursor: pointer;">
+                            Add Another Essay
+                        </button>
+                    </div>
                 </div>
-                
-                <button type="submit" id="gradeButton">Grade Essay</button>
             </form>
             
             <div class="loading" id="loading">
@@ -347,7 +361,7 @@ app.get('/', (req, res) => {
 
                 <div class="form-group">
                     <label for="manualEssayInput">Student Essay:</label>
-                    <textarea id="manualEssayInput" rows="15" placeholder="Paste the student's essay here..." style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 4px;"></textarea>
+                    <textarea id="manualEssayInput" rows="15" placeholder="Paste the student&apos;s essay here..." style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 4px;"></textarea>
                     <button type="button" id="loadManualEssay" style="margin-top: 10px; background: #28a745; color: white; padding: 8px 15px; border: none; border-radius: 4px; cursor: pointer;">
                         Load Essay for Manual Grading
                     </button>
@@ -498,7 +512,7 @@ app.get('/', (req, res) => {
                         <label for="teacherNotesTextarea" style="display: block; margin-bottom: 8px; font-weight: bold; color: #333;">
                             Teacher Notes:
                         </label>
-                        <textarea id="teacherNotesTextarea" rows="8" style="width: 100%; padding: 12px; border: 1px solid #ddd; border-radius: 4px; font-size: 14px; resize: vertical; font-family: inherit;" placeholder="Enter your overall notes about this student's essay..."></textarea>
+                        <textarea id="teacherNotesTextarea" rows="8" style="width: 100%; padding: 12px; border: 1px solid #ddd; border-radius: 4px; font-size: 14px; resize: vertical; font-family: inherit;" placeholder="Enter your overall notes about this student&apos;s essay..."></textarea>
                     </div>
 
                     <div style="display: flex; gap: 10px; justify-content: flex-end; margin-top: 25px;">
@@ -536,7 +550,7 @@ app.get('/', (req, res) => {
                 profiles.forEach(profile => {
                     const option = document.createElement('option');
                     option.value = profile.id;
-                    option.textContent = \`\${profile.name} (\${profile.cefrLevel})\`;
+                    option.textContent = profile.name + ' (' + profile.cefrLevel + ')';
                     select.appendChild(option);
                 });
             }
@@ -612,26 +626,70 @@ app.get('/', (req, res) => {
                     temperature = parseInt(formData.get('temperature')) || 0;
                 }
 
+                // Collect all essays
+                const essays = [];
+                const essayEntries = document.querySelectorAll('.essay-entry');
+
+                essayEntries.forEach((entry, index) => {
+                    const studentText = entry.querySelector('.student-text').value.trim();
+                    const studentName = entry.querySelector('.student-name').value.trim() || 'Student ' + (index + 1);
+
+                    if (studentText) {
+                        essays.push({
+                            studentText: studentText,
+                            studentName: studentName
+                        });
+                    }
+                });
+
+                if (essays.length === 0) {
+                    alert('Please enter at least one essay to grade.');
+                    return;
+                }
+
                 const data = {
-                    studentText: formData.get('studentText'),
+                    essays: essays,
                     prompt: formData.get('prompt'),
-                    studentName: formData.get('studentName') || 'Anonymous',
                     classProfile: selectedProfileId,
                     temperature: temperature
                 };
                 
                 // Show loading, hide results
-                document.getElementById('loading').style.display = 'block';
+                const loadingDiv = document.getElementById('loading');
+                if (essays.length === 1) {
+                    loadingDiv.innerHTML = '<p>Grading essay... This may take a few moments.</p>';
+                } else {
+                    loadingDiv.innerHTML = '<p>Grading ' + essays.length + ' essays... This may take a few moments.</p>';
+                }
+                loadingDiv.style.display = 'block';
                 document.getElementById('results').style.display = 'none';
                 document.getElementById('gradeButton').disabled = true;
-                
+
                 try {
-                    const response = await fetch('/api/grade', {
+                    let endpoint, requestData;
+
+                    if (essays.length === 1) {
+                        // Single essay - use existing format for backward compatibility
+                        endpoint = '/api/grade';
+                        requestData = {
+                            studentText: essays[0].studentText,
+                            prompt: data.prompt,
+                            studentName: essays[0].studentName,
+                            classProfile: data.classProfile,
+                            temperature: data.temperature
+                        };
+                    } else {
+                        // Multiple essays - use batch endpoint
+                        endpoint = '/api/grade-batch';
+                        requestData = data;
+                    }
+
+                    const response = await fetch(endpoint, {
                         method: 'POST',
                         headers: {
                             'Content-Type': 'application/json'
                         },
-                        body: JSON.stringify(data)
+                        body: JSON.stringify(requestData)
                     });
                     
                     if (!response.ok) {
@@ -639,7 +697,14 @@ app.get('/', (req, res) => {
                     }
                     
                     const result = await response.json();
-                    displayResults(result, data);
+
+                    // Check if this is a batch result
+                    if (result.results && Array.isArray(result.results)) {
+                        displayBatchResults(result, data);
+                    } else {
+                        // For single essays, pass the requestData which has the correct structure
+                        displayResults(result, requestData);
+                    }
                     
                 } catch (error) {
                     console.error('Error:', error);
@@ -651,7 +716,199 @@ app.get('/', (req, res) => {
                     document.getElementById('gradeButton').disabled = false;
                 }
             });
-            
+
+            // Essay management functions
+            let essayCount = 1;
+
+            function addAnotherEssay() {
+                const container = document.getElementById('essaysContainer');
+                const newIndex = essayCount;
+
+                const essayDiv = document.createElement('div');
+                essayDiv.className = 'essay-entry';
+                essayDiv.setAttribute('data-essay-index', newIndex);
+                essayDiv.style.marginTop = '20px';
+                essayDiv.style.borderTop = '1px solid #ddd';
+                essayDiv.style.paddingTop = '15px';
+
+                essayDiv.innerHTML =
+                    '<div style="display: flex; align-items: center; gap: 10px; margin-bottom: 8px;">' +
+                        '<label style="margin: 0; font-weight: 500;">Essay ' + (newIndex + 1) + ':</label>' +
+                        '<input type="text" class="student-name" placeholder="Student name (optional)" style="padding: 5px; border: 1px solid #ddd; border-radius: 4px; width: 200px;">' +
+                        '<button type="button" class="remove-essay-btn" onclick="removeEssay(' + newIndex + ')" style="background: #dc3545; color: white; border: none; padding: 5px 10px; border-radius: 4px; cursor: pointer;">Remove</button>' +
+                    '</div>' +
+                    '<textarea class="student-text" name="studentText" rows="15" required placeholder="Paste the student&apos;s essay here..."></textarea>';
+
+                container.appendChild(essayDiv);
+                essayCount++;
+
+                // Show remove buttons for all essays when there's more than one
+                updateRemoveButtons();
+            }
+
+            function removeEssay(index) {
+                const essayToRemove = document.querySelector('[data-essay-index="' + index + '"]');
+                if (essayToRemove) {
+                    essayToRemove.remove();
+                    // Renumber remaining essays
+                    renumberEssays();
+                    updateRemoveButtons();
+                }
+            }
+
+            function renumberEssays() {
+                const essays = document.querySelectorAll('.essay-entry');
+                essays.forEach((essay, index) => {
+                    essay.setAttribute('data-essay-index', index);
+                    const label = essay.querySelector('label');
+                    if (label) {
+                        label.textContent = 'Essay ' + (index + 1) + ':';
+                    }
+                    const removeBtn = essay.querySelector('.remove-essay-btn');
+                    if (removeBtn) {
+                        removeBtn.setAttribute('onclick', 'removeEssay(' + index + ')');
+                    }
+                });
+                essayCount = essays.length;
+            }
+
+            function updateRemoveButtons() {
+                const essays = document.querySelectorAll('.essay-entry');
+                const showRemoveButtons = essays.length > 1;
+
+                essays.forEach(essay => {
+                    const removeBtn = essay.querySelector('.remove-essay-btn');
+                    if (removeBtn) {
+                        removeBtn.style.display = showRemoveButtons ? 'inline-block' : 'none';
+                    }
+                });
+            }
+
+            function displayBatchResults(batchResult, originalData) {
+                console.log('🎯 DISPLAY BATCH RESULTS CALLED');
+                console.log('Batch result:', batchResult);
+                console.log('Original data:', originalData);
+
+                const resultsDiv = document.getElementById('results');
+                let batchHtml = '<div class="batch-results">';
+
+                batchHtml += '<h2>Batch Grading Results (' + batchResult.totalEssays + ' essays)</h2>';
+
+                // Summary
+                const successCount = batchResult.results.filter(r => r.success).length;
+                const failureCount = batchResult.results.filter(r => !r.success).length;
+
+                batchHtml += '<div class="batch-summary" style="background: #f8f9fa; padding: 15px; border-radius: 8px; margin: 15px 0;">';
+                batchHtml += '<p><strong>Summary:</strong> ' + successCount + ' successful, ' + failureCount + ' failed</p>';
+                batchHtml += '</div>';
+
+                // Individual results
+                batchResult.results.forEach((essay, index) => {
+                    if (essay.success) {
+                        batchHtml += '<div class="essay-result" style="border: 1px solid #ddd; margin: 15px 0; border-radius: 8px; overflow: hidden;">';
+                        batchHtml += '<div class="essay-header" style="background: #e9ecef; padding: 10px; font-weight: bold;">';
+                        batchHtml += 'Essay ' + (index + 1) + ': ' + essay.studentName;
+                        batchHtml += '</div>';
+                        batchHtml += '<div class="essay-content" style="padding: 15px;">';
+
+                        // Use the same formatting as single essay results
+                        batchHtml += '<div id="batch-essay-' + index + '" class="individual-essay-result">Loading formatted result...</div>';
+
+                        batchHtml += '</div></div>';
+                    } else {
+                        batchHtml += '<div class="essay-result" style="border: 1px solid #dc3545; margin: 15px 0; border-radius: 8px; overflow: hidden;">';
+                        batchHtml += '<div class="essay-header" style="background: #f8d7da; padding: 10px; font-weight: bold; color: #721c24;">';
+                        batchHtml += 'Essay ' + (index + 1) + ': ' + essay.studentName + ' - FAILED';
+                        batchHtml += '</div>';
+                        batchHtml += '<div class="essay-content" style="padding: 15px;">';
+                        batchHtml += '<p style="color: #721c24;">Error: ' + essay.error + '</p>';
+                        batchHtml += '</div></div>';
+                    }
+                });
+
+                batchHtml += '</div>';
+                resultsDiv.innerHTML = batchHtml;
+                resultsDiv.style.display = 'block';
+
+                // Format each successful essay individually
+                batchResult.results.forEach((essay, index) => {
+                    if (essay.success) {
+                        const essayFromOriginal = originalData.essays[index];
+
+                        fetch('/format', {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json'
+                            },
+                            body: JSON.stringify({
+                                studentText: essayFromOriginal.studentText,
+                                gradingResults: essay.result,
+                                studentName: essay.studentName,
+                                editable: true
+                            })
+                        })
+                        .then(response => {
+                            if (!response.ok) {
+                                throw new Error('Formatting failed');
+                            }
+                            return response.json();
+                        })
+                        .then(formatted => {
+                            const essayDiv = document.getElementById('batch-essay-' + index);
+                            if (essayDiv && formatted.success) {
+                                // Create full editing interface for batch essays
+                                const formattedHtml =
+                                    formatted.feedbackSummary +
+                                    '<h3 style="margin: 20px 0 10px 0;">Color-Coded Essay:</h3>' +
+                                    '<div id="essayContainer-' + index + '" style="border: 1px solid #ddd; border-radius: 4px;">' +
+                                        '<!-- Category selector bar -->' +
+                                        '<div id="categoryBar-' + index + '" style="padding: 10px; background: #f8f9fa; border-bottom: 1px solid #ddd; border-radius: 4px 4px 0 0;">' +
+                                            '<div style="margin-bottom: 5px; font-weight: bold; font-size: 14px;">Select category then highlight text, or highlight text then select category:</div>' +
+                                            '<div id="categoryButtons-' + index + '" style="display: flex; flex-wrap: wrap; gap: 8px;">' +
+                                                '<button class="category-btn" data-category="grammar" data-essay-index="' + index + '" style="background: transparent; color: #FF8C00; border: 2px solid #FF8C00; padding: 8px 12px; border-radius: 20px; cursor: pointer; font-weight: bold; transition: all 0.2s;">Grammar Error</button>' +
+                                                '<button class="category-btn" data-category="vocabulary" data-essay-index="' + index + '" style="background: transparent; color: #00A36C; border: 2px solid #00A36C; padding: 8px 12px; border-radius: 20px; cursor: pointer; font-weight: bold; transition: all 0.2s;">Vocabulary Error</button>' +
+                                                '<button class="category-btn" data-category="mechanics" data-essay-index="' + index + '" style="background: #D3D3D3; color: #000000; border: 2px solid #D3D3D3; padding: 8px 12px; border-radius: 20px; cursor: pointer; font-weight: bold; transition: all 0.2s;">Mechanics Error</button>' +
+                                                '<button class="category-btn" data-category="spelling" data-essay-index="' + index + '" style="background: transparent; color: #DC143C; border: 2px solid #DC143C; padding: 8px 12px; border-radius: 20px; cursor: pointer; font-weight: bold; transition: all 0.2s;">Spelling Error</button>' +
+                                                '<button class="category-btn" data-category="fluency" data-essay-index="' + index + '" style="background: #87CEEB; color: #000000; border: 2px solid #87CEEB; padding: 8px 12px; border-radius: 20px; cursor: pointer; font-weight: bold; transition: all 0.2s;">Fluency Error</button>' +
+                                                '<button class="category-btn" data-category="delete" data-essay-index="' + index + '" style="background: transparent; color: #000000; border: 2px solid #000000; padding: 8px 12px; border-radius: 20px; cursor: pointer; font-weight: bold; text-decoration: line-through; transition: all 0.2s;">Delete Word</button>' +
+                                                '<button id="clearSelectionBtn-' + index + '" onclick="clearSelection(' + index + ')" style="background: #f5f5f5; color: #666; border: 2px solid #ccc; padding: 8px 12px; border-radius: 4px; cursor: pointer; margin-left: 10px;">Clear Selection</button>' +
+                                            '</div>' +
+                                            '<div id="selectionStatus-' + index + '" style="margin-top: 8px; font-size: 12px; color: #666; min-height: 16px;"></div>' +
+                                        '</div>' +
+                                        '<!-- Essay text area -->' +
+                                        '<div class="formatted-essay-content" data-essay-index="' + index + '" style="padding: 15px; line-height: 1.6; user-select: text;">' +
+                                            formatted.formattedText +
+                                        '</div>' +
+                                        '<!-- Color Legend -->' +
+                                        '<div style="padding: 10px 15px; border-top: 1px solid #ddd; background: #f9f9f9; font-size: 12px;">' +
+                                            '<strong>Highlight Meanings:</strong>' +
+                                            '<span style="color: #FF8C00; font-weight: bold; margin-left: 10px;">grammar</span>' +
+                                            '<span style="color: #00A36C; font-weight: bold; margin-left: 15px;">vocabulary</span>' +
+                                            '<span style="color: #DC143C; font-weight: bold; margin-left: 15px;">spelling</span>' +
+                                            '<span style="background: #D3D3D3; color: #000; padding: 2px 6px; border-radius: 3px; font-weight: bold; margin-left: 15px;">mechanics</span>' +
+                                            '<span style="background: #87CEEB; color: #000; padding: 2px 6px; border-radius: 3px; font-weight: bold; margin-left: 15px;">fluency</span>' +
+                                            '<span style="color: #000; text-decoration: line-through; font-weight: bold; margin-left: 15px;">delete</span>' +
+                                        '</div>' +
+                                    '</div>';
+                                essayDiv.innerHTML = formattedHtml;
+
+                                // Initialize editing functionality for this specific essay
+                                initializeBatchEssayEditing(index, essay.result, essayFromOriginal);
+                            } else if (essayDiv && !formatted.success) {
+                                essayDiv.innerHTML = '<div class="error">Error formatting essay: ' + (formatted.error || 'Unknown error') + '</div>';
+                            }
+                        })
+                        .catch(error => {
+                            console.error('Error formatting essay ' + (index + 1) + ':', error);
+                            const essayDiv = document.getElementById('batch-essay-' + index);
+                            if (essayDiv) {
+                                essayDiv.innerHTML = '<div class="error">Error formatting this essay.</div>';
+                            }
+                        });
+                    }
+                });
+            }
+
             function displayResults(gradingResult, originalData) {
                 console.log('🎯 DISPLAY RESULTS CALLED');
                 console.log('Grading result:', gradingResult);
@@ -679,49 +936,44 @@ app.get('/', (req, res) => {
                 })
                 .then(formatted => {
                     console.log('✅ FORMAT RESPONSE RECEIVED:', formatted);
-                    resultsDiv.innerHTML = \`
-                        <h2>Grading Results for \${originalData.studentName}</h2>
-                        \${formatted.feedbackSummary}
-                        
-                        <h3 style="margin: 20px 0 10px 0;">Color-Coded Essay:</h3>
-                        
-                        <div id="essayContainer" style="border: 1px solid #ddd; border-radius: 4px;">
-                            <!-- Category selector bar -->
-                            <div id="categoryBar" style="padding: 10px; background: #f8f9fa; border-bottom: 1px solid #ddd; border-radius: 4px 4px 0 0;">
-                                <div style="margin-bottom: 5px; font-weight: bold; font-size: 14px;">Select category then highlight text, or highlight text then select category:</div>
-                                <div id="categoryButtons" style="display: flex; flex-wrap: wrap; gap: 8px;">
-                                    <button class="category-btn" data-category="grammar" style="background: transparent; color: #FF8C00; border: 2px solid #FF8C00; padding: 8px 12px; border-radius: 20px; cursor: pointer; font-weight: bold; transition: all 0.2s;">Grammar Error</button>
-                                    <button class="category-btn" data-category="vocabulary" style="background: transparent; color: #00A36C; border: 2px solid #00A36C; padding: 8px 12px; border-radius: 20px; cursor: pointer; font-weight: bold; transition: all 0.2s;">Vocabulary Error</button>
-                                    <button class="category-btn" data-category="mechanics" style="background: #D3D3D3; color: #000000; border: 2px solid #D3D3D3; padding: 8px 12px; border-radius: 20px; cursor: pointer; font-weight: bold; transition: all 0.2s;">Mechanics Error</button>
-                                    <button class="category-btn" data-category="spelling" style="background: transparent; color: #DC143C; border: 2px solid #DC143C; padding: 8px 12px; border-radius: 20px; cursor: pointer; font-weight: bold; transition: all 0.2s;">Spelling Error</button>
-                                    <button class="category-btn" data-category="fluency" style="background: #87CEEB; color: #000000; border: 2px solid #87CEEB; padding: 8px 12px; border-radius: 20px; cursor: pointer; font-weight: bold; transition: all 0.2s;">Fluency Error</button>
-                                    <button class="category-btn" data-category="delete" style="background: transparent; color: #000000; border: 2px solid #000000; padding: 8px 12px; border-radius: 20px; cursor: pointer; font-weight: bold; text-decoration: line-through; transition: all 0.2s;">Delete Word</button>
-                                    <button id="clearSelectionBtn" onclick="clearSelection()" style="background: #f5f5f5; color: #666; border: 2px solid #ccc; padding: 8px 12px; border-radius: 4px; cursor: pointer; margin-left: 10px;">Clear Selection</button>
-                                </div>
-                                <div id="selectionStatus" style="margin-top: 8px; font-size: 12px; color: #666; min-height: 16px;"></div>
-                            </div>
-                            
-                            <!-- Essay text area -->
-                            <div class="formatted-essay-content" style="padding: 15px; line-height: 1.6; user-select: text;">
-                                \${formatted.formattedText}
-                            </div>
-                            
-                            <!-- Color Legend -->
-                            <div style="padding: 10px 15px; border-top: 1px solid #ddd; background: #f9f9f9; font-size: 12px;">
-                                <strong>Highlight Meanings:</strong>
-                                <span style="color: #FF8C00; font-weight: bold; margin-left: 10px;">grammar</span>
-                                <span style="color: #00A36C; font-weight: bold; margin-left: 15px;">vocabulary</span>
-                                <span style="color: #DC143C; font-weight: bold; margin-left: 15px;">spelling</span>
-                                <span style="background: #D3D3D3; color: #000; padding: 2px 6px; border-radius: 3px; font-weight: bold; margin-left: 15px;">mechanics</span>
-                                <span style="background: #87CEEB; color: #000; padding: 2px 6px; border-radius: 3px; font-weight: bold; margin-left: 15px;">fluency</span>
-                                <span style="color: #000; text-decoration: line-through; font-weight: bold; margin-left: 15px;">delete</span>
-                            </div>
-                        </div>
-                        
-                        <div style="margin-top: 20px;">
-                            <button onclick="exportToPDF()">Export to PDF</button>
-                        </div>
-                    \`;
+                    const studentName = originalData.studentName || 'Student';
+                    resultsDiv.innerHTML =
+                        '<h2>Grading Results for ' + studentName + '</h2>' +
+                        formatted.feedbackSummary +
+                        '<h3 style="margin: 20px 0 10px 0;">Color-Coded Essay:</h3>' +
+                        '<div id="essayContainer" style="border: 1px solid #ddd; border-radius: 4px;">' +
+                            '<!-- Category selector bar -->' +
+                            '<div id="categoryBar" style="padding: 10px; background: #f8f9fa; border-bottom: 1px solid #ddd; border-radius: 4px 4px 0 0;">' +
+                                '<div style="margin-bottom: 5px; font-weight: bold; font-size: 14px;">Select category then highlight text, or highlight text then select category:</div>' +
+                                '<div id="categoryButtons" style="display: flex; flex-wrap: wrap; gap: 8px;">' +
+                                    '<button class="category-btn" data-category="grammar" style="background: transparent; color: #FF8C00; border: 2px solid #FF8C00; padding: 8px 12px; border-radius: 20px; cursor: pointer; font-weight: bold; transition: all 0.2s;">Grammar Error</button>' +
+                                    '<button class="category-btn" data-category="vocabulary" style="background: transparent; color: #00A36C; border: 2px solid #00A36C; padding: 8px 12px; border-radius: 20px; cursor: pointer; font-weight: bold; transition: all 0.2s;">Vocabulary Error</button>' +
+                                    '<button class="category-btn" data-category="mechanics" style="background: #D3D3D3; color: #000000; border: 2px solid #D3D3D3; padding: 8px 12px; border-radius: 20px; cursor: pointer; font-weight: bold; transition: all 0.2s;">Mechanics Error</button>' +
+                                    '<button class="category-btn" data-category="spelling" style="background: transparent; color: #DC143C; border: 2px solid #DC143C; padding: 8px 12px; border-radius: 20px; cursor: pointer; font-weight: bold; transition: all 0.2s;">Spelling Error</button>' +
+                                    '<button class="category-btn" data-category="fluency" style="background: #87CEEB; color: #000000; border: 2px solid #87CEEB; padding: 8px 12px; border-radius: 20px; cursor: pointer; font-weight: bold; transition: all 0.2s;">Fluency Error</button>' +
+                                    '<button class="category-btn" data-category="delete" style="background: transparent; color: #000000; border: 2px solid #000000; padding: 8px 12px; border-radius: 20px; cursor: pointer; font-weight: bold; text-decoration: line-through; transition: all 0.2s;">Delete Word</button>' +
+                                    '<button id="clearSelectionBtn" onclick="clearSelection()" style="background: #f5f5f5; color: #666; border: 2px solid #ccc; padding: 8px 12px; border-radius: 4px; cursor: pointer; margin-left: 10px;">Clear Selection</button>' +
+                                '</div>' +
+                                '<div id="selectionStatus" style="margin-top: 8px; font-size: 12px; color: #666; min-height: 16px;"></div>' +
+                            '</div>' +
+                            '<!-- Essay text area -->' +
+                            '<div class="formatted-essay-content" style="padding: 15px; line-height: 1.6; user-select: text;">' +
+                                formatted.formattedText +
+                            '</div>' +
+                            '<!-- Color Legend -->' +
+                            '<div style="padding: 10px 15px; border-top: 1px solid #ddd; background: #f9f9f9; font-size: 12px;">' +
+                                '<strong>Highlight Meanings:</strong>' +
+                                '<span style="color: #FF8C00; font-weight: bold; margin-left: 10px;">grammar</span>' +
+                                '<span style="color: #00A36C; font-weight: bold; margin-left: 15px;">vocabulary</span>' +
+                                '<span style="color: #DC143C; font-weight: bold; margin-left: 15px;">spelling</span>' +
+                                '<span style="background: #D3D3D3; color: #000; padding: 2px 6px; border-radius: 3px; font-weight: bold; margin-left: 15px;">mechanics</span>' +
+                                '<span style="background: #87CEEB; color: #000; padding: 2px 6px; border-radius: 3px; font-weight: bold; margin-left: 15px;">fluency</span>' +
+                                '<span style="color: #000; text-decoration: line-through; font-weight: bold; margin-left: 15px;">delete</span>' +
+                            '</div>' +
+                        '</div>' +
+                        '<div style="margin-top: 20px;">' +
+                            '<button onclick="exportToPDF()">Export to PDF</button>' +
+                        '</div>';
                     resultsDiv.style.display = 'block';
                     
                     // Add event listeners for editable elements
@@ -790,7 +1042,7 @@ app.get('/', (req, res) => {
                     const percentage = Math.round((totalPoints / totalMaxPoints) * 100);
                     
                     const color = getScoreColor(percentage);
-                    overallScoreElement.innerHTML = \`<div style="color: \${color}; font-size: 2em; font-weight: bold;">\${totalPoints}/\${totalMaxPoints}</div>\`;
+                    overallScoreElement.innerHTML = '<div style="color: ' + color + '; font-size: 2em; font-weight: bold;">' + totalPoints + '/' + totalMaxPoints + '</div>';
                 }
             }
             
@@ -925,6 +1177,37 @@ app.get('/', (req, res) => {
                 
                 updateSelectionStatus('Ready to highlight. Select a category or highlight text.');
             }
+
+            function initializeBatchEssayEditing(essayIndex, gradingResult, originalData) {
+                const essayContent = document.querySelector('.formatted-essay-content[data-essay-index="' + essayIndex + '"]');
+                if (!essayContent) return;
+
+                // Migrate any existing legacy highlights
+                migrateLegacyHighlights(essayContent);
+
+                // Add event listeners to category buttons for this essay
+                document.querySelectorAll('.category-btn[data-essay-index="' + essayIndex + '"]').forEach(btn => {
+                    btn.addEventListener('click', function() {
+                        selectBatchCategory(this.dataset.category, essayIndex);
+                    });
+                });
+
+                // Add text selection listener to this essay
+                essayContent.addEventListener('mouseup', function(e) {
+                    handleBatchTextSelection(e, essayIndex);
+                });
+
+                // Add click listeners to existing highlights for editing
+                essayContent.querySelectorAll('mark').forEach(mark => {
+                    mark.style.cursor = 'pointer';
+                    mark.addEventListener('click', function(e) {
+                        e.preventDefault();
+                        editBatchHighlight(this, essayIndex);
+                    });
+                });
+
+                updateBatchSelectionStatus(essayIndex, 'Ready to highlight. Select a category or highlight text.');
+            }
             
             function selectCategory(category) {
                 selectedCategory = category;
@@ -1002,7 +1285,7 @@ app.get('/', (req, res) => {
                 try {
                     range.deleteContents();
                     range.insertNode(mark);
-                    updateSelectionStatus(\`"\${text.substring(0, 30)}\${text.length > 30 ? '...' : ''}" highlighted as \${category}.\`);
+                    updateSelectionStatus('"' + text.substring(0, 30) + (text.length > 30 ? '...' : '') + '" highlighted as ' + category + '.');
                     
                     // Automatically open the edit popup for manual highlights
                     setTimeout(() => editHighlight(mark), 100);
@@ -1242,151 +1525,146 @@ app.get('/', (req, res) => {
                 const formattedEssayText = formatEssayText(essayText);
 
                 // Create the complete manual grading interface with category breakdown
-                manualResults.innerHTML = \`
-                    <h2>Manual Grading Results for \${studentName}</h2>
+                manualResults.innerHTML =
+                    '<h2>Manual Grading Results for ' + studentName + '</h2>' +
+                    '<!-- Grading Summary Section -->' +
+                    '<div class="grading-summary">' +
+                        '<div class="overall-score" style="color: #333; font-size: 2em; font-weight: bold; text-align: center; margin: 20px 0;">' +
+                            '<span id="manualTotalPoints">0</span>/100' +
+                        '</div>' +
+                        '<div class="teacher-notes editable-section" style="background: #e8f5e8; padding: 15px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #4CAF50; cursor: pointer; border: 2px solid transparent;" onclick="editTeacherNotes(this)" title="Click to edit teacher notes">' +
+                            '<strong>📝 Teacher Notes:</strong> <span class="teacher-notes-content">Click to add teacher notes</span>' +
+                            '<span class="edit-indicator" style="font-size: 10px; margin-left: 5px; color: #666;">✎</span>' +
+                        '</div>' +
+                        '<!-- Category Breakdown -->' +
+                        '<div class="category-breakdown">' +
+                            '<h3>Category Breakdown:</h3>' +
+                            '<!-- Grammar Category -->' +
+                            '<div class="category-feedback" style="margin: 15px 0; padding: 15px; border-left: 4px solid #FF6B6B; background: #FFE5E5; border-radius: 0 8px 8px 0;" data-category="grammar">' +
+                                '<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">' +
+                                    '<strong style="color: #FF6B6B; font-size: 1.1em;">Grammar</strong>' +
+                                    '<div style="display: flex; align-items: center; gap: 5px;">' +
+                                        '<input type="number" class="editable-score manual-category-score" data-category="grammar" value="0" min="0" max="15" style="width: 60px; padding: 4px; border: 1px solid #ddd; border-radius: 3px; text-align: center; font-weight: bold; color: #333;">' +
+                                        '<span style="color: #333; font-weight: bold; font-size: 1.2em;">/15</span>' +
+                                    '</div>' +
+                                '</div>' +
+                                '<div style="background: white; padding: 10px; border-radius: 4px; line-height: 1.4;">' +
+                                    '<textarea class="editable-feedback manual-category-feedback" data-category="grammar" placeholder="Enter grammar feedback here..." style="width: 100%; min-height: 80px; border: 1px solid #ddd; border-radius: 3px; padding: 8px; resize: vertical; font-family: inherit; line-height: 1.4;"></textarea>' +
+                                '</div>' +
+                            '</div>' +
 
-                    <!-- Grading Summary Section -->
-                    <div class="grading-summary">
-                        <div class="overall-score" style="color: #333; font-size: 2em; font-weight: bold; text-align: center; margin: 20px 0;">
-                            <span id="manualTotalPoints">0</span>/100
-                        </div>
+                            '<!-- Vocabulary Category -->' +
+                            '<div class="category-feedback" style="margin: 15px 0; padding: 15px; border-left: 4px solid #4ECDC4; background: #E8F8F7; border-radius: 0 8px 8px 0;" data-category="vocabulary">' +
+                                '<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">' +
+                                    '<strong style="color: #4ECDC4; font-size: 1.1em;">Vocabulary</strong>' +
+                                    '<div style="display: flex; align-items: center; gap: 5px;">' +
+                                        '<input type="number" class="editable-score manual-category-score" data-category="vocabulary" value="0" min="0" max="15" style="width: 60px; padding: 4px; border: 1px solid #ddd; border-radius: 3px; text-align: center; font-weight: bold; color: #333;">' +
+                                        '<span style="color: #333; font-weight: bold; font-size: 1.2em;">/15</span>' +
+                                    '</div>' +
+                                '</div>' +
+                                '<div style="background: white; padding: 10px; border-radius: 4px; line-height: 1.4;">' +
+                                    '<textarea class="editable-feedback manual-category-feedback" data-category="vocabulary" placeholder="Enter vocabulary feedback here..." style="width: 100%; min-height: 80px; border: 1px solid #ddd; border-radius: 3px; padding: 8px; resize: vertical; font-family: inherit; line-height: 1.4;"></textarea>' +
+                                '</div>' +
+                            '</div>' +
 
-                        <div class="teacher-notes editable-section" style="background: #e8f5e8; padding: 15px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #4CAF50; cursor: pointer; border: 2px solid transparent;" onclick="editTeacherNotes(this)" title="Click to edit teacher notes">
-                            <strong>📝 Teacher Notes:</strong> <span class="teacher-notes-content">Click to add teacher notes</span>
-                            <span class="edit-indicator" style="font-size: 10px; margin-left: 5px; color: #666;">✎</span>
-                        </div>
+                            '<!-- Spelling Category -->' +
+                            '<div class="category-feedback" style="margin: 15px 0; padding: 15px; border-left: 4px solid #45B7D1; background: #E3F2FD; border-radius: 0 8px 8px 0;" data-category="spelling">' +
+                                '<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">' +
+                                    '<strong style="color: #45B7D1; font-size: 1.1em;">Spelling</strong>' +
+                                    '<div style="display: flex; align-items: center; gap: 5px;">' +
+                                        '<input type="number" class="editable-score manual-category-score" data-category="spelling" value="0" min="0" max="10" style="width: 60px; padding: 4px; border: 1px solid #ddd; border-radius: 3px; text-align: center; font-weight: bold; color: #333;">' +
+                                        '<span style="color: #333; font-weight: bold; font-size: 1.2em;">/10</span>' +
+                                    '</div>' +
+                                '</div>' +
+                                '<div style="background: white; padding: 10px; border-radius: 4px; line-height: 1.4;">' +
+                                    '<textarea class="editable-feedback manual-category-feedback" data-category="spelling" placeholder="Enter spelling feedback here..." style="width: 100%; min-height: 80px; border: 1px solid #ddd; border-radius: 3px; padding: 8px; resize: vertical; font-family: inherit; line-height: 1.4;"></textarea>' +
+                                '</div>' +
+                            '</div>' +
 
-                        <!-- Category Breakdown -->
-                        <div class="category-breakdown">
-                            <h3>Category Breakdown:</h3>
+                            '<!-- Mechanics Category -->' +
+                            '<div class="category-feedback" style="margin: 15px 0; padding: 15px; border-left: 4px solid #F7B731; background: #FFF8E1; border-radius: 0 8px 8px 0;" data-category="mechanics">' +
+                                '<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">' +
+                                    '<strong style="color: #F7B731; font-size: 1.1em;">Mechanics & Punctuation</strong>' +
+                                    '<div style="display: flex; align-items: center; gap: 5px;">' +
+                                        '<input type="number" class="editable-score manual-category-score" data-category="mechanics" value="0" min="0" max="15" style="width: 60px; padding: 4px; border: 1px solid #ddd; border-radius: 3px; text-align: center; font-weight: bold; color: #333;">' +
+                                        '<span style="color: #333; font-weight: bold; font-size: 1.2em;">/15</span>' +
+                                    '</div>' +
+                                '</div>' +
+                                '<div style="background: white; padding: 10px; border-radius: 4px; line-height: 1.4;">' +
+                                    '<textarea class="editable-feedback manual-category-feedback" data-category="mechanics" placeholder="Enter mechanics & punctuation feedback here..." style="width: 100%; min-height: 80px; border: 1px solid #ddd; border-radius: 3px; padding: 8px; resize: vertical; font-family: inherit; line-height: 1.4;"></textarea>' +
+                                '</div>' +
+                            '</div>' +
 
-                            <!-- Grammar Category -->
-                            <div class="category-feedback" style="margin: 15px 0; padding: 15px; border-left: 4px solid #FF6B6B; background: #FFE5E5; border-radius: 0 8px 8px 0;" data-category="grammar">
-                                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
-                                    <strong style="color: #FF6B6B; font-size: 1.1em;">Grammar</strong>
-                                    <div style="display: flex; align-items: center; gap: 5px;">
-                                        <input type="number" class="editable-score manual-category-score" data-category="grammar" value="0" min="0" max="15" style="width: 60px; padding: 4px; border: 1px solid #ddd; border-radius: 3px; text-align: center; font-weight: bold; color: #333;">
-                                        <span style="color: #333; font-weight: bold; font-size: 1.2em;">/15</span>
-                                    </div>
-                                </div>
-                                <div style="background: white; padding: 10px; border-radius: 4px; line-height: 1.4;">
-                                    <textarea class="editable-feedback manual-category-feedback" data-category="grammar" placeholder="Enter grammar feedback here..." style="width: 100%; min-height: 80px; border: 1px solid #ddd; border-radius: 3px; padding: 8px; resize: vertical; font-family: inherit; line-height: 1.4;"></textarea>
-                                </div>
-                            </div>
+                            '<!-- Fluency Category -->' +
+                            '<div class="category-feedback" style="margin: 15px 0; padding: 15px; border-left: 4px solid #A855F7; background: #F3E8FF; border-radius: 0 8px 8px 0;" data-category="fluency">' +
+                                '<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">' +
+                                    '<strong style="color: #A855F7; font-size: 1.1em;">Fluency</strong>' +
+                                    '<div style="display: flex; align-items: center; gap: 5px;">' +
+                                        '<input type="number" class="editable-score manual-category-score" data-category="fluency" value="0" min="0" max="15" style="width: 60px; padding: 4px; border: 1px solid #ddd; border-radius: 3px; text-align: center; font-weight: bold; color: #333;">' +
+                                        '<span style="color: #333; font-weight: bold; font-size: 1.2em;">/15</span>' +
+                                    '</div>' +
+                                '</div>' +
+                                '<div style="background: white; padding: 10px; border-radius: 4px; line-height: 1.4;">' +
+                                    '<textarea class="editable-feedback manual-category-feedback" data-category="fluency" placeholder="Enter fluency feedback here..." style="width: 100%; min-height: 80px; border: 1px solid #ddd; border-radius: 3px; padding: 8px; resize: vertical; font-family: inherit; line-height: 1.4;"></textarea>' +
+                                '</div>' +
+                            '</div>' +
 
-                            <!-- Vocabulary Category -->
-                            <div class="category-feedback" style="margin: 15px 0; padding: 15px; border-left: 4px solid #4ECDC4; background: #E8F8F7; border-radius: 0 8px 8px 0;" data-category="vocabulary">
-                                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
-                                    <strong style="color: #4ECDC4; font-size: 1.1em;">Vocabulary</strong>
-                                    <div style="display: flex; align-items: center; gap: 5px;">
-                                        <input type="number" class="editable-score manual-category-score" data-category="vocabulary" value="0" min="0" max="15" style="width: 60px; padding: 4px; border: 1px solid #ddd; border-radius: 3px; text-align: center; font-weight: bold; color: #333;">
-                                        <span style="color: #333; font-weight: bold; font-size: 1.2em;">/15</span>
-                                    </div>
-                                </div>
-                                <div style="background: white; padding: 10px; border-radius: 4px; line-height: 1.4;">
-                                    <textarea class="editable-feedback manual-category-feedback" data-category="vocabulary" placeholder="Enter vocabulary feedback here..." style="width: 100%; min-height: 80px; border: 1px solid #ddd; border-radius: 3px; padding: 8px; resize: vertical; font-family: inherit; line-height: 1.4;"></textarea>
-                                </div>
-                            </div>
+                            '<!-- Layout Category -->' +
+                            '<div class="category-feedback" style="margin: 15px 0; padding: 15px; border-left: 4px solid #16A34A; background: #DCFCE7; border-radius: 0 8px 8px 0;" data-category="layout">' +
+                                '<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">' +
+                                    '<strong style="color: #16A34A; font-size: 1.1em;">Layout & Follow Specs</strong>' +
+                                    '<div style="display: flex; align-items: center; gap: 5px;">' +
+                                        '<input type="number" class="editable-score manual-category-score" data-category="layout" value="0" min="0" max="15" style="width: 60px; padding: 4px; border: 1px solid #ddd; border-radius: 3px; text-align: center; font-weight: bold; color: #333;">' +
+                                        '<span style="color: #333; font-weight: bold; font-size: 1.2em;">/15</span>' +
+                                    '</div>' +
+                                '</div>' +
+                                '<div style="background: white; padding: 10px; border-radius: 4px; line-height: 1.4;">' +
+                                    '<textarea class="editable-feedback manual-category-feedback" data-category="layout" placeholder="Enter layout & specs feedback here..." style="width: 100%; min-height: 80px; border: 1px solid #ddd; border-radius: 3px; padding: 8px; resize: vertical; font-family: inherit; line-height: 1.4;"></textarea>' +
+                                '</div>' +
+                            '</div>' +
 
-                            <!-- Spelling Category -->
-                            <div class="category-feedback" style="margin: 15px 0; padding: 15px; border-left: 4px solid #45B7D1; background: #E3F2FD; border-radius: 0 8px 8px 0;" data-category="spelling">
-                                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
-                                    <strong style="color: #45B7D1; font-size: 1.1em;">Spelling</strong>
-                                    <div style="display: flex; align-items: center; gap: 5px;">
-                                        <input type="number" class="editable-score manual-category-score" data-category="spelling" value="0" min="0" max="10" style="width: 60px; padding: 4px; border: 1px solid #ddd; border-radius: 3px; text-align: center; font-weight: bold; color: #333;">
-                                        <span style="color: #333; font-weight: bold; font-size: 1.2em;">/10</span>
-                                    </div>
-                                </div>
-                                <div style="background: white; padding: 10px; border-radius: 4px; line-height: 1.4;">
-                                    <textarea class="editable-feedback manual-category-feedback" data-category="spelling" placeholder="Enter spelling feedback here..." style="width: 100%; min-height: 80px; border: 1px solid #ddd; border-radius: 3px; padding: 8px; resize: vertical; font-family: inherit; line-height: 1.4;"></textarea>
-                                </div>
-                            </div>
+                            '<!-- Content Category -->' +
+                            '<div class="category-feedback" style="margin: 15px 0; padding: 15px; border-left: 4px solid #DC2626; background: #FEE2E2; border-radius: 0 8px 8px 0;" data-category="content">' +
+                                '<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">' +
+                                    '<strong style="color: #DC2626; font-size: 1.1em;">Content & Information</strong>' +
+                                    '<div style="display: flex; align-items: center; gap: 5px;">' +
+                                        '<input type="number" class="editable-score manual-category-score" data-category="content" value="0" min="0" max="15" style="width: 60px; padding: 4px; border: 1px solid #ddd; border-radius: 3px; text-align: center; font-weight: bold; color: #333;">' +
+                                        '<span style="color: #333; font-weight: bold; font-size: 1.2em;">/15</span>' +
+                                    '</div>' +
+                                '</div>' +
+                                '<div style="background: white; padding: 10px; border-radius: 4px; line-height: 1.4;">' +
+                                    '<textarea class="editable-feedback manual-category-feedback" data-category="content" placeholder="Enter content & information feedback here..." style="width: 100%; min-height: 80px; border: 1px solid #ddd; border-radius: 3px; padding: 8px; resize: vertical; font-family: inherit; line-height: 1.4;"></textarea>' +
+                                '</div>' +
+                            '</div>' +
+                        '</div>' +
+                    '</div>' +
 
-                            <!-- Mechanics Category -->
-                            <div class="category-feedback" style="margin: 15px 0; padding: 15px; border-left: 4px solid #F7B731; background: #FFF8E1; border-radius: 0 8px 8px 0;" data-category="mechanics">
-                                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
-                                    <strong style="color: #F7B731; font-size: 1.1em;">Mechanics & Punctuation</strong>
-                                    <div style="display: flex; align-items: center; gap: 5px;">
-                                        <input type="number" class="editable-score manual-category-score" data-category="mechanics" value="0" min="0" max="15" style="width: 60px; padding: 4px; border: 1px solid #ddd; border-radius: 3px; text-align: center; font-weight: bold; color: #333;">
-                                        <span style="color: #333; font-weight: bold; font-size: 1.2em;">/15</span>
-                                    </div>
-                                </div>
-                                <div style="background: white; padding: 10px; border-radius: 4px; line-height: 1.4;">
-                                    <textarea class="editable-feedback manual-category-feedback" data-category="mechanics" placeholder="Enter mechanics & punctuation feedback here..." style="width: 100%; min-height: 80px; border: 1px solid #ddd; border-radius: 3px; padding: 8px; resize: vertical; font-family: inherit; line-height: 1.4;"></textarea>
-                                </div>
-                            </div>
+                    '<h3 style="margin: 20px 0 10px 0;">Color-Coded Essay:</h3>' +
 
-                            <!-- Fluency Category -->
-                            <div class="category-feedback" style="margin: 15px 0; padding: 15px; border-left: 4px solid #A855F7; background: #F3E8FF; border-radius: 0 8px 8px 0;" data-category="fluency">
-                                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
-                                    <strong style="color: #A855F7; font-size: 1.1em;">Fluency</strong>
-                                    <div style="display: flex; align-items: center; gap: 5px;">
-                                        <input type="number" class="editable-score manual-category-score" data-category="fluency" value="0" min="0" max="15" style="width: 60px; padding: 4px; border: 1px solid #ddd; border-radius: 3px; text-align: center; font-weight: bold; color: #333;">
-                                        <span style="color: #333; font-weight: bold; font-size: 1.2em;">/15</span>
-                                    </div>
-                                </div>
-                                <div style="background: white; padding: 10px; border-radius: 4px; line-height: 1.4;">
-                                    <textarea class="editable-feedback manual-category-feedback" data-category="fluency" placeholder="Enter fluency feedback here..." style="width: 100%; min-height: 80px; border: 1px solid #ddd; border-radius: 3px; padding: 8px; resize: vertical; font-family: inherit; line-height: 1.4;"></textarea>
-                                </div>
-                            </div>
+                    '<div id="essayContainer" style="border: 1px solid #ddd; border-radius: 4px;">' +
+                        '<!-- Category selector bar -->' +
+                        '<div id="categoryBar" style="padding: 10px; background: #f8f9fa; border-bottom: 1px solid #ddd; border-radius: 4px 4px 0 0;">' +
+                            '<div style="margin-bottom: 5px; font-weight: bold; font-size: 14px;">Select category then highlight text, or highlight text then select category:</div>' +
+                            '<div id="categoryButtons" style="display: flex; flex-wrap: wrap; gap: 8px;">' +
+                                '<button class="category-btn" data-category="grammar" style="background: transparent; color: #FF8C00; border: 2px solid #FF8C00; padding: 8px 12px; border-radius: 20px; cursor: pointer; font-weight: bold; transition: all 0.2s;">Grammar Error</button>' +
+                                '<button class="category-btn" data-category="vocabulary" style="background: transparent; color: #00A36C; border: 2px solid #00A36C; padding: 8px 12px; border-radius: 20px; cursor: pointer; font-weight: bold; transition: all 0.2s;">Vocabulary Error</button>' +
+                                '<button class="category-btn" data-category="mechanics" style="background: #D3D3D3; color: #000000; border: 2px solid #D3D3D3; padding: 8px 12px; border-radius: 20px; cursor: pointer; font-weight: bold; transition: all 0.2s;">Mechanics Error</button>' +
+                                '<button class="category-btn" data-category="spelling" style="background: transparent; color: #DC143C; border: 2px solid #DC143C; padding: 8px 12px; border-radius: 20px; cursor: pointer; font-weight: bold; transition: all 0.2s;">Spelling Error</button>' +
+                                '<button class="category-btn" data-category="fluency" style="background: #87CEEB; color: #000000; border: 2px solid #87CEEB; padding: 8px 12px; border-radius: 20px; cursor: pointer; font-weight: bold; transition: all 0.2s;">Fluency Error</button>' +
+                                '<button class="category-btn" data-category="delete" style="background: transparent; color: #000000; border: 2px solid #000000; padding: 8px 12px; border-radius: 20px; cursor: pointer; font-weight: bold; text-decoration: line-through; transition: all 0.2s;">Delete Word</button>' +
+                                '<button id="clearSelectionBtn" onclick="clearSelection()" style="background: #f5f5f5; color: #666; border: 2px solid #ccc; padding: 8px 12px; border-radius: 4px; cursor: pointer; margin-left: 10px;">Clear Selection</button>' +
+                            '</div>' +
+                            '<div id="selectionStatus" style="margin-top: 8px; font-size: 12px; color: #666; min-height: 16px;"></div>' +
+                        '</div>' +
 
-                            <!-- Layout Category -->
-                            <div class="category-feedback" style="margin: 15px 0; padding: 15px; border-left: 4px solid #16A34A; background: #DCFCE7; border-radius: 0 8px 8px 0;" data-category="layout">
-                                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
-                                    <strong style="color: #16A34A; font-size: 1.1em;">Layout & Follow Specs</strong>
-                                    <div style="display: flex; align-items: center; gap: 5px;">
-                                        <input type="number" class="editable-score manual-category-score" data-category="layout" value="0" min="0" max="15" style="width: 60px; padding: 4px; border: 1px solid #ddd; border-radius: 3px; text-align: center; font-weight: bold; color: #333;">
-                                        <span style="color: #333; font-weight: bold; font-size: 1.2em;">/15</span>
-                                    </div>
-                                </div>
-                                <div style="background: white; padding: 10px; border-radius: 4px; line-height: 1.4;">
-                                    <textarea class="editable-feedback manual-category-feedback" data-category="layout" placeholder="Enter layout & specs feedback here..." style="width: 100%; min-height: 80px; border: 1px solid #ddd; border-radius: 3px; padding: 8px; resize: vertical; font-family: inherit; line-height: 1.4;"></textarea>
-                                </div>
-                            </div>
+                        '<!-- Essay text display area -->' +
+                        '<div id="gradedEssay" class="formatted-essay-content" style="padding: 20px; line-height: 1.8; font-family: Georgia, serif; font-size: 16px; background: white; min-height: 300px; user-select: text; cursor: text;">' + formattedEssayText + '</div>' +
+                    '</div>' +
 
-                            <!-- Content Category -->
-                            <div class="category-feedback" style="margin: 15px 0; padding: 15px; border-left: 4px solid #DC2626; background: #FEE2E2; border-radius: 0 8px 8px 0;" data-category="content">
-                                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
-                                    <strong style="color: #DC2626; font-size: 1.1em;">Content & Information</strong>
-                                    <div style="display: flex; align-items: center; gap: 5px;">
-                                        <input type="number" class="editable-score manual-category-score" data-category="content" value="0" min="0" max="15" style="width: 60px; padding: 4px; border: 1px solid #ddd; border-radius: 3px; text-align: center; font-weight: bold; color: #333;">
-                                        <span style="color: #333; font-weight: bold; font-size: 1.2em;">/15</span>
-                                    </div>
-                                </div>
-                                <div style="background: white; padding: 10px; border-radius: 4px; line-height: 1.4;">
-                                    <textarea class="editable-feedback manual-category-feedback" data-category="content" placeholder="Enter content & information feedback here..." style="width: 100%; min-height: 80px; border: 1px solid #ddd; border-radius: 3px; padding: 8px; resize: vertical; font-family: inherit; line-height: 1.4;"></textarea>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <h3 style="margin: 20px 0 10px 0;">Color-Coded Essay:</h3>
-
-                    <div id="essayContainer" style="border: 1px solid #ddd; border-radius: 4px;">
-                        <!-- Category selector bar -->
-                        <div id="categoryBar" style="padding: 10px; background: #f8f9fa; border-bottom: 1px solid #ddd; border-radius: 4px 4px 0 0;">
-                            <div style="margin-bottom: 5px; font-weight: bold; font-size: 14px;">Select category then highlight text, or highlight text then select category:</div>
-                            <div id="categoryButtons" style="display: flex; flex-wrap: wrap; gap: 8px;">
-                                <button class="category-btn" data-category="grammar" style="background: transparent; color: #FF8C00; border: 2px solid #FF8C00; padding: 8px 12px; border-radius: 20px; cursor: pointer; font-weight: bold; transition: all 0.2s;">Grammar Error</button>
-                                <button class="category-btn" data-category="vocabulary" style="background: transparent; color: #00A36C; border: 2px solid #00A36C; padding: 8px 12px; border-radius: 20px; cursor: pointer; font-weight: bold; transition: all 0.2s;">Vocabulary Error</button>
-                                <button class="category-btn" data-category="mechanics" style="background: #D3D3D3; color: #000000; border: 2px solid #D3D3D3; padding: 8px 12px; border-radius: 20px; cursor: pointer; font-weight: bold; transition: all 0.2s;">Mechanics Error</button>
-                                <button class="category-btn" data-category="spelling" style="background: transparent; color: #DC143C; border: 2px solid #DC143C; padding: 8px 12px; border-radius: 20px; cursor: pointer; font-weight: bold; transition: all 0.2s;">Spelling Error</button>
-                                <button class="category-btn" data-category="fluency" style="background: #87CEEB; color: #000000; border: 2px solid #87CEEB; padding: 8px 12px; border-radius: 20px; cursor: pointer; font-weight: bold; transition: all 0.2s;">Fluency Error</button>
-                                <button class="category-btn" data-category="delete" style="background: transparent; color: #000000; border: 2px solid #000000; padding: 8px 12px; border-radius: 20px; cursor: pointer; font-weight: bold; text-decoration: line-through; transition: all 0.2s;">Delete Word</button>
-                                <button id="clearSelectionBtn" onclick="clearSelection()" style="background: #f5f5f5; color: #666; border: 2px solid #ccc; padding: 8px 12px; border-radius: 4px; cursor: pointer; margin-left: 10px;">Clear Selection</button>
-                            </div>
-                            <div id="selectionStatus" style="margin-top: 8px; font-size: 12px; color: #666; min-height: 16px;"></div>
-                        </div>
-
-                        <!-- Essay text display area -->
-                        <div id="gradedEssay" class="formatted-essay-content" style="padding: 20px; line-height: 1.8; font-family: Georgia, serif; font-size: 16px; background: white; min-height: 300px; user-select: text; cursor: text;">\${formattedEssayText}</div>
-                    </div>
-
-                    <!-- Export Button -->
-                    <div style="margin-top: 20px;">
-                        <button onclick="exportManualToPDF()">Export to PDF</button>
-                    </div>
-                \`;
+                    '<!-- Export Button -->' +
+                    '<div style="margin-top: 20px;">' +
+                        '<button onclick="exportManualToPDF()">Export to PDF</button>' +
+                    '</div>';
 
                 manualResults.style.display = 'block';
 
@@ -1758,6 +2036,103 @@ app.get('/', (req, res) => {
                 }
             }
 
+            // Batch essay editing functions
+            let batchSelectedCategories = {}; // Track selected category per essay
+            let batchPendingSelections = {}; // Track pending selections per essay
+
+            function selectBatchCategory(category, essayIndex) {
+                batchSelectedCategories[essayIndex] = category;
+
+                // Update button visual states for this essay
+                document.querySelectorAll('.category-btn[data-essay-index="' + essayIndex + '"]').forEach(btn => {
+                    if (btn.dataset.category === category) {
+                        btn.style.transform = 'scale(1.05)';
+                        btn.style.boxShadow = '0 2px 8px rgba(0,0,0,0.2)';
+                    } else {
+                        btn.style.transform = 'scale(1)';
+                        btn.style.boxShadow = 'none';
+                    }
+                });
+
+                updateBatchSelectionStatus(essayIndex, 'Category "' + category + '" selected. Now select text to highlight.');
+
+                // If we have pending text selection for this essay, apply it now
+                if (batchPendingSelections[essayIndex]) {
+                    const pending = batchPendingSelections[essayIndex];
+                    applyBatchHighlight(pending.range, pending.text, category, essayIndex);
+                    delete batchPendingSelections[essayIndex];
+                }
+            }
+
+            function handleBatchTextSelection(e, essayIndex) {
+                const selection = window.getSelection();
+                if (selection.rangeCount > 0 && !selection.isCollapsed) {
+                    const range = selection.getRangeAt(0);
+                    const text = range.toString().trim();
+
+                    // Only proceed if we selected text within this essay content
+                    const essayContent = document.querySelector('.formatted-essay-content[data-essay-index="' + essayIndex + '"]');
+                    if (text.length > 0 && essayContent.contains(range.commonAncestorContainer)) {
+                        if (batchSelectedCategories[essayIndex]) {
+                            // Category already selected, apply highlight immediately
+                            applyBatchHighlight(range, text, batchSelectedCategories[essayIndex], essayIndex);
+                        } else {
+                            // No category selected, save selection for later
+                            batchPendingSelections[essayIndex] = { range: range.cloneRange(), text };
+                            updateBatchSelectionStatus(essayIndex, 'Text "' + text.substring(0, 50) + (text.length > 50 ? '...' : '') + '" selected. Now click a category to highlight it.');
+                        }
+                        selection.removeAllRanges();
+                    }
+                }
+            }
+
+            function applyBatchHighlight(range, text, category, essayIndex) {
+                // Implementation would be similar to applyHighlight but essay-specific
+                // For now, let's use the existing applyHighlight function
+                applyHighlight(range, text, category);
+                updateBatchSelectionStatus(essayIndex, 'Highlighted "' + text.substring(0, 30) + (text.length > 30 ? '...' : '') + '" as ' + category + '.');
+            }
+
+            function editBatchHighlight(element, essayIndex) {
+                // Implementation would be similar to editHighlight but essay-specific
+                editHighlight(element);
+            }
+
+            function updateBatchSelectionStatus(essayIndex, message) {
+                const statusDiv = document.getElementById('selectionStatus-' + essayIndex);
+                if (statusDiv) {
+                    statusDiv.textContent = message;
+                }
+            }
+
+            function clearSelection(essayIndex) {
+                if (essayIndex !== undefined) {
+                    // Clear selection for specific essay
+                    delete batchSelectedCategories[essayIndex];
+                    delete batchPendingSelections[essayIndex];
+
+                    // Reset button states for this essay
+                    document.querySelectorAll('.category-btn[data-essay-index="' + essayIndex + '"]').forEach(btn => {
+                        btn.style.transform = 'scale(1)';
+                        btn.style.boxShadow = 'none';
+                    });
+
+                    updateBatchSelectionStatus(essayIndex, 'Selection cleared. Ready to highlight again.');
+                } else {
+                    // Clear selection for single essay (existing function)
+                    selectedCategory = null;
+                    pendingSelection = null;
+
+                    document.querySelectorAll('.category-btn').forEach(btn => {
+                        btn.style.transform = 'scale(1)';
+                        btn.style.boxShadow = 'none';
+                    });
+
+                    updateSelectionStatus('Selection cleared. Ready to highlight again.');
+                }
+                window.getSelection().removeAllRanges();
+            }
+
             // Teacher Notes Modal Functions
             let currentTeacherNotesElement = null;
 
@@ -1807,7 +2182,7 @@ app.get('/', (req, res) => {
 
             function editStat(element, statType) {
                 const currentValue = element.querySelector('.stat-value').textContent.replace(/[^0-9]/g, '');
-                const newValue = prompt(\`Edit \${statType === 'word_count' ? 'word count' : statType}:\`, currentValue);
+                const newValue = prompt('Edit ' + (statType === 'word_count' ? 'word count' : statType) + ':', currentValue);
                 if (newValue !== null && !isNaN(newValue) && newValue !== currentValue) {
                     const intValue = parseInt(newValue);
                     element.querySelector('.stat-value').textContent = intValue;
@@ -1824,9 +2199,9 @@ app.get('/', (req, res) => {
                 const newTransitionsStr = prompt('Edit transitions (comma-separated):', currentTransitions.join(', '));
                 if (newTransitionsStr !== null) {
                     const newTransitions = newTransitionsStr.split(',').map(t => t.trim()).filter(t => t);
-                    element.querySelector('.stat-value').textContent = \`\${newTransitions.length} found\`;
+                    element.querySelector('.stat-value').textContent = newTransitions.length + ' found';
                     if (detailElement) {
-                        detailElement.textContent = newTransitions.length > 0 ? \`(\${newTransitions.join(', ')})\` : '';
+                        detailElement.textContent = newTransitions.length > 0 ? '(' + newTransitions.join(', ') + ')' : '';
                     }
                     // Update the stored grading data
                     if (currentGradingData && currentGradingData.meta) {
@@ -1841,9 +2216,9 @@ app.get('/', (req, res) => {
                 const newVocabStr = prompt('Edit class vocabulary words (comma-separated):', currentVocab.join(', '));
                 if (newVocabStr !== null) {
                     const newVocab = newVocabStr.split(',').map(v => v.trim()).filter(v => v);
-                    element.querySelector('.stat-value').textContent = \`\${newVocab.length} used\`;
+                    element.querySelector('.stat-value').textContent = newVocab.length + ' used';
                     if (detailElement) {
-                        detailElement.textContent = newVocab.length > 0 ? \`(\${newVocab.join(', ')})\` : '';
+                        detailElement.textContent = newVocab.length > 0 ? '(' + newVocab.join(', ') + ')' : '';
                     }
                     // Update the stored grading data
                     if (currentGradingData && currentGradingData.meta) {
@@ -1858,11 +2233,11 @@ app.get('/', (req, res) => {
                 const newGrammarStr = prompt('Edit grammar structures (comma-separated):', currentGrammar.join(', '));
                 if (newGrammarStr !== null) {
                     const newGrammar = newGrammarStr.split(',').map(g => g.trim()).filter(g => g);
-                    element.querySelector('.stat-value').textContent = \`\${newGrammar.length} structures\`;
+                    element.querySelector('.stat-value').textContent = newGrammar.length + ' structures';
                     if (detailElement) {
                         const displayGrammar = newGrammar.slice(0, 2);
                         const suffix = newGrammar.length > 2 ? '...' : '';
-                        detailElement.textContent = newGrammar.length > 0 ? \`(\${displayGrammar.join(', ')}\${suffix})\` : '';
+                        detailElement.textContent = newGrammar.length > 0 ? '(' + displayGrammar.join(', ') + suffix + ')' : '';
                     }
                     // Update the stored grading data
                     if (currentGradingData && currentGradingData.meta) {
@@ -1979,7 +2354,7 @@ app.get('/', (req, res) => {
                             : primaryCategory.charAt(0).toUpperCase() + primaryCategory.slice(1);
                         
                         // Add footnote number to highlight
-                        mark.innerHTML = mark.innerHTML + \`<sup style="font-size: 10px; color: #666; font-weight: bold;">[\${footnoteNumber}]</sup>\`;
+                        mark.innerHTML = mark.innerHTML + '<sup style="font-size: 10px; color: #666; font-weight: bold;">[' + footnoteNumber + ']</sup>';
                         
                         // Collect feedback for footnotes section
                         feedbackNotes.push({
@@ -1993,228 +2368,233 @@ app.get('/', (req, res) => {
                     essayContent = tempDiv.innerHTML;
                 }
                 
-                
+
+                // Create conditional content sections for print
+                const printTeacherNotes = currentGradingData.teacher_notes ?
+                    '<h2>Teacher Notes</h2>' +
+                    '<div style="background: #e8f5e8; padding: 20px; border-left: 6px solid #4CAF50; margin: 20px 0; font-size: 14px; line-height: 1.6; border-radius: 8px;">' +
+                        currentGradingData.teacher_notes +
+                    '</div>'
+                : '';
+
+                const printCategoryBreakdown = Object.entries(currentGradingData.scores).map(([category, score]) =>
+                    '<div class="category">' +
+                        '<div style="font-weight: bold; font-size: 16px; color: #333; margin-bottom: 8px;">' +
+                            category.charAt(0).toUpperCase() + category.slice(1) + ': ' + score.points + '/' + score.out_of +
+                        '</div>' +
+                        '<div style="font-size: 14px; color: #666; line-height: 1.6;">' +
+                            score.rationale +
+                        '</div>' +
+                    '</div>'
+                ).join('');
+
+                const printFeedbackNotes = feedbackNotes.length > 0 ?
+                    '<h2>Detailed Feedback</h2>' +
+                    '<div style="background: #f8f9fa; padding: 20px; border-radius: 8px; border: 1px solid #ddd;">' +
+                        feedbackNotes.map((note) =>
+                            '<div style="margin: 15px 0; padding: 15px; background: white; border-radius: 6px; border-left: 4px solid #007bff;">' +
+                                '<div style="font-weight: bold; color: #333; margin-bottom: 5px;">' +
+                                    '[' + note.number + '] "' + note.text + '" (' + note.category + ')' +
+                                '</div>' +
+                                '<div style="color: #666; font-size: 14px; line-height: 1.5;">' +
+                                    note.feedback +
+                                '</div>' +
+                            '</div>'
+                        ).join('') +
+                    '</div>'
+                : '';
+
                 // Create the HTML content for print
-                const printContent = \`
-                <!DOCTYPE html>
-                <html>
-                <head>
-                    <title>Graded Essay - \${currentOriginalData.studentName}</title>
-                    <style>
-                        @media print {
-                            body { margin: 0; }
-                            .no-print { display: none !important; }
-                            
-                            /* PRINT-SPECIFIC: Force background colors for error highlighting */
-                            * { -webkit-print-color-adjust: exact !important; color-adjust: exact !important; }
-                            
-                            /* Mechanics errors - gray background - PRINT MEDIA */
-                            .essay-content mark[data-type="mechanics"][style],
-                            .essay-content mark[data-type="mechanics-punctuation"][style],
-                            .essay-content mark[data-category="mechanics"][style],
-                            .essay-content mark[data-category="mechanics-punctuation"][style],
-                            mark[data-type="mechanics"],
-                            mark[data-type="mechanics-punctuation"],
-                            mark[data-category="mechanics"],
-                            mark[data-category="mechanics-punctuation"] {
-                                color: #000000 !important;
-                                background-color: #D3D3D3 !important;
-                                background: #D3D3D3 !important;
-                                padding: 2px 4px !important;
-                                border-radius: 3px !important;
-                                font-weight: bold !important;
-                            }
-                            
-                            /* Fluency errors - blue background - PRINT MEDIA */
-                            .essay-content mark[data-type="fluency"][style],
-                            .essay-content mark[data-type="needs-rephrasing"][style],
-                            .essay-content mark[data-type="redundancy"][style],
-                            .essay-content mark[data-type="non-suitable-words"][style],
-                            .essay-content mark[data-type="professor-comments"][style],
-                            .essay-content mark[data-category="fluency"][style],
-                            .essay-content mark[data-category="needs-rephrasing"][style],
-                            .essay-content mark[data-category="redundancy"][style],
-                            .essay-content mark[data-category="non-suitable-words"][style],
-                            .essay-content mark[data-category="professor-comments"][style],
-                            .essay-content mark[data-category="content"][style],
-                            mark[data-type="fluency"],
-                            mark[data-type="needs-rephrasing"],
-                            mark[data-type="redundancy"],
-                            mark[data-type="non-suitable-words"],
-                            mark[data-type="professor-comments"],
-                            mark[data-category="fluency"],
-                            mark[data-category="needs-rephrasing"],
-                            mark[data-category="redundancy"],
-                            mark[data-category="non-suitable-words"],
-                            mark[data-category="professor-comments"],
-                            mark[data-category="content"] {
-                                color: #000000 !important;
-                                background-color: #87CEEB !important;
-                                background: #87CEEB !important;
-                                padding: 2px 4px !important;
-                                border-radius: 3px !important;
-                                font-weight: bold !important;
-                            }
-                            
-                            /* Delete category - black strikethrough */
-                            mark[data-type="delete"],
-                            mark[data-category="delete"] {
-                                color: #000000 !important;
-                                text-decoration: line-through !important;
-                                background-color: transparent !important;
-                                background: transparent !important;
-                                font-weight: bold !important;
-                                padding: 0 !important;
-                            }
-                            
-                            /* Legend styling for PDF */
-                            .color-legend {
-                                border: 1px solid #ddd !important;
-                                background: #f9f9f9 !important;
-                            }
-                        }
-                        body {
-                            font-family: Arial, sans-serif;
-                            max-width: 800px;
-                            margin: 0 auto;
-                            padding: 20px;
-                            color: #000;
-                            background: white;
-                            line-height: 1.4;
-                        }
-                        h1 {
-                            color: #333;
-                            text-align: center;
-                            margin-bottom: 30px;
-                            font-size: 24px;
-                            border-bottom: 3px solid #333;
-                            padding-bottom: 10px;
-                        }
-                        h2 {
-                            color: #333;
-                            border-bottom: 2px solid #333;
-                            padding-bottom: 5px;
-                            margin-top: 30px;
-                            margin-bottom: 15px;
-                            font-size: 18px;
-                        }
-                        .score-box {
-                            font-size: 28px;
-                            font-weight: bold;
-                            color: #333;
-                            text-align: center;
-                            background: #f5f5f5;
-                            padding: 20px;
-                            border: 2px solid #ccc;
-                            margin: 20px 0;
-                            border-radius: 8px;
-                        }
-                        .category {
-                            margin: 15px 0;
-                            padding: 15px;
-                            border: 1px solid #ccc;
-                            background: #fafafa;
-                            border-radius: 8px;
-                            page-break-inside: avoid;
-                        }
-                        .essay-content {
-                            background: white;
-                            padding: 25px;
-                            border: 1px solid #ddd;
-                            border-radius: 8px;
-                            line-height: 1.8;
-                            font-size: 16px;
-                        }
-                        
-                        /* Error highlighting styles for PDF export */
-                        mark[data-type] {
-                            background: unset;
-                            color: unset;
-                        }
-                        
-                        /* Grammar errors - orange text */
-                        mark[data-type="grammar"],
-                        mark[data-category="grammar"] {
-                            color: #FF8C00 !important;
-                            background: transparent !important;
-                            font-weight: bold;
-                        }
-                        
-                        /* Vocabulary errors - green text */  
-                        mark[data-type="vocabulary"],
-                        mark[data-category="vocabulary"],
-                        mark[data-category="vocabulary-structure"] {
-                            color: #00A36C !important;
-                            background: transparent !important;
-                            font-weight: bold;
-                        }
-                        
-                        /* Spelling errors - red text */
-                        mark[data-type="spelling"],
-                        mark[data-category="spelling"] {
-                            color: #DC143C !important;
-                            background: transparent !important;
-                            font-weight: bold;
-                        }
-                    </style>
-                </head>
-                <body>
-                    <h1>Midterm Writing Exam Grade - \${currentOriginalData.studentName}</h1>
-                    
-                    <h2>Overall Score</h2>
-                    <div class="score-box">\${currentGradingData.total.points}/\${currentGradingData.total.out_of}</div>
-                    
-                    \${currentGradingData.teacher_notes ? \`
-                        <h2>Teacher Notes</h2>
-                        <div style="background: #e8f5e8; padding: 20px; border-left: 6px solid #4CAF50; margin: 20px 0; font-size: 14px; line-height: 1.6; border-radius: 8px;">
-                            \${currentGradingData.teacher_notes}
-                        </div>
-                    \` : ''}
-                    
-                    <h2>Category Breakdown</h2>
-                    \${Object.entries(currentGradingData.scores).map(([category, score]) => \`
-                        <div class="category">
-                            <div style="font-weight: bold; font-size: 16px; color: #333; margin-bottom: 8px;">
-                                \${category.charAt(0).toUpperCase() + category.slice(1)}: \${score.points}/\${score.out_of}
-                            </div>
-                            <div style="font-size: 14px; color: #666; line-height: 1.6;">
-                                \${score.rationale}
-                            </div>
-                        </div>
-                    \`).join('')}
-                    
-                    <h2>Your Essay with Corrections</h2>
-                    <div class="essay-content">\${essayContent}</div>
-                    
-                    <!-- Color Legend -->
-                    <div class="color-legend" style="padding: 10px 15px; border-top: 1px solid #ddd; background: #f9f9f9; font-size: 12px; margin-top: 10px;">
-                        <strong>Highlight Meanings:</strong>
-                        <span style="color: #FF8C00; font-weight: bold; margin-left: 10px;">grammar</span>
-                        <span style="color: #00A36C; font-weight: bold; margin-left: 15px;">vocabulary</span>
-                        <span style="color: #DC143C; font-weight: bold; margin-left: 15px;">spelling</span>
-                        <span style="background: #D3D3D3; color: #000; padding: 2px 6px; border-radius: 3px; font-weight: bold; margin-left: 15px;">mechanics</span>
-                        <span style="background: #87CEEB; color: #000; padding: 2px 6px; border-radius: 3px; font-weight: bold; margin-left: 15px;">fluency</span>
-                        <span style="color: #000; text-decoration: line-through; font-weight: bold; margin-left: 15px;">delete</span>
-                    </div>
-                    
-                    \${feedbackNotes.length > 0 ? \`
-                        <h2>Detailed Feedback</h2>
-                        <div style="background: #f8f9fa; padding: 20px; border-radius: 8px; border: 1px solid #ddd;">
-                            \${feedbackNotes.map(note => \`
-                                <div style="margin: 15px 0; padding: 15px; background: white; border-radius: 6px; border-left: 4px solid #007bff;">
-                                    <div style="font-weight: bold; color: #333; margin-bottom: 5px;">
-                                        [\${note.number}] "\${note.text}" (\${note.category})
-                                    </div>
-                                    <div style="color: #666; font-size: 14px; line-height: 1.5;">
-                                        \${note.feedback}
-                                    </div>
-                                </div>
-                            \`).join('')}
-                        </div>
-                    \` : ''}
-                </body>
-                </html>
-                \`;
+                const printContent = '<!DOCTYPE html>' +
+                '<html>' +
+                '<head>' +
+                    '<title>Graded Essay - ' + currentOriginalData.studentName + '</title>' +
+                    '<style>' +
+                        '@media print {' +
+                            'body { margin: 0; }' +
+                            '.no-print { display: none !important; }' +
+
+                            '/* PRINT-SPECIFIC: Force background colors for error highlighting */' +
+                            '* { -webkit-print-color-adjust: exact !important; color-adjust: exact !important; }' +
+
+                            '/* Mechanics errors - gray background - PRINT MEDIA */' +
+                            '.essay-content mark[data-type="mechanics"][style],' +
+                            '.essay-content mark[data-type="mechanics-punctuation"][style],' +
+                            '.essay-content mark[data-category="mechanics"][style],' +
+                            '.essay-content mark[data-category="mechanics-punctuation"][style],' +
+                            'mark[data-type="mechanics"],' +
+                            'mark[data-type="mechanics-punctuation"],' +
+                            'mark[data-category="mechanics"],' +
+                            'mark[data-category="mechanics-punctuation"] {' +
+                                'color: #000000 !important;' +
+                                'background-color: #D3D3D3 !important;' +
+                                'background: #D3D3D3 !important;' +
+                                'padding: 2px 4px !important;' +
+                                'border-radius: 3px !important;' +
+                                'font-weight: bold !important;' +
+                            '}' +
+
+                            '/* Fluency errors - blue background - PRINT MEDIA */' +
+                            '.essay-content mark[data-type="fluency"][style],' +
+                            '.essay-content mark[data-type="needs-rephrasing"][style],' +
+                            '.essay-content mark[data-type="redundancy"][style],' +
+                            '.essay-content mark[data-type="non-suitable-words"][style],' +
+                            '.essay-content mark[data-type="professor-comments"][style],' +
+                            '.essay-content mark[data-category="fluency"][style],' +
+                            '.essay-content mark[data-category="needs-rephrasing"][style],' +
+                            '.essay-content mark[data-category="redundancy"][style],' +
+                            '.essay-content mark[data-category="non-suitable-words"][style],' +
+                            '.essay-content mark[data-category="professor-comments"][style],' +
+                            '.essay-content mark[data-category="content"][style],' +
+                            'mark[data-type="fluency"],' +
+                            'mark[data-type="needs-rephrasing"],' +
+                            'mark[data-type="redundancy"],' +
+                            'mark[data-type="non-suitable-words"],' +
+                            'mark[data-type="professor-comments"],' +
+                            'mark[data-category="fluency"],' +
+                            'mark[data-category="needs-rephrasing"],' +
+                            'mark[data-category="redundancy"],' +
+                            'mark[data-category="non-suitable-words"],' +
+                            'mark[data-category="professor-comments"],' +
+                            'mark[data-category="content"] {' +
+                                'color: #000000 !important;' +
+                                'background-color: #87CEEB !important;' +
+                                'background: #87CEEB !important;' +
+                                'padding: 2px 4px !important;' +
+                                'border-radius: 3px !important;' +
+                                'font-weight: bold !important;' +
+                            '}' +
+
+                            '/* Delete category - black strikethrough */' +
+                            'mark[data-type="delete"],' +
+                            'mark[data-category="delete"] {' +
+                                'color: #000000 !important;' +
+                                'text-decoration: line-through !important;' +
+                                'background-color: transparent !important;' +
+                                'background: transparent !important;' +
+                                'font-weight: bold !important;' +
+                                'padding: 0 !important;' +
+                            '}' +
+
+                            '/* Legend styling for PDF */' +
+                            '.color-legend {' +
+                                'border: 1px solid #ddd !important;' +
+                                'background: #f9f9f9 !important;' +
+                            '}' +
+                        '}' +
+                        'body {' +
+                            'font-family: Arial, sans-serif;' +
+                            'max-width: 800px;' +
+                            'margin: 0 auto;' +
+                            'padding: 20px;' +
+                            'color: #000;' +
+                            'background: white;' +
+                            'line-height: 1.4;' +
+                        '}' +
+                        'h1 {' +
+                            'color: #333;' +
+                            'text-align: center;' +
+                            'margin-bottom: 30px;' +
+                            'font-size: 24px;' +
+                            'border-bottom: 3px solid #333;' +
+                            'padding-bottom: 10px;' +
+                        '}' +
+                        'h2 {' +
+                            'color: #333;' +
+                            'border-bottom: 2px solid #333;' +
+                            'padding-bottom: 5px;' +
+                            'margin-top: 30px;' +
+                            'margin-bottom: 15px;' +
+                            'font-size: 18px;' +
+                        '}' +
+                        '.score-box {' +
+                            'font-size: 28px;' +
+                            'font-weight: bold;' +
+                            'color: #333;' +
+                            'text-align: center;' +
+                            'background: #f5f5f5;' +
+                            'padding: 20px;' +
+                            'border: 2px solid #ccc;' +
+                            'margin: 20px 0;' +
+                            'border-radius: 8px;' +
+                        '}' +
+                        '.category {' +
+                            'margin: 15px 0;' +
+                            'padding: 15px;' +
+                            'border: 1px solid #ccc;' +
+                            'background: #fafafa;' +
+                            'border-radius: 8px;' +
+                            'page-break-inside: avoid;' +
+                        '}' +
+                        '.essay-content {' +
+                            'background: white;' +
+                            'padding: 25px;' +
+                            'border: 1px solid #ddd;' +
+                            'border-radius: 8px;' +
+                            'line-height: 1.8;' +
+                            'font-size: 16px;' +
+                        '}' +
+
+                        '/* Error highlighting styles for PDF export */' +
+                        'mark[data-type] {' +
+                            'background: unset;' +
+                            'color: unset;' +
+                        '}' +
+
+                        '/* Grammar errors - orange text */' +
+                        'mark[data-type="grammar"],' +
+                        'mark[data-category="grammar"] {' +
+                            'color: #FF8C00 !important;' +
+                            'background: transparent !important;' +
+                            'font-weight: bold;' +
+                        '}' +
+
+                        '/* Vocabulary errors - green text */' +
+                        'mark[data-type="vocabulary"],' +
+                        'mark[data-category="vocabulary"],' +
+                        'mark[data-category="vocabulary-structure"] {' +
+                            'color: #00A36C !important;' +
+                            'background: transparent !important;' +
+                            'font-weight: bold;' +
+                        '}' +
+
+                        '/* Spelling errors - red text */' +
+                        'mark[data-type="spelling"],' +
+                        'mark[data-category="spelling"] {' +
+                            'color: #DC143C !important;' +
+                            'background: transparent !important;' +
+                            'font-weight: bold;' +
+                        '}' +
+                    '</style>' +
+                '</head>' +
+                '<body>' +
+                    '<h1>Midterm Writing Exam Grade - ' + currentOriginalData.studentName + '</h1>' +
+
+                    '<h2>Overall Score</h2>' +
+                    '<div class="score-box">' + currentGradingData.total.points + '/' + currentGradingData.total.out_of + '</div>' +
+
+                    printTeacherNotes +
+
+                    '<h2>Category Breakdown</h2>' +
+                    printCategoryBreakdown +
+
+                    '<h2>Your Essay with Corrections</h2>' +
+                    '<div class="essay-content">' + essayContent + '</div>' +
+
+                    '<!-- Color Legend -->' +
+                    '<div class="color-legend" style="padding: 10px 15px; border-top: 1px solid #ddd; background: #f9f9f9; font-size: 12px; margin-top: 10px;">' +
+                        '<strong>Highlight Meanings:</strong>' +
+                        '<span style="color: #FF8C00; font-weight: bold; margin-left: 10px;">grammar</span>' +
+                        '<span style="color: #00A36C; font-weight: bold; margin-left: 15px;">vocabulary</span>' +
+                        '<span style="color: #DC143C; font-weight: bold; margin-left: 15px;">spelling</span>' +
+                        '<span style="background: #D3D3D3; color: #000; padding: 2px 6px; border-radius: 3px; font-weight: bold; margin-left: 15px;">mechanics</span>' +
+                        '<span style="background: #87CEEB; color: #000; padding: 2px 6px; border-radius: 3px; font-weight: bold; margin-left: 15px;">fluency</span>' +
+                        '<span style="color: #000; text-decoration: line-through; font-weight: bold; margin-left: 15px;">delete</span>' +
+                    '</div>' +
+
+                    printFeedbackNotes +
+                '</body>' +
+                '</html>';
                 
                 // Open print preview in new window
                 const printWindow = window.open('', '_blank');
@@ -2278,7 +2658,7 @@ app.get('/', (req, res) => {
                             : primaryCategory.charAt(0).toUpperCase() + primaryCategory.slice(1);
                         
                         // Add footnote number to highlight
-                        mark.innerHTML = mark.innerHTML + \`<sup style="font-size: 10px; color: #666; font-weight: bold;">[\${footnoteNumber}]</sup>\`;
+                        mark.innerHTML = mark.innerHTML + '<sup style="font-size: 10px; color: #666; font-weight: bold;">[' + footnoteNumber + ']</sup>';
                         
                         // Collect feedback for footnotes section
                         feedbackNotes.push({
@@ -2292,85 +2672,84 @@ app.get('/', (req, res) => {
                     essayContent = tempDiv.innerHTML;
                 }
                 
+                // Create conditional content sections
+                const pdfTeacherNotes = currentGradingData.teacher_notes ?
+                    '<h2 style="color: #333; border-bottom: 2px solid #333; padding-bottom: 5px; margin-top: 30px; margin-bottom: 15px; font-size: 18px;">Teacher Notes</h2>' +
+                    '<div style="background: #e8f5e8; padding: 20px; border-left: 6px solid #4CAF50; margin: 20px 0; font-size: 14px; line-height: 1.6; border-radius: 8px;">' +
+                        currentGradingData.teacher_notes +
+                    '</div>'
+                : '';
+
+                const pdfCategoryBreakdown = Object.entries(currentGradingData.scores).map(([category, score]) =>
+                    '<div style="margin: 15px 0; padding: 15px; border: 1px solid #ccc; background: #fafafa; border-radius: 8px; page-break-inside: avoid;">' +
+                        '<div style="font-weight: bold; font-size: 16px; color: #333; margin-bottom: 8px;">' +
+                            category.charAt(0).toUpperCase() + category.slice(1) + ': ' + score.points + '/' + score.out_of +
+                        '</div>' +
+                        '<div style="font-size: 14px; color: #666; line-height: 1.6;">' +
+                            score.rationale +
+                        '</div>' +
+                    '</div>'
+                ).join('');
+
+                const pdfFeedbackNotes = feedbackNotes.length > 0 ?
+                    '<div style="page-break-before: always;"></div>' +
+                    '<h2 style="color: #333; border-bottom: 2px solid #333; padding-bottom: 5px; margin-top: 30px; margin-bottom: 15px; font-size: 18px;">📝 Feedback Notes</h2>' +
+                    '<div style="background: #f8f9fa; padding: 20px; border-radius: 8px; border: 1px solid #ddd;">' +
+                        '<p style="font-size: 14px; color: #666; margin-top: 0;">The numbers in brackets [1], [2], etc. in the essay above correspond to the feedback below:</p>' +
+                        feedbackNotes.map((note) =>
+                            '<div style="margin: 15px 0; padding: 15px; background: white; border-left: 4px solid #007bff; border-radius: 4px;">' +
+                                '<div style="font-weight: bold; color: #333; margin-bottom: 8px;">' +
+                                    '<span style="background: #007bff; color: white; padding: 3px 8px; border-radius: 12px; font-size: 12px; margin-right: 10px;">[' + note.number + ']</span>' +
+                                    '"' + note.text + '" - <em style="color: #666;">' + note.category + '</em>' +
+                                '</div>' +
+                                '<div style="font-size: 14px; line-height: 1.5; color: #444;">' +
+                                    note.feedback +
+                                '</div>' +
+                            '</div>'
+                        ).join('') +
+                    '</div>'
+                : '';
+
                 // Create the HTML content for PDF
-                const pdfContent = \`
-                    <div style="font-family: Arial, sans-serif; max-width: 800px; margin: 0 auto; padding: 20px; color: #000; background: white; line-height: 1.4;">
-                        <h1 style="color: #333; text-align: center; margin-bottom: 30px; font-size: 24px; border-bottom: 3px solid #333; padding-bottom: 10px;">
-                            Midterm Writing Exam Grade - \${currentOriginalData.studentName}
-                        </h1>
-                        
-                        <h2 style="color: #333; border-bottom: 2px solid #333; padding-bottom: 5px; margin-top: 30px; margin-bottom: 15px; font-size: 18px;">Overall Score</h2>
-                        <div style="font-size: 28px; font-weight: bold; color: #333; text-align: center; background: #f5f5f5; padding: 20px; border: 2px solid #ccc; margin: 20px 0; border-radius: 8px;">
-                            \${currentGradingData.total.points}/\${currentGradingData.total.out_of}
-                        </div>
-                        
-                        \${currentGradingData.teacher_notes ? \`
-                            <h2 style="color: #333; border-bottom: 2px solid #333; padding-bottom: 5px; margin-top: 30px; margin-bottom: 15px; font-size: 18px;">Teacher Notes</h2>
-                            <div style="background: #e8f5e8; padding: 20px; border-left: 6px solid #4CAF50; margin: 20px 0; font-size: 14px; line-height: 1.6; border-radius: 8px;">
-                                \${currentGradingData.teacher_notes}
-                            </div>
-                        \` : ''}
-                        
-                        <h2 style="color: #333; border-bottom: 2px solid #333; padding-bottom: 5px; margin-top: 30px; margin-bottom: 15px; font-size: 18px;">Category Breakdown</h2>
-                        \${Object.entries(currentGradingData.scores).map(([category, score]) => \`
-                            <div style="margin: 15px 0; padding: 15px; border: 1px solid #ccc; background: #fafafa; border-radius: 8px; page-break-inside: avoid;">
-                                <div style="font-weight: bold; font-size: 16px; color: #333; margin-bottom: 8px;">
-                                    \${category.charAt(0).toUpperCase() + category.slice(1)}: \${score.points}/\${score.out_of}
-                                </div>
-                                <div style="font-size: 14px; color: #666; line-height: 1.6;">
-                                    \${score.rationale}
-                                </div>
-                            </div>
-                        \`).join('')}
-                        
-                        <div style="page-break-before: always;"></div>
-                        
-                        <h2 style="color: #333; border-bottom: 2px solid #333; padding-bottom: 5px; margin-top: 30px; margin-bottom: 15px; font-size: 18px;">Color-Coded Essay</h2>
-                        
-                        <div style="margin: 0 0 20px 0; padding: 15px; background: #f8f9fa; border: 1px solid #ddd; border-radius: 8px;">
-                            <h3 style="color: #333; margin-top: 0; margin-bottom: 15px; font-size: 16px; text-align: center;">Color-Coded Correction Guide</h3>
-                            <div style="font-size: 14px; line-height: 1.6;">
-                                <div style="margin: 8px 0;">
-                                    <span style="background: #D3D3D3; color: #000000; padding: 3px 8px; border-radius: 3px; font-weight: bold;">mechanics error</span>
-                                </div>
-                                <div style="margin: 8px 0;">
-                                    <span style="color: #DC143C; font-weight: bold;">spelling error</span>
-                                </div>
-                                <div style="margin: 8px 0;">
-                                    <span style="color: #FF8C00; font-weight: bold;">grammar error</span>
-                                </div>
-                                <div style="margin: 8px 0;">
-                                    <span style="color: #00A36C; font-weight: bold;">vocabulary error</span>
-                                </div>
-                                <div style="margin: 8px 0;">
-                                    <span style="background: #87CEEB; color: #000000; padding: 3px 8px; border-radius: 3px; font-weight: bold;">fluency error</span>
-                                </div>
-                            </div>
-                        </div>
-                        <div style="border: 2px solid #ddd; padding: 20px; margin: 20px 0; background: white; font-family: 'Times New Roman', serif; font-size: 14px; line-height: 1.8; border-radius: 8px;">
-                            \${essayContent}
-                        </div>
-                        
-                        \${feedbackNotes.length > 0 ? \`
-                            <div style="page-break-before: always;"></div>
-                            <h2 style="color: #333; border-bottom: 2px solid #333; padding-bottom: 5px; margin-top: 30px; margin-bottom: 15px; font-size: 18px;">📝 Feedback Notes</h2>
-                            <div style="background: #f8f9fa; padding: 20px; border-radius: 8px; border: 1px solid #ddd;">
-                                <p style="font-size: 14px; color: #666; margin-top: 0;">The numbers in brackets [1], [2], etc. in the essay above correspond to the feedback below:</p>
-                                \${feedbackNotes.map(note => \`
-                                    <div style="margin: 15px 0; padding: 15px; background: white; border-left: 4px solid #007bff; border-radius: 4px;">
-                                        <div style="font-weight: bold; color: #333; margin-bottom: 8px;">
-                                            <span style="background: #007bff; color: white; padding: 3px 8px; border-radius: 12px; font-size: 12px; margin-right: 10px;">[\${note.number}]</span>
-                                            "\${note.text}" - <em style="color: #666;">\${note.category}</em>
-                                        </div>
-                                        <div style="font-size: 14px; line-height: 1.5; color: #444;">
-                                            \${note.feedback}
-                                        </div>
-                                    </div>
-                                \`).join('')}
-                            </div>
-                        \` : ''}
-                    </div>
-                \`;
+                const pdfContent =
+                    '<div style="font-family: Arial, sans-serif; max-width: 800px; margin: 0 auto; padding: 20px; color: #000; background: white; line-height: 1.4;">' +
+                        '<h1 style="color: #333; text-align: center; margin-bottom: 30px; font-size: 24px; border-bottom: 3px solid #333; padding-bottom: 10px;">' +
+                            'Midterm Writing Exam Grade - ' + currentOriginalData.studentName +
+                        '</h1>' +
+                        '<h2 style="color: #333; border-bottom: 2px solid #333; padding-bottom: 5px; margin-top: 30px; margin-bottom: 15px; font-size: 18px;">Overall Score</h2>' +
+                        '<div style="font-size: 28px; font-weight: bold; color: #333; text-align: center; background: #f5f5f5; padding: 20px; border: 2px solid #ccc; margin: 20px 0; border-radius: 8px;">' +
+                            currentGradingData.total.points + '/' + currentGradingData.total.out_of +
+                        '</div>' +
+                        pdfTeacherNotes +
+                        '<h2 style="color: #333; border-bottom: 2px solid #333; padding-bottom: 5px; margin-top: 30px; margin-bottom: 15px; font-size: 18px;">Category Breakdown</h2>' +
+                        pdfCategoryBreakdown +
+                        '<div style="page-break-before: always;"></div>' +
+                        '<h2 style="color: #333; border-bottom: 2px solid #333; padding-bottom: 5px; margin-top: 30px; margin-bottom: 15px; font-size: 18px;">Color-Coded Essay</h2>' +
+                        '<div style="margin: 0 0 20px 0; padding: 15px; background: #f8f9fa; border: 1px solid #ddd; border-radius: 8px;">' +
+                            '<h3 style="color: #333; margin-top: 0; margin-bottom: 15px; font-size: 16px; text-align: center;">Color-Coded Correction Guide</h3>' +
+                            '<div style="font-size: 14px; line-height: 1.6;">' +
+                                '<div style="margin: 8px 0;">' +
+                                    '<span style="background: #D3D3D3; color: #000000; padding: 3px 8px; border-radius: 3px; font-weight: bold;">mechanics error</span>' +
+                                '</div>' +
+                                '<div style="margin: 8px 0;">' +
+                                    '<span style="color: #DC143C; font-weight: bold;">spelling error</span>' +
+                                '</div>' +
+                                '<div style="margin: 8px 0;">' +
+                                    '<span style="color: #FF8C00; font-weight: bold;">grammar error</span>' +
+                                '</div>' +
+                                '<div style="margin: 8px 0;">' +
+                                    '<span style="color: #00A36C; font-weight: bold;">vocabulary error</span>' +
+                                '</div>' +
+                                '<div style="margin: 8px 0;">' +
+                                    '<span style="background: #87CEEB; color: #000000; padding: 3px 8px; border-radius: 3px; font-weight: bold;">fluency error</span>' +
+                                '</div>' +
+                            '</div>' +
+                        '</div>' +
+                        '<div style="border: 2px solid #ddd; padding: 20px; margin: 20px 0; background: white; font-family: \"Times New Roman\", serif; font-size: 14px; line-height: 1.8; border-radius: 8px;">' +
+                            essayContent +
+                        '</div>' +
+                        pdfFeedbackNotes +
+                    '</div>';
                 
                 // Debug: Log the PDF content before processing
                 console.log('PDF Content length:', pdfContent.length);
@@ -2467,18 +2846,17 @@ app.get('/', (req, res) => {
                 profiles.forEach(profile => {
                     const profileDiv = document.createElement('div');
                     profileDiv.style.cssText = 'border: 1px solid #ddd; padding: 10px; margin: 10px 0; border-radius: 4px;';
-                    profileDiv.innerHTML = \`
-                        <div style="display: flex; justify-content: space-between; align-items: center;">
-                            <div style="flex: 1; min-width: 0;">
-                                <strong style="display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">\${profile.name}</strong> (\${profile.cefrLevel})
-                                <br><small>\${profile.vocabulary.length} vocab words, \${profile.grammar.length} grammar topics</small>
-                            </div>
-                            <div>
-                                <button onclick="editProfile('\${profile.id}')" style="background: #007bff; color: white; border: none; padding: 5px 10px; margin: 0 5px; border-radius: 3px; cursor: pointer;">Edit</button>
-                                <button onclick="deleteProfile('\${profile.id}')" style="background: #dc3545; color: white; border: none; padding: 5px 10px; border-radius: 3px; cursor: pointer;">Delete</button>
-                            </div>
-                        </div>
-                    \`;
+                    profileDiv.innerHTML =
+                        '<div style="display: flex; justify-content: space-between; align-items: center;">' +
+                            '<div style="flex: 1; min-width: 0;">' +
+                                '<strong style="display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">' + profile.name + '</strong> (' + profile.cefrLevel + ')' +
+                                '<br><small>' + profile.vocabulary.length + ' vocab words, ' + profile.grammar.length + ' grammar topics</small>' +
+                            '</div>' +
+                            '<div>' +
+                                '<button onclick="editProfile(\"' + profile.id + '\")" style="background: #007bff; color: white; border: none; padding: 5px 10px; margin: 0 5px; border-radius: 3px; cursor: pointer;">Edit</button>' +
+                                '<button onclick="deleteProfile(\"' + profile.id + '\")" style="background: #dc3545; color: white; border: none; padding: 5px 10px; border-radius: 3px; cursor: pointer;">Delete</button>' +
+                            '</div>' +
+                        '</div>';
                     listDiv.appendChild(profileDiv);
                 });
             }
@@ -2536,8 +2914,8 @@ app.get('/', (req, res) => {
                 const profileData = {
                     name: document.getElementById('profileName').value,
                     cefrLevel: document.getElementById('profileCefr').value,
-                    vocabulary: document.getElementById('profileVocab').value.split('\\n').map(v => v.trim()).filter(v => v),
-                    grammar: document.getElementById('profileGrammar').value.split('\\n').map(g => g.trim()).filter(g => g),
+                    vocabulary: document.getElementById('profileVocab').value.split('\\\\n').map(v => v.trim()).filter(v => v),
+                    grammar: document.getElementById('profileGrammar').value.split('\\\\n').map(g => g.trim()).filter(g => g),
                     prompt: document.getElementById('profilePrompt').value.trim(),
                     temperature: parseInt(document.getElementById('profileTemperature').value) || 0
                 };
@@ -2614,10 +2992,6 @@ app.get('/', (req, res) => {
   `);
 });
 
-app.get("/health", (req, res) => {
-  res.send("ok");
-});
-
 // Grade essay endpoint
 app.post("/grade", async (req, res) => {
   const { studentText, prompt, classProfile, temperature } = req.body;
@@ -2652,15 +3026,49 @@ app.post("/format", async (req, res) => {
   
   console.log("=== FORMAT ENDPOINT CALLED ===");
   console.log("Student text length:", studentText?.length);
+  console.log("Student text preview:", studentText?.substring(0, 100) + '...');
+  console.log("Student name:", studentName);
   console.log("Grading results keys:", Object.keys(gradingResults || {}));
+  console.log("Grading results structure:", JSON.stringify(gradingResults, null, 2));
   console.log("Inline issues count:", gradingResults?.inline_issues?.length || 0);
   console.log("Final options:", finalOptions);
-  
+
+  // Validate required parameters
+  if (!studentText) {
+    console.error("❌ Missing studentText parameter");
+    return res.json({
+      success: false,
+      error: "Missing studentText parameter",
+      details: "studentText is required for formatting"
+    });
+  }
+
+  if (!gradingResults) {
+    console.error("❌ Missing gradingResults parameter");
+    return res.json({
+      success: false,
+      error: "Missing gradingResults parameter",
+      details: "gradingResults is required for formatting"
+    });
+  }
+
   try {
     console.log("🎨 Calling formatGradedEssay...");
     const formatted = formatGradedEssay(studentText, gradingResults, finalOptions);
     console.log("✅ Format completed successfully");
-    res.json(formatted);
+
+    // Ensure we return the correct structure
+    const result = {
+      success: true,
+      formattedText: formatted.formattedText,
+      feedbackSummary: formatted.feedbackSummary,
+      errors: formatted.errors || [],
+      overallScore: formatted.overallScore || 0,
+      segments: formatted.segments || null
+    };
+
+    console.log("📤 Sending formatted result:", Object.keys(result));
+    res.json(result);
   } catch (error) {
     console.error("❌ FORMAT ERROR:", error);
     console.error("Error stack:", error.stack);
@@ -2892,6 +3300,111 @@ app.post("/api/grade", async (req, res) => {
         prismaAvailable: !!prisma,
         requestData: {
           hasStudentText: !!req.body.studentText,
+          hasPrompt: !!req.body.prompt,
+          classProfile: req.body.classProfile
+        }
+      }
+    });
+  }
+});
+
+// Batch grading endpoint for multiple essays
+app.post("/api/grade-batch", async (req, res) => {
+  const { essays, prompt, classProfile, temperature } = req.body;
+
+  console.log("\n🔥 BATCH GRADING REQUEST RECEIVED 🔥");
+  console.log("Number of essays:", essays?.length || 0);
+  console.log("Class profile:", classProfile);
+  console.log("Temperature:", temperature || 0);
+  console.log("Environment:", isVercel ? 'Vercel' : 'Local');
+
+  try {
+    if (!essays || essays.length === 0) {
+      return res.status(400).json({ error: "No essays provided for grading" });
+    }
+
+    console.log("\n⚡ STARTING BATCH GRADING SYSTEM...");
+    console.log("🔍 Looking for profile:", classProfile);
+
+    // Get profile data (unified for both environments)
+    let profileData;
+    if (useDatabase && prisma) {
+      console.log("📊 Searching database for profile...");
+      profileData = await prisma.classProfile.findFirst({
+        where: { id: classProfile }
+      });
+      console.log("🎯 Database search result:", profileData ? "FOUND" : "NOT FOUND");
+    } else {
+      console.log("📁 Searching file system for profile...");
+      const profiles = await loadProfiles();
+      console.log("📋 Available profiles:", profiles.profiles?.map(p => p.id) || []);
+      profileData = profiles.profiles.find(p => p.id === classProfile);
+      console.log("🎯 File search result:", profileData ? "FOUND" : "NOT FOUND");
+    }
+
+    if (!profileData) {
+      console.log("❌ Profile not found, returning 404");
+      return res.status(404).json({ error: "Class profile not found", requested: classProfile });
+    }
+
+    console.log("✅ Profile found:", profileData.name);
+    console.log("🤖 Grading", essays.length, "essays using UNIFIED grading system...");
+
+    const results = [];
+    const finalTemperature = temperature !== undefined ? temperature : (profileData.temperature || 0);
+
+    // Grade each essay
+    for (let i = 0; i < essays.length; i++) {
+      const essay = essays[i];
+      console.log(`\n📝 Grading essay ${i + 1}/${essays.length} for ${essay.studentName}...`);
+
+      try {
+        const result = await gradeEssayUnified(essay.studentText, prompt, profileData);
+        console.log(`✅ Essay ${i + 1} graded successfully`);
+
+        // Apply temperature adjustment
+        const finalResult = applyTemperatureAdjustment(result, finalTemperature);
+        finalResult.studentName = essay.studentName;
+
+        results.push({
+          success: true,
+          studentName: essay.studentName,
+          result: finalResult
+        });
+      } catch (error) {
+        console.error(`❌ Error grading essay ${i + 1} for ${essay.studentName}:`, error);
+        results.push({
+          success: false,
+          studentName: essay.studentName,
+          error: error.message
+        });
+      }
+    }
+
+    console.log("\n✅ BATCH GRADING COMPLETED!");
+    console.log("Successfully graded:", results.filter(r => r.success).length);
+    console.log("Failed:", results.filter(r => !r.success).length);
+
+    res.json({
+      success: true,
+      totalEssays: essays.length,
+      results: results
+    });
+  } catch (error) {
+    console.error("\n❌ BATCH GRADING ERROR:", error);
+    console.error("Error stack:", error.stack);
+    res.json({
+      success: false,
+      error: error.message,
+      details: error.stack,
+      debug: {
+        errorType: error.constructor.name,
+        isVercel,
+        useDatabase,
+        prismaAvailable: !!prisma,
+        requestData: {
+          hasEssays: !!req.body.essays,
+          essayCount: req.body.essays?.length || 0,
           hasPrompt: !!req.body.prompt,
           classProfile: req.body.classProfile
         }
