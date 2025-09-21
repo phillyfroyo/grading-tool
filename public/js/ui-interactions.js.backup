@@ -1,0 +1,1274 @@
+/**
+ * UI Interactions Module
+ * Handles tab switching, modal management, manual grading interface, and other UI interactions
+ */
+
+/**
+ * Switch between different tabs in the interface
+ * @param {string} tabName - Name of the tab to switch to
+ */
+function switchTab(tabName) {
+    console.log('🔄 Switching to tab:', tabName);
+
+    // Add visual debugging - change document title to show function is called
+    document.title = `ESL Essay Grader - Switching to ${tabName}`;
+
+    // Remove active class from all tab contents and buttons
+    const allTabs = document.querySelectorAll('.tab-content');
+    const allButtons = document.querySelectorAll('.tab-button');
+
+    console.log('Found tab contents:', allTabs.length);
+    console.log('Found tab buttons:', allButtons.length);
+
+    // Visual debug - add a temporary message to the page
+    let debugDiv = document.getElementById('debug-message');
+    if (!debugDiv) {
+        debugDiv = document.createElement('div');
+        debugDiv.id = 'debug-message';
+        debugDiv.style.cssText = 'position: fixed; top: 10px; right: 10px; background: red; color: white; padding: 10px; z-index: 9999;';
+        document.body.appendChild(debugDiv);
+    }
+    debugDiv.textContent = `Tab switching to: ${tabName}. Found ${allTabs.length} tabs, ${allButtons.length} buttons`;
+
+    allTabs.forEach(tab => {
+        tab.classList.remove('active');
+        console.log('Removed active from tab:', tab.id);
+    });
+
+    allButtons.forEach(btn => {
+        btn.classList.remove('active');
+        console.log('Removed active from button:', btn.textContent.trim());
+    });
+
+    // Show selected tab content and activate button
+    const targetId = tabName + '-content';
+    console.log('Looking for tab with ID:', targetId);
+    const selectedTab = document.getElementById(targetId);
+
+    if (selectedTab) {
+        selectedTab.classList.add('active');
+        console.log('✅ Activated tab:', selectedTab.id);
+        debugDiv.textContent += ' - ✅ Tab found and activated!';
+    } else {
+        console.error('❌ Could not find tab with ID:', targetId);
+        debugDiv.textContent += ' - ❌ Tab NOT found!';
+    }
+
+    // Add active class to selected tab button
+    const buttonSelector = `.tab-button[data-tab="${tabName}"]`;
+    console.log('Looking for button with selector:', buttonSelector);
+    const selectedButton = document.querySelector(buttonSelector);
+
+    if (selectedButton) {
+        selectedButton.classList.add('active');
+        console.log('✅ Activated button for tab:', tabName);
+    } else {
+        console.error('❌ Could not find button with selector:', buttonSelector);
+    }
+
+    // Load specific tab content if needed
+    if (tabName === 'profiles' && window.ProfilesModule) {
+        window.ProfilesModule.loadProfilesList();
+    }
+}
+
+/**
+ * Initialize tab functionality
+ */
+function initializeTabs() {
+    console.log('🔧 Initializing tab functionality...');
+
+    // Add click event listeners to tab buttons
+    document.querySelectorAll('.tab-button').forEach(button => {
+        button.addEventListener('click', function() {
+            const tabName = this.getAttribute('data-tab');
+            switchTab(tabName);
+        });
+    });
+
+    // Set initial tab state
+    switchTab('gpt-grader');
+
+    console.log('✅ Tab functionality initialized');
+}
+
+/**
+ * Show manual grading interface
+ * @param {string} studentName - Student name
+ * @param {string} essayText - Essay text content
+ */
+function showManualGradingInterface(studentName, essayText) {
+    const container = document.getElementById('manualGradingContainer');
+    if (!container) return;
+
+    container.innerHTML = createManualGradingHTML(studentName, essayText);
+    container.style.display = 'block';
+
+    // Initialize manual scoring
+    initializeManualScoring();
+    initializeManualGrading();
+}
+
+/**
+ * Create HTML for manual grading interface
+ * @param {string} studentName - Student name
+ * @param {string} essayText - Essay text
+ * @returns {string} HTML string
+ */
+function createManualGradingHTML(studentName, essayText) {
+    return `
+        <div class="manual-grading-interface">
+            <h2>Manual Grading: ${studentName}</h2>
+
+            <div class="grading-layout" style="display: flex; gap: 20px;">
+                <!-- Essay Text Column -->
+                <div class="essay-column" style="flex: 1;">
+                    <h3>Essay Text</h3>
+                    <div class="essay-display" style="border: 1px solid #ddd; padding: 15px; background: #f9f9f9; white-space: pre-wrap; line-height: 1.6; max-height: 600px; overflow-y: auto;">
+                        ${essayText}
+                    </div>
+                </div>
+
+                <!-- Scoring Column -->
+                <div class="scoring-column" style="flex: 1;">
+                    <h3>Scoring Rubric</h3>
+                    ${createManualScoringRubric()}
+
+                    <div style="margin-top: 20px;">
+                        <h3>Overall Feedback</h3>
+                        <textarea id="overallFeedback" rows="4" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;" placeholder="Enter overall feedback here..."></textarea>
+                    </div>
+
+                    <div style="margin-top: 20px; text-align: center;">
+                        <button onclick="saveManualGrading()" style="background: #28a745; color: white; border: none; padding: 10px 20px; border-radius: 4px; cursor: pointer; font-size: 16px;">Save Grading</button>
+                        <button onclick="cancelManualGrading()" style="background: #6c757d; color: white; border: none; padding: 10px 20px; border-radius: 4px; cursor: pointer; font-size: 16px; margin-left: 10px;">Cancel</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    `;
+}
+
+/**
+ * Create manual scoring rubric HTML
+ * @returns {string} HTML string for scoring rubric
+ */
+function createManualScoringRubric() {
+    const categories = [
+        { name: 'Content & Ideas', id: 'content', max: 15 },
+        { name: 'Organization', id: 'organization', max: 15 },
+        { name: 'Language Use', id: 'language', max: 15 },
+        { name: 'Vocabulary', id: 'vocabulary', max: 15 },
+        { name: 'Grammar', id: 'grammar', max: 15 },
+        { name: 'Mechanics', id: 'mechanics', max: 15 }
+    ];
+
+    let html = '<div class="scoring-rubric">';
+
+    categories.forEach(category => {
+        html += `
+            <div class="score-category" style="margin-bottom: 15px; padding: 10px; border: 1px solid #ddd; border-radius: 4px;">
+                <label style="font-weight: bold; display: block; margin-bottom: 5px;">
+                    ${category.name} (out of ${category.max})
+                </label>
+                <input type="number" id="score-${category.id}" class="manual-score-input"
+                       min="0" max="${category.max}" value="0"
+                       data-category="${category.id}" data-max="${category.max}"
+                       style="width: 60px; padding: 4px; border: 1px solid #ccc; border-radius: 4px; margin-right: 10px;">
+                <span class="score-display">/ ${category.max}</span>
+                <div style="margin-top: 5px;">
+                    <textarea id="feedback-${category.id}" class="manual-feedback-input"
+                              placeholder="Feedback for ${category.name.toLowerCase()}..."
+                              rows="2" style="width: 100%; padding: 4px; border: 1px solid #ccc; border-radius: 4px; font-size: 12px;"></textarea>
+                </div>
+            </div>
+        `;
+    });
+
+    html += `
+        <div class="total-score" style="margin-top: 20px; padding: 15px; background: #f8f9fa; border-radius: 4px; text-align: center;">
+            <h4>Total Score: <span id="totalScore">0</span> / <span id="totalMax">90</span> (<span id="totalPercentage">0</span>%)</h4>
+        </div>
+    `;
+
+    html += '</div>';
+    return html;
+}
+
+/**
+ * Initialize manual scoring functionality
+ */
+function initializeManualScoring() {
+    // Add event listeners to score inputs
+    document.querySelectorAll('.manual-score-input').forEach(input => {
+        input.addEventListener('input', updateManualTotalScore);
+    });
+
+    // Initialize total score
+    updateManualTotalScore();
+}
+
+/**
+ * Update manual total score
+ */
+function updateManualTotalScore() {
+    let totalPoints = 0;
+    let totalMax = 0;
+
+    document.querySelectorAll('.manual-score-input').forEach(input => {
+        const points = parseInt(input.value) || 0;
+        const max = parseInt(input.dataset.max) || 15;
+
+        // Validate input
+        if (points > max) {
+            input.value = max;
+            points = max;
+        }
+        if (points < 0) {
+            input.value = 0;
+            points = 0;
+        }
+
+        totalPoints += points;
+        totalMax += max;
+    });
+
+    const percentage = totalMax > 0 ? Math.round((totalPoints / totalMax) * 100) : 0;
+
+    // Update display
+    const totalScoreElement = document.getElementById('totalScore');
+    const totalMaxElement = document.getElementById('totalMax');
+    const totalPercentageElement = document.getElementById('totalPercentage');
+
+    if (totalScoreElement) totalScoreElement.textContent = totalPoints;
+    if (totalMaxElement) totalMaxElement.textContent = totalMax;
+    if (totalPercentageElement) totalPercentageElement.textContent = percentage;
+}
+
+/**
+ * Initialize manual grading functionality
+ */
+function initializeManualGrading() {
+    // Any additional manual grading initialization
+    console.log('Manual grading interface initialized');
+}
+
+/**
+ * Save manual grading results
+ */
+function saveManualGrading() {
+    // Collect all scores and feedback
+    const scores = {};
+    const feedback = {};
+
+    document.querySelectorAll('.manual-score-input').forEach(input => {
+        const category = input.dataset.category;
+        scores[category] = {
+            points: parseInt(input.value) || 0,
+            out_of: parseInt(input.dataset.max) || 15
+        };
+    });
+
+    document.querySelectorAll('.manual-feedback-input').forEach(textarea => {
+        const category = textarea.id.replace('feedback-', '');
+        feedback[category] = textarea.value.trim();
+    });
+
+    const overallFeedback = document.getElementById('overallFeedback')?.value.trim() || '';
+
+    const manualGradingResult = {
+        scores: scores,
+        feedback: feedback,
+        overallFeedback: overallFeedback,
+        isManual: true,
+        timestamp: new Date().toISOString()
+    };
+
+    console.log('Manual grading result:', manualGradingResult);
+
+    // Here you would typically send this to the server or display it
+    alert('Manual grading saved successfully!');
+
+    // Hide the manual grading interface
+    cancelManualGrading();
+}
+
+/**
+ * Cancel manual grading
+ */
+function cancelManualGrading() {
+    const container = document.getElementById('manualGradingContainer');
+    if (container) {
+        container.style.display = 'none';
+        container.innerHTML = '';
+    }
+}
+
+/**
+ * Open teacher notes modal
+ * @param {HTMLElement} element - Element that triggered the modal
+ */
+function openTeacherNotesModal(element) {
+    const modal = document.getElementById('teacherNotesModal');
+    if (!modal) return;
+
+    const currentText = element.dataset.teacherNotes || '';
+    document.getElementById('teacherNotesText').value = currentText;
+    document.getElementById('teacherNotesModal').dataset.targetElement = element.id;
+
+    modal.style.display = 'block';
+}
+
+/**
+ * Close teacher notes modal
+ */
+function closeTeacherNotesModal() {
+    const modal = document.getElementById('teacherNotesModal');
+    if (modal) {
+        modal.style.display = 'none';
+    }
+}
+
+/**
+ * Save teacher notes from modal
+ */
+function saveTeacherNotes() {
+    const modal = document.getElementById('teacherNotesModal');
+    const targetElementId = modal?.dataset.targetElement;
+    const notesText = document.getElementById('teacherNotesText')?.value || '';
+
+    if (targetElementId) {
+        const targetElement = document.getElementById(targetElementId);
+        if (targetElement) {
+            targetElement.dataset.teacherNotes = notesText;
+
+            // Update visual indicator
+            if (notesText.trim()) {
+                targetElement.style.backgroundColor = '#fff3cd';
+                targetElement.title = 'Teacher notes: ' + notesText.substring(0, 100) + (notesText.length > 100 ? '...' : '');
+            } else {
+                targetElement.style.backgroundColor = '';
+                targetElement.title = '';
+            }
+        }
+    }
+
+    closeTeacherNotesModal();
+}
+
+/**
+ * Edit teacher notes inline
+ * @param {HTMLElement} element - Element to edit
+ */
+function editTeacherNotes(element) {
+    openTeacherNotesModal(element);
+}
+
+/**
+ * Edit statistics inline
+ * @param {HTMLElement} element - Statistics element
+ * @param {string} statType - Type of statistic
+ */
+function editStat(element, statType) {
+    const currentValue = element.textContent;
+    const newValue = prompt(`Edit ${statType}:`, currentValue);
+
+    if (newValue !== null && newValue.trim() !== '') {
+        element.textContent = newValue.trim();
+        element.dataset.edited = 'true';
+        element.style.backgroundColor = '#e8f5e8';
+    }
+}
+
+/**
+ * Edit transitions
+ * @param {HTMLElement} element - Transitions element
+ */
+function editTransitions(element) {
+    const currentValue = element.textContent;
+    const newValue = prompt('Edit transitions:', currentValue);
+
+    if (newValue !== null) {
+        element.textContent = newValue;
+        element.dataset.edited = 'true';
+        element.style.backgroundColor = '#e8f5e8';
+    }
+}
+
+/**
+ * Edit vocabulary
+ * @param {HTMLElement} element - Vocabulary element
+ */
+function editVocabulary(element) {
+    const currentValue = element.textContent;
+    const newValue = prompt('Edit vocabulary:', currentValue);
+
+    if (newValue !== null) {
+        element.textContent = newValue;
+        element.dataset.edited = 'true';
+        element.style.backgroundColor = '#e8f5e8';
+    }
+}
+
+/**
+ * Edit grammar
+ * @param {HTMLElement} element - Grammar element
+ */
+function editGrammar(element) {
+    const currentValue = element.textContent;
+    const newValue = prompt('Edit grammar:', currentValue);
+
+    if (newValue !== null) {
+        element.textContent = newValue;
+        element.dataset.edited = 'true';
+        element.style.backgroundColor = '#e8f5e8';
+    }
+}
+
+/**
+ * Get score color based on percentage
+ * @param {number} percentage - Score percentage
+ * @returns {string} Color code
+ */
+function getScoreColor(percentage) {
+    if (percentage >= 90) return '#28a745'; // Green
+    if (percentage >= 80) return '#20c997'; // Teal
+    if (percentage >= 70) return '#ffc107'; // Yellow
+    if (percentage >= 60) return '#fd7e14'; // Orange
+    return '#dc3545'; // Red
+}
+
+/**
+ * Close edit modal
+ */
+function closeEditModal() {
+    const modal = document.getElementById('editModal');
+    if (modal) {
+        modal.style.display = 'none';
+    }
+}
+
+/**
+ * Save edit modal changes
+ */
+function saveEditModal() {
+    const modal = document.getElementById('editModal');
+    const category = document.getElementById('editCategory')?.value;
+    const notes = document.getElementById('editNotes')?.value;
+
+    console.log('Saving highlight edit:', { category, notes });
+
+    // Get the element being edited
+    const elementId = modal?.dataset?.editingElement;
+    if (elementId) {
+        const element = document.getElementById(elementId);
+        if (element) {
+            // Update the element's data
+            element.dataset.category = category;
+            element.dataset.notes = notes;
+
+            // Update visual styling
+            if (window.EssayEditingModule && window.EssayEditingModule.updateHighlightVisualStyling) {
+                window.EssayEditingModule.updateHighlightVisualStyling(element, category);
+            }
+
+            console.log('Updated highlight element:', element);
+        } else {
+            console.error('Could not find element to update:', elementId);
+        }
+    } else {
+        console.error('No element ID stored for editing');
+    }
+
+    closeEditModal();
+}
+
+/**
+ * Initialize UI interactions
+ */
+function initializeUIInteractions() {
+    // Set up tab switching
+    setupTabSwitching();
+
+    // Set up modal handlers
+    setupModalHandlers();
+
+    // Set up keyboard shortcuts
+    setupKeyboardShortcuts();
+
+    // Set up manual grading functionality
+    setupManualGrading();
+}
+
+/**
+ * Setup tab switching functionality
+ */
+function setupTabSwitching() {
+    document.querySelectorAll('.tab-button').forEach(button => {
+        button.addEventListener('click', function() {
+            const tabName = this.getAttribute('data-tab') || this.textContent.toLowerCase();
+            switchTab(tabName);
+        });
+    });
+
+    // Set initial tab state
+    switchTab('gpt-grader');
+}
+
+/**
+ * Setup modal handlers
+ */
+function setupModalHandlers() {
+    // Close modals when clicking outside
+    window.addEventListener('click', function(event) {
+        const modals = document.querySelectorAll('.modal');
+        modals.forEach(modal => {
+            if (event.target === modal) {
+                modal.style.display = 'none';
+            }
+        });
+    });
+
+    // Setup ESC key to close modals
+    document.addEventListener('keydown', function(event) {
+        if (event.key === 'Escape') {
+            const openModals = document.querySelectorAll('.modal[style*="block"]');
+            openModals.forEach(modal => {
+                modal.style.display = 'none';
+            });
+        }
+    });
+}
+
+/**
+ * Setup keyboard shortcuts
+ */
+function setupKeyboardShortcuts() {
+    document.addEventListener('keydown', function(event) {
+        // Ctrl/Cmd + E for export
+        if ((event.ctrlKey || event.metaKey) && event.key === 'e') {
+            event.preventDefault();
+            if (typeof exportToPDF === 'function') {
+                exportToPDF();
+            }
+        }
+
+        // Ctrl/Cmd + M for manual grading
+        if ((event.ctrlKey || event.metaKey) && event.key === 'm') {
+            event.preventDefault();
+            switchTab('manual-grader');
+        }
+    });
+}
+
+/**
+ * Setup manual grading functionality
+ */
+function setupManualGrading() {
+    // Set up form submission
+    const manualForm = document.getElementById('manualGradingForm');
+    if (manualForm) {
+        manualForm.addEventListener('submit', handleManualGradingSubmission);
+    }
+
+    // Set up score input listeners
+    document.querySelectorAll('.manual-score-input').forEach(input => {
+        input.addEventListener('input', updateManualScore);
+    });
+
+    // Initialize total score display
+    updateManualScore();
+}
+
+/**
+ * Handle manual grading form submission
+ * @param {Event} e - Form submission event
+ */
+function handleManualGradingSubmission(e) {
+    e.preventDefault();
+    console.log('🎯 MANUAL GRADING FORM SUBMITTED!');
+
+    const formData = new FormData(e.target);
+    const studentName = formData.get('studentName') || 'Student';
+    const prompt = formData.get('prompt') || '';
+    const essayText = formData.get('essayText') || '';
+    const overallFeedback = formData.get('overallFeedback') || '';
+
+    // Collect scores and feedback
+    const scores = {};
+    const feedback = {};
+
+    document.querySelectorAll('.manual-score-input').forEach(input => {
+        const category = input.dataset.category;
+        scores[category] = {
+            points: parseInt(input.value) || 0,
+            out_of: parseInt(input.dataset.max) || 15
+        };
+    });
+
+    document.querySelectorAll('.manual-feedback-input').forEach(textarea => {
+        const category = textarea.id.replace('feedback-', '');
+        feedback[category] = textarea.value.trim();
+    });
+
+    // Calculate total score
+    let totalPoints = 0;
+    let totalMax = 0;
+    Object.values(scores).forEach(score => {
+        totalPoints += score.points;
+        totalMax += score.out_of;
+    });
+
+    const percentage = Math.round((totalPoints / totalMax) * 100);
+
+    // Create manual grading result
+    const result = {
+        studentName: studentName,
+        prompt: prompt,
+        essayText: essayText,
+        scores: scores,
+        feedback: feedback,
+        overallFeedback: overallFeedback,
+        totalScore: totalPoints,
+        totalMax: totalMax,
+        percentage: percentage,
+        isManual: true,
+        timestamp: new Date().toISOString()
+    };
+
+    // Display the results
+    displayManualGradingResults(result);
+}
+
+/**
+ * Display manual grading results using GPT grader format
+ * @param {Object} result - Manual grading result object
+ */
+function displayManualGradingResults(result) {
+    const resultsDiv = document.getElementById('manualResults');
+    if (!resultsDiv) return;
+
+    console.log('🎯 DISPLAY MANUAL RESULTS CALLED');
+    console.log('Manual result:', result);
+
+    // Convert manual result to GPT-compatible format for formatting
+    const gradingResults = {
+        scores: result.scores, // Now using correct category names directly
+        total: {
+            points: result.totalScore,
+            out_of: result.totalMax
+        },
+        meta: {
+            word_count: countWords(result.essayText),
+            transition_words_found: [],
+            class_vocabulary_used: [],
+            grammar_structures_used: []
+        },
+        teacher_notes: result.overallFeedback || 'Manual grading notes',
+        encouragement_next_steps: 'Keep up the good work!',
+        inline_issues: [] // Empty for manual grading
+    };
+
+    console.log('📤 MAKING FORMAT REQUEST FOR MANUAL GRADING...');
+    const requestPayload = {
+        studentText: result.essayText,
+        gradingResults: gradingResults,
+        studentName: result.studentName,
+        editable: true
+    };
+    console.log('Request payload:', JSON.stringify(requestPayload, null, 2));
+    console.log('Request URL: /format');
+    console.log('Request method: POST');
+
+    // Format the essay with color coding using the same endpoint as GPT grader
+    fetch('/format?cacheBust=' + Date.now(), {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'Cache-Control': 'no-cache'
+        },
+        body: JSON.stringify(requestPayload)
+    })
+    .then(response => {
+        console.log('📥 FORMAT RESPONSE STATUS:', response.status);
+        return response.json();
+    })
+    .then(formatted => {
+        console.log('✅ FORMAT RESPONSE RECEIVED:', formatted);
+
+        // DEBUG: Check what's available
+        console.log('🔍 DEBUGGING SHARED COMPONENTS:');
+        console.log('- window.GradingDisplayModule exists:', !!window.GradingDisplayModule);
+        if (window.GradingDisplayModule) {
+            console.log('- Available functions:', Object.keys(window.GradingDisplayModule));
+            console.log('- createSingleEssayHTML exists:', !!window.GradingDisplayModule.createSingleEssayHTML);
+        }
+
+        // FORCE using the shared component - no fallback!
+        console.log('🔄 FORCING shared GPT grader UI components');
+        if (window.GradingDisplayModule && window.GradingDisplayModule.createSingleEssayHTML) {
+            console.log('✅ Using shared createSingleEssayHTML function');
+            resultsDiv.innerHTML = window.GradingDisplayModule.createSingleEssayHTML(result.studentName, formatted);
+        } else {
+            console.error('❌ CRITICAL: Shared components not available!');
+            console.error('Available modules:', Object.keys(window).filter(k => k.includes('Module')));
+            // Still use shared components by calling the function directly
+            if (typeof createSingleEssayHTML === 'function') {
+                console.log('📞 Calling createSingleEssayHTML directly');
+                resultsDiv.innerHTML = createSingleEssayHTML(result.studentName, formatted);
+            } else {
+                console.error('💥 createSingleEssayHTML function not found anywhere!');
+                resultsDiv.innerHTML = `<div style="color: red; padding: 20px; border: 2px solid red;">
+                    ERROR: Shared UI components not available. Manual grading cannot display results.
+                    <br>Available modules: ${Object.keys(window).filter(k => k.includes('Module')).join(', ')}
+                </div>`;
+            }
+        }
+
+        resultsDiv.style.display = 'block';
+
+        // Add event listeners for editable elements - use shared setup
+        if (window.GradingDisplayModule && window.GradingDisplayModule.setupEditableElements) {
+            console.log('🔄 Using shared editable elements setup');
+            // Convert manual result to GPT format for shared setup
+            const gradingResult = {
+                scores: result.scores,
+                total: { points: result.totalScore, out_of: result.totalMax }
+            };
+            const originalData = {
+                studentText: result.essayText,
+                studentName: result.studentName
+            };
+            window.GradingDisplayModule.setupEditableElements(gradingResult, originalData);
+        }
+
+        // Initialize essay editing functionality if available
+        setTimeout(() => {
+            if (window.EssayEditingModule) {
+                window.EssayEditingModule.initializeEssayEditing();
+            }
+        }, 100);
+    })
+    .catch(error => {
+        console.error('❌ FORMATTING ERROR:', error);
+        console.error('Error details:', error.message);
+        console.error('Error stack:', error.stack);
+        console.log('📋 FALLING BACK TO BASIC DISPLAY...');
+        // Fallback to basic display without formatting
+        displayManualGradingResultsBasic(result);
+    });
+}
+
+/**
+ * Create HTML for manual essay display (matching GPT format exactly)
+ * @param {string} studentName - Student name
+ * @param {Object} formatted - Formatted essay data from /format endpoint
+ * @param {Object} result - Original manual grading result
+ * @returns {string} HTML string
+ */
+function createManualEssayHTML(studentName, formatted, result) {
+    return `
+        <h2>Manual Grading Results for ${studentName}</h2>
+        ${formatted.feedbackSummary}
+        <h3 style="margin: 20px 0 10px 0;">Color-Coded Essay:</h3>
+        <div id="essayContainer" style="border: 1px solid #ddd; border-radius: 4px;">
+            <!-- Category selector bar -->
+            <div id="categoryBar" style="padding: 10px; background: #f8f9fa; border-bottom: 1px solid #ddd; border-radius: 4px 4px 0 0;">
+                <div style="margin-bottom: 5px; font-weight: bold; font-size: 14px;">Select category then highlight text, or highlight text then select category:</div>
+                <div id="categoryButtons" style="display: flex; flex-wrap: wrap; gap: 8px;">
+                    ${createManualCategoryButtons()}
+                    <button id="clearSelectionBtn" onclick="clearSelection()" style="background: #f5f5f5; color: #666; border: 2px solid #ccc; padding: 8px 12px; border-radius: 4px; cursor: pointer; margin-left: 10px;">Clear Selection</button>
+                </div>
+                <div id="selectionStatus" style="margin-top: 8px; font-size: 12px; color: #666; min-height: 16px;"></div>
+            </div>
+            <!-- Essay text area -->
+            <div class="formatted-essay-content" style="padding: 15px; line-height: 1.6; user-select: text;">
+                ${formatted.formattedText}
+            </div>
+            <!-- Color Legend -->
+            ${createManualColorLegend()}
+        </div>
+        <div style="margin-top: 20px;">
+            <button onclick="exportManualResults()">Export to PDF</button>
+        </div>
+    `;
+}
+
+/**
+ * Fallback display for manual grading results (if formatting fails)
+ * @param {Object} result - Manual grading result object
+ */
+function displayManualGradingResultsBasic(result) {
+    const resultsDiv = document.getElementById('manualResults');
+    if (!resultsDiv) return;
+
+    const scoreColor = getScoreColor(result.percentage);
+
+    resultsDiv.innerHTML = `
+        <div class="error" style="background: #f8d7da; color: #721c24; padding: 15px; border-radius: 4px; border: 1px solid #f5c6cb; margin-bottom: 20px;">
+            <h3>Unable to format essay properly</h3>
+            <p>The essay formatting service is unavailable, showing basic results instead.</p>
+        </div>
+
+        <div class="grading-summary">
+            <h2>Manual Grading Results for ${result.studentName}</h2>
+
+            <div class="overall-score" style="color: ${scoreColor}; font-size: 2em; font-weight: bold; text-align: center; margin: 20px 0;">
+                ${result.totalScore}/${result.totalMax} (${result.percentage}%)
+            </div>
+
+            <div class="teacher-notes" style="background: #e8f5e8; padding: 15px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #4CAF50;">
+                <strong>📝 Teacher Notes:</strong> ${result.overallFeedback || 'No notes provided'}
+            </div>
+
+            <div class="category-breakdown">
+                <h3>Category Breakdown:</h3>
+                ${Object.entries(result.scores).map(([category, score]) => {
+                    const feedback = result.feedback[category] || 'No specific feedback provided.';
+                    const categoryPercentage = Math.round((score.points / score.out_of) * 100);
+                    const categoryName = category.charAt(0).toUpperCase() + category.slice(1).replace(/([A-Z])/g, ' $1');
+
+                    return `
+                        <div class="category-item" style="margin: 15px 0; padding: 15px; background: #f8f9fa; border-radius: 8px; border-left: 4px solid ${scoreColor};">
+                            <h4>${categoryName}: ${score.points}/${score.out_of} (${categoryPercentage}%)</h4>
+                            <p>${feedback}</p>
+                        </div>
+                    `;
+                }).join('')}
+            </div>
+
+            <div class="essay-text" style="margin: 25px 0;">
+                <h3>Essay Text:</h3>
+                <div style="padding: 20px; background: #f8f9fa; border: 1px solid #dee2e6; border-radius: 6px; white-space: pre-wrap; line-height: 1.6;">
+                    ${escapeHtml(result.essayText)}
+                </div>
+            </div>
+        </div>
+    `;
+
+    resultsDiv.style.display = 'block';
+    resultsDiv.scrollIntoView({ behavior: 'smooth' });
+}
+
+/**
+ * Update manual grading total score
+ */
+function updateManualScore() {
+    let totalPoints = 0;
+    let totalMax = 0;
+
+    document.querySelectorAll('.manual-score-input').forEach(input => {
+        const points = parseInt(input.value) || 0;
+        const max = parseInt(input.dataset.max) || 15;
+
+        // Validate input
+        if (points > max) {
+            input.value = max;
+        }
+        if (points < 0) {
+            input.value = 0;
+        }
+
+        totalPoints += parseInt(input.value) || 0;
+        totalMax += max;
+    });
+
+    const percentage = totalMax > 0 ? Math.round((totalPoints / totalMax) * 100) : 0;
+
+    // Update display
+    const totalScoreElement = document.getElementById('manualTotalScore');
+    const totalMaxElement = document.getElementById('manualTotalMax');
+    const totalPercentageElement = document.getElementById('manualTotalPercentage');
+
+    if (totalScoreElement) totalScoreElement.textContent = totalPoints;
+    if (totalMaxElement) totalMaxElement.textContent = totalMax;
+    if (totalPercentageElement) totalPercentageElement.textContent = percentage;
+}
+
+/**
+ * Clear manual grading form
+ */
+function clearManualForm() {
+    const form = document.getElementById('manualGradingForm');
+    if (form) {
+        form.reset();
+        updateManualScore();
+    }
+    clearManualResults();
+}
+
+/**
+ * Clear manual grading results
+ */
+function clearManualResults() {
+    const resultsDiv = document.getElementById('manualResults');
+    if (resultsDiv) {
+        resultsDiv.innerHTML = '';
+        resultsDiv.style.display = 'none';
+    }
+}
+
+/**
+ * Export manual results to PDF
+ */
+function exportManualResults() {
+    if (typeof window.PDFExportModule !== 'undefined' && window.PDFExportModule.exportToPDF) {
+        window.PDFExportModule.exportToPDF();
+    } else {
+        alert('PDF export functionality is not available.');
+    }
+}
+
+/**
+ * Helper function to count words in text
+ * @param {string} text - Text to count words in
+ * @returns {number} Word count
+ */
+function countWords(text) {
+    if (!text) return 0;
+    return text.trim().split(/\s+/).filter(word => word.length > 0).length;
+}
+
+/**
+ * Escape HTML to prevent XSS
+ * @param {string} text - Text to escape
+ * @returns {string} Escaped text
+ */
+function escapeHtml(text) {
+    if (!text) return '';
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+}
+
+/**
+ * Create category buttons for manual grading (matching GPT format)
+ * @returns {string} HTML string for category buttons
+ */
+function createManualCategoryButtons() {
+    return `
+        <button class="category-btn" data-category="grammar" style="background: transparent; color: #FF8C00; border: 2px solid #FF8C00; padding: 8px 12px; border-radius: 20px; cursor: pointer; font-weight: bold; transition: all 0.2s;">Grammar Error</button>
+        <button class="category-btn" data-category="vocabulary" style="background: transparent; color: #00A36C; border: 2px solid #00A36C; padding: 8px 12px; border-radius: 20px; cursor: pointer; font-weight: bold; transition: all 0.2s;">Vocabulary Error</button>
+        <button class="category-btn" data-category="mechanics" style="background: #D3D3D3; color: #000000; border: 2px solid #D3D3D3; padding: 8px 12px; border-radius: 20px; cursor: pointer; font-weight: bold; transition: all 0.2s;">Mechanics Error</button>
+        <button class="category-btn" data-category="spelling" style="background: transparent; color: #DC143C; border: 2px solid #DC143C; padding: 8px 12px; border-radius: 20px; cursor: pointer; font-weight: bold; transition: all 0.2s;">Spelling Error</button>
+        <button class="category-btn" data-category="fluency" style="background: #87CEEB; color: #000000; border: 2px solid #87CEEB; padding: 8px 12px; border-radius: 20px; cursor: pointer; font-weight: bold; transition: all 0.2s;">Fluency Error</button>
+        <button class="category-btn" data-category="delete" style="background: transparent; color: #000000; border: 2px solid #000000; padding: 8px 12px; border-radius: 20px; cursor: pointer; font-weight: bold; text-decoration: line-through; transition: all 0.2s;">Delete Word</button>
+    `;
+}
+
+/**
+ * Create color legend for manual grading (matching GPT format)
+ * @returns {string} HTML string for color legend
+ */
+function createManualColorLegend() {
+    return `
+        <div style="padding: 10px 15px; border-top: 1px solid #ddd; background: #f9f9f9; font-size: 12px;">
+            <strong>Highlight Meanings:</strong>
+            <span style="color: #FF8C00; font-weight: bold; margin-left: 10px;">grammar</span>
+            <span style="color: #00A36C; font-weight: bold; margin-left: 15px;">vocabulary</span>
+            <span style="color: #DC143C; font-weight: bold; margin-left: 15px;">spelling</span>
+            <span style="background: #D3D3D3; color: #000; padding: 2px 6px; border-radius: 3px; font-weight: bold; margin-left: 15px;">mechanics</span>
+            <span style="background: #87CEEB; color: #000; padding: 2px 6px; border-radius: 3px; font-weight: bold; margin-left: 15px;">fluency</span>
+            <span style="color: #000; text-decoration: line-through; font-weight: bold; margin-left: 15px;">delete</span>
+        </div>
+    `;
+}
+
+/**
+ * Setup editable elements for manual grading results (matching GPT format)
+ * @param {Object} result - Manual grading result object
+ */
+function setupManualEditableElements(result) {
+    // Add listeners for score inputs in the category breakdown
+    document.querySelectorAll('.editable-score').forEach(input => {
+        input.addEventListener('input', function() {
+            const category = this.dataset.category;
+            const newPoints = parseInt(this.value) || 0;
+            const maxPoints = parseInt(this.max) || 15;
+
+            // Validate range
+            if (newPoints < 0) this.value = 0;
+            if (newPoints > maxPoints) this.value = maxPoints;
+
+            // Update result object
+            if (result.scores[category]) {
+                result.scores[category].points = parseInt(this.value);
+            }
+
+            // Recalculate total score
+            updateManualTotalScoreInResults(result);
+        });
+    });
+
+    // Add listeners for feedback textareas
+    document.querySelectorAll('.editable-feedback').forEach(textarea => {
+        textarea.addEventListener('input', function() {
+            const category = this.dataset.category;
+            if (result.feedback) {
+                result.feedback[category] = this.value;
+            }
+        });
+    });
+}
+
+/**
+ * Update total score display in manual grading results
+ * @param {Object} result - Manual grading result object
+ */
+function updateManualTotalScoreInResults(result) {
+    if (!result || !result.scores) return;
+
+    let totalPoints = 0;
+    let totalMax = 0;
+
+    Object.values(result.scores).forEach(score => {
+        totalPoints += score.points;
+        totalMax += score.out_of;
+    });
+
+    result.totalScore = totalPoints;
+    result.totalMax = totalMax;
+    result.percentage = Math.round((totalPoints / totalMax) * 100);
+
+    // Update the displayed total score
+    const overallScoreElement = document.querySelector('.overall-score');
+    if (overallScoreElement) {
+        const scoreColor = getScoreColor(result.percentage);
+        overallScoreElement.style.color = scoreColor;
+        overallScoreElement.textContent = `${totalPoints}/${totalMax}`;
+    }
+
+    // Update individual category percentages
+    document.querySelectorAll('.editable-score').forEach(input => {
+        const category = input.dataset.category;
+        const categoryScore = result.scores[category];
+        if (categoryScore) {
+            const percentage = Math.round((categoryScore.points / categoryScore.out_of) * 100);
+            const percentageSpan = input.parentElement.querySelector('span:last-child');
+            if (percentageSpan) {
+                percentageSpan.textContent = `(${percentage}%)`;
+            }
+        }
+    });
+}
+
+// Placeholder functions for compatibility with GPT format
+function clearSelection() {
+    console.log('Clear selection function called');
+}
+
+// Create feedback summary HTML for manual grading
+function createManualFeedbackSummary(result) {
+    const scoreColor = getScoreColor(result.percentage);
+
+    const categoryHTML = Object.entries(result.scores).map(([category, score]) => {
+        const feedback = result.feedback[category] || 'No feedback provided';
+        const categoryName = category === 'content' ? 'Content & Information' :
+                           category === 'organization' ? 'Organization' :
+                           category === 'language' ? 'Language Use' :
+                           category === 'vocabulary' ? 'Vocabulary' :
+                           category === 'grammar' ? 'Grammar' :
+                           category === 'mechanics' ? 'Mechanics & Punctuation' :
+                           category === 'spelling' ? 'Spelling' :
+                           category.charAt(0).toUpperCase() + category.slice(1);
+
+        const categoryColors = {
+            content: '#DC2626',
+            organization: '#7C3AED',
+            language: '#059669',
+            vocabulary: '#4ECDC4',
+            grammar: '#FF6B6B',
+            mechanics: '#F7B731',
+            spelling: '#8B5CF6'
+        };
+
+        const color = categoryColors[category] || '#666';
+        const bgColor = categoryColors[category] ? categoryColors[category] + '20' : '#f5f5f5';
+
+        return `
+            <div class="category-feedback" style="margin: 15px 0; padding: 15px;
+                 border-left: 4px solid ${color};
+                 background: ${bgColor};
+                 border-radius: 0 8px 8px 0;"
+                 data-category="${category}">
+              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                <strong style="color: ${color}; font-size: 1.1em;">
+                  ${categoryName}
+                </strong>
+                <div style="display: flex; align-items: center; gap: 5px;">
+                  <input type="number"
+                         class="editable-score"
+                         data-category="${category}"
+                         value="${score.points}"
+                         min="0"
+                         max="${score.out_of}"
+                         style="width: 60px; padding: 4px; border: 1px solid #ddd; border-radius: 3px; text-align: center; font-weight: bold; color: ${color};">
+                  <span style="color: ${color}; font-weight: bold; font-size: 1.2em;">/${score.out_of}</span>
+                </div>
+              </div>
+              <div style="background: white; padding: 10px; border-radius: 4px; line-height: 1.4;">
+                <textarea class="editable-feedback"
+                          data-category="${category}"
+                          style="width: 100%; min-height: 80px; border: 1px solid #ddd; border-radius: 3px; padding: 8px; resize: vertical; font-family: inherit; line-height: 1.4;">${feedback}</textarea>
+              </div>
+            </div>
+        `;
+    }).join('');
+
+    return `
+        <div class="grading-summary">
+          <h2>Grading Results</h2>
+
+          <div class="overall-score" style="color: ${scoreColor}; font-size: 2em; font-weight: bold; text-align: center; margin: 20px 0;">
+            ${result.totalScore}/${result.totalMax}
+          </div>
+
+          <div class="teacher-notes editable-section" style="background: #e8f5e8; padding: 15px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #4CAF50; cursor: pointer; border: 2px solid transparent;" onclick="editTeacherNotes(this)" title="Click to edit teacher notes">
+            <strong>📝 Teacher Notes:</strong> <span class="teacher-notes-content">${result.overallFeedback}</span>
+            <span class="edit-indicator" style="font-size: 10px; margin-left: 5px; color: #666;">✎</span>
+          </div>
+
+          <div class="stats-row" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; margin: 20px 0;">
+            <div class="editable-stat" style="padding: 10px; background: #e3f2fd; border-radius: 4px; text-align: center; cursor: pointer; border: 2px solid transparent;" onclick="editStat(this, 'word_count')" title="Click to edit">
+              <strong>📊 Word Count</strong><br>
+              <span class="stat-value" style="font-size: 1.2em; color: #1976D2;">${countWords(result.essayText)}</span>
+              <span class="edit-indicator" style="font-size: 10px; margin-left: 2px; color: #666;">✎</span>
+            </div>
+            <div class="editable-stat" style="padding: 10px; background: #f3e5f5; border-radius: 4px; text-align: center; cursor: pointer; border: 2px solid transparent;" onclick="editTransitions(this)" title="Click to edit">
+              <strong>🔗 Transitions</strong><br>
+              <span class="stat-value" style="font-size: 1.2em; color: #7B1FA2;">0 found</span>
+              <span class="edit-indicator" style="font-size: 10px; margin-left: 2px; color: #666;">✎</span>
+            </div>
+            <div class="editable-stat" style="padding: 10px; background: #e8f5e8; border-radius: 4px; text-align: center; cursor: pointer; border: 2px solid transparent;" onclick="editVocabulary(this)" title="Click to edit">
+              <strong>📚 Class Vocabulary</strong><br>
+              <span class="stat-value" style="font-size: 1.2em; color: #388E3C;">0 used</span>
+              <span class="edit-indicator" style="font-size: 10px; margin-left: 2px; color: #666;">✎</span>
+            </div>
+            <div class="editable-stat" style="padding: 10px; background: #fff3e0; border-radius: 4px; text-align: center; cursor: pointer; border: 2px solid transparent;" onclick="editGrammar(this)" title="Click to edit">
+              <strong>📖 Grammar</strong><br>
+              <span class="stat-value" style="font-size: 1.2em; color: #F57C00;">0 structures</span>
+              <span class="edit-indicator" style="font-size: 10px; margin-left: 2px; color: #666;">✎</span>
+            </div>
+          </div>
+
+          <div class="category-breakdown">
+            <h3>Category Breakdown:</h3>
+            ${categoryHTML}
+          </div>
+
+          <div class="encouragement" style="background: #fff3cd; border: 1px solid #ffeaa7; padding: 20px; border-radius: 8px; margin: 20px 0;">
+            <h3 style="color: #856404; margin-top: 0;">🌟 Next Steps to Improve:</h3>
+            <ul style="margin: 10px 0; padding-left: 20px;">
+              <li style="margin: 8px 0; color: #856404;">Keep up the good work!</li>
+            </ul>
+          </div>
+        </div>
+    `;
+}
+
+// Test function for manual grading
+function testManualGrading() {
+    alert('TEST FUNCTION CALLED - VERSION 11 NEW CACHE');
+    console.log('🧪 TESTING MANUAL GRADING DISPLAY V11 NEW CACHE...');
+
+    const testResult = {
+        studentName: "Test Student",
+        essayText: "This is a test essay. It has multiple sentences. This helps us test the formatting and display functionality.",
+        scores: {
+            content: { points: 12, out_of: 15 },
+            organization: { points: 10, out_of: 15 },
+            language: { points: 8, out_of: 15 },
+            vocabulary: { points: 11, out_of: 15 },
+            grammar: { points: 9, out_of: 15 },
+            mechanics: { points: 13, out_of: 15 },
+            spelling: { points: 7, out_of: 10 }
+        },
+        feedback: {
+            content: "Good content overall.",
+            organization: "Could improve organization.",
+            language: "Language use needs work.",
+            vocabulary: "Nice vocabulary choices.",
+            grammar: "Some grammar issues.",
+            mechanics: "Excellent mechanics.",
+            spelling: "Minor spelling errors."
+        },
+        overallFeedback: "This is a test of the manual grading system. The student shows promise.",
+        totalScore: 80,
+        totalMax: 100,
+        percentage: 80,
+        isManual: true,
+        timestamp: new Date().toISOString()
+    };
+
+    console.log('📊 Test result object:', testResult);
+
+    // For testing, bypass the format endpoint and use shared components directly
+    const resultsDiv = document.getElementById('manualResults');
+    if (!resultsDiv) return;
+
+    if (window.GradingDisplayModule && window.GradingDisplayModule.createSingleEssayHTML) {
+        console.log('✅ Using shared createSingleEssayHTML function for test');
+
+        // Format the test result to match what createSingleEssayHTML expects
+        console.log('🔧 CREATING FEEDBACK SUMMARY...');
+        const feedbackSummary = createManualFeedbackSummary(testResult);
+        console.log('📋 Feedback summary created:', feedbackSummary);
+
+        const formattedText = `<span class="text-segment" data-segment-id="0">${escapeHtml(testResult.essayText)}</span>`;
+        console.log('📄 Formatted text:', formattedText);
+
+        const formatted = {
+            feedbackSummary: feedbackSummary,
+            formattedText: formattedText
+        };
+
+        console.log('📝 V11 FINAL FORMATTED DATA:', formatted);
+        resultsDiv.innerHTML = window.GradingDisplayModule.createSingleEssayHTML(testResult.studentName, formatted);
+
+        // Setup editable elements
+        if (window.GradingDisplayModule.setupEditableElements) {
+            window.GradingDisplayModule.setupEditableElements();
+        }
+    } else {
+        console.log('❌ Shared components not available, using basic display');
+        displayManualGradingResultsBasic(testResult);
+    }
+}
+
+// Make clearManualForm and test function globally available
+window.clearManualForm = clearManualForm;
+window.testManualGrading = testManualGrading;
+window.saveEditModal = saveEditModal;
+
+// Export functions for use in other modules
+window.UIInteractionsModule = {
+    switchTab,
+    showManualGradingInterface,
+    saveManualGrading,
+    cancelManualGrading,
+    openTeacherNotesModal,
+    closeTeacherNotesModal,
+    saveTeacherNotes,
+    editTeacherNotes,
+    editStat,
+    editTransitions,
+    editVocabulary,
+    editGrammar,
+    getScoreColor,
+    closeEditModal,
+    initializeUIInteractions,
+    setupManualGrading,
+    handleManualGradingSubmission,
+    displayManualGradingResults,
+    updateManualScore,
+    clearManualForm,
+    clearManualResults,
+    createManualEssayHTML,
+    displayManualGradingResultsBasic,
+    countWords,
+    escapeHtml,
+    createManualCategoryButtons,
+    createManualColorLegend,
+    setupManualEditableElements,
+    updateManualTotalScoreInResults
+};

@@ -15,12 +15,6 @@ This file contains ideas for future development that haven't been implemented ye
   - "Download All" button at the bottom for bulk export
   - Improves organization and workflow for teachers grading multiple essays
 
-### Button Order Fix
-- [ ] **Reverse the order of "Add Another Essay" and "Grade Essay" buttons**
-  - Current order is counterintuitive and leads to clicking wrong button
-  - Grade Essay button should be more prominent/first
-  - Improves user workflow and reduces errors
-
 ## 🚀 Potential Features
 
 ### AI & Grading Improvements

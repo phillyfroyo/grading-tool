@@ -3,22 +3,22 @@
 
 export function buildErrorDetectionPrompt(classProfile, studentText) {
   return `
-You are an expert ESL writing grader. Find individual, specific errors - NOT sentence rewrites.
+You are an expert ESL writing grader. Find individual, specific errors - NOT sentence rewrites. *review*
 
 ## GOAL
 Mark individual mistakes like a copy editor. Each error = separate JSON entry.
 
-## CATEGORIES
+## CATEGORIES *review*
 - spelling — misspelled words
 - vocabulary — wrong word, collocation, or part of speech
 - grammar — tense, agreement, articles, prepositions, modals, sentence structure
 - mechanics — ONLY mark exact punctuation spots (1-2 words max)
 - fluency — naturalness coaching for awkward but correct language
 
-## ATOMIC ERROR RULE
+## ATOMIC ERROR RULE *review*
 **MAXIMUM: 6 words per error. Each error = ONE mistake only.**
 
-WRONG: "I am Sergio, I COORDINATE the bussiness area" → grammar (whole phrase)
+WRONG: "I am Sergio, I COORDINATE the bussiness area" → grammar (whole phrase) *review*
 CORRECT: 
 - "bussiness" → spelling ("bussiness" → "business")
 

@@ -460,14 +460,23 @@ function renderSegmentsToHTML(segments, options = {}) {
       
       const issueDesc = segment.issue.message || segment.issue.correction || segment.issue.text;
       const coachingAttr = segment.issue.coaching_only ? 'data-coaching-only="true"' : '';
-      return `<mark data-type="${escapeHtml(issueCategory)}" 
+
+      // Extract notes/explanation from the message
+      // If message contains arrow (→), it's a correction, use full message as notes
+      // Otherwise, use message as notes directly
+      const notes = segment.issue.explanation || segment.issue.notes || issueDesc || '';
+
+      return `<mark class="highlight-${issueCategory} highlight"
+                   data-type="${escapeHtml(issueCategory)}"
+                   data-category="${escapeHtml(issueCategory)}"
                    data-message="${escapeHtml(issueDesc)}"
+                   data-notes="${escapeHtml(notes)}"
+                   data-original-text="${escapeHtml(segment.text)}"
                    ${coachingAttr}
                    ${editableAttrs}
-                   style="${styleProps}" 
-                   title="${escapeHtml(issueDesc)}">
+                   style="${styleProps}; cursor: pointer;"
+                   title="${escapeHtml(notes)}">
                 ${escapeHtmlWithFormatting(segment.text)}
-                ${editable ? `<span class="edit-indicator" style="font-size: 10px; margin-left: 2px;">✎</span>` : ''}
               </mark>`;
     }
   }).join('');
@@ -487,8 +496,6 @@ function generateFeedbackSummary(scores, total, meta, teacherNotes, encouragemen
   
   let html = `
     <div class="grading-summary">
-      <h2>Grading Results</h2>
-      
       <div class="overall-score" style="color: ${scoreColor}; font-size: 2em; font-weight: bold; text-align: center; margin: 20px 0;">
         ${total?.points || 0}/${total?.out_of || 100}
       </div>
@@ -549,14 +556,22 @@ function generateFeedbackSummary(scores, total, meta, teacherNotes, encouragemen
             <strong style="color: ${categoryInfo.color}; font-size: 1.1em;">
               ${categoryInfo.name}
             </strong>
-            <div style="display: flex; align-items: center; gap: 5px;">
-              <input type="number" 
-                     class="editable-score" 
-                     data-category="${category}"
-                     value="${details.points}" 
-                     min="0" 
-                     max="${details.out_of}"
-                     style="width: 60px; padding: 4px; border: 1px solid #ddd; border-radius: 3px; text-align: center; font-weight: bold; color: ${categoryColor};">
+            <div style="display: flex; align-items: center; gap: 5px; position: relative;">
+              <div class="score-input-container" style="position: relative;">
+                <input type="number"
+                       class="editable-score"
+                       data-category="${category}"
+                       value="${details.points}"
+                       min="0"
+                       max="${details.out_of}"
+                       style="width: 80px; height: 40px; padding: 8px 30px 8px 8px; border: 2px solid #ddd; border-radius: 6px; text-align: center; font-weight: bold; font-size: 1.2em; color: ${categoryColor};">
+
+                <!-- Large clickable areas for increment/decrement - 50/50 split -->
+                <div class="arrow-up-area" style="position: absolute; top: 0; right: 0; width: 35px; height: 50%; cursor: pointer; z-index: 10; background: transparent;"
+                     onclick="this.previousElementSibling.stepUp(); this.previousElementSibling.dispatchEvent(new Event('input'));"></div>
+                <div class="arrow-down-area" style="position: absolute; bottom: 0; right: 0; width: 35px; height: 50%; cursor: pointer; z-index: 10; background: transparent;"
+                     onclick="this.previousElementSibling.previousElementSibling.stepDown(); this.previousElementSibling.previousElementSibling.dispatchEvent(new Event('input'));"></div>
+              </div>
               <span style="color: ${categoryColor}; font-weight: bold; font-size: 1.2em;">/${details.out_of}</span>
             </div>
           </div>
@@ -576,7 +591,10 @@ function generateFeedbackSummary(scores, total, meta, teacherNotes, encouragemen
             <strong style="color: ${categoryInfo.color}; font-size: 1.1em;">
               ${categoryInfo.name}
             </strong>
-            <span style="color: ${categoryColor}; font-weight: bold; font-size: 1.2em;">
+            <span class="editable-stat-score" style="color: ${categoryColor}; font-weight: bold; font-size: 1.2em; cursor: pointer; border: 2px solid transparent;"
+                  onclick="editStat(this, '${categoryInfo.name} Score')"
+                  title="Click to edit score"
+                  data-category="${category}">
               ${details.points}/${details.out_of}
             </span>
           </div>
@@ -589,18 +607,52 @@ function generateFeedbackSummary(scores, total, meta, teacherNotes, encouragemen
   
   html += `
       </div>
-      
-      ${encouragementSteps ? `
-      <div class="encouragement" style="background: #fff3cd; border: 1px solid #ffeaa7; padding: 20px; border-radius: 8px; margin: 20px 0;">
-        <h3 style="color: #856404; margin-top: 0;">🌟 Next Steps to Improve:</h3>
-        <ul style="margin: 10px 0; padding-left: 20px;">
-          ${Array.isArray(encouragementSteps) 
-            ? encouragementSteps.map(step => `<li style="margin: 8px 0; color: #856404;">${escapeHtml(step)}</li>`).join('')
-            : `<li style="margin: 8px 0; color: #856404;">${escapeHtml(encouragementSteps)}</li>`}
-        </ul>
-      </div>` : ''}
-    </div>`;
-  
+
+    </div>
+
+    <style>
+      /* Hide default arrows since we have our own large clickable areas */
+      .editable-score::-webkit-outer-spin-button,
+      .editable-score::-webkit-inner-spin-button {
+        -webkit-appearance: none;
+        margin: 0;
+      }
+
+      /* Firefox */
+      .editable-score[type=number] {
+        -moz-appearance: textfield;
+      }
+
+      /* Visual feedback for clickable areas */
+      .arrow-up-area:hover,
+      .arrow-down-area:hover {
+        background: rgba(0, 123, 255, 0.1) !important;
+      }
+
+      /* Add subtle visual cues */
+      .score-input-container:hover .arrow-up-area::after {
+        content: '▲';
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        font-size: 10px;
+        color: #666;
+        pointer-events: none;
+      }
+
+      .score-input-container:hover .arrow-down-area::after {
+        content: '▼';
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        font-size: 10px;
+        color: #666;
+        pointer-events: none;
+      }
+    </style>`;
+
   return html;
 }
 

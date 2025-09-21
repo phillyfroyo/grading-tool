@@ -1,0 +1,517 @@
+/**
+ * Essay Editing Module
+ * Handles interactive essay editing, highlighting, text selection, and manual grading
+ */
+
+// Global state for essay editing
+let selectedCategory = null;
+let selectedRange = null;
+let editingElement = null;
+
+/**
+ * Initialize essay editing for single essays
+ */
+function initializeEssayEditing() {
+    setupCategoryButtons();
+    setupTextSelection();
+    migrateLegacyHighlights();
+}
+
+/**
+ * Initialize essay editing for batch essays
+ * @param {number} essayIndex - Essay index for batch processing
+ * @param {Object} gradingResult - Grading result object
+ * @param {Object} originalData - Original essay data
+ */
+function initializeBatchEssayEditing(essayIndex, gradingResult, originalData) {
+    setupBatchCategoryButtons(essayIndex);
+    setupBatchTextSelection(essayIndex);
+    // Store essay-specific data for editing
+    window[`batchGradingData_${essayIndex}`] = { gradingResult, originalData };
+}
+
+/**
+ * Setup category buttons for single essays
+ */
+function setupCategoryButtons() {
+    document.querySelectorAll('.category-btn').forEach(btn => {
+        btn.addEventListener('click', function() {
+            selectCategory(this.dataset.category);
+        });
+    });
+}
+
+/**
+ * Setup category buttons for batch essays
+ * @param {number} essayIndex - Essay index
+ */
+function setupBatchCategoryButtons(essayIndex) {
+    document.querySelectorAll(`.category-btn[data-essay-index="${essayIndex}"]`).forEach(btn => {
+        btn.addEventListener('click', function() {
+            selectBatchCategory(this.dataset.category, essayIndex);
+        });
+    });
+}
+
+/**
+ * Setup text selection handling for single essays
+ */
+function setupTextSelection() {
+    const essayContent = document.querySelector('.formatted-essay-content');
+    if (essayContent) {
+        essayContent.addEventListener('mouseup', handleTextSelection);
+    }
+}
+
+/**
+ * Setup text selection handling for batch essays
+ * @param {number} essayIndex - Essay index
+ */
+function setupBatchTextSelection(essayIndex) {
+    const essayContent = document.querySelector(`.formatted-essay-content[data-essay-index="${essayIndex}"]`);
+    if (essayContent) {
+        essayContent.addEventListener('mouseup', (e) => handleBatchTextSelection(e, essayIndex));
+    }
+}
+
+/**
+ * Select a category for highlighting
+ * @param {string} category - Category name
+ */
+function selectCategory(category) {
+    selectedCategory = category;
+
+    // Update button styles
+    document.querySelectorAll('.category-btn').forEach(btn => {
+        if (btn.dataset.category === category) {
+            btn.style.backgroundColor = btn.style.color || btn.style.borderColor;
+            btn.style.color = 'white';
+        } else {
+            // Reset to original style
+            const originalColor = getOriginalCategoryColor(btn.dataset.category);
+            btn.style.backgroundColor = originalColor.background;
+            btn.style.color = originalColor.color;
+        }
+    });
+
+    updateSelectionStatus(`Selected category: ${category}. Now highlight text to apply.`);
+
+    // Apply to current selection if any
+    if (selectedRange) {
+        applyHighlightToSelection();
+    }
+}
+
+/**
+ * Select category for batch essays
+ * @param {string} category - Category name
+ * @param {number} essayIndex - Essay index
+ */
+function selectBatchCategory(category, essayIndex) {
+    window[`selectedCategory_${essayIndex}`] = category;
+
+    // Update button styles for this specific essay
+    document.querySelectorAll(`.category-btn[data-essay-index="${essayIndex}"]`).forEach(btn => {
+        if (btn.dataset.category === category) {
+            btn.style.backgroundColor = btn.style.color || btn.style.borderColor;
+            btn.style.color = 'white';
+        } else {
+            const originalColor = getOriginalCategoryColor(btn.dataset.category);
+            btn.style.backgroundColor = originalColor.background;
+            btn.style.color = originalColor.color;
+        }
+    });
+
+    updateBatchSelectionStatus(essayIndex, `Selected category: ${category}. Now highlight text to apply.`);
+
+    // Apply to current selection if any
+    const currentRange = window[`selectedRange_${essayIndex}`];
+    if (currentRange) {
+        applyBatchHighlightToSelection(essayIndex);
+    }
+}
+
+/**
+ * Get original category color styling
+ * @param {string} category - Category name
+ * @returns {Object} Color styling object
+ */
+function getOriginalCategoryColor(category) {
+    const colorMap = {
+        grammar: { background: 'transparent', color: '#FF8C00' },
+        vocabulary: { background: 'transparent', color: '#00A36C' },
+        mechanics: { background: '#D3D3D3', color: '#000000' },
+        spelling: { background: 'transparent', color: '#DC143C' },
+        fluency: { background: '#87CEEB', color: '#000000' },
+        delete: { background: 'transparent', color: '#000000' }
+    };
+    return colorMap[category] || { background: 'transparent', color: '#000000' };
+}
+
+/**
+ * Handle text selection in essay content
+ * @param {Event} e - Mouse event
+ */
+function handleTextSelection(e) {
+    const selection = window.getSelection();
+    if (!selection.rangeCount || selection.isCollapsed) {
+        selectedRange = null;
+        updateSelectionStatus('');
+        return;
+    }
+
+    const range = selection.getRangeAt(0);
+    const selectedText = range.toString().trim();
+
+    if (selectedText) {
+        selectedRange = range;
+        updateSelectionStatus(`Selected: "${selectedText}". Choose a category to apply highlighting.`);
+
+        // Auto-apply if category is already selected
+        if (selectedCategory) {
+            applyHighlightToSelection();
+        }
+    }
+}
+
+/**
+ * Handle text selection for batch essays
+ * @param {Event} e - Mouse event
+ * @param {number} essayIndex - Essay index
+ */
+function handleBatchTextSelection(e, essayIndex) {
+    const selection = window.getSelection();
+    if (!selection.rangeCount || selection.isCollapsed) {
+        window[`selectedRange_${essayIndex}`] = null;
+        updateBatchSelectionStatus(essayIndex, '');
+        return;
+    }
+
+    const range = selection.getRangeAt(0);
+    const selectedText = range.toString().trim();
+
+    if (selectedText) {
+        window[`selectedRange_${essayIndex}`] = range;
+        updateBatchSelectionStatus(essayIndex, `Selected: "${selectedText}". Choose a category to apply highlighting.`);
+
+        // Auto-apply if category is already selected
+        const currentCategory = window[`selectedCategory_${essayIndex}`];
+        if (currentCategory) {
+            applyBatchHighlightToSelection(essayIndex);
+        }
+    }
+}
+
+/**
+ * Apply highlighting to current selection
+ */
+function applyHighlightToSelection() {
+    if (!selectedRange || !selectedCategory) return;
+
+    const selectedText = selectedRange.toString().trim();
+    applyHighlight(selectedRange, selectedText, selectedCategory);
+
+    // Clear selection
+    window.getSelection().removeAllRanges();
+    selectedRange = null;
+    updateSelectionStatus('Highlight applied successfully.');
+}
+
+/**
+ * Apply highlighting for batch essays
+ * @param {number} essayIndex - Essay index
+ */
+function applyBatchHighlightToSelection(essayIndex) {
+    const range = window[`selectedRange_${essayIndex}`];
+    const category = window[`selectedCategory_${essayIndex}`];
+
+    if (!range || !category) return;
+
+    const selectedText = range.toString().trim();
+    applyBatchHighlight(range, selectedText, category, essayIndex);
+
+    // Clear selection
+    window.getSelection().removeAllRanges();
+    window[`selectedRange_${essayIndex}`] = null;
+    updateBatchSelectionStatus(essayIndex, 'Highlight applied successfully.');
+}
+
+/**
+ * Apply highlight to selected text
+ * @param {Range} range - Selection range
+ * @param {string} text - Selected text
+ * @param {string} category - Highlight category
+ */
+function applyHighlight(range, text, category) {
+    try {
+        const mark = document.createElement('mark');
+        mark.className = `highlight-${category}`;
+        mark.dataset.category = category;
+        mark.dataset.originalText = text;
+        mark.style.cursor = 'pointer';
+        mark.title = `${category}: ${text}`;
+
+        // Add unique ID for modal reference
+        mark.id = `highlight-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+
+        // Apply visual styling
+        updateHighlightVisualStyling(mark, category);
+
+        // Add click handler for editing
+        mark.addEventListener('click', function(e) {
+            e.stopPropagation();
+            editHighlight(this);
+        });
+
+        range.surroundContents(mark);
+    } catch (error) {
+        console.error('Error applying highlight:', error);
+        updateSelectionStatus('Error applying highlight. Try selecting plain text only.');
+    }
+}
+
+/**
+ * Apply highlight for batch essays
+ * @param {Range} range - Selection range
+ * @param {string} text - Selected text
+ * @param {string} category - Highlight category
+ * @param {number} essayIndex - Essay index
+ */
+function applyBatchHighlight(range, text, category, essayIndex) {
+    try {
+        const mark = document.createElement('mark');
+        mark.className = `highlight-${category}`;
+        mark.dataset.category = category;
+        mark.dataset.originalText = text;
+        mark.dataset.essayIndex = essayIndex;
+        mark.style.cursor = 'pointer';
+        mark.title = `${category}: ${text}`;
+
+        // Apply visual styling
+        updateHighlightVisualStyling(mark, category);
+
+        // Add click handler for editing
+        mark.addEventListener('click', function(e) {
+            e.stopPropagation();
+            editBatchHighlight(this, essayIndex);
+        });
+
+        range.surroundContents(mark);
+    } catch (error) {
+        console.error('Error applying highlight:', error);
+        updateBatchSelectionStatus(essayIndex, 'Error applying highlight. Try selecting plain text only.');
+    }
+}
+
+/**
+ * Update highlight visual styling
+ * @param {HTMLElement} element - Highlight element
+ * @param {string} primaryCategory - Primary category
+ */
+function updateHighlightVisualStyling(element, primaryCategory) {
+    const categoryStyles = {
+        grammar: { color: '#FF8C00', backgroundColor: 'rgba(255, 140, 0, 0.3)' },
+        vocabulary: { color: '#00A36C', backgroundColor: 'rgba(0, 163, 108, 0.3)' },
+        mechanics: { backgroundColor: '#D3D3D3', color: '#000000' },
+        spelling: { color: '#DC143C', backgroundColor: 'rgba(220, 20, 60, 0.3)' },
+        fluency: { backgroundColor: '#87CEEB', color: '#000000' },
+        delete: { textDecoration: 'line-through', color: '#000000', backgroundColor: 'rgba(0, 0, 0, 0.1)' }
+    };
+
+    const style = categoryStyles[primaryCategory];
+    if (style) {
+        Object.assign(element.style, style);
+    }
+}
+
+/**
+ * Edit highlight functionality
+ * @param {HTMLElement} markElement - Highlight element to edit
+ */
+function editHighlight(markElement) {
+    editingElement = markElement;
+
+    // Get current categories
+    const categories = (markElement.dataset.category || '').split(',').filter(c => c.trim());
+
+    // Show modal or inline editing interface
+    showHighlightEditModal(markElement, categories);
+}
+
+/**
+ * Edit highlight for batch essays
+ * @param {HTMLElement} element - Highlight element
+ * @param {number} essayIndex - Essay index
+ */
+function editBatchHighlight(element, essayIndex) {
+    // Similar to editHighlight but with batch-specific handling
+    editHighlight(element);
+}
+
+/**
+ * Show highlight edit modal
+ * @param {HTMLElement} element - Highlight element
+ * @param {Array} currentCategories - Current categories
+ */
+function showHighlightEditModal(element, currentCategories) {
+    // Use the custom modal instead of browser prompt
+    const modal = document.getElementById('editModal');
+    const categorySelect = document.getElementById('editCategory');
+    const notesTextarea = document.getElementById('editNotes');
+
+    if (!modal || !categorySelect || !notesTextarea) {
+        console.error('Edit modal elements not found');
+        return;
+    }
+
+    // Set current values
+    const currentCategory = element.dataset.category || '';
+    const currentNotes = element.dataset.notes || '';
+
+    categorySelect.value = currentCategory;
+    notesTextarea.value = currentNotes;
+
+    // Store reference to the element being edited
+    modal.dataset.editingElement = element.id || '';
+
+    // Show the modal
+    modal.style.display = 'block';
+}
+
+/**
+ * Clear current selection
+ * @param {number} essayIndex - Optional essay index for batch essays
+ */
+function clearSelection(essayIndex) {
+    if (essayIndex !== undefined) {
+        // Clear batch selection
+        window[`selectedRange_${essayIndex}`] = null;
+        window[`selectedCategory_${essayIndex}`] = null;
+        updateBatchSelectionStatus(essayIndex, '');
+
+        // Reset category buttons
+        document.querySelectorAll(`.category-btn[data-essay-index="${essayIndex}"]`).forEach(btn => {
+            const originalColor = getOriginalCategoryColor(btn.dataset.category);
+            btn.style.backgroundColor = originalColor.background;
+            btn.style.color = originalColor.color;
+        });
+    } else {
+        // Clear single essay selection
+        selectedRange = null;
+        selectedCategory = null;
+        updateSelectionStatus('');
+
+        // Reset category buttons
+        document.querySelectorAll('.category-btn').forEach(btn => {
+            const originalColor = getOriginalCategoryColor(btn.dataset.category);
+            btn.style.backgroundColor = originalColor.background;
+            btn.style.color = originalColor.color;
+        });
+    }
+
+    // Clear browser selection
+    window.getSelection().removeAllRanges();
+}
+
+/**
+ * Update selection status message
+ * @param {string} message - Status message
+ */
+function updateSelectionStatus(message) {
+    const statusElement = document.getElementById('selectionStatus');
+    if (statusElement) {
+        statusElement.textContent = message;
+    }
+}
+
+/**
+ * Update selection status for batch essays
+ * @param {number} essayIndex - Essay index
+ * @param {string} message - Status message
+ */
+function updateBatchSelectionStatus(essayIndex, message) {
+    const statusElement = document.getElementById(`selectionStatus-${essayIndex}`);
+    if (statusElement) {
+        statusElement.textContent = message;
+    }
+}
+
+/**
+ * Migrate legacy highlights to new format
+ */
+function migrateLegacyHighlights() {
+    const essayContent = document.querySelector('.formatted-essay-content');
+    if (!essayContent) return;
+
+    // Find existing highlights that might need migration
+    const existingHighlights = essayContent.querySelectorAll('mark, span[data-category]');
+    existingHighlights.forEach(element => {
+        if (!element.dataset.category) {
+            // Try to determine category from class name or styling
+            const className = element.className;
+            const category = mapLegacyCategory(className);
+            if (category) {
+                element.dataset.category = category;
+                updateHighlightVisualStyling(element, category);
+            }
+        }
+
+        // Ensure click handler is attached
+        if (!element.onclick) {
+            element.addEventListener('click', function(e) {
+                e.stopPropagation();
+                editHighlight(this);
+            });
+        }
+    });
+}
+
+/**
+ * Map legacy category names to current format
+ * @param {string} oldCategory - Old category name or class
+ * @returns {string} New category name
+ */
+function mapLegacyCategory(oldCategory) {
+    const mapping = {
+        'highlight-grammar': 'grammar',
+        'highlight-vocabulary': 'vocabulary',
+        'highlight-mechanics': 'mechanics',
+        'highlight-spelling': 'spelling',
+        'highlight-fluency': 'fluency',
+        'highlight-delete': 'delete',
+        // Add more mappings as needed
+    };
+    return mapping[oldCategory] || oldCategory;
+}
+
+/**
+ * Format essay text for display
+ * @param {string} text - Raw essay text
+ * @returns {string} Formatted HTML
+ */
+function formatEssayText(text) {
+    // Basic text formatting - convert line breaks to paragraphs
+    return text
+        .split('\n\n')
+        .map(paragraph => `<p>${paragraph.replace(/\n/g, '<br>')}</p>`)
+        .join('');
+}
+
+// Export functions for use in other modules
+window.EssayEditingModule = {
+    initializeEssayEditing,
+    initializeBatchEssayEditing,
+    selectCategory,
+    selectBatchCategory,
+    clearSelection,
+    updateSelectionStatus,
+    updateBatchSelectionStatus,
+    applyHighlight,
+    applyBatchHighlight,
+    editHighlight,
+    editBatchHighlight,
+    formatEssayText,
+    migrateLegacyHighlights,
+    updateHighlightVisualStyling,
+    showHighlightEditModal
+};

@@ -1,0 +1,2685 @@
+
+    <!DOCTYPE html>
+    <html lang="en">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>ESL Essay Grader</title>
+        <link rel="icon" type="image/png" href="/images/LMGM-favicon.png">
+        <style>
+            body {
+                font-family: Arial, sans-serif;
+                margin: 0;
+                padding: 20px;
+                background: #f5f5f5;
+                min-height: 100vh;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+            }
+            .container {
+                max-width: 1200px;
+                width: 100%;
+                background: white;
+                padding: 40px;
+                border-radius: 8px;
+                box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            }
+            .form-group {
+                margin: 15px 0;
+            }
+            label {
+                display: block;
+                margin-bottom: 5px;
+                font-weight: bold;
+            }
+            textarea, input[type="text"], select {
+                width: 100%;
+                padding: 10px;
+                border: 1px solid #ddd;
+                border-radius: 4px;
+                font-size: 14px;
+                box-sizing: border-box;
+            }
+            button {
+                background: #007bff;
+                color: white;
+                padding: 12px 24px;
+                border: none;
+                border-radius: 4px;
+                font-size: 16px;
+                cursor: pointer;
+            }
+            button:hover {
+                background: #0056b3;
+            }
+            button:disabled {
+                background: #ccc;
+                cursor: not-allowed;
+            }
+            #results {
+                margin-top: 30px;
+                display: none;
+            }
+            .loading {
+                text-align: center;
+                padding: 20px;
+                display: none;
+            }
+            .error {
+                color: #dc3545;
+                padding: 10px;
+                background: #f8d7da;
+                border: 1px solid #f5c6cb;
+                border-radius: 4px;
+                margin: 10px 0;
+            }
+            
+            /* Category button styles */
+            .category-btn:hover {
+                transform: translateY(-1px);
+                box-shadow: 0 4px 8px rgba(0,0,0,0.15);
+            }
+            
+            .category-btn:active,
+            .category-btn.selected {
+                transform: translateY(0);
+                outline: 3px solid rgba(0,0,0,0.2);
+                outline-offset: -1px;
+            }
+            
+            .category-btn:focus {
+                outline: 2px solid #007bff;
+                outline-offset: 2px;
+            }
+            
+            /* Reset default mark element styling to prevent yellow background */
+            mark {
+                background: transparent;
+                color: inherit;
+            }
+            
+            /* Allow our custom mark elements to override the reset */
+            mark[data-type] {
+                background: unset;
+                color: unset;
+            }
+        </style>
+    </head>
+    <body>
+        <div class="container">
+            <!-- App Branding Header -->
+            <div style="text-align: center; margin-bottom: 30px; padding: 30px 0; border-bottom: 2px solid #e9ecef;">
+                <img src="/images/LMGM.svg" alt="LMGM - Lean Mean Grading Machine" style="height: 120px; max-width: 100%;">
+            </div>
+
+            <!-- Grading Mode Tabs -->
+            <div class="tab-container" style="margin-bottom: 30px;">
+                <div class="tab-buttons" style="display: flex; border-bottom: 2px solid #e9ecef; margin-bottom: 20px;">
+                    <button class="tab-button active" data-tab="gpt-grader" style="flex: 1; padding: 15px 20px; border: none; background: #007bff; color: white; cursor: pointer; border-radius: 8px 8px 0 0; margin-right: 2px; font-size: 16px; font-weight: bold;">
+                        🤖 GPT Powered Grader
+                    </button>
+                    <button class="tab-button" data-tab="manual-grader" style="flex: 1; padding: 15px 20px; border: none; background: #f8f9fa; color: #6c757d; cursor: pointer; border-radius: 8px 8px 0 0; margin-left: 2px; font-size: 16px; font-weight: bold;">
+                        ✏️ Manual Grading
+                    </button>
+                </div>
+            </div>
+
+            <!-- GPT Powered Grader Tab Content -->
+            <div class="tab-content" id="gpt-grader-content">
+            <form id="gradingForm">
+                <div class="form-group">
+                    <label for="studentName">Student Name:</label>
+                    <input type="text" id="studentName" name="studentName">
+                </div>
+                
+                <div class="form-group">
+                    <label for="classProfile">Class Profile:</label>
+                    <div style="display: flex; gap: 10px; align-items: center;">
+                        <select id="classProfile" name="classProfile" style="flex: 1;">
+                            <option value="">Loading profiles...</option>
+                        </select>
+                        <button type="button" id="manageProfilesBtn" style="padding: 10px 15px; background: #28a745; white-space: nowrap;">
+                            Manage Profiles
+                        </button>
+                    </div>
+                </div>
+                
+                <div class="form-group">
+                    <label for="prompt">Assignment Prompt:</label>
+                    <textarea id="prompt" name="prompt" rows="3" required
+                              placeholder="Enter the essay prompt or assignment instructions..."></textarea>
+                </div>
+
+                <div class="form-group" id="temperatureContainer">
+                    <label for="temperature">Grade Temperature: <span id="temperatureValue">0</span></label>
+                    <div style="margin-top: 5px;">
+                        <input type="range" id="temperature" name="temperature" min="-5" max="5" value="0"
+                               style="width: 100%;" oninput="updateTemperatureDisplay(this.value)">
+                        <div style="display: flex; justify-content: space-between; font-size: 12px; color: #666; margin-top: 5px;">
+                            <span>Harsh (-5)</span>
+                            <span>Rubric (0)</span>
+                            <span>Merciful (+5)</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label>Student Essays:</label>
+                    <div id="essaysContainer">
+                        <div class="essay-entry" data-essay-index="0">
+                            <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 8px;">
+                                <label style="margin: 0; font-weight: 500;">Essay 1:</label>
+                                <input type="text" class="student-name" placeholder="Student name (optional)" style="padding: 5px; border: 1px solid #ddd; border-radius: 4px; width: 200px;">
+                                <button type="button" class="remove-essay-btn" onclick="removeEssay(0)" style="background: #dc3545; color: white; border: none; padding: 5px 10px; border-radius: 4px; cursor: pointer; display: none;">Remove</button>
+                            </div>
+                            <textarea class="student-text" name="studentText" rows="15" required
+                                      placeholder="Paste the student&apos;s essay here..."></textarea>
+                        </div>
+                    </div>
+
+                    <div style="margin-top: 15px; display: flex; gap: 10px;">
+                        <button type="button" id="addEssayBtn" onclick="addAnotherEssay()" style="background: #28a745; color: white; border: none; padding: 10px 15px; border-radius: 4px; cursor: pointer;">
+                            Add Another Essay
+                        </button>
+                        <button type="submit" id="gradeButton">Grade Essays</button>
+                    </div>
+                </div>
+            </form>
+            
+            <div class="loading" id="loading">
+                <p>Grading essay... This may take a few moments.</p>
+            </div>
+            
+            <div id="results"></div>
+            </div>
+
+            <!-- Manual Grading Tab Content -->
+            <div class="tab-content" id="manual-grader-content" style="display: none;">
+                <div class="form-group">
+                    <label for="manualStudentName">Student Name:</label>
+                    <input type="text" id="manualStudentName" placeholder="Enter student name">
+                </div>
+
+                <div class="form-group">
+                    <label for="manualEssayInput">Student Essay:</label>
+                    <textarea id="manualEssayInput" rows="15" placeholder="Paste the student&apos;s essay here..." style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 4px;"></textarea>
+                    <button type="button" id="loadManualEssay" style="margin-top: 10px; background: #28a745; color: white; padding: 8px 15px; border: none; border-radius: 4px; cursor: pointer;">
+                        Load Essay for Manual Grading
+                    </button>
+                </div>
+
+                <!-- Manual Grading Results Area -->
+                <div id="manualResults" style="display: none;">
+                    <!-- This will be populated with empty grading interface -->
+                </div>
+            </div>
+        </div>
+
+        <!-- Profile Management Modal -->
+        <div id="profileModal" style="display: none; position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.4);">
+            <div style="background-color: white; margin: 5% auto; padding: 20px; border-radius: 8px; width: 80%; max-width: 600px; max-height: 80vh; overflow-y: auto;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                    <h2>Manage Class Profiles</h2>
+                    <button id="closeModal" style="background: #dc3545; color: white; border: none; padding: 5px 10px; border-radius: 4px; cursor: pointer;">&times;</button>
+                </div>
+                
+                <div id="profilesList"></div>
+                
+                <button id="addNewProfile" style="background: #007bff; color: white; padding: 10px 20px; border: none; border-radius: 4px; margin-top: 15px; cursor: pointer;">
+                    Add New Profile
+                </button>
+                
+                <!-- Profile Form -->
+                <div id="profileForm" style="display: none; margin-top: 20px; border: 1px solid #ddd; padding: 15px; border-radius: 4px;">
+                    <h3 id="profileFormTitle">Create New Profile</h3>
+                    <form id="profileEditForm">
+                        <input type="hidden" id="profileId">
+                        <div class="form-group">
+                            <label for="profileName">Profile Name:</label>
+                            <input type="text" id="profileName" required placeholder="e.g. Business English B2 - Fall 2024" maxlength="55">
+                        </div>
+                        <div class="form-group">
+                            <label for="profileCefr">CEFR Level:</label>
+                            <select id="profileCefr" required>
+                                <option value="B2">B2 - Upper Intermediate</option>
+                                <option value="C1">C1 - Advanced</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="profileTemperature">Default Temperature: <span id="profileTemperatureValue">0</span></label>
+                            <div style="margin-top: 5px;">
+                                <input type="range" id="profileTemperature" min="-5" max="5"
+                                       style="width: 100%;" oninput="updateProfileTemperatureDisplay(this.value)">
+                                <div style="display: flex; justify-content: space-between; font-size: 12px; color: #666; margin-top: 5px;">
+                                    <span>Harsh (-5)</span>
+                                    <span>Rubric (0)</span>
+                                    <span>Merciful (+5)</span>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label for="profileVocab">Vocabulary (one per line):</label>
+                            <textarea id="profileVocab" rows="6" placeholder="stakeholder&#10;revenue&#10;implement&#10;strategy&#10;collaborate"></textarea>
+                        </div>
+                        <div class="form-group">
+                            <label for="profileGrammar">Grammar Structures (one per line):</label>
+                            <textarea id="profileGrammar" rows="4" placeholder="Present Perfect for experience&#10;Conditionals (2nd and 3rd)&#10;Passive voice"></textarea>
+                        </div>
+                        <div class="form-group">
+                            <label for="profilePrompt">Custom Error Detection Prompt (optional):</label>
+                            <textarea id="profilePrompt" rows="8" placeholder="Enter a custom prompt to override the default error detection behavior for this class profile. Leave empty to use the system default prompt."></textarea>
+                        </div>
+                        <div style="margin-top: 15px;">
+                            <button type="submit" style="background: #28a745; color: white; padding: 10px 20px; border: none; border-radius: 4px; margin-right: 10px; cursor: pointer;">
+                                Save Profile
+                            </button>
+                            <button type="button" id="cancelProfileForm" style="background: #6c757d; color: white; padding: 10px 20px; border: none; border-radius: 4px; cursor: pointer;">
+                                Cancel
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+
+            <!-- Footer -->
+            <div style="text-align: right; margin-top: 30px; padding-top: 20px; border-top: 1px solid #f0f0f0;">
+                <div style="font-size: 10px; color: #adb5bd; font-family: 'Courier New', monospace; letter-spacing: 1px;">LEAN.MEAN.GRADING.MACHINE</div>
+            </div>
+        </div>
+
+        <!-- Custom Highlight Edit Modal -->
+        <div id="highlightEditModal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 1000;">
+            <div id="modalContent" style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); background: white; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.3); max-width: 500px; width: 90%; cursor: default;">
+                <div id="modalHeader" style="background: #f8f9fa; padding: 15px 30px; border-radius: 12px 12px 0 0; border-bottom: 1px solid #dee2e6; cursor: move; user-select: none;">
+                    <h3 id="modalTitle" style="margin: 0; color: #333; font-size: 20px;">✏️ Edit Highlight</h3>
+                    <div style="font-size: 12px; color: #6c757d; margin-top: 2px;">Drag this header to move the window</div>
+                </div>
+                <div style="padding: 30px;">
+                
+                <!-- Modal Category Selector -->
+                <div style="margin-bottom: 20px;">
+                    <div style="font-size: 14px; color: #333; margin-bottom: 10px; font-weight: bold;">Categories:</div>
+                    <div id="modalCategoryButtons" style="display: flex; flex-wrap: wrap; gap: 6px;">
+                        <button class="modal-category-btn" data-category="grammar" style="background: transparent; color: #FF8C00; border: 2px solid #FF8C00; padding: 4px 8px; border-radius: 12px; cursor: pointer; font-weight: bold; font-size: 12px; transition: all 0.2s;">Grammar</button>
+                        <button class="modal-category-btn" data-category="vocabulary" style="background: transparent; color: #00A36C; border: 2px solid #00A36C; padding: 4px 8px; border-radius: 12px; cursor: pointer; font-weight: bold; font-size: 12px; transition: all 0.2s;">Vocabulary</button>
+                        <button class="modal-category-btn" data-category="spelling" style="background: transparent; color: #DC143C; border: 2px solid #DC143C; padding: 4px 8px; border-radius: 12px; cursor: pointer; font-weight: bold; font-size: 12px; transition: all 0.2s;">Spelling</button>
+                        <button class="modal-category-btn" data-category="mechanics" style="background: #D3D3D3; color: #000000; border: 2px solid #D3D3D3; padding: 4px 8px; border-radius: 12px; cursor: pointer; font-weight: bold; font-size: 12px; transition: all 0.2s;">Mechanics</button>
+                        <button class="modal-category-btn" data-category="fluency" style="background: #87CEEB; color: #000000; border: 2px solid #87CEEB; padding: 4px 8px; border-radius: 12px; cursor: pointer; font-weight: bold; font-size: 12px; transition: all 0.2s;">Fluency</button>
+                        <button class="modal-category-btn" data-category="delete" style="background: transparent; color: #000000; border: 2px solid #000000; padding: 4px 8px; border-radius: 12px; cursor: pointer; font-weight: bold; font-size: 12px; text-decoration: line-through; transition: all 0.2s;">Delete</button>
+                    </div>
+                </div>
+                
+                <div style="margin: 20px 0; padding: 15px; background: #f8f9fa; border-radius: 8px; border-left: 4px solid #007bff;">
+                    <div style="font-weight: bold; color: #333; margin-bottom: 8px;">
+                        Selected Text: "<span id="modalSelectedText" style="font-style: italic;"></span>"
+                    </div>
+                    <div style="font-size: 14px; color: #666;">
+                        Category: <span id="modalCategory" style="font-weight: bold;"></span>
+                    </div>
+                </div>
+                
+                <div style="margin: 20px 0;">
+                    <label for="modalFeedback" style="display: block; margin-bottom: 8px; font-weight: bold; color: #333;">
+                        Teacher Feedback/Note:
+                    </label>
+                    <textarea id="modalFeedback" rows="3" style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 4px; font-size: 14px; resize: vertical;" placeholder="Enter your feedback or correction..."></textarea>
+                </div>
+                
+                <div style="display: flex; gap: 10px; justify-content: flex-end; margin-top: 25px;">
+                    <button id="removeHighlightBtn" style="background: #dc3545; color: white; border: none; padding: 10px 20px; border-radius: 6px; cursor: pointer; font-size: 14px;">
+                        🗑️ Remove Highlight
+                    </button>
+                    <button id="cancelEditBtn" style="background: #6c757d; color: white; border: none; padding: 10px 20px; border-radius: 6px; cursor: pointer; font-size: 14px;">
+                        Cancel
+                    </button>
+                    <button id="saveEditBtn" style="background: #28a745; color: white; border: none; padding: 10px 20px; border-radius: 6px; cursor: pointer; font-size: 14px;">
+                        💾 Save Changes
+                    </button>
+                </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Custom Teacher Notes Edit Modal -->
+        <div id="teacherNotesModal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 1000;">
+            <div id="teacherModalContent" style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); background: white; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.3); max-width: 600px; width: 90%; cursor: default;">
+                <div id="teacherModalHeader" style="background: #f8f9fa; padding: 15px 30px; border-radius: 12px 12px 0 0; border-bottom: 1px solid #dee2e6; cursor: move; user-select: none;">
+                    <h3 style="margin: 0; color: #333; font-size: 20px;">📝 Edit Teacher Notes</h3>
+                    <div style="font-size: 12px; color: #6c757d; margin-top: 2px;">Drag this header to move the window</div>
+                </div>
+
+                <div style="padding: 30px;">
+                    <div style="margin: 20px 0;">
+                        <label for="teacherNotesTextarea" style="display: block; margin-bottom: 8px; font-weight: bold; color: #333;">
+                            Teacher Notes:
+                        </label>
+                        <textarea id="teacherNotesTextarea" rows="8" style="width: 100%; padding: 12px; border: 1px solid #ddd; border-radius: 4px; font-size: 14px; resize: vertical; font-family: inherit;" placeholder="Enter your overall notes about this student&apos;s essay..."></textarea>
+                    </div>
+
+                    <div style="display: flex; gap: 10px; justify-content: flex-end; margin-top: 25px;">
+                        <button id="cancelTeacherNotesBtn" style="background: #6c757d; color: white; border: none; padding: 10px 20px; border-radius: 6px; cursor: pointer; font-size: 14px;">
+                            Cancel
+                        </button>
+                        <button id="saveTeacherNotesBtn" style="background: #28a745; color: white; border: none; padding: 10px 20px; border-radius: 6px; cursor: pointer; font-size: 14px;">
+                            💾 Save Notes
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <script>
+            // Load profiles on page load
+            let profiles = [];
+            
+            async function loadProfilesData() {
+                try {
+                    console.log('🔄 Loading profiles data...');
+                    const response = await fetch('/api/profiles?' + Date.now()); // Add cache buster
+                    const data = await response.json();
+                    profiles = data.profiles || [];
+                    console.log('📊 Loaded profiles:', profiles.length);
+                    updateProfileDropdown();
+                } catch (error) {
+                    console.error('Error loading profiles:', error);
+                }
+            }
+            
+            function updateProfileDropdown() {
+                const select = document.getElementById('classProfile');
+                select.innerHTML = '<option value="">Select a class profile...</option>';
+                profiles.forEach(profile => {
+                    const option = document.createElement('option');
+                    option.value = profile.id;
+                    option.textContent = profile.name + ' (' + profile.cefrLevel + ')';
+                    select.appendChild(option);
+                });
+            }
+
+            function updateTemperatureDisplay(value) {
+                document.getElementById('temperatureValue').textContent = value;
+            }
+
+            function updateProfileTemperatureDisplay(value) {
+                document.getElementById('profileTemperatureValue').textContent = value;
+            }
+
+            // Handle profile selection change
+            document.getElementById('classProfile').addEventListener('change', function(e) {
+                const selectedProfileId = e.target.value;
+                const promptTextarea = document.getElementById('prompt');
+                const promptContainer = document.querySelector('label[for="prompt"]').parentElement;
+                const temperatureContainer = document.getElementById('temperatureContainer');
+                const temperatureSlider = document.getElementById('temperature');
+
+                if (selectedProfileId) {
+                    const selectedProfile = profiles.find(p => p.id === selectedProfileId);
+
+                    // Handle prompt visibility
+                    if (selectedProfile && selectedProfile.prompt && selectedProfile.prompt.trim()) {
+                        // Profile has a built-in prompt, populate and hide the prompt field
+                        promptTextarea.value = selectedProfile.prompt;
+                        promptContainer.style.display = 'none';
+                        promptTextarea.style.display = 'none';
+                    } else {
+                        // Profile has no built-in prompt, show the prompt field
+                        promptContainer.style.display = 'block';
+                        promptTextarea.style.display = 'block';
+                        if (promptTextarea.value === '' || profiles.some(p => p.prompt === promptTextarea.value)) {
+                            promptTextarea.value = '';
+                        }
+                    }
+
+                    // Hide temperature slider when profile is selected (profile has default temp)
+                    temperatureContainer.style.display = 'none';
+
+                    // Set temperature from profile (if available)
+                    if (selectedProfile && selectedProfile.temperature !== undefined) {
+                        temperatureSlider.value = selectedProfile.temperature;
+                        updateTemperatureDisplay(selectedProfile.temperature);
+                    }
+                } else {
+                    // No profile selected, show prompt field and temperature slider
+                    promptContainer.style.display = 'block';
+                    promptTextarea.style.display = 'block';
+                    promptTextarea.value = '';
+                    temperatureContainer.style.display = 'block';
+                    temperatureSlider.value = 0;
+                    updateTemperatureDisplay(0);
+                }
+            });
+            
+            // Load profiles when page loads
+            loadProfilesData();
+            
+            document.getElementById('gradingForm').addEventListener('submit', async function(e) {
+                e.preventDefault();
+                
+                const formData = new FormData(this);
+                const selectedProfileId = formData.get('classProfile');
+                let temperature = 0;
+
+                // If no profile selected, use slider value; if profile selected, use profile's temperature
+                if (selectedProfileId) {
+                    const selectedProfile = profiles.find(p => p.id === selectedProfileId);
+                    temperature = selectedProfile?.temperature || 0;
+                } else {
+                    temperature = parseInt(formData.get('temperature')) || 0;
+                }
+
+                // Collect all essays
+                const essays = [];
+                const essayEntries = document.querySelectorAll('.essay-entry');
+
+                essayEntries.forEach((entry, index) => {
+                    const studentText = entry.querySelector('.student-text').value.trim();
+                    const studentName = entry.querySelector('.student-name').value.trim() || 'Student ' + (index + 1);
+
+                    if (studentText) {
+                        essays.push({
+                            studentText: studentText,
+                            studentName: studentName
+                        });
+                    }
+                });
+
+                if (essays.length === 0) {
+                    alert('Please enter at least one essay to grade.');
+                    return;
+                }
+
+                const data = {
+                    essays: essays,
+                    prompt: formData.get('prompt'),
+                    classProfile: selectedProfileId,
+                    temperature: temperature
+                };
+                
+                // Show loading, hide results
+                const loadingDiv = document.getElementById('loading');
+                if (essays.length === 1) {
+                    loadingDiv.innerHTML = '<p>Grading essay... This may take a few moments.</p>';
+                } else {
+                    loadingDiv.innerHTML = '<p>Grading ' + essays.length + ' essays... This may take a few moments.</p>';
+                }
+                loadingDiv.style.display = 'block';
+                document.getElementById('results').style.display = 'none';
+                document.getElementById('gradeButton').disabled = true;
+
+                try {
+                    let endpoint, requestData;
+
+                    if (essays.length === 1) {
+                        // Single essay - use existing format for backward compatibility
+                        endpoint = '/api/grade';
+                        requestData = {
+                            studentText: essays[0].studentText,
+                            prompt: data.prompt,
+                            studentName: essays[0].studentName,
+                            classProfile: data.classProfile,
+                            temperature: data.temperature
+                        };
+                    } else {
+                        // Multiple essays - use batch endpoint
+                        endpoint = '/api/grade-batch';
+                        requestData = data;
+                    }
+
+                    const response = await fetch(endpoint, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify(requestData)
+                    });
+                    
+                    if (!response.ok) {
+                        throw new Error('Network response was not ok');
+                    }
+                    
+                    const result = await response.json();
+
+                    // Check if this is a batch result
+                    if (result.results && Array.isArray(result.results)) {
+                        displayBatchResults(result, data);
+                    } else {
+                        displayResults(result, data);
+                    }
+                    
+                } catch (error) {
+                    console.error('Error:', error);
+                    document.getElementById('results').innerHTML = 
+                        '<div class="error">Error grading essay. Please try again.</div>';
+                    document.getElementById('results').style.display = 'block';
+                } finally {
+                    document.getElementById('loading').style.display = 'none';
+                    document.getElementById('gradeButton').disabled = false;
+                }
+            });
+
+            // Essay management functions
+            let essayCount = 1;
+
+            function addAnotherEssay() {
+                const container = document.getElementById('essaysContainer');
+                const newIndex = essayCount;
+
+                const essayDiv = document.createElement('div');
+                essayDiv.className = 'essay-entry';
+                essayDiv.setAttribute('data-essay-index', newIndex);
+                essayDiv.style.marginTop = '20px';
+                essayDiv.style.borderTop = '1px solid #ddd';
+                essayDiv.style.paddingTop = '15px';
+
+                essayDiv.innerHTML =
+                    '<div style="display: flex; align-items: center; gap: 10px; margin-bottom: 8px;">' +
+                        '<label style="margin: 0; font-weight: 500;">Essay ' + (newIndex + 1) + ':</label>' +
+                        '<input type="text" class="student-name" placeholder="Student name (optional)" style="padding: 5px; border: 1px solid #ddd; border-radius: 4px; width: 200px;">' +
+                        '<button type="button" class="remove-essay-btn" onclick="removeEssay(' + newIndex + ')" style="background: #dc3545; color: white; border: none; padding: 5px 10px; border-radius: 4px; cursor: pointer;">Remove</button>' +
+                    '</div>' +
+                    '<textarea class="student-text" name="studentText" rows="15" required placeholder="Paste the student&apos;s essay here..."></textarea>';
+
+                container.appendChild(essayDiv);
+                essayCount++;
+
+                // Show remove buttons for all essays when there's more than one
+                updateRemoveButtons();
+            }
+
+            function removeEssay(index) {
+                const essayToRemove = document.querySelector('[data-essay-index="' + index + '"]');
+                if (essayToRemove) {
+                    essayToRemove.remove();
+                    // Renumber remaining essays
+                    renumberEssays();
+                    updateRemoveButtons();
+                }
+            }
+
+            function renumberEssays() {
+                const essays = document.querySelectorAll('.essay-entry');
+                essays.forEach((essay, index) => {
+                    essay.setAttribute('data-essay-index', index);
+                    const label = essay.querySelector('label');
+                    if (label) {
+                        label.textContent = 'Essay ' + (index + 1) + ':';
+                    }
+                    const removeBtn = essay.querySelector('.remove-essay-btn');
+                    if (removeBtn) {
+                        removeBtn.setAttribute('onclick', 'removeEssay(' + index + ')');
+                    }
+                });
+                essayCount = essays.length;
+            }
+
+            function updateRemoveButtons() {
+                const essays = document.querySelectorAll('.essay-entry');
+                const showRemoveButtons = essays.length > 1;
+
+                essays.forEach(essay => {
+                    const removeBtn = essay.querySelector('.remove-essay-btn');
+                    if (removeBtn) {
+                        removeBtn.style.display = showRemoveButtons ? 'inline-block' : 'none';
+                    }
+                });
+            }
+
+            function displayBatchResults(batchResult, originalData) {
+                console.log('🎯 DISPLAY BATCH RESULTS CALLED');
+                console.log('Batch result:', batchResult);
+                console.log('Original data:', originalData);
+
+                const resultsDiv = document.getElementById('results');
+                let batchHtml = '<div class="batch-results">';
+
+                batchHtml += '<h2>Batch Grading Results (' + batchResult.totalEssays + ' essays)</h2>';
+
+                // Summary
+                const successCount = batchResult.results.filter(r => r.success).length;
+                const failureCount = batchResult.results.filter(r => !r.success).length;
+
+                batchHtml += '<div class="batch-summary" style="background: #f8f9fa; padding: 15px; border-radius: 8px; margin: 15px 0;">';
+                batchHtml += '<p><strong>Summary:</strong> ' + successCount + ' successful, ' + failureCount + ' failed</p>';
+                batchHtml += '</div>';
+
+                // Individual results
+                batchResult.results.forEach((essay, index) => {
+                    if (essay.success) {
+                        batchHtml += '<div class="essay-result" style="border: 1px solid #ddd; margin: 15px 0; border-radius: 8px; overflow: hidden;">';
+                        batchHtml += '<div class="essay-header" style="background: #e9ecef; padding: 10px; font-weight: bold;">';
+                        batchHtml += 'Essay ' + (index + 1) + ': ' + essay.studentName;
+                        batchHtml += '</div>';
+                        batchHtml += '<div class="essay-content" style="padding: 15px;">';
+
+                        // Use the same formatting as single essay results
+                        batchHtml += '<div id="batch-essay-' + index + '" class="individual-essay-result">Loading formatted result...</div>';
+
+                        batchHtml += '</div></div>';
+                    } else {
+                        batchHtml += '<div class="essay-result" style="border: 1px solid #dc3545; margin: 15px 0; border-radius: 8px; overflow: hidden;">';
+                        batchHtml += '<div class="essay-header" style="background: #f8d7da; padding: 10px; font-weight: bold; color: #721c24;">';
+                        batchHtml += 'Essay ' + (index + 1) + ': ' + essay.studentName + ' - FAILED';
+                        batchHtml += '</div>';
+                        batchHtml += '<div class="essay-content" style="padding: 15px;">';
+                        batchHtml += '<p style="color: #721c24;">Error: ' + essay.error + '</p>';
+                        batchHtml += '</div></div>';
+                    }
+                });
+
+                batchHtml += '</div>';
+                resultsDiv.innerHTML = batchHtml;
+                resultsDiv.style.display = 'block';
+
+                // Format each successful essay individually
+                batchResult.results.forEach((essay, index) => {
+                    if (essay.success) {
+                        const essayFromOriginal = originalData.essays[index];
+
+                        fetch('/format', {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json'
+                            },
+                            body: JSON.stringify({
+                                studentText: essayFromOriginal.studentText,
+                                gradingResults: essay.result,
+                                studentName: essay.studentName,
+                                editable: true
+                            })
+                        })
+                        .then(response => {
+                            if (!response.ok) {
+                                throw new Error('Formatting failed');
+                            }
+                            return response.text();
+                        })
+                        .then(formattedHtml => {
+                            const essayDiv = document.getElementById('batch-essay-' + index);
+                            if (essayDiv) {
+                                essayDiv.innerHTML = formattedHtml;
+                                // Set up editable elements for this specific essay
+                                setupEditableElements(essay.result, essayFromOriginal);
+                            }
+                        })
+                        .catch(error => {
+                            console.error('Error formatting essay ' + (index + 1) + ':', error);
+                            const essayDiv = document.getElementById('batch-essay-' + index);
+                            if (essayDiv) {
+                                essayDiv.innerHTML = '<div class="error">Error formatting this essay.</div>';
+                            }
+                        });
+                    }
+                });
+            }
+
+            function displayResults(gradingResult, originalData) {
+                console.log('🎯 DISPLAY RESULTS CALLED');
+                console.log('Grading result:', gradingResult);
+                console.log('Original data:', originalData);
+                
+                const resultsDiv = document.getElementById('results');
+                
+                console.log('📤 MAKING FORMAT REQUEST...');
+                // Format the essay with color coding
+                fetch('/format', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        studentText: originalData.studentText,
+                        gradingResults: gradingResult,
+                        studentName: originalData.studentName,
+                        editable: true
+                    })
+                })
+                .then(response => {
+                    console.log('📥 FORMAT RESPONSE STATUS:', response.status);
+                    return response.json();
+                })
+                .then(formatted => {
+                    console.log('✅ FORMAT RESPONSE RECEIVED:', formatted);
+                    resultsDiv.innerHTML =
+                        '<h2>Grading Results for ' + originalData.studentName + '</h2>' +
+                        formatted.feedbackSummary +
+                        '<h3 style="margin: 20px 0 10px 0;">Color-Coded Essay:</h3>' +
+                        '<div id="essayContainer" style="border: 1px solid #ddd; border-radius: 4px;">' +
+                            '<!-- Category selector bar -->' +
+                            '<div id="categoryBar" style="padding: 10px; background: #f8f9fa; border-bottom: 1px solid #ddd; border-radius: 4px 4px 0 0;">' +
+                                '<div style="margin-bottom: 5px; font-weight: bold; font-size: 14px;">Select category then highlight text, or highlight text then select category:</div>' +
+                                '<div id="categoryButtons" style="display: flex; flex-wrap: wrap; gap: 8px;">' +
+                                    '<button class="category-btn" data-category="grammar" style="background: transparent; color: #FF8C00; border: 2px solid #FF8C00; padding: 8px 12px; border-radius: 20px; cursor: pointer; font-weight: bold; transition: all 0.2s;">Grammar Error</button>' +
+                                    '<button class="category-btn" data-category="vocabulary" style="background: transparent; color: #00A36C; border: 2px solid #00A36C; padding: 8px 12px; border-radius: 20px; cursor: pointer; font-weight: bold; transition: all 0.2s;">Vocabulary Error</button>' +
+                                    '<button class="category-btn" data-category="mechanics" style="background: #D3D3D3; color: #000000; border: 2px solid #D3D3D3; padding: 8px 12px; border-radius: 20px; cursor: pointer; font-weight: bold; transition: all 0.2s;">Mechanics Error</button>' +
+                                    '<button class="category-btn" data-category="spelling" style="background: transparent; color: #DC143C; border: 2px solid #DC143C; padding: 8px 12px; border-radius: 20px; cursor: pointer; font-weight: bold; transition: all 0.2s;">Spelling Error</button>' +
+                                    '<button class="category-btn" data-category="fluency" style="background: #87CEEB; color: #000000; border: 2px solid #87CEEB; padding: 8px 12px; border-radius: 20px; cursor: pointer; font-weight: bold; transition: all 0.2s;">Fluency Error</button>' +
+                                    '<button class="category-btn" data-category="delete" style="background: transparent; color: #000000; border: 2px solid #000000; padding: 8px 12px; border-radius: 20px; cursor: pointer; font-weight: bold; text-decoration: line-through; transition: all 0.2s;">Delete Word</button>' +
+                                    '<button id="clearSelectionBtn" onclick="clearSelection()" style="background: #f5f5f5; color: #666; border: 2px solid #ccc; padding: 8px 12px; border-radius: 4px; cursor: pointer; margin-left: 10px;">Clear Selection</button>' +
+                                '</div>' +
+                                '<div id="selectionStatus" style="margin-top: 8px; font-size: 12px; color: #666; min-height: 16px;"></div>' +
+                            '</div>' +
+                            '<!-- Essay text area -->' +
+                            '<div class="formatted-essay-content" style="padding: 15px; line-height: 1.6; user-select: text;">' +
+                                formatted.formattedText +
+                            '</div>' +
+                            '<!-- Color Legend -->' +
+                            '<div style="padding: 10px 15px; border-top: 1px solid #ddd; background: #f9f9f9; font-size: 12px;">' +
+                                '<strong>Highlight Meanings:</strong>' +
+                                '<span style="color: #FF8C00; font-weight: bold; margin-left: 10px;">grammar</span>' +
+                                '<span style="color: #00A36C; font-weight: bold; margin-left: 15px;">vocabulary</span>' +
+                                '<span style="color: #DC143C; font-weight: bold; margin-left: 15px;">spelling</span>' +
+                                '<span style="background: #D3D3D3; color: #000; padding: 2px 6px; border-radius: 3px; font-weight: bold; margin-left: 15px;">mechanics</span>' +
+                                '<span style="background: #87CEEB; color: #000; padding: 2px 6px; border-radius: 3px; font-weight: bold; margin-left: 15px;">fluency</span>' +
+                                '<span style="color: #000; text-decoration: line-through; font-weight: bold; margin-left: 15px;">delete</span>' +
+                            '</div>' +
+                        '</div>' +
+                        '<div style="margin-top: 20px;">' +
+                            '<button onclick="exportToPDF()">Export to PDF</button>' +
+                        '</div>';
+                    resultsDiv.style.display = 'block';
+                    
+                    // Add event listeners for editable elements
+                    setupEditableElements(gradingResult, originalData);
+                    
+                    // Initialize essay editing
+                    setTimeout(() => initializeEssayEditing(), 100);
+                })
+                .catch(error => {
+                    console.error('Formatting error:', error);
+                    resultsDiv.innerHTML = '<div class="error">Error formatting results.</div>';
+                    resultsDiv.style.display = 'block';
+                });
+            }
+            
+            let currentGradingData = null;
+            let currentOriginalData = null;
+            
+            function setupEditableElements(gradingResult, originalData) {
+                currentGradingData = { ...gradingResult };
+                currentOriginalData = { ...originalData };
+                
+                // Add listeners for score inputs
+                document.querySelectorAll('.editable-score').forEach(input => {
+                    input.addEventListener('input', function() {
+                        const category = this.dataset.category;
+                        const newPoints = parseInt(this.value) || 0;
+                        const maxPoints = parseInt(this.max) || 15;
+                        
+                        // Validate range
+                        if (newPoints < 0) this.value = 0;
+                        if (newPoints > maxPoints) this.value = maxPoints;
+                        
+                        // Update data
+                        currentGradingData.scores[category].points = parseInt(this.value);
+                        
+                        // Recalculate total score
+                        updateTotalScore();
+                    });
+                });
+                
+                // Add listeners for feedback textareas
+                document.querySelectorAll('.editable-feedback').forEach(textarea => {
+                    textarea.addEventListener('input', function() {
+                        const category = this.dataset.category;
+                        currentGradingData.scores[category].rationale = this.value;
+                    });
+                });
+            }
+            
+            function updateTotalScore() {
+                let totalPoints = 0;
+                let totalMaxPoints = 0;
+                
+                Object.values(currentGradingData.scores).forEach(score => {
+                    totalPoints += score.points;
+                    totalMaxPoints += score.out_of;
+                });
+                
+                currentGradingData.total.points = totalPoints;
+                currentGradingData.total.out_of = totalMaxPoints;
+                
+                // Update the displayed total score
+                const overallScoreElement = document.querySelector('.overall-score');
+                if (overallScoreElement) {
+                    const percentage = Math.round((totalPoints / totalMaxPoints) * 100);
+                    
+                    const color = getScoreColor(percentage);
+                    overallScoreElement.innerHTML = '<div style="color: ' + color + '; font-size: 2em; font-weight: bold;">' + totalPoints + '/' + totalMaxPoints + '</div>';
+                }
+            }
+            
+            // Essay editing functionality - always on by default
+            let selectedCategory = null;
+            let selectedRange = null;
+            let pendingSelection = null;
+            
+            // Simplified category colors matching new system
+            const categoryColors = {
+                'grammar': { color: '#FF8C00', bg: 'transparent' }, // Orange text
+                'vocabulary': { color: '#00A36C', bg: 'transparent' }, // Green text
+                'mechanics': { color: '#000000', bg: '#D3D3D3' }, // Gray highlight
+                'spelling': { color: '#DC143C', bg: 'transparent' }, // Red text
+                'fluency': { color: '#000000', bg: '#87CEEB' }, // Blue highlight
+                'delete': { color: '#000000', bg: 'transparent', strikethrough: true }, // Black strikethrough
+                '': { color: '#6B7280', bg: '#F3F4F6' } // Default for empty categories
+            };
+
+            // Legacy mapping for backward compatibility
+            const legacyMapping = {
+                'grammar': 'grammar',
+                'vocabulary': 'vocabulary',
+                'vocabulary-structure': 'vocabulary',
+                'spelling': 'spelling',
+                'mechanics': 'mechanics',
+                'mechanics-punctuation': 'mechanics',
+                'fluency': 'fluency',
+                'needs-rephrasing': 'fluency',
+                'redundancy': 'fluency',
+                'non-suitable-words': 'fluency',
+                'professor-comments': 'fluency',
+                'content': 'fluency',
+                'layout': null // will need manual conversion
+            };
+
+            // Display order for simplified toolbar
+            const categoryOrder = [
+                'grammar',
+                'vocabulary',
+                'mechanics',
+                'spelling',
+                'fluency'
+            ];
+
+            // Simplified category display names
+            const categoryNames = {
+                'grammar': 'Grammar Error',
+                'vocabulary': 'Vocabulary Error',
+                'mechanics': 'Mechanics Error',
+                'spelling': 'Spelling Error',
+                'fluency': 'Fluency Error'
+            };
+
+            // Function to map legacy categories to new ones
+            function mapLegacyCategory(oldCategory) {
+                const mapping = legacyMapping[oldCategory];
+                if (mapping === null) {
+                    // Layout category - show conversion dialog
+                    return showCategoryConversionDialog(oldCategory);
+                }
+                return mapping || oldCategory;
+            }
+
+            function showCategoryConversionDialog(oldCategory) {
+                const newCategories = [
+                    'grammar',
+                    'mechanics-punctuation',
+                    'redundancy', 
+                    'vocabulary-structure',
+                    'needs-rephrasing',
+                    'non-suitable-words',
+                    'spelling',
+                    'professor-comments'
+                ];
+                
+                const options = newCategories.map(cat => cat + ': ' + categoryNames[cat]).join('\n');
+                const choice = prompt('The category "' + oldCategory + '" is no longer available. Please choose a new category:\n\n' + options + '\n\nEnter the category key (e.g., \'grammar\'):');
+                
+                return newCategories.includes(choice) ? choice : 'professor-comments';
+            }
+
+            function migrateLegacyHighlights(essayContent) {
+                const marks = essayContent.querySelectorAll('mark[data-type]');
+                marks.forEach(mark => {
+                    const oldCategory = mark.getAttribute('data-type') || '';
+                    if (!categoryColors[oldCategory]) {
+                        const newCategory = mapLegacyCategory(oldCategory);
+                        mark.setAttribute('data-type', newCategory);
+                        
+                        // Update styling with error handling
+                        const colors = categoryColors[newCategory] || categoryColors[''];
+                        if (colors) {
+                            let styleProps = 'color: ' + colors.color + '; position: relative; cursor: pointer;';
+                            if (colors.textDecoration) {
+                                styleProps += ' text-decoration: ' + colors.textDecoration + ';';
+                            }
+                            if (colors.bg && colors.bg !== 'transparent') {
+                                styleProps += ' background: ' + colors.bg + '; padding: 2px 4px; border-radius: 2px;';
+                            }
+                            mark.style.cssText = styleProps;
+                        }
+                    }
+                });
+            }
+            
+            function initializeEssayEditing() {
+                const essayContent = document.querySelector('.formatted-essay-content');
+                if (!essayContent) return;
+                
+                // Migrate any existing legacy highlights
+                migrateLegacyHighlights(essayContent);
+                
+                // Add event listeners to category buttons
+                document.querySelectorAll('.category-btn').forEach(btn => {
+                    btn.addEventListener('click', function() {
+                        selectCategory(this.dataset.category);
+                    });
+                });
+                
+                // Add text selection listener to essay
+                essayContent.addEventListener('mouseup', handleTextSelection);
+                
+                // Add click listeners to existing highlights for editing
+                essayContent.querySelectorAll('mark').forEach(mark => {
+                    mark.style.cursor = 'pointer';
+                    mark.addEventListener('click', function(e) {
+                        e.preventDefault();
+                        editHighlight(this);
+                    });
+                });
+                
+                updateSelectionStatus('Ready to highlight. Select a category or highlight text.');
+            }
+            
+            function selectCategory(category) {
+                selectedCategory = category;
+                
+                // Update button visual states
+                document.querySelectorAll('.category-btn').forEach(btn => {
+                    if (btn.dataset.category === category) {
+                        btn.style.transform = 'scale(1.05)';
+                        btn.style.boxShadow = '0 2px 8px rgba(0,0,0,0.2)';
+                    } else {
+                        btn.style.transform = 'scale(1)';
+                        btn.style.boxShadow = 'none';
+                    }
+                });
+                
+                updateSelectionStatus('Category "' + category + '" selected. Now select text to highlight.');
+                
+                // If we have pending text selection, apply it now
+                if (pendingSelection) {
+                    applyHighlight(pendingSelection.range, pendingSelection.text, category);
+                    pendingSelection = null;
+                }
+            }
+            
+            function handleTextSelection(e) {
+                const selection = window.getSelection();
+                if (selection.rangeCount > 0 && !selection.isCollapsed) {
+                    const range = selection.getRangeAt(0);
+                    const text = range.toString().trim();
+                    
+                    // Only proceed if we selected text within the essay content
+                    if (text.length > 0 && document.querySelector('.formatted-essay-content').contains(range.commonAncestorContainer)) {
+                        if (selectedCategory) {
+                            // Category already selected, apply highlight immediately
+                            applyHighlight(range, text, selectedCategory);
+                        } else {
+                            // No category selected, save selection for later
+                            pendingSelection = { range: range.cloneRange(), text };
+                            updateSelectionStatus('Text "' + text.substring(0, 50) + (text.length > 50 ? '...' : '') + '" selected. Now click a category to highlight it.');
+                        }
+                        selection.removeAllRanges();
+                    }
+                }
+            }
+            
+            function applyHighlight(range, text, category) {
+                const colors = categoryColors[category] || categoryColors[''];
+                const mark = document.createElement('mark');
+                mark.setAttribute('data-type', category);
+                mark.setAttribute('data-message', '');
+                mark.setAttribute('data-editable', 'true');
+                mark.className = 'highlighted-segment';
+                let styleProps = 'color: ' + colors.color + '; position: relative; cursor: pointer;';
+                
+                // Special handling for delete category (strikethrough)
+                if (category === 'delete') {
+                    styleProps += ' text-decoration: line-through; font-weight: bold;';
+                } else {
+                    if (colors.textDecoration) {
+                        styleProps += ' text-decoration: ' + colors.textDecoration + ';';
+                    }
+                    if (colors.bg && colors.bg !== 'transparent') {
+                        styleProps += ' background: ' + colors.bg + '; padding: 2px 4px; border-radius: 2px;';
+                    }
+                }
+                mark.style.cssText = styleProps;
+                mark.innerHTML = text + '<span class="edit-indicator" style="font-size: 10px; margin-left: 2px;">✎</span>';
+                
+                // Add click listener for editing
+                mark.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    editHighlight(this);
+                });
+                
+                try {
+                    range.deleteContents();
+                    range.insertNode(mark);
+                    updateSelectionStatus('"' + text.substring(0, 30) + (text.length > 30 ? '...' : '') + '" highlighted as ' + category + '.');
+                    
+                    // Automatically open the edit popup for manual highlights
+                    setTimeout(() => editHighlight(mark), 100);
+                } catch (error) {
+                    console.error('Error adding highlight:', error);
+                    updateSelectionStatus('Error adding highlight. Please try again.');
+                }
+                
+                clearSelection();
+            }
+            
+            let currentEditingElement = null;
+            
+            function editHighlight(markElement) {
+                const category = markElement.getAttribute('data-type');
+                const message = markElement.getAttribute('data-message');
+                const text = markElement.textContent.replace('✎', '').trim();
+                
+                // Store reference to the element being edited
+                currentEditingElement = markElement;
+                
+                // Populate modal
+                document.getElementById('modalSelectedText').textContent = text;
+                document.getElementById('modalCategory').textContent = category.charAt(0).toUpperCase() + category.slice(1);
+                document.getElementById('modalFeedback').value = message || ''; // Pre-populate with existing note/suggestion
+                
+                // Initialize category selection for this highlight
+                initializeModalCategories(markElement);
+                
+                // Set up category button event listeners
+                setupModalCategoryListeners();
+                
+                // Show modal
+                document.getElementById('highlightEditModal').style.display = 'block';
+            }
+            
+            // Modal category selection variables
+            let modalSelectedCategories = []; // Array of selected categories
+            let modalPrimaryCategory = null; // First selected category (for visual highlighting)
+            
+            // Toggle category selection in modal
+            function toggleModalCategory(category) {
+                console.log('Toggle category:', category, 'Current selection:', modalSelectedCategories);
+                const index = modalSelectedCategories.indexOf(category);
+                
+                if (index === -1) {
+                    // Add category
+                    modalSelectedCategories.push(category);
+                    
+                    // Set as primary if it's the first one selected
+                    if (modalSelectedCategories.length === 1) {
+                        modalPrimaryCategory = category;
+                    }
+                } else {
+                    // Remove category
+                    modalSelectedCategories.splice(index, 1);
+                    
+                    // If we removed the primary category, reset primary logic
+                    if (modalPrimaryCategory === category) {
+                        modalPrimaryCategory = modalSelectedCategories.length > 0 ? modalSelectedCategories[0] : null;
+                    }
+                }
+                
+                // Update visual feedback
+                updateModalCategoryButtons();
+            }
+            
+            // Update visual feedback for modal category buttons
+            function updateModalCategoryButtons() {
+                document.querySelectorAll('.modal-category-btn').forEach(btn => {
+                    const category = btn.dataset.category;
+                    const isSelected = modalSelectedCategories.includes(category);
+                    const isPrimary = category === modalPrimaryCategory;
+                    
+                    if (isSelected) {
+                        // Selected state - add shadow and slight transform
+                        btn.style.boxShadow = '0 2px 8px rgba(0,0,0,0.3)';
+                        btn.style.transform = 'translateY(-1px)';
+                        
+                        // Primary category gets extra visual emphasis
+                        if (isPrimary) {
+                            btn.style.outline = '2px solid rgba(0,0,0,0.4)';
+                            btn.style.outlineOffset = '1px';
+                        } else {
+                            btn.style.outline = 'none';
+                        }
+                    } else {
+                        // Unselected state
+                        btn.style.boxShadow = 'none';
+                        btn.style.transform = 'none';
+                        btn.style.outline = 'none';
+                    }
+                });
+            }
+            
+            // Update highlight visual styling based on primary category
+            function updateHighlightVisualStyling(element, primaryCategory) {
+                const categoryColors = {
+                    'grammar': { color: '#FF8C00', bg: 'transparent' }, // Orange text
+                    'vocabulary': { color: '#00A36C', bg: 'transparent' }, // Green text
+                    'mechanics': { color: '#000000', bg: '#D3D3D3' }, // Gray highlight
+                    'spelling': { color: '#DC143C', bg: 'transparent' }, // Red text
+                    'fluency': { color: '#000000', bg: '#87CEEB' }, // Blue highlight
+                    'delete': { color: '#000000', bg: 'transparent', strikethrough: true } // Black strikethrough
+                };
+                
+                const colors = categoryColors[primaryCategory];
+                if (colors) {
+                    element.style.color = colors.color;
+                    element.style.backgroundColor = colors.bg;
+                    
+                    // Handle special cases
+                    if (primaryCategory === 'delete') {
+                        element.style.textDecoration = 'line-through';
+                        element.style.fontWeight = 'bold';
+                    } else {
+                        element.style.textDecoration = 'none';
+                        element.style.fontWeight = 'normal';
+                    }
+                    
+                    // Add some visual emphasis for multi-category highlights
+                    const categoriesData = element.getAttribute('data-categories');
+                    let categories = [];
+                    try {
+                        categories = JSON.parse(categoriesData) || [primaryCategory];
+                    } catch (e) {
+                        categories = [primaryCategory];
+                    }
+                    
+                    // Add subtle border for multi-category highlights
+                    if (categories.length > 1) {
+                        element.style.border = '1px solid rgba(0,0,0,0.2)';
+                        element.style.borderRadius = '2px';
+                        element.style.padding = '1px 2px';
+                    } else {
+                        element.style.border = 'none';
+                        element.style.borderRadius = '0';
+                        element.style.padding = '0';
+                    }
+                }
+            }
+            
+            // Initialize modal categories from existing highlight data
+            function initializeModalCategories(element) {
+                // Reset selection
+                modalSelectedCategories = [];
+                modalPrimaryCategory = null;
+                
+                // Get existing categories from the element
+                const primaryCategory = element.getAttribute('data-type');
+                const categoriesData = element.getAttribute('data-categories');
+                
+                if (categoriesData) {
+                    try {
+                        modalSelectedCategories = JSON.parse(categoriesData);
+                        modalPrimaryCategory = primaryCategory;
+                    } catch (e) {
+                        console.warn('Failed to parse categories data:', e);
+                        // Fallback to single category
+                        if (primaryCategory) {
+                            modalSelectedCategories = [primaryCategory];
+                            modalPrimaryCategory = primaryCategory;
+                        }
+                    }
+                } else if (primaryCategory) {
+                    // Legacy single category support
+                    modalSelectedCategories = [primaryCategory];
+                    modalPrimaryCategory = primaryCategory;
+                }
+                
+                // Update button visual states
+                updateModalCategoryButtons();
+            }
+            
+            // Modal event listeners
+
+            // Set up modal category button event listeners (called when modal opens)
+            function setupModalCategoryListeners() {
+                document.querySelectorAll('.modal-category-btn').forEach(btn => {
+                    // Remove existing listener to avoid duplicates
+                    btn.removeEventListener('click', btn._categoryClickHandler);
+
+                    // Create new handler
+                    btn._categoryClickHandler = function() {
+                        const category = this.dataset.category;
+                        console.log('Category button clicked:', category);
+                        toggleModalCategory(category);
+                    };
+
+                    // Add the new listener
+                    btn.addEventListener('click', btn._categoryClickHandler);
+                });
+            }
+
+            // Function to format essay text with proper formatting preservation (like GPT mode)
+            function formatEssayText(text) {
+                if (!text) return '';
+
+                // Escape HTML characters first using string methods
+                let formattedText = text;
+                formattedText = formattedText.split('&').join('&amp;');
+                formattedText = formattedText.split('<').join('&lt;');
+                formattedText = formattedText.split('>').join('&gt;');
+                formattedText = formattedText.split('"').join('&quot;');
+                formattedText = formattedText.split("'").join('&#039;');
+
+                // Preserve formatting - handle line breaks and spaces
+                // First handle paragraph breaks (double line breaks)
+                formattedText = formattedText.split('
+
+').join('</p><p>');
+
+                // Then handle single line breaks
+                formattedText = formattedText.split('
+').join('<br>');
+
+                // Handle multiple spaces to preserve indentation
+                // Convert sequences of 2 or more spaces to non-breaking spaces
+                while (formattedText.includes('  ')) {
+                    formattedText = formattedText.split('  ').join('&nbsp;&nbsp;');
+                }
+
+                // Also handle tabs if any
+                formattedText = formattedText.split('\t').join('&nbsp;&nbsp;&nbsp;&nbsp;');
+
+                // Wrap in paragraph tags if it contains paragraph breaks
+                if (formattedText.includes('</p><p>')) {
+                    return '<p>' + formattedText + '</p>';
+                }
+                return formattedText;
+            }
+
+            // Manual grading interface function - creates identical interface to GPT grading
+            function showManualGradingInterface(studentName, essayText) {
+                console.log('🔧 MANUAL GRADING: Creating manual interface with category breakdown');
+
+                const manualResults = document.getElementById('manualResults');
+
+                // Format the essay text to preserve formatting (now regex-free)
+                const formattedEssayText = formatEssayText(essayText);
+
+                // Create the complete manual grading interface with category breakdown
+                manualResults.innerHTML =
+                    '<h2>Manual Grading Results for ' + studentName + '</h2>' +
+                    '<!-- Grading Summary Section -->' +
+                    '<div class="grading-summary">' +
+                        '<div class="overall-score" style="color: #333; font-size: 2em; font-weight: bold; text-align: center; margin: 20px 0;">' +
+                            '<span id="manualTotalPoints">0</span>/100' +
+                        '</div>' +
+                        '<div class="teacher-notes editable-section" style="background: #e8f5e8; padding: 15px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #4CAF50; cursor: pointer; border: 2px solid transparent;" onclick="editTeacherNotes(this)" title="Click to edit teacher notes">' +
+                            '<strong>📝 Teacher Notes:</strong> <span class="teacher-notes-content">Click to add teacher notes</span>' +
+                            '<span class="edit-indicator" style="font-size: 10px; margin-left: 5px; color: #666;">✎</span>' +
+                        '</div>' +
+                        '<!-- Category Breakdown -->' +
+                        '<div class="category-breakdown">' +
+                            '<h3>Category Breakdown:</h3>' +
+                            '<!-- Grammar Category -->' +
+                            '<div class="category-feedback" style="margin: 15px 0; padding: 15px; border-left: 4px solid #FF6B6B; background: #FFE5E5; border-radius: 0 8px 8px 0;" data-category="grammar">' +
+                                '<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">' +
+                                    '<strong style="color: #FF6B6B; font-size: 1.1em;">Grammar</strong>' +
+                                    '<div style="display: flex; align-items: center; gap: 5px;">' +
+                                        '<input type="number" class="editable-score manual-category-score" data-category="grammar" value="0" min="0" max="15" style="width: 60px; padding: 4px; border: 1px solid #ddd; border-radius: 3px; text-align: center; font-weight: bold; color: #333;">' +
+                                        '<span style="color: #333; font-weight: bold; font-size: 1.2em;">/15</span>' +
+                                    '</div>' +
+                                '</div>' +
+                                '<div style="background: white; padding: 10px; border-radius: 4px; line-height: 1.4;">' +
+                                    '<textarea class="editable-feedback manual-category-feedback" data-category="grammar" placeholder="Enter grammar feedback here..." style="width: 100%; min-height: 80px; border: 1px solid #ddd; border-radius: 3px; padding: 8px; resize: vertical; font-family: inherit; line-height: 1.4;"></textarea>' +
+                                '</div>' +
+                            '</div>'
+
+                            <!-- Vocabulary Category -->
+                            <div class="category-feedback" style="margin: 15px 0; padding: 15px; border-left: 4px solid #4ECDC4; background: #E8F8F7; border-radius: 0 8px 8px 0;" data-category="vocabulary">
+                                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                                    <strong style="color: #4ECDC4; font-size: 1.1em;">Vocabulary</strong>
+                                    <div style="display: flex; align-items: center; gap: 5px;">
+                                        <input type="number" class="editable-score manual-category-score" data-category="vocabulary" value="0" min="0" max="15" style="width: 60px; padding: 4px; border: 1px solid #ddd; border-radius: 3px; text-align: center; font-weight: bold; color: #333;">
+                                        <span style="color: #333; font-weight: bold; font-size: 1.2em;">/15</span>
+                                    </div>
+                                </div>
+                                <div style="background: white; padding: 10px; border-radius: 4px; line-height: 1.4;">
+                                    <textarea class="editable-feedback manual-category-feedback" data-category="vocabulary" placeholder="Enter vocabulary feedback here..." style="width: 100%; min-height: 80px; border: 1px solid #ddd; border-radius: 3px; padding: 8px; resize: vertical; font-family: inherit; line-height: 1.4;"></textarea>
+                                </div>
+                            </div>
+
+                            <!-- Spelling Category -->
+                            <div class="category-feedback" style="margin: 15px 0; padding: 15px; border-left: 4px solid #45B7D1; background: #E3F2FD; border-radius: 0 8px 8px 0;" data-category="spelling">
+                                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                                    <strong style="color: #45B7D1; font-size: 1.1em;">Spelling</strong>
+                                    <div style="display: flex; align-items: center; gap: 5px;">
+                                        <input type="number" class="editable-score manual-category-score" data-category="spelling" value="0" min="0" max="10" style="width: 60px; padding: 4px; border: 1px solid #ddd; border-radius: 3px; text-align: center; font-weight: bold; color: #333;">
+                                        <span style="color: #333; font-weight: bold; font-size: 1.2em;">/10</span>
+                                    </div>
+                                </div>
+                                <div style="background: white; padding: 10px; border-radius: 4px; line-height: 1.4;">
+                                    <textarea class="editable-feedback manual-category-feedback" data-category="spelling" placeholder="Enter spelling feedback here..." style="width: 100%; min-height: 80px; border: 1px solid #ddd; border-radius: 3px; padding: 8px; resize: vertical; font-family: inherit; line-height: 1.4;"></textarea>
+                                </div>
+                            </div>
+
+                            <!-- Mechanics Category -->
+                            <div class="category-feedback" style="margin: 15px 0; padding: 15px; border-left: 4px solid #F7B731; background: #FFF8E1; border-radius: 0 8px 8px 0;" data-category="mechanics">
+                                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                                    <strong style="color: #F7B731; font-size: 1.1em;">Mechanics & Punctuation</strong>
+                                    <div style="display: flex; align-items: center; gap: 5px;">
+                                        <input type="number" class="editable-score manual-category-score" data-category="mechanics" value="0" min="0" max="15" style="width: 60px; padding: 4px; border: 1px solid #ddd; border-radius: 3px; text-align: center; font-weight: bold; color: #333;">
+                                        <span style="color: #333; font-weight: bold; font-size: 1.2em;">/15</span>
+                                    </div>
+                                </div>
+                                <div style="background: white; padding: 10px; border-radius: 4px; line-height: 1.4;">
+                                    <textarea class="editable-feedback manual-category-feedback" data-category="mechanics" placeholder="Enter mechanics & punctuation feedback here..." style="width: 100%; min-height: 80px; border: 1px solid #ddd; border-radius: 3px; padding: 8px; resize: vertical; font-family: inherit; line-height: 1.4;"></textarea>
+                                </div>
+                            </div>
+
+                            <!-- Fluency Category -->
+                            <div class="category-feedback" style="margin: 15px 0; padding: 15px; border-left: 4px solid #A855F7; background: #F3E8FF; border-radius: 0 8px 8px 0;" data-category="fluency">
+                                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                                    <strong style="color: #A855F7; font-size: 1.1em;">Fluency</strong>
+                                    <div style="display: flex; align-items: center; gap: 5px;">
+                                        <input type="number" class="editable-score manual-category-score" data-category="fluency" value="0" min="0" max="15" style="width: 60px; padding: 4px; border: 1px solid #ddd; border-radius: 3px; text-align: center; font-weight: bold; color: #333;">
+                                        <span style="color: #333; font-weight: bold; font-size: 1.2em;">/15</span>
+                                    </div>
+                                </div>
+                                <div style="background: white; padding: 10px; border-radius: 4px; line-height: 1.4;">
+                                    <textarea class="editable-feedback manual-category-feedback" data-category="fluency" placeholder="Enter fluency feedback here..." style="width: 100%; min-height: 80px; border: 1px solid #ddd; border-radius: 3px; padding: 8px; resize: vertical; font-family: inherit; line-height: 1.4;"></textarea>
+                                </div>
+                            </div>
+
+                            <!-- Layout Category -->
+                            <div class="category-feedback" style="margin: 15px 0; padding: 15px; border-left: 4px solid #16A34A; background: #DCFCE7; border-radius: 0 8px 8px 0;" data-category="layout">
+                                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                                    <strong style="color: #16A34A; font-size: 1.1em;">Layout & Follow Specs</strong>
+                                    <div style="display: flex; align-items: center; gap: 5px;">
+                                        <input type="number" class="editable-score manual-category-score" data-category="layout" value="0" min="0" max="15" style="width: 60px; padding: 4px; border: 1px solid #ddd; border-radius: 3px; text-align: center; font-weight: bold; color: #333;">
+                                        <span style="color: #333; font-weight: bold; font-size: 1.2em;">/15</span>
+                                    </div>
+                                </div>
+                                <div style="background: white; padding: 10px; border-radius: 4px; line-height: 1.4;">
+                                    <textarea class="editable-feedback manual-category-feedback" data-category="layout" placeholder="Enter layout & specs feedback here..." style="width: 100%; min-height: 80px; border: 1px solid #ddd; border-radius: 3px; padding: 8px; resize: vertical; font-family: inherit; line-height: 1.4;"></textarea>
+                                </div>
+                            </div>
+
+                            <!-- Content Category -->
+                            <div class="category-feedback" style="margin: 15px 0; padding: 15px; border-left: 4px solid #DC2626; background: #FEE2E2; border-radius: 0 8px 8px 0;" data-category="content">
+                                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                                    <strong style="color: #DC2626; font-size: 1.1em;">Content & Information</strong>
+                                    <div style="display: flex; align-items: center; gap: 5px;">
+                                        <input type="number" class="editable-score manual-category-score" data-category="content" value="0" min="0" max="15" style="width: 60px; padding: 4px; border: 1px solid #ddd; border-radius: 3px; text-align: center; font-weight: bold; color: #333;">
+                                        <span style="color: #333; font-weight: bold; font-size: 1.2em;">/15</span>
+                                    </div>
+                                </div>
+                                <div style="background: white; padding: 10px; border-radius: 4px; line-height: 1.4;">
+                                    <textarea class="editable-feedback manual-category-feedback" data-category="content" placeholder="Enter content & information feedback here..." style="width: 100%; min-height: 80px; border: 1px solid #ddd; border-radius: 3px; padding: 8px; resize: vertical; font-family: inherit; line-height: 1.4;"></textarea>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <h3 style="margin: 20px 0 10px 0;">Color-Coded Essay:</h3>
+
+                    <div id="essayContainer" style="border: 1px solid #ddd; border-radius: 4px;">
+                        <!-- Category selector bar -->
+                        <div id="categoryBar" style="padding: 10px; background: #f8f9fa; border-bottom: 1px solid #ddd; border-radius: 4px 4px 0 0;">
+                            <div style="margin-bottom: 5px; font-weight: bold; font-size: 14px;">Select category then highlight text, or highlight text then select category:</div>
+                            <div id="categoryButtons" style="display: flex; flex-wrap: wrap; gap: 8px;">
+                                <button class="category-btn" data-category="grammar" style="background: transparent; color: #FF8C00; border: 2px solid #FF8C00; padding: 8px 12px; border-radius: 20px; cursor: pointer; font-weight: bold; transition: all 0.2s;">Grammar Error</button>
+                                <button class="category-btn" data-category="vocabulary" style="background: transparent; color: #00A36C; border: 2px solid #00A36C; padding: 8px 12px; border-radius: 20px; cursor: pointer; font-weight: bold; transition: all 0.2s;">Vocabulary Error</button>
+                                <button class="category-btn" data-category="mechanics" style="background: #D3D3D3; color: #000000; border: 2px solid #D3D3D3; padding: 8px 12px; border-radius: 20px; cursor: pointer; font-weight: bold; transition: all 0.2s;">Mechanics Error</button>
+                                <button class="category-btn" data-category="spelling" style="background: transparent; color: #DC143C; border: 2px solid #DC143C; padding: 8px 12px; border-radius: 20px; cursor: pointer; font-weight: bold; transition: all 0.2s;">Spelling Error</button>
+                                <button class="category-btn" data-category="fluency" style="background: #87CEEB; color: #000000; border: 2px solid #87CEEB; padding: 8px 12px; border-radius: 20px; cursor: pointer; font-weight: bold; transition: all 0.2s;">Fluency Error</button>
+                                <button class="category-btn" data-category="delete" style="background: transparent; color: #000000; border: 2px solid #000000; padding: 8px 12px; border-radius: 20px; cursor: pointer; font-weight: bold; text-decoration: line-through; transition: all 0.2s;">Delete Word</button>
+                                <button id="clearSelectionBtn" onclick="clearSelection()" style="background: #f5f5f5; color: #666; border: 2px solid #ccc; padding: 8px 12px; border-radius: 4px; cursor: pointer; margin-left: 10px;">Clear Selection</button>
+                            </div>
+                            <div id="selectionStatus" style="margin-top: 8px; font-size: 12px; color: #666; min-height: 16px;"></div>
+                        </div>
+
+                        <!-- Essay text display area -->
+                        <div id="gradedEssay" class="formatted-essay-content" style="padding: 20px; line-height: 1.8; font-family: Georgia, serif; font-size: 16px; background: white; min-height: 300px; user-select: text; cursor: text;">' + formattedEssayText + '</div>
+                    </div>
+
+                    <!-- Export Button -->
+                    <div style="margin-top: 20px;">
+                        '<button onclick="exportManualToPDF()">Export to PDF</button>' +
+                    '</div>';
+
+                manualResults.style.display = 'block';
+
+                // Initialize score calculation
+                initializeManualScoring();
+
+                // Initialize highlighting functionality for the essay
+                initializeManualGrading();
+
+                console.log('🔧 MANUAL GRADING: Interface created with category breakdown');
+            }
+
+            // Initialize manual scoring functionality
+            function initializeManualScoring() {
+                // Add event listeners to score inputs to update total
+                document.querySelectorAll('.manual-category-score').forEach(input => {
+                    input.addEventListener('input', updateManualTotalScore);
+                });
+
+                function updateManualTotalScore() {
+                    let total = 0;
+                    document.querySelectorAll('.manual-category-score').forEach(input => {
+                        total += parseInt(input.value) || 0;
+                    });
+
+                    const totalElement = document.getElementById('manualTotalPoints');
+                    if (totalElement) {
+                        totalElement.textContent = total;
+
+                        // Update color based on score
+                        const percentage = (total / 100) * 100;
+                        let color = '#333';
+                        if (percentage >= 90) color = '#28a745';
+                        else if (percentage >= 80) color = '#ffc107';
+                        else if (percentage >= 70) color = '#fd7e14';
+                        else if (percentage >= 60) color = '#dc3545';
+
+                        totalElement.parentElement.style.color = color;
+                    }
+                }
+            }
+
+            // Initialize manual grading functionality
+            function initializeManualGrading() {
+                // Use the sophisticated highlighting system from GPT mode
+                // Add text selection listener to the essay (using the same approach as GPT mode)
+                const essayContent = document.querySelector('.formatted-essay-content');
+                if (essayContent) {
+                    essayContent.addEventListener('mouseup', handleTextSelection);
+                }
+
+                // The status elements and highlighting functionality are already included in the showManualGradingInterface function
+
+                // Set up category buttons to use the sophisticated system
+                document.querySelectorAll('.category-btn').forEach(btn => {
+                    // Remove any existing click handlers
+                    btn.replaceWith(btn.cloneNode(true));
+                });
+
+                // Re-attach sophisticated event listeners (same as GPT mode)
+                document.querySelectorAll('.category-btn').forEach(btn => {
+                    btn.addEventListener('click', function() {
+                        selectCategory(this.dataset.category);
+                    });
+                });
+
+                // Score calculation
+                function updateTotalScore() {
+                    const scores = document.querySelectorAll('.rubric-section input[type="number"]');
+                    let total = 0;
+                    scores.forEach(input => {
+                        const value = parseInt(input.value) || 0;
+                        total += value;
+                    });
+                    document.getElementById('manualTotalScore').textContent = total;
+                }
+
+                // Add event listeners to score inputs
+                document.querySelectorAll('.rubric-section input[type="number"]').forEach(input => {
+                    input.addEventListener('input', updateTotalScore);
+                });
+
+                // Save and export functionality
+                document.getElementById('saveManualGrade').addEventListener('click', function() {
+                    alert('Manual grade saved successfully!');
+                });
+
+                document.getElementById('exportManualPDF').addEventListener('click', function() {
+                    exportManualToPDF();
+                });
+            }
+
+
+            // Tab switching functionality
+            function switchTab(tabName) {
+                // Hide all tab contents
+                document.querySelectorAll('.tab-content').forEach(content => {
+                    content.style.display = 'none';
+                });
+
+                // Remove active class from all buttons
+                document.querySelectorAll('.tab-button').forEach(button => {
+                    button.classList.remove('active');
+                    button.style.background = '#f8f9fa';
+                    button.style.color = '#6c757d';
+                });
+
+                // Show selected tab content
+                document.getElementById(tabName + '-content').style.display = 'block';
+
+                // Add active class to selected button
+                const activeButton = document.querySelector('[data-tab="' + tabName + '"]');
+                activeButton.classList.add('active');
+                activeButton.style.background = '#007bff';
+                activeButton.style.color = 'white';
+            }
+
+            // Initialize tab functionality
+            document.addEventListener('DOMContentLoaded', function() {
+                // Tab button event listeners
+                document.querySelectorAll('.tab-button').forEach(button => {
+                    button.addEventListener('click', function() {
+                        const tabName = this.getAttribute('data-tab');
+                        switchTab(tabName);
+                    });
+                });
+
+                // Manual essay loading functionality
+                document.getElementById('loadManualEssay').addEventListener('click', function() {
+                    const essayText = document.getElementById('manualEssayInput').value.trim();
+                    const studentName = document.getElementById('manualStudentName').value.trim();
+
+                    if (!essayText) {
+                        alert('Please paste an essay first.');
+                        return;
+                    }
+
+                    if (!studentName) {
+                        alert('Please enter a student name.');
+                        return;
+                    }
+
+                    // Show manual grading interface
+                    showManualGradingInterface(studentName, essayText);
+                });
+            });
+            document.addEventListener('DOMContentLoaded', function() {
+                
+                // Modal dragging functionality
+                let isDragging = false;
+                let startX, startY, startLeft, startTop;
+                const modal = document.getElementById('modalContent');
+                const header = document.getElementById('modalHeader');
+                
+                header.addEventListener('mousedown', function(e) {
+                    isDragging = true;
+                    
+                    // Get initial cursor position
+                    startX = e.clientX;
+                    startY = e.clientY;
+                    
+                    // Get initial modal position (remove transform and get computed position)
+                    const rect = modal.getBoundingClientRect();
+                    modal.style.transform = 'none';
+                    modal.style.left = rect.left + 'px';
+                    modal.style.top = rect.top + 'px';
+                    
+                    startLeft = rect.left;
+                    startTop = rect.top;
+                    
+                    // Add visual feedback
+                    header.style.background = '#e9ecef';
+                    document.body.style.userSelect = 'none';
+                    document.body.style.cursor = 'move';
+                    
+                    e.preventDefault();
+                });
+                
+                document.addEventListener('mousemove', function(e) {
+                    if (!isDragging) return;
+                    
+                    e.preventDefault();
+                    
+                    // Calculate new position
+                    const deltaX = e.clientX - startX;
+                    const deltaY = e.clientY - startY;
+                    
+                    const newLeft = startLeft + deltaX;
+                    const newTop = startTop + deltaY;
+                    
+                    // Keep modal within viewport bounds
+                    const modalRect = modal.getBoundingClientRect();
+                    const maxLeft = window.innerWidth - modalRect.width;
+                    const maxTop = window.innerHeight - modalRect.height;
+                    
+                    const boundedLeft = Math.max(0, Math.min(newLeft, maxLeft));
+                    const boundedTop = Math.max(0, Math.min(newTop, maxTop));
+                    
+                    modal.style.left = boundedLeft + 'px';
+                    modal.style.top = boundedTop + 'px';
+                });
+                
+                document.addEventListener('mouseup', function() {
+                    if (isDragging) {
+                        isDragging = false;
+                        
+                        // Remove visual feedback
+                        header.style.background = '#f8f9fa';
+                        document.body.style.userSelect = '';
+                        document.body.style.cursor = '';
+                    }
+                });
+                
+                // Close modal when clicking background
+                document.getElementById('highlightEditModal').addEventListener('click', function(e) {
+                    if (e.target === this) {
+                        closeEditModal();
+                    }
+                });
+                
+                // Cancel button
+                document.getElementById('cancelEditBtn').addEventListener('click', closeEditModal);
+                
+                // Save button
+                document.getElementById('saveEditBtn').addEventListener('click', function() {
+                    // Debug logging
+                    console.log('Save button clicked:', {
+                        selectedCategories: modalSelectedCategories,
+                        primaryCategory: modalPrimaryCategory,
+                        categoriesLength: modalSelectedCategories.length
+                    });
+                    
+                    // Validation: require at least one category
+                    if (modalSelectedCategories.length === 0) {
+                        alert('Please select at least one category before saving.');
+                        return;
+                    }
+                    
+                    if (currentEditingElement) {
+                        const newNote = document.getElementById('modalFeedback').value.trim();
+                        const primaryCategory = modalPrimaryCategory;
+                        const categoriesList = modalSelectedCategories.slice(); // Copy array
+                        
+                        // Use the note as entered by the user, even if empty
+                        const finalNote = newNote;
+                        
+                        // Update element attributes
+                        currentEditingElement.setAttribute('data-type', primaryCategory); // Primary for visual styling
+                        currentEditingElement.setAttribute('data-categories', JSON.stringify(categoriesList)); // Full list
+                        currentEditingElement.setAttribute('data-message', finalNote);
+                        currentEditingElement.title = finalNote;
+                        
+                        // Update visual styling based on primary category
+                        updateHighlightVisualStyling(currentEditingElement, primaryCategory);
+                    }
+                    closeEditModal();
+                });
+                
+                // Remove highlight button
+                document.getElementById('removeHighlightBtn').addEventListener('click', function() {
+                    if (currentEditingElement) {
+                        // Get the text content without the edit indicator
+                        const textContent = currentEditingElement.textContent.replace('✎', '').trim();
+                        
+                        // Replace the marked element with plain text
+                        const textNode = document.createTextNode(textContent);
+                        currentEditingElement.parentNode.replaceChild(textNode, currentEditingElement);
+                        
+                        updateSelectionStatus('Highlight removed successfully.');
+                    }
+                    closeEditModal();
+                });
+            });
+
+            // Teacher Notes Modal Event Listeners
+            document.addEventListener('DOMContentLoaded', function() {
+                // Close modal when clicking background
+                document.getElementById('teacherNotesModal').addEventListener('click', function(e) {
+                    if (e.target === this) {
+                        closeTeacherNotesModal();
+                    }
+                });
+
+                // Cancel button
+                document.getElementById('cancelTeacherNotesBtn').addEventListener('click', closeTeacherNotesModal);
+
+                // Save button
+                document.getElementById('saveTeacherNotesBtn').addEventListener('click', saveTeacherNotes);
+
+                // Modal dragging functionality for teacher notes
+                let isTeacherDragging = false;
+                let teacherStartX, teacherStartY, teacherStartLeft, teacherStartTop;
+                const teacherModal = document.getElementById('teacherModalContent');
+                const teacherHeader = document.getElementById('teacherModalHeader');
+
+                teacherHeader.addEventListener('mousedown', function(e) {
+                    isTeacherDragging = true;
+
+                    const rect = teacherModal.getBoundingClientRect();
+                    teacherStartX = e.clientX;
+                    teacherStartY = e.clientY;
+                    teacherStartLeft = rect.left;
+                    teacherStartTop = rect.top;
+
+                    teacherModal.style.transform = 'none';
+                    teacherModal.style.left = teacherStartLeft + 'px';
+                    teacherModal.style.top = teacherStartTop + 'px';
+
+                    document.addEventListener('mousemove', onTeacherMouseMove);
+                    document.addEventListener('mouseup', onTeacherMouseUp);
+
+                    e.preventDefault();
+                });
+
+                function onTeacherMouseMove(e) {
+                    if (!isTeacherDragging) return;
+
+                    const deltaX = e.clientX - teacherStartX;
+                    const deltaY = e.clientY - teacherStartY;
+
+                    teacherModal.style.left = (teacherStartLeft + deltaX) + 'px';
+                    teacherModal.style.top = (teacherStartTop + deltaY) + 'px';
+                }
+
+                function onTeacherMouseUp() {
+                    isTeacherDragging = false;
+                    document.removeEventListener('mousemove', onTeacherMouseMove);
+                    document.removeEventListener('mouseup', onTeacherMouseUp);
+                }
+            });
+
+            function closeEditModal() {
+                document.getElementById('highlightEditModal').style.display = 'none';
+                
+                // Reset modal position to center for next time
+                const modal = document.getElementById('modalContent');
+                modal.style.transform = 'translate(-50%, -50%)';
+                modal.style.left = '50%';
+                modal.style.top = '50%';
+                
+                currentEditingElement = null;
+            }
+            
+            function clearSelection() {
+                selectedCategory = null;
+                pendingSelection = null;
+                
+                // Reset button styles
+                document.querySelectorAll('.category-btn').forEach(btn => {
+                    btn.style.transform = 'scale(1)';
+                    btn.style.boxShadow = 'none';
+                });
+                
+                updateSelectionStatus('Selection cleared. Ready to highlight again.');
+                window.getSelection().removeAllRanges();
+            }
+            
+            function updateSelectionStatus(message) {
+                // Update status for both GPT mode and manual mode
+                const statusDiv = document.getElementById('selectionStatus');
+                if (statusDiv) {
+                    statusDiv.textContent = message;
+                }
+
+                // Also update manual mode status if it exists
+                const manualStatusDiv = document.getElementById('selectionStatusManual');
+                if (manualStatusDiv) {
+                    manualStatusDiv.textContent = message;
+                }
+            }
+
+            // Teacher Notes Modal Functions
+            let currentTeacherNotesElement = null;
+
+            function openTeacherNotesModal(element) {
+                const currentContent = element.querySelector('.teacher-notes-content').textContent;
+                currentTeacherNotesElement = element;
+
+                // Pre-populate the textarea with existing notes
+                document.getElementById('teacherNotesTextarea').value = currentContent;
+
+                // Show modal
+                document.getElementById('teacherNotesModal').style.display = 'block';
+            }
+
+            function closeTeacherNotesModal() {
+                document.getElementById('teacherNotesModal').style.display = 'none';
+
+                // Reset modal position to center for next time
+                const teacherModal = document.getElementById('teacherModalContent');
+                teacherModal.style.transform = 'translate(-50%, -50%)';
+                teacherModal.style.left = '50%';
+                teacherModal.style.top = '50%';
+
+                currentTeacherNotesElement = null;
+            }
+
+            function saveTeacherNotes() {
+                if (currentTeacherNotesElement) {
+                    const newNotes = document.getElementById('teacherNotesTextarea').value;
+                    const currentContent = currentTeacherNotesElement.querySelector('.teacher-notes-content').textContent;
+
+                    if (newNotes !== currentContent) {
+                        currentTeacherNotesElement.querySelector('.teacher-notes-content').textContent = newNotes;
+                        // Update the stored grading data
+                        if (currentGradingData) {
+                            currentGradingData.teacher_notes = newNotes;
+                        }
+                    }
+                }
+                closeTeacherNotesModal();
+            }
+
+            // Functions for editing statistics and teacher notes
+            function editTeacherNotes(element) {
+                openTeacherNotesModal(element);
+            }
+
+            function editStat(element, statType) {
+                const currentValue = element.querySelector('.stat-value').textContent.replace(/[^0-9]/g, '');
+                const newValue = prompt('Edit ' + (statType === 'word_count' ? 'word count' : statType) + ':', currentValue);
+                if (newValue !== null && !isNaN(newValue) && newValue !== currentValue) {
+                    const intValue = parseInt(newValue);
+                    element.querySelector('.stat-value').textContent = intValue;
+                    // Update the stored grading data
+                    if (currentGradingData && currentGradingData.meta) {
+                        currentGradingData.meta[statType] = intValue;
+                    }
+                }
+            }
+
+            function editTransitions(element) {
+                const detailElement = element.querySelector('.stat-detail');
+                const currentTransitions = detailElement ? detailElement.textContent.replace(/[()]/g, '').split(', ') : [];
+                const newTransitionsStr = prompt('Edit transitions (comma-separated):', currentTransitions.join(', '));
+                if (newTransitionsStr !== null) {
+                    const newTransitions = newTransitionsStr.split(',').map(t => t.trim()).filter(t => t);
+                    element.querySelector('.stat-value').textContent = newTransitions.length + ' found';
+                    if (detailElement) {
+                        detailElement.textContent = newTransitions.length > 0 ? '(' + newTransitions.join(', ') + ')' : '';
+                    }
+                    // Update the stored grading data
+                    if (currentGradingData && currentGradingData.meta) {
+                        currentGradingData.meta.transition_words_found = newTransitions;
+                    }
+                }
+            }
+
+            function editVocabulary(element) {
+                const detailElement = element.querySelector('.stat-detail');
+                const currentVocab = detailElement ? detailElement.textContent.replace(/[()]/g, '').split(', ') : [];
+                const newVocabStr = prompt('Edit class vocabulary words (comma-separated):', currentVocab.join(', '));
+                if (newVocabStr !== null) {
+                    const newVocab = newVocabStr.split(',').map(v => v.trim()).filter(v => v);
+                    element.querySelector('.stat-value').textContent = newVocab.length + ' used';
+                    if (detailElement) {
+                        detailElement.textContent = newVocab.length > 0 ? '(' + newVocab.join(', ') + ')' : '';
+                    }
+                    // Update the stored grading data
+                    if (currentGradingData && currentGradingData.meta) {
+                        currentGradingData.meta.class_vocabulary_used = newVocab;
+                    }
+                }
+            }
+
+            function editGrammar(element) {
+                const detailElement = element.querySelector('.stat-detail');
+                const currentGrammar = detailElement ? detailElement.textContent.replace(/[()]/g, '').split(', ') : [];
+                const newGrammarStr = prompt('Edit grammar structures (comma-separated):', currentGrammar.join(', '));
+                if (newGrammarStr !== null) {
+                    const newGrammar = newGrammarStr.split(',').map(g => g.trim()).filter(g => g);
+                    element.querySelector('.stat-value').textContent = newGrammar.length + ' structures';
+                    if (detailElement) {
+                        const displayGrammar = newGrammar.slice(0, 2);
+                        const suffix = newGrammar.length > 2 ? '...' : '';
+                        detailElement.textContent = newGrammar.length > 0 ? '(' + displayGrammar.join(', ') + suffix + ')' : '';
+                    }
+                    // Update the stored grading data
+                    if (currentGradingData && currentGradingData.meta) {
+                        currentGradingData.meta.grammar_structures_used = newGrammar;
+                    }
+                }
+            }
+
+            function getScoreColor(percentage) {
+                if (percentage >= 90) return '#4CAF50'; // Green
+                if (percentage >= 80) return '#8BC34A'; // Light Green
+                if (percentage >= 70) return '#FFC107'; // Amber
+                if (percentage >= 60) return '#FF9800'; // Orange
+                return '#F44336'; // Red
+            }
+            
+            function exportManualToPDF() {
+                // Collect manual grading data from the actual manual interface elements
+                const studentName = document.getElementById('manualStudentName')?.value.trim() || 'Manual Student';
+                const essayText = document.getElementById('gradedEssay')?.innerText || 'Essay not available';
+                const teacherNotesElement = document.querySelector('.teacher-notes-content');
+                const teacherNotes = teacherNotesElement?.textContent === 'Click to add teacher notes' ? '' : (teacherNotesElement?.textContent || '');
+
+                if (!essayText || essayText === 'Essay not available') {
+                    alert('Please ensure essay content is loaded.');
+                    return;
+                }
+
+                // Collect scores from manual rubric (using correct selectors and point values)
+                const scoreInputs = document.querySelectorAll('.manual-category-score');
+                const feedbackTextareas = document.querySelectorAll('.manual-category-feedback');
+
+                // Manual scoring system: Grammar(15), Vocabulary(15), Spelling(10), Mechanics(15), Fluency(15), Layout(15), Content(15) = 100
+                const scores = {
+                    grammar: { points: parseInt(scoreInputs[0]?.value) || 0, out_of: 15, rationale: feedbackTextareas[0]?.value || '' },
+                    vocabulary: { points: parseInt(scoreInputs[1]?.value) || 0, out_of: 15, rationale: feedbackTextareas[1]?.value || '' },
+                    spelling: { points: parseInt(scoreInputs[2]?.value) || 0, out_of: 10, rationale: feedbackTextareas[2]?.value || '' },
+                    mechanics: { points: parseInt(scoreInputs[3]?.value) || 0, out_of: 15, rationale: feedbackTextareas[3]?.value || '' },
+                    fluency: { points: parseInt(scoreInputs[4]?.value) || 0, out_of: 15, rationale: feedbackTextareas[4]?.value || '' },
+                    layout: { points: parseInt(scoreInputs[5]?.value) || 0, out_of: 15, rationale: feedbackTextareas[5]?.value || '' },
+                    content: { points: parseInt(scoreInputs[6]?.value) || 0, out_of: 15, rationale: feedbackTextareas[6]?.value || '' }
+                };
+
+                const totalPoints = Object.values(scores).reduce((sum, score) => sum + score.points, 0);
+                const totalOutOf = Object.values(scores).reduce((sum, score) => sum + score.out_of, 0);
+
+                // Create manual grading data structure compatible with existing PDF system
+                const manualGradingData = {
+                    scores: scores,
+                    total: { points: totalPoints, out_of: totalOutOf },
+                    teacher_notes: teacherNotes
+                };
+
+                const manualOriginalData = {
+                    studentName: studentName,
+                    studentText: essayText
+                };
+
+                // Temporarily set current data for PDF export
+                const tempCurrentGrading = currentGradingData;
+                const tempCurrentOriginal = currentOriginalData;
+
+                currentGradingData = manualGradingData;
+                currentOriginalData = manualOriginalData;
+
+                // Use existing PDF export function
+                exportToPDF();
+
+                // Restore original data
+                currentGradingData = tempCurrentGrading;
+                currentOriginalData = tempCurrentOriginal;
+            }
+
+            function exportToPDF() {
+                if (!currentGradingData || !currentOriginalData) {
+                    alert('No grading data available for export.');
+                    return;
+                }
+                
+                console.log('📄 PDF Export - Teacher Notes:', currentGradingData.teacher_notes);
+                
+                // Get the essay content safely
+                const essayElement = document.querySelector('.formatted-essay-content');
+                let essayContent = essayElement ? essayElement.innerHTML : 'Essay content not available';
+                let feedbackNotes = [];
+                
+                // Process essay content to add footnotes and collect feedback
+                if (essayElement) {
+                    const tempDiv = document.createElement('div');
+                    tempDiv.innerHTML = essayContent;
+                    
+                    const highlights = tempDiv.querySelectorAll('mark[data-message]');
+                    highlights.forEach((mark, index) => {
+                        const footnoteNumber = index + 1;
+                        const message = mark.getAttribute('data-message') || '';
+                        const primaryCategory = mark.getAttribute('data-type') || 'general';
+                        const categoriesData = mark.getAttribute('data-categories');
+                        const highlightedText = mark.textContent.replace('✎', '').trim();
+                        
+                        // Parse multiple categories for PDF display
+                        let categories = [primaryCategory];
+                        if (categoriesData) {
+                            try {
+                                categories = JSON.parse(categoriesData);
+                            } catch (e) {
+                                console.warn('Failed to parse categories for PDF:', e);
+                                categories = [primaryCategory];
+                            }
+                        }
+                        
+                        // Format categories for display (e.g., "Grammar & Vocabulary")
+                        const categoryDisplay = categories.length > 1 
+                            ? categories.map(cat => cat.charAt(0).toUpperCase() + cat.slice(1)).join(' & ')
+                            : primaryCategory.charAt(0).toUpperCase() + primaryCategory.slice(1);
+                        
+                        // Add footnote number to highlight
+                        mark.innerHTML = mark.innerHTML + '<sup style="font-size: 10px; color: #666; font-weight: bold;">[' + footnoteNumber + ']</sup>';
+                        
+                        // Collect feedback for footnotes section
+                        feedbackNotes.push({
+                            number: footnoteNumber,
+                            text: highlightedText,
+                            category: categoryDisplay, // Now shows all categories (e.g., "Grammar & Vocabulary")
+                            feedback: message || '' // Include empty feedback for highlights without notes
+                        });
+                    });
+                    
+                    essayContent = tempDiv.innerHTML;
+                }
+                
+
+                // Create conditional content sections for print
+                const printTeacherNotes = currentGradingData.teacher_notes ?
+                    '<h2>Teacher Notes</h2>' +
+                    '<div style="background: #e8f5e8; padding: 20px; border-left: 6px solid #4CAF50; margin: 20px 0; font-size: 14px; line-height: 1.6; border-radius: 8px;">' +
+                        currentGradingData.teacher_notes +
+                    '</div>'
+                : '';
+
+                const printCategoryBreakdown = Object.entries(currentGradingData.scores).map(([category, score]) =>
+                    '<div class="category">' +
+                        '<div style="font-weight: bold; font-size: 16px; color: #333; margin-bottom: 8px;">' +
+                            category.charAt(0).toUpperCase() + category.slice(1) + ': ' + score.points + '/' + score.out_of +
+                        '</div>' +
+                        '<div style="font-size: 14px; color: #666; line-height: 1.6;">' +
+                            score.rationale +
+                        '</div>' +
+                    '</div>'
+                ).join('');
+
+                const printFeedbackNotes = feedbackNotes.length > 0 ?
+                    '<h2>Detailed Feedback</h2>' +
+                    '<div style="background: #f8f9fa; padding: 20px; border-radius: 8px; border: 1px solid #ddd;">' +
+                        feedbackNotes.map((note) =>
+                            '<div style="margin: 15px 0; padding: 15px; background: white; border-radius: 6px; border-left: 4px solid #007bff;">' +
+                                '<div style="font-weight: bold; color: #333; margin-bottom: 5px;">' +
+                                    '[' + note.number + '] "' + note.text + '" (' + note.category + ')' +
+                                '</div>' +
+                                '<div style="color: #666; font-size: 14px; line-height: 1.5;">' +
+                                    note.feedback +
+                                '</div>' +
+                            '</div>'
+                        ).join('') +
+                    '</div>'
+                : '';
+
+                // Create the HTML content for print
+                const printContent = '<!DOCTYPE html>
+                <html>
+                <head>
+                    <title>Graded Essay - ' + currentOriginalData.studentName + '</title>
+                    <style>
+                        @media print {
+                            body { margin: 0; }
+                            .no-print { display: none !important; }
+
+                            /* PRINT-SPECIFIC: Force background colors for error highlighting */
+                            * { -webkit-print-color-adjust: exact !important; color-adjust: exact !important; }
+
+                            /* Mechanics errors - gray background - PRINT MEDIA */
+                            .essay-content mark[data-type="mechanics"][style],
+                            .essay-content mark[data-type="mechanics-punctuation"][style],
+                            .essay-content mark[data-category="mechanics"][style],
+                            .essay-content mark[data-category="mechanics-punctuation"][style],
+                            mark[data-type="mechanics"],
+                            mark[data-type="mechanics-punctuation"],
+                            mark[data-category="mechanics"],
+                            mark[data-category="mechanics-punctuation"] {
+                                color: #000000 !important;
+                                background-color: #D3D3D3 !important;
+                                background: #D3D3D3 !important;
+                                padding: 2px 4px !important;
+                                border-radius: 3px !important;
+                                font-weight: bold !important;
+                            }
+
+                            /* Fluency errors - blue background - PRINT MEDIA */
+                            .essay-content mark[data-type="fluency"][style],
+                            .essay-content mark[data-type="needs-rephrasing"][style],
+                            .essay-content mark[data-type="redundancy"][style],
+                            .essay-content mark[data-type="non-suitable-words"][style],
+                            .essay-content mark[data-type="professor-comments"][style],
+                            .essay-content mark[data-category="fluency"][style],
+                            .essay-content mark[data-category="needs-rephrasing"][style],
+                            .essay-content mark[data-category="redundancy"][style],
+                            .essay-content mark[data-category="non-suitable-words"][style],
+                            .essay-content mark[data-category="professor-comments"][style],
+                            .essay-content mark[data-category="content"][style],
+                            mark[data-type="fluency"],
+                            mark[data-type="needs-rephrasing"],
+                            mark[data-type="redundancy"],
+                            mark[data-type="non-suitable-words"],
+                            mark[data-type="professor-comments"],
+                            mark[data-category="fluency"],
+                            mark[data-category="needs-rephrasing"],
+                            mark[data-category="redundancy"],
+                            mark[data-category="non-suitable-words"],
+                            mark[data-category="professor-comments"],
+                            mark[data-category="content"] {
+                                color: #000000 !important;
+                                background-color: #87CEEB !important;
+                                background: #87CEEB !important;
+                                padding: 2px 4px !important;
+                                border-radius: 3px !important;
+                                font-weight: bold !important;
+                            }
+
+                            /* Delete category - black strikethrough */
+                            mark[data-type="delete"],
+                            mark[data-category="delete"] {
+                                color: #000000 !important;
+                                text-decoration: line-through !important;
+                                background-color: transparent !important;
+                                background: transparent !important;
+                                font-weight: bold !important;
+                                padding: 0 !important;
+                            }
+
+                            /* Legend styling for PDF */
+                            .color-legend {
+                                border: 1px solid #ddd !important;
+                                background: #f9f9f9 !important;
+                            }
+                        }
+                        body {
+                            font-family: Arial, sans-serif;
+                            max-width: 800px;
+                            margin: 0 auto;
+                            padding: 20px;
+                            color: #000;
+                            background: white;
+                            line-height: 1.4;
+                        }
+                        h1 {
+                            color: #333;
+                            text-align: center;
+                            margin-bottom: 30px;
+                            font-size: 24px;
+                            border-bottom: 3px solid #333;
+                            padding-bottom: 10px;
+                        }
+                        h2 {
+                            color: #333;
+                            border-bottom: 2px solid #333;
+                            padding-bottom: 5px;
+                            margin-top: 30px;
+                            margin-bottom: 15px;
+                            font-size: 18px;
+                        }
+                        .score-box {
+                            font-size: 28px;
+                            font-weight: bold;
+                            color: #333;
+                            text-align: center;
+                            background: #f5f5f5;
+                            padding: 20px;
+                            border: 2px solid #ccc;
+                            margin: 20px 0;
+                            border-radius: 8px;
+                        }
+                        .category {
+                            margin: 15px 0;
+                            padding: 15px;
+                            border: 1px solid #ccc;
+                            background: #fafafa;
+                            border-radius: 8px;
+                            page-break-inside: avoid;
+                        }
+                        .essay-content {
+                            background: white;
+                            padding: 25px;
+                            border: 1px solid #ddd;
+                            border-radius: 8px;
+                            line-height: 1.8;
+                            font-size: 16px;
+                        }
+
+                        /* Error highlighting styles for PDF export */
+                        mark[data-type] {
+                            background: unset;
+                            color: unset;
+                        }
+
+                        /* Grammar errors - orange text */
+                        mark[data-type="grammar"],
+                        mark[data-category="grammar"] {
+                            color: #FF8C00 !important;
+                            background: transparent !important;
+                            font-weight: bold;
+                        }
+
+                        /* Vocabulary errors - green text */
+                        mark[data-type="vocabulary"],
+                        mark[data-category="vocabulary"],
+                        mark[data-category="vocabulary-structure"] {
+                            color: #00A36C !important;
+                            background: transparent !important;
+                            font-weight: bold;
+                        }
+
+                        /* Spelling errors - red text */
+                        mark[data-type="spelling"],
+                        mark[data-category="spelling"] {
+                            color: #DC143C !important;
+                            background: transparent !important;
+                            font-weight: bold;
+                        }
+                    </style>
+                </head>
+                <body>
+                    <h1>Midterm Writing Exam Grade - ' + currentOriginalData.studentName + '</h1>
+
+                    <h2>Overall Score</h2>
+                    <div class="score-box">' + currentGradingData.total.points + '/' + currentGradingData.total.out_of + '</div>
+
+                    ' + printTeacherNotes + '
+
+                    <h2>Category Breakdown</h2>
+                    ' + printCategoryBreakdown + '
+
+                    <h2>Your Essay with Corrections</h2>
+                    <div class="essay-content">' + essayContent + '</div>
+
+                    <!-- Color Legend -->
+                    <div class="color-legend" style="padding: 10px 15px; border-top: 1px solid #ddd; background: #f9f9f9; font-size: 12px; margin-top: 10px;">
+                        <strong>Highlight Meanings:</strong>
+                        <span style="color: #FF8C00; font-weight: bold; margin-left: 10px;">grammar</span>
+                        <span style="color: #00A36C; font-weight: bold; margin-left: 15px;">vocabulary</span>
+                        <span style="color: #DC143C; font-weight: bold; margin-left: 15px;">spelling</span>
+                        <span style="background: #D3D3D3; color: #000; padding: 2px 6px; border-radius: 3px; font-weight: bold; margin-left: 15px;">mechanics</span>
+                        <span style="background: #87CEEB; color: #000; padding: 2px 6px; border-radius: 3px; font-weight: bold; margin-left: 15px;">fluency</span>
+                        <span style="color: #000; text-decoration: line-through; font-weight: bold; margin-left: 15px;">delete</span>
+                    </div>
+
+                    ' + printFeedbackNotes + '
+                </body>
+                </html>
+                `;
+                
+                // Open print preview in new window
+                const printWindow = window.open('', '_blank');
+                printWindow.document.write(printContent);
+                printWindow.document.close();
+                printWindow.focus();
+                
+                // Trigger print dialog after content loads
+                setTimeout(() => {
+                    printWindow.print();
+                }, 500);
+            }
+
+            function UNUSED_exportToPDF_old() {
+                console.log('PDF Export - currentGradingData:', currentGradingData);
+                console.log('PDF Export - currentOriginalData:', currentOriginalData);
+                
+                if (!currentGradingData || !currentOriginalData) {
+                    alert('No grading data available for export.');
+                    return;
+                }
+                
+                // Show loading message
+                const button = event.target;
+                const originalText = button.textContent;
+                button.textContent = '⏳ Generating PDF...';
+                button.disabled = true;
+                
+                // Get the essay content safely
+                const essayElement = document.querySelector('.formatted-essay-content');
+                let essayContent = essayElement ? essayElement.innerHTML : 'Essay content not available';
+                let feedbackNotes = [];
+                
+                // Process essay content to add footnotes and collect feedback
+                if (essayElement) {
+                    const tempDiv = document.createElement('div');
+                    tempDiv.innerHTML = essayContent;
+                    
+                    const highlights = tempDiv.querySelectorAll('mark[data-message]');
+                    highlights.forEach((mark, index) => {
+                        const footnoteNumber = index + 1;
+                        const message = mark.getAttribute('data-message') || '';
+                        const primaryCategory = mark.getAttribute('data-type') || 'general';
+                        const categoriesData = mark.getAttribute('data-categories');
+                        const highlightedText = mark.textContent.replace('✎', '').trim();
+                        
+                        // Parse multiple categories for PDF display
+                        let categories = [primaryCategory];
+                        if (categoriesData) {
+                            try {
+                                categories = JSON.parse(categoriesData);
+                            } catch (e) {
+                                console.warn('Failed to parse categories for PDF:', e);
+                                categories = [primaryCategory];
+                            }
+                        }
+                        
+                        // Format categories for display (e.g., "Grammar & Vocabulary")
+                        const categoryDisplay = categories.length > 1 
+                            ? categories.map(cat => cat.charAt(0).toUpperCase() + cat.slice(1)).join(' & ')
+                            : primaryCategory.charAt(0).toUpperCase() + primaryCategory.slice(1);
+                        
+                        // Add footnote number to highlight
+                        mark.innerHTML = mark.innerHTML + '<sup style="font-size: 10px; color: #666; font-weight: bold;">[' + footnoteNumber + ']</sup>';
+                        
+                        // Collect feedback for footnotes section
+                        feedbackNotes.push({
+                            number: footnoteNumber,
+                            text: highlightedText,
+                            category: categoryDisplay, // Now shows all categories (e.g., "Grammar & Vocabulary")
+                            feedback: message || '' // Include empty feedback for highlights without notes
+                        });
+                    });
+                    
+                    essayContent = tempDiv.innerHTML;
+                }
+                
+                // Create conditional content sections
+                const pdfTeacherNotes = currentGradingData.teacher_notes ?
+                    '<h2 style="color: #333; border-bottom: 2px solid #333; padding-bottom: 5px; margin-top: 30px; margin-bottom: 15px; font-size: 18px;">Teacher Notes</h2>' +
+                    '<div style="background: #e8f5e8; padding: 20px; border-left: 6px solid #4CAF50; margin: 20px 0; font-size: 14px; line-height: 1.6; border-radius: 8px;">' +
+                        currentGradingData.teacher_notes +
+                    '</div>'
+                : '';
+
+                const pdfCategoryBreakdown = Object.entries(currentGradingData.scores).map(([category, score]) =>
+                    '<div style="margin: 15px 0; padding: 15px; border: 1px solid #ccc; background: #fafafa; border-radius: 8px; page-break-inside: avoid;">' +
+                        '<div style="font-weight: bold; font-size: 16px; color: #333; margin-bottom: 8px;">' +
+                            category.charAt(0).toUpperCase() + category.slice(1) + ': ' + score.points + '/' + score.out_of +
+                        '</div>' +
+                        '<div style="font-size: 14px; color: #666; line-height: 1.6;">' +
+                            score.rationale +
+                        '</div>' +
+                    '</div>'
+                ).join('');
+
+                const pdfFeedbackNotes = feedbackNotes.length > 0 ?
+                    '<div style="page-break-before: always;"></div>' +
+                    '<h2 style="color: #333; border-bottom: 2px solid #333; padding-bottom: 5px; margin-top: 30px; margin-bottom: 15px; font-size: 18px;">📝 Feedback Notes</h2>' +
+                    '<div style="background: #f8f9fa; padding: 20px; border-radius: 8px; border: 1px solid #ddd;">' +
+                        '<p style="font-size: 14px; color: #666; margin-top: 0;">The numbers in brackets [1], [2], etc. in the essay above correspond to the feedback below:</p>' +
+                        feedbackNotes.map((note) =>
+                            '<div style="margin: 15px 0; padding: 15px; background: white; border-left: 4px solid #007bff; border-radius: 4px;">' +
+                                '<div style="font-weight: bold; color: #333; margin-bottom: 8px;">' +
+                                    '<span style="background: #007bff; color: white; padding: 3px 8px; border-radius: 12px; font-size: 12px; margin-right: 10px;">[' + note.number + ']</span>' +
+                                    '"' + note.text + '" - <em style="color: #666;">' + note.category + '</em>' +
+                                '</div>' +
+                                '<div style="font-size: 14px; line-height: 1.5; color: #444;">' +
+                                    note.feedback +
+                                '</div>' +
+                            '</div>'
+                        ).join('') +
+                    '</div>'
+                : '';
+
+                // Create the HTML content for PDF
+                const pdfContent = '
+                    <div style="font-family: Arial, sans-serif; max-width: 800px; margin: 0 auto; padding: 20px; color: #000; background: white; line-height: 1.4;">
+                        <h1 style="color: #333; text-align: center; margin-bottom: 30px; font-size: 24px; border-bottom: 3px solid #333; padding-bottom: 10px;">
+                            Midterm Writing Exam Grade - ' + currentOriginalData.studentName + '
+                        </h1>
+
+                        <h2 style="color: #333; border-bottom: 2px solid #333; padding-bottom: 5px; margin-top: 30px; margin-bottom: 15px; font-size: 18px;">Overall Score</h2>
+                        <div style="font-size: 28px; font-weight: bold; color: #333; text-align: center; background: #f5f5f5; padding: 20px; border: 2px solid #ccc; margin: 20px 0; border-radius: 8px;">
+                            ' + currentGradingData.total.points + '/' + currentGradingData.total.out_of +
+                        </div>
+
+                        ' + pdfTeacherNotes + '
+
+                        <h2 style="color: #333; border-bottom: 2px solid #333; padding-bottom: 5px; margin-top: 30px; margin-bottom: 15px; font-size: 18px;">Category Breakdown</h2>
+                        ' + pdfCategoryBreakdown + '
+
+                        <div style="page-break-before: always;"></div>
+
+                        <h2 style="color: #333; border-bottom: 2px solid #333; padding-bottom: 5px; margin-top: 30px; margin-bottom: 15px; font-size: 18px;">Color-Coded Essay</h2>
+
+                        <div style="margin: 0 0 20px 0; padding: 15px; background: #f8f9fa; border: 1px solid #ddd; border-radius: 8px;">
+                            <h3 style="color: #333; margin-top: 0; margin-bottom: 15px; font-size: 16px; text-align: center;">Color-Coded Correction Guide</h3>
+                            <div style="font-size: 14px; line-height: 1.6;">
+                                <div style="margin: 8px 0;">
+                                    <span style="background: #D3D3D3; color: #000000; padding: 3px 8px; border-radius: 3px; font-weight: bold;">mechanics error</span>
+                                </div>
+                                <div style="margin: 8px 0;">
+                                    <span style="color: #DC143C; font-weight: bold;">spelling error</span>
+                                </div>
+                                <div style="margin: 8px 0;">
+                                    <span style="color: #FF8C00; font-weight: bold;">grammar error</span>
+                                </div>
+                                <div style="margin: 8px 0;">
+                                    <span style="color: #00A36C; font-weight: bold;">vocabulary error</span>
+                                </div>
+                                <div style="margin: 8px 0;">
+                                    <span style="background: #87CEEB; color: #000000; padding: 3px 8px; border-radius: 3px; font-weight: bold;">fluency error</span>
+                                </div>
+                            </div>
+                        </div>
+                        <div style="border: 2px solid #ddd; padding: 20px; margin: 20px 0; background: white; font-family: 'Times New Roman', serif; font-size: 14px; line-height: 1.8; border-radius: 8px;">
+                            ' + essayContent + '
+                        </div>
+
+                        ' + pdfFeedbackNotes + '
+                    </div>
+                ';
+                
+                // Debug: Log the PDF content before processing
+                console.log('PDF Content length:', pdfContent.length);
+                console.log('PDF Content preview:', pdfContent.substring(0, 500) + '...');
+                
+                // Create temporary element for html2pdf
+                const element = document.createElement('div');
+                element.innerHTML = pdfContent;
+                element.style.position = 'fixed';
+                element.style.top = '0';
+                element.style.left = '0';
+                element.style.width = '210mm'; // A4 width
+                element.style.zIndex = '-1000';
+                element.style.visibility = 'hidden'; // Hide from user but keep in rendering context
+                document.body.appendChild(element);
+                
+                console.log('Element innerHTML length:', element.innerHTML.length);
+                
+                console.log('Creating filename...');
+                // Generate filename  
+                const studentName = currentOriginalData.studentName.replace(/[^a-zA-Z0-9]/g, '_');
+                const filename = `${studentName}_graded_essay.pdf`;
+                console.log('Filename created:', filename);
+                
+                console.log('Configuring PDF options...');
+                // Configure html2pdf options
+                const opt = {
+                    margin: 0.5,
+                    filename: filename,
+                    image: { type: 'jpeg', quality: 0.98 },
+                    html2canvas: { scale: 2, useCORS: true },
+                    jsPDF: { unit: 'in', format: 'a4', orientation: 'portrait' }
+                };
+                console.log('PDF options configured:', opt);
+                
+                // Check if html2pdf is available
+                if (typeof html2pdf === 'undefined') {
+                    console.error('html2pdf library not loaded!');
+                    alert('PDF library not loaded. Please refresh the page and try again.');
+                    button.textContent = originalText;
+                    button.disabled = false;
+                    return;
+                }
+                
+                console.log('Starting PDF generation with html2pdf...');
+                
+                // Generate and download PDF
+                html2pdf().set(opt).from(element).save().then(() => {
+                    console.log('PDF generation completed successfully!');
+                    // Clean up
+                    document.body.removeChild(element);
+                    button.textContent = originalText;
+                    button.disabled = false;
+                }).catch((error) => {
+                    console.error('PDF generation failed:', error);
+                    console.error('Error details:', error.message, error.stack);
+                    document.body.removeChild(element);
+                    button.textContent = originalText;
+                    button.disabled = false;
+                    alert('Failed to generate PDF: ' + error.message);
+                });
+            }
+            
+            
+            // Profile management functionality
+            document.getElementById('manageProfilesBtn').addEventListener('click', function() {
+                document.getElementById('profileModal').style.display = 'block';
+                loadProfilesList();
+            });
+            
+            document.getElementById('closeModal').addEventListener('click', function() {
+                document.getElementById('profileModal').style.display = 'none';
+                document.getElementById('profileForm').style.display = 'none';
+            });
+            
+            document.getElementById('addNewProfile').addEventListener('click', function() {
+                showProfileForm();
+            });
+            
+            document.getElementById('cancelProfileForm').addEventListener('click', function() {
+                document.getElementById('profileForm').style.display = 'none';
+            });
+            
+            function loadProfilesList() {
+                console.log('📋 Refreshing profiles list UI with', profiles.length, 'profiles');
+                const listDiv = document.getElementById('profilesList');
+                listDiv.innerHTML = '';
+
+                if (profiles.length === 0) {
+                    listDiv.innerHTML = '<p>No profiles created yet.</p>';
+                    return;
+                }
+                
+                profiles.forEach(profile => {
+                    const profileDiv = document.createElement('div');
+                    profileDiv.style.cssText = 'border: 1px solid #ddd; padding: 10px; margin: 10px 0; border-radius: 4px;';
+                    profileDiv.innerHTML =
+                        '<div style="display: flex; justify-content: space-between; align-items: center;">' +
+                            '<div style="flex: 1; min-width: 0;">' +
+                                '<strong style="display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">' + profile.name + '</strong> (' + profile.cefrLevel + ')' +
+                                '<br><small>' + profile.vocabulary.length + ' vocab words, ' + profile.grammar.length + ' grammar topics</small>' +
+                            '</div>' +
+                            '<div>' +
+                                '<button onclick="editProfile("' + profile.id + '")" style="background: #007bff; color: white; border: none; padding: 5px 10px; margin: 0 5px; border-radius: 3px; cursor: pointer;">Edit</button>' +
+                                '<button onclick="deleteProfile("' + profile.id + '")" style="background: #dc3545; color: white; border: none; padding: 5px 10px; border-radius: 3px; cursor: pointer;">Delete</button>' +
+                            '</div>' +
+                        '</div>';
+                    listDiv.appendChild(profileDiv);
+                });
+            }
+            
+            function showProfileForm(profileId = null) {
+                const form = document.getElementById('profileForm');
+                const title = document.getElementById('profileFormTitle');
+                
+                if (profileId) {
+                    const profile = profiles.find(p => p.id === profileId);
+                    if (profile) {
+                        title.textContent = 'Edit Profile';
+                        document.getElementById('profileId').value = profile.id;
+                        document.getElementById('profileName').value = profile.name;
+                        document.getElementById('profileCefr').value = profile.cefrLevel;
+                        document.getElementById('profileVocab').value = profile.vocabulary.join('
+');
+                        document.getElementById('profileGrammar').value = profile.grammar.join('
+');
+                        document.getElementById('profilePrompt').value = profile.prompt || '';
+                        document.getElementById('profileTemperature').value = profile.temperature || 0;
+                        updateProfileTemperatureDisplay(profile.temperature || 0);
+                    }
+                } else {
+                    title.textContent = 'Create New Profile';
+                    document.getElementById('profileEditForm').reset();
+                    document.getElementById('profileId').value = '';
+                    // Reset temperature display after form reset
+                    updateProfileTemperatureDisplay(0);
+                }
+                
+                form.style.display = 'block';
+            }
+            
+            window.editProfile = function(profileId) {
+                showProfileForm(profileId);
+            };
+            
+            window.deleteProfile = async function(profileId) {
+                if (!confirm('Are you sure you want to delete this profile?')) return;
+                
+                try {
+                    const response = await fetch(`/api/profiles/${profileId}`, { method: 'DELETE' });
+                    if (response.ok) {
+                        await loadProfilesData();
+                        loadProfilesList();
+                    }
+                } catch (error) {
+                    alert('Error deleting profile');
+                }
+            };
+            
+            document.getElementById('profileEditForm').addEventListener('submit', async function(e) {
+                e.preventDefault();
+                
+                const profileId = document.getElementById('profileId').value;
+                const profileData = {
+                    name: document.getElementById('profileName').value,
+                    cefrLevel: document.getElementById('profileCefr').value,
+                    vocabulary: document.getElementById('profileVocab').value.split('
+').map(v => v.trim()).filter(v => v),
+                    grammar: document.getElementById('profileGrammar').value.split('
+').map(g => g.trim()).filter(g => g),
+                    prompt: document.getElementById('profilePrompt').value.trim(),
+                    temperature: parseInt(document.getElementById('profileTemperature').value) || 0
+                };
+                
+                try {
+                    const method = profileId ? 'PUT' : 'POST';
+                    const url = profileId ? `/api/profiles/${profileId}` : '/api/profiles';
+                    
+                    const response = await fetch(url, {
+                        method: method,
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(profileData)
+                    });
+                    
+                    if (response.ok) {
+                        const savedProfile = await response.json();
+                        console.log('✅ Profile saved successfully:', savedProfile);
+
+                        // Update the local profiles array immediately for UI feedback
+                        if (profileId) {
+                            const profileIndex = profiles.findIndex(p => p.id === profileId);
+                            console.log('📍 Looking for profile to update:', profileId, 'at index:', profileIndex);
+                            if (profileIndex !== -1) {
+                                console.log('📍 Before update:', profiles[profileIndex].name, profiles[profileIndex].temperature);
+                                profiles[profileIndex] = savedProfile;
+                                console.log('📍 After update:', profiles[profileIndex].name, profiles[profileIndex].temperature);
+                                console.log('🔄 Updated local profiles array with saved data');
+                            }
+                        } else {
+                            profiles.push(savedProfile);
+                        }
+
+                        console.log('🔄 Refreshing UI components...');
+                        loadProfilesList();
+                        updateProfileDropdown();
+
+                        // If editing an existing profile, show the saved data in form and close after delay
+                        if (profileId) {
+                            console.log('🔄 Using saved profile data to refresh form:', savedProfile);
+                            document.getElementById('profileName').value = savedProfile.name;
+                            document.getElementById('profileCefr').value = savedProfile.cefrLevel;
+                            document.getElementById('profileVocab').value = savedProfile.vocabulary.join('
+');
+                            document.getElementById('profileGrammar').value = savedProfile.grammar.join('
+');
+                            document.getElementById('profilePrompt').value = savedProfile.prompt || '';
+                            document.getElementById('profileTemperature').value = savedProfile.temperature || 0;
+                            updateProfileTemperatureDisplay(savedProfile.temperature || 0);
+
+                            // Close the form after a short delay to show the updated values
+                            setTimeout(() => {
+                                document.getElementById('profileForm').style.display = 'none';
+                                console.log('✅ Profile edit form closed');
+                            }, 1000);
+                        } else {
+                            // For new profiles, close the form immediately
+                            document.getElementById('profileForm').style.display = 'none';
+                        }
+                    } else {
+                        console.error('❌ Profile save failed:', response.status, response.statusText);
+                        const errorText = await response.text();
+                        console.error('Error response:', errorText);
+                        alert('Error saving profile: ' + response.status);
+                    }
+                } catch (error) {
+                    console.error('❌ Profile save error:', error);
+                    alert('Error saving profile: ' + error.message);
+                }
+            });
+        </script>
+        
+        <!-- html2pdf library for direct PDF download -->
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+    </body>
+    </html>
+  

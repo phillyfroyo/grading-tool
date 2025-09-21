@@ -24,7 +24,9 @@
       "Bash(git merge:*)",
       "Bash(grep:*)",
       "Bash(pkill:*)",
-      "Bash(cat:*)"
+      "Bash(cat:*)",
+      "Bash(npm test)",
+      "Bash(npm run test:backend:*)"
     ],
     "deny": [],
     "ask": []

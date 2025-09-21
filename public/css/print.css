@@ -1,0 +1,237 @@
+/* ==================================================================
+   ESL Essay Grader - Print Stylesheet
+   Styles specifically for PDF export and printing
+   ================================================================== */
+
+/* ===== PRINT MEDIA QUERIES ===== */
+@media print {
+    body {
+        margin: 0;
+    }
+
+    .no-print {
+        display: none !important;
+    }
+
+    /* Force background colors for error highlighting */
+    * {
+        -webkit-print-color-adjust: exact !important;
+        color-adjust: exact !important;
+    }
+
+    /* ===== MECHANICS ERRORS - GRAY BACKGROUND ===== */
+    .essay-content mark[data-type="mechanics"][style],
+    .essay-content mark[data-type="mechanics-punctuation"][style],
+    .essay-content mark[data-category="mechanics"][style],
+    .essay-content mark[data-category="mechanics-punctuation"][style],
+    mark[data-type="mechanics"],
+    mark[data-type="mechanics-punctuation"],
+    mark[data-category="mechanics"],
+    mark[data-category="mechanics-punctuation"] {
+        color: #000000 !important;
+        background-color: #D3D3D3 !important;
+        background: #D3D3D3 !important;
+        padding: 2px 4px !important;
+        border-radius: 3px !important;
+        font-weight: bold !important;
+    }
+
+    /* ===== FLUENCY ERRORS - BLUE BACKGROUND ===== */
+    .essay-content mark[data-type="fluency"][style],
+    .essay-content mark[data-type="needs-rephrasing"][style],
+    .essay-content mark[data-type="redundancy"][style],
+    .essay-content mark[data-type="non-suitable-words"][style],
+    .essay-content mark[data-type="professor-comments"][style],
+    .essay-content mark[data-category="fluency"][style],
+    .essay-content mark[data-category="needs-rephrasing"][style],
+    .essay-content mark[data-category="redundancy"][style],
+    .essay-content mark[data-category="non-suitable-words"][style],
+    .essay-content mark[data-category="professor-comments"][style],
+    .essay-content mark[data-category="content"][style],
+    mark[data-type="fluency"],
+    mark[data-type="needs-rephrasing"],
+    mark[data-type="redundancy"],
+    mark[data-type="non-suitable-words"],
+    mark[data-type="professor-comments"],
+    mark[data-category="fluency"],
+    mark[data-category="needs-rephrasing"],
+    mark[data-category="redundancy"],
+    mark[data-category="non-suitable-words"],
+    mark[data-category="professor-comments"],
+    mark[data-category="content"] {
+        color: #000000 !important;
+        background-color: #87CEEB !important;
+        background: #87CEEB !important;
+        padding: 2px 4px !important;
+        border-radius: 3px !important;
+        font-weight: bold !important;
+    }
+
+    /* ===== DELETE CATEGORY - STRIKETHROUGH ===== */
+    mark[data-type="delete"],
+    mark[data-category="delete"] {
+        color: #000000 !important;
+        text-decoration: line-through !important;
+        background-color: transparent !important;
+        background: transparent !important;
+        font-weight: bold !important;
+        padding: 0 !important;
+    }
+
+    /* ===== LEGEND STYLING FOR PDF ===== */
+    .color-legend {
+        border: 1px solid #ddd !important;
+        background: #f9f9f9 !important;
+    }
+}
+
+/* ===== PDF EXPORT BASE STYLES ===== */
+.pdf-export-body {
+    font-family: Arial, sans-serif;
+    max-width: 800px;
+    margin: 0 auto;
+    padding: 20px;
+    color: #000;
+    background: white;
+    line-height: 1.4;
+}
+
+/* ===== PDF TYPOGRAPHY ===== */
+.pdf-export-h1 {
+    color: #333;
+    text-align: center;
+    margin-bottom: 30px;
+    font-size: 24px;
+    border-bottom: 3px solid #333;
+    padding-bottom: 10px;
+}
+
+.pdf-export-h2 {
+    color: #333;
+    border-bottom: 2px solid #333;
+    padding-bottom: 5px;
+    margin-top: 30px;
+    margin-bottom: 15px;
+    font-size: 18px;
+}
+
+/* ===== PDF SCORE BOX ===== */
+.score-box {
+    font-size: 28px;
+    font-weight: bold;
+    color: #333;
+    text-align: center;
+    background: #f5f5f5;
+    padding: 20px;
+    border: 2px solid #ccc;
+    margin: 20px 0;
+    border-radius: 8px;
+}
+
+/* ===== PDF CATEGORIES ===== */
+.category {
+    margin: 15px 0;
+    padding: 15px;
+    border: 1px solid #ccc;
+    background: #fafafa;
+    border-radius: 8px;
+    page-break-inside: avoid;
+}
+
+/* ===== PDF ESSAY CONTENT ===== */
+.essay-content {
+    background: white;
+    padding: 25px;
+    border: 1px solid #ddd;
+    border-radius: 8px;
+    line-height: 1.8;
+    font-size: 16px;
+}
+
+/* ===== ERROR HIGHLIGHTING FOR PDF EXPORT ===== */
+mark[data-type] {
+    background: unset;
+    color: unset;
+}
+
+/* Grammar errors - orange text */
+mark[data-type="grammar"],
+mark[data-category="grammar"] {
+    color: #FF8C00 !important;
+    background: transparent !important;
+    font-weight: bold;
+}
+
+/* Vocabulary errors - green text */
+mark[data-type="vocabulary"],
+mark[data-category="vocabulary"],
+mark[data-category="vocabulary-structure"] {
+    color: #00A36C !important;
+    background: transparent !important;
+    font-weight: bold;
+}
+
+/* Spelling errors - red text */
+mark[data-type="spelling"],
+mark[data-category="spelling"] {
+    color: #DC143C !important;
+    background: transparent !important;
+    font-weight: bold;
+}
+
+/* ===== COLOR LEGEND ===== */
+.color-legend {
+    padding: 10px 15px;
+    border-top: 1px solid #ddd;
+    background: #f9f9f9;
+    font-size: 12px;
+    margin-top: 10px;
+}
+
+.color-legend strong {
+    font-weight: bold;
+}
+
+.legend-item {
+    font-weight: bold;
+    margin-left: 10px;
+}
+
+.legend-item:first-of-type {
+    margin-left: 10px;
+}
+
+.legend-item:not(:first-of-type) {
+    margin-left: 15px;
+}
+
+.legend-grammar {
+    color: #FF8C00;
+}
+
+.legend-vocabulary {
+    color: #00A36C;
+}
+
+.legend-spelling {
+    color: #DC143C;
+}
+
+.legend-mechanics {
+    background-color: #D3D3D3;
+    color: #000000;
+    padding: 1px 3px;
+    border-radius: 2px;
+}
+
+.legend-fluency {
+    background-color: #87CEEB;
+    color: #000000;
+    padding: 1px 3px;
+    border-radius: 2px;
+}
+
+.legend-delete {
+    text-decoration: line-through;
+    color: #000000;
+}

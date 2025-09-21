@@ -1,0 +1,731 @@
+/* ==================================================================
+   ESL Essay Grader - Components Stylesheet
+   Component-specific styles for UI elements and interactions
+   ================================================================== */
+
+/* ===== APP BRANDING HEADER ===== */
+.app-header {
+    text-align: center;
+    margin-bottom: 30px;
+    padding: 30px 0;
+    border-bottom: 2px solid #e9ecef;
+}
+
+.app-header img {
+    height: 120px;
+    max-width: 100%;
+}
+
+/* ===== TAB SYSTEM ===== */
+.tab-container {
+    margin-bottom: 60px;
+}
+
+.tab-buttons {
+    display: flex;
+    border-bottom: 4px solid #e9ecef;
+    margin-bottom: 40px;
+}
+
+.tab-button {
+    flex: 1;
+    padding: 20px 30px;
+    border: none;
+    cursor: pointer;
+    border-radius: 12px 12px 0 0;
+    font-size: 22px;
+    font-weight: bold;
+}
+
+.tab-button.active {
+    background: #007bff;
+    color: white;
+    margin-right: 2px;
+}
+
+.tab-button:not(.active) {
+    background: #f8f9fa;
+    color: #6c757d;
+    margin-left: 2px;
+}
+
+.tab-content {
+    display: none;
+}
+
+.tab-content.active {
+    display: block;
+}
+
+/* ===== FORM CONTROLS ===== */
+.form-control-group {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+}
+
+.form-control-group select {
+    flex: 1;
+}
+
+.manage-profiles-btn {
+    padding: 10px 15px;
+    background: #28a745;
+    white-space: nowrap;
+}
+
+.temperature-control {
+    margin-top: 5px;
+}
+
+.temperature-slider {
+    width: 100%;
+}
+
+.temperature-labels {
+    display: flex;
+    justify-content: space-between;
+    font-size: 12px;
+    color: #666;
+    margin-top: 5px;
+}
+
+/* ===== PROFILE CONTROLS ===== */
+.profile-controls {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+}
+
+.profile-controls select {
+    flex: 1;
+}
+
+/* ===== ESSAY MANAGEMENT ===== */
+.essay-entry {
+    margin-bottom: 15px;
+}
+
+.essay-header {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 8px;
+}
+
+.essay-header label {
+    margin: 0;
+    font-weight: 500;
+}
+
+.essay-header .student-name {
+    padding: 15px;
+    border: 2px solid #ddd;
+    border-radius: 8px;
+    width: 300px;
+    font-size: 22px;
+    height: 60px;
+    box-sizing: border-box;
+}
+
+.essay-header .remove-essay-btn {
+    background: #dc3545;
+    color: white;
+    border: none;
+    padding: 5px 10px;
+    border-radius: 4px;
+    cursor: pointer;
+}
+
+.essay-controls {
+    margin-top: 15px;
+    display: flex;
+    gap: 10px;
+}
+
+.essay-controls button {
+    padding: 10px 15px;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+}
+
+.essay-controls #gradeButton {
+    background: #007bff;
+    color: white;
+}
+
+.essay-controls #addEssayBtn {
+    background: #28a745;
+    color: white;
+}
+
+.essay-label {
+    margin: 0;
+    font-weight: 500;
+}
+
+.student-name-input {
+    padding: 15px;
+    border: 2px solid #ddd;
+    border-radius: 8px;
+    width: 300px;
+    font-size: 22px;
+    height: 60px;
+    box-sizing: border-box;
+}
+
+.remove-essay-btn {
+    background: #dc3545;
+    color: white;
+    border: none;
+    padding: 5px 10px;
+    border-radius: 4px;
+    cursor: pointer;
+    display: none;
+}
+
+.essay-actions {
+    margin-top: 15px;
+    display: flex;
+    gap: 10px;
+}
+
+.add-essay-btn {
+    background: #28a745;
+    color: white;
+    border: none;
+    padding: 10px 15px;
+    border-radius: 4px;
+    cursor: pointer;
+}
+
+/* ===== MANUAL GRADING MODE ===== */
+.manual-essay-input {
+    width: 100%;
+    padding: 20px;
+    border: 2px solid #ddd;
+    border-radius: 8px;
+    font-size: 22px;
+}
+
+.load-manual-essay-btn {
+    margin-top: 10px;
+    background: #28a745;
+    color: white;
+    padding: 8px 15px;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+}
+
+/* ===== MODAL SYSTEM ===== */
+.modal {
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0,0,0,0.5);
+    z-index: 1000;
+}
+
+.modal-content {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    background: linear-gradient(145deg, #ffffff, #f8f9fa);
+    border-radius: 16px;
+    box-shadow:
+        0 10px 40px rgba(0,0,0,0.15),
+        0 4px 20px rgba(0,0,0,0.1),
+        inset 0 1px 0 rgba(255,255,255,0.8);
+    max-width: 800px;
+    width: 90%;
+    cursor: default;
+    border: 1px solid rgba(255,255,255,0.2);
+    backdrop-filter: blur(10px);
+}
+
+.modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 24px 28px;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    border-radius: 16px 16px 0 0;
+    border-bottom: none;
+    position: relative;
+    overflow: hidden;
+    cursor: move;
+    user-select: none;
+}
+
+.modal-header:active {
+    cursor: grabbing;
+}
+
+.modal-header::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(255,255,255,0.1);
+    backdrop-filter: blur(10px);
+    z-index: -1;
+}
+
+.modal-title {
+    margin: 0;
+    font-size: 22px;
+    font-weight: 600;
+    color: white;
+    text-shadow: 0 1px 2px rgba(0,0,0,0.2);
+    z-index: 1;
+    position: relative;
+}
+
+.modal-close-btn {
+    background: rgba(255,255,255,0.15);
+    color: white;
+    border: 2px solid rgba(255,255,255,0.3);
+    border-radius: 50%;
+    width: 36px;
+    height: 36px;
+    font-size: 18px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    backdrop-filter: blur(10px);
+    z-index: 1;
+    position: relative;
+    padding: 0;
+}
+
+.modal-close-btn:hover {
+    background: rgba(255,255,255,0.25);
+    border-color: rgba(255,255,255,0.5);
+    transform: scale(1.1);
+}
+
+.modal-body {
+    padding: 28px;
+    background: white;
+    border-radius: 0 0 16px 16px;
+}
+
+/* Modal category buttons */
+.modal-category-btn {
+    background: transparent;
+    border: 2px solid #ddd;
+    border-radius: 12px;
+    padding: 8px 14px;
+    cursor: pointer;
+    font-weight: 600;
+    font-size: 13px;
+    transition: all 0.2s ease;
+    position: relative;
+    overflow: hidden;
+}
+
+.modal-category-btn:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+}
+
+.modal-category-btn.modal-category-selected {
+    box-shadow: 0 4px 16px rgba(0,0,0,0.2);
+    transform: translateY(-2px);
+}
+
+/* Modal action buttons */
+.modal-save-btn,
+.modal-cancel-btn {
+    border: none;
+    border-radius: 8px;
+    padding: 12px 20px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+}
+
+.modal-save-btn:hover,
+.modal-cancel-btn:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 16px rgba(0,0,0,0.2);
+}
+
+/* Modal textarea */
+#editNotes {
+    border: 2px solid #e9ecef;
+    border-radius: 8px;
+    transition: border-color 0.2s ease;
+    resize: vertical;
+}
+
+#editNotes:focus {
+    border-color: #667eea;
+    outline: none;
+    box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+}
+
+/* ===== PROFILE MANAGEMENT ===== */
+.add-new-profile-btn {
+    background: #007bff;
+    color: white;
+    padding: 10px 20px;
+    border: none;
+    border-radius: 4px;
+    margin-top: 15px;
+    cursor: pointer;
+}
+
+.profile-form-actions {
+    display: flex;
+    gap: 10px;
+    margin-top: 20px;
+}
+
+.save-profile-btn {
+    background: #28a745;
+    color: white;
+    padding: 10px 20px;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+}
+
+.cancel-profile-btn {
+    background: #6c757d;
+    color: white;
+    padding: 10px 20px;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+}
+
+/* ===== HIGHLIGHT EDITING MODAL ===== */
+.highlight-edit-modal {
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0,0,0,0.5);
+    z-index: 1000;
+}
+
+.highlight-modal-content {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    background: white;
+    border-radius: 12px;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+    max-width: 500px;
+    width: 90%;
+    cursor: default;
+}
+
+/* ===== MANUAL GRADING INTERFACE ===== */
+.manual-grading-container {
+    max-width: 100%;
+}
+
+.mode-description {
+    color: #6c757d;
+    font-style: italic;
+    margin-bottom: 30px;
+    padding: 15px;
+    background: #f8f9fa;
+    border-radius: 4px;
+    border-left: 4px solid #007bff;
+}
+
+.scoring-section {
+    margin-top: 30px;
+}
+
+.scoring-rubric {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 15px;
+    margin-bottom: 20px;
+}
+
+.score-category {
+    padding: 15px;
+    border: 1px solid #dee2e6;
+    border-radius: 6px;
+    background: #f8f9fa;
+}
+
+.score-category label {
+    font-weight: bold;
+    margin-bottom: 8px;
+    display: block;
+    color: #495057;
+}
+
+.manual-score-input {
+    width: 120px;
+    padding: 12px;
+    border: 2px solid #ced4da;
+    border-radius: 8px;
+    margin-right: 20px;
+    font-size: 22px;
+    text-align: center;
+    font-weight: bold;
+}
+
+.score-display {
+    font-weight: bold;
+    color: #6c757d;
+}
+
+.manual-feedback-input {
+    width: 100%;
+    margin-top: 16px;
+    padding: 16px;
+    border: 2px solid #ced4da;
+    border-radius: 8px;
+    font-size: 22px;
+    resize: vertical;
+    min-height: 120px;
+}
+
+.total-score {
+    background: #e9ecef;
+    padding: 20px;
+    border-radius: 6px;
+    text-align: center;
+    margin: 20px 0;
+    border: 2px solid #007bff;
+}
+
+.total-score h4 {
+    margin: 0;
+    color: #007bff;
+    font-size: 18px;
+}
+
+.form-actions {
+    display: flex;
+    gap: 15px;
+    justify-content: center;
+    margin-top: 30px;
+}
+
+.grade-button {
+    background: #007bff;
+    color: white;
+    padding: 24px 48px;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 24px;
+    font-weight: bold;
+    transition: background-color 0.2s;
+}
+
+.grade-button:hover {
+    background: #0056b3;
+}
+
+.clear-button {
+    background: #6c757d;
+    color: white;
+    padding: 24px 48px;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 24px;
+    transition: background-color 0.2s;
+}
+
+.clear-button:hover {
+    background: #545b62;
+}
+
+/* ===== MANUAL GRADING RESULTS ===== */
+.manual-grading-result {
+    margin-top: 30px;
+    padding: 25px;
+    background: white;
+    border: 1px solid #dee2e6;
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.result-header {
+    border-bottom: 2px solid #e9ecef;
+    padding-bottom: 15px;
+    margin-bottom: 20px;
+}
+
+.result-header h2 {
+    margin: 0;
+    color: #007bff;
+}
+
+.student-info h3 {
+    margin: 10px 0 5px 0;
+    color: #495057;
+}
+
+.grading-date {
+    color: #6c757d;
+    font-size: 14px;
+    margin: 0;
+}
+
+.overall-score {
+    text-align: center;
+    margin: 20px 0;
+    padding: 20px;
+    background: #f8f9fa;
+    border-radius: 6px;
+}
+
+.overall-score h3 {
+    margin: 0;
+    font-size: 24px;
+}
+
+.category-scores {
+    margin: 25px 0;
+}
+
+.category-result {
+    margin-bottom: 15px;
+    padding: 15px;
+    background: #f8f9fa;
+    border-radius: 4px;
+    border-left: 4px solid #007bff;
+}
+
+.category-result h4 {
+    margin: 0 0 8px 0;
+    color: #495057;
+}
+
+.category-result p {
+    margin: 0;
+    color: #6c757d;
+    line-height: 1.5;
+}
+
+.overall-feedback {
+    margin: 25px 0;
+    padding: 20px;
+    background: #fff3cd;
+    border: 1px solid #ffeaa7;
+    border-radius: 6px;
+}
+
+.overall-feedback h3 {
+    margin-top: 0;
+    color: #856404;
+}
+
+.overall-feedback p {
+    margin-bottom: 0;
+    color: #856404;
+    line-height: 1.6;
+}
+
+.essay-text {
+    margin: 25px 0;
+}
+
+.essay-text h3 {
+    margin-bottom: 10px;
+    color: #495057;
+}
+
+.essay-display {
+    padding: 20px;
+    background: #f8f9fa;
+    border: 1px solid #dee2e6;
+    border-radius: 6px;
+    white-space: pre-wrap;
+    line-height: 1.6;
+    max-height: 400px;
+    overflow-y: auto;
+}
+
+.result-actions {
+    display: flex;
+    gap: 15px;
+    justify-content: center;
+    margin-top: 25px;
+    padding-top: 20px;
+    border-top: 1px solid #dee2e6;
+}
+
+.export-btn {
+    background: #28a745;
+    color: white;
+    padding: 10px 20px;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 14px;
+    transition: background-color 0.2s;
+}
+
+.export-btn:hover {
+    background: #1e7e34;
+}
+
+.clear-btn {
+    background: #dc3545;
+    color: white;
+    padding: 10px 20px;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 14px;
+    transition: background-color 0.2s;
+}
+
+.clear-btn:hover {
+    background: #c82333;
+}
+
+/* ===== RESPONSIVE DESIGN ===== */
+@media (max-width: 768px) {
+    .scoring-rubric {
+        grid-template-columns: 1fr;
+    }
+
+    .form-actions {
+        flex-direction: column;
+        align-items: center;
+    }
+
+    .grade-button, .clear-button {
+        width: 100%;
+        max-width: 300px;
+    }
+
+    .result-actions {
+        flex-direction: column;
+        align-items: center;
+    }
+
+    .export-btn, .clear-btn {
+        width: 100%;
+        max-width: 200px;
+    }
+}

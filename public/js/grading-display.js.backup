@@ -1,0 +1,452 @@
+/**
+ * Grading Display Module
+ * Handles displaying grading results for single and batch essays
+ */
+
+// Global state for current grading data
+let currentGradingData = null;
+let currentOriginalData = null;
+
+/**
+ * Display results for a single essay
+ * @param {Object} gradingResult - The grading result from the server
+ * @param {Object} originalData - The original form data
+ */
+function displayResults(gradingResult, originalData) {
+    console.log('🎯 DISPLAY RESULTS CALLED');
+    console.log('Grading result:', gradingResult);
+    console.log('Original data:', originalData);
+
+    const resultsDiv = document.getElementById('results');
+    if (!resultsDiv) return;
+
+    console.log('📤 MAKING FORMAT REQUEST...');
+    // Format the essay with color coding
+    fetch('/format', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+            studentText: originalData.studentText,
+            gradingResults: gradingResult,
+            studentName: originalData.studentName,
+            editable: true
+        })
+    })
+    .then(response => {
+        console.log('📥 FORMAT RESPONSE STATUS:', response.status);
+        return response.json();
+    })
+    .then(formatted => {
+        console.log('✅ FORMAT RESPONSE RECEIVED:', formatted);
+        const studentName = originalData.studentName || 'Student';
+        resultsDiv.innerHTML = createSingleEssayHTML(studentName, formatted);
+        resultsDiv.style.display = 'block';
+
+        // Add event listeners for editable elements
+        setupEditableElements(gradingResult, originalData);
+
+        // Initialize essay editing
+        setTimeout(() => {
+            if (window.EssayEditingModule) {
+                window.EssayEditingModule.initializeEssayEditing();
+            }
+        }, 100);
+    })
+    .catch(error => {
+        console.error('Formatting error:', error);
+        resultsDiv.innerHTML = '<div class="error">Error formatting results.</div>';
+        resultsDiv.style.display = 'block';
+    });
+}
+
+/**
+ * Create HTML for single essay display
+ * @param {string} studentName - Student name
+ * @param {Object} formatted - Formatted essay data
+ * @returns {string} HTML string
+ */
+function createSingleEssayHTML(studentName, formatted) {
+    return `
+        <h2>Grading Results for ${studentName}</h2>
+        ${formatted.feedbackSummary}
+        <h3 style="margin: 20px 0 10px 0;">Color-Coded Essay:</h3>
+        <div id="essayContainer" style="border: 1px solid #ddd; border-radius: 4px;">
+            <!-- Category selector bar -->
+            <div id="categoryBar" style="padding: 10px; background: #f8f9fa; border-bottom: 1px solid #ddd; border-radius: 4px 4px 0 0;">
+                <div style="margin-bottom: 5px; font-weight: bold; font-size: 14px;">Select category then highlight text, or highlight text then select category:</div>
+                <div id="categoryButtons" style="display: flex; flex-wrap: wrap; gap: 8px;">
+                    ${createCategoryButtons()}
+                    <button id="clearSelectionBtn" onclick="clearSelection()" style="background: #f5f5f5; color: #666; border: 2px solid #ccc; padding: 8px 12px; border-radius: 4px; cursor: pointer; margin-left: 10px;">Clear Selection</button>
+                </div>
+                <div id="selectionStatus" style="margin-top: 8px; font-size: 12px; color: #666; min-height: 16px;"></div>
+            </div>
+            <!-- Essay text area -->
+            <div class="formatted-essay-content" style="padding: 15px; line-height: 1.6; user-select: text;">
+                ${formatted.formattedText}
+            </div>
+            <!-- Color Legend -->
+            ${createColorLegend()}
+        </div>
+        <div style="margin-top: 20px;">
+            <button onclick="exportToPDF()">Export to PDF</button>
+        </div>
+    `;
+}
+
+/**
+ * Create category buttons HTML
+ * @param {string} essayIndex - Optional essay index for batch processing
+ * @returns {string} HTML string for category buttons
+ */
+function createCategoryButtons(essayIndex = '') {
+    const dataAttr = essayIndex ? ` data-essay-index="${essayIndex}"` : '';
+
+    return `
+        <button class="category-btn" data-category="grammar"${dataAttr} style="background: transparent; color: #FF8C00; border: 2px solid #FF8C00; padding: 8px 12px; border-radius: 20px; cursor: pointer; font-weight: bold; transition: all 0.2s;">Grammar Error</button>
+        <button class="category-btn" data-category="vocabulary"${dataAttr} style="background: transparent; color: #00A36C; border: 2px solid #00A36C; padding: 8px 12px; border-radius: 20px; cursor: pointer; font-weight: bold; transition: all 0.2s;">Vocabulary Error</button>
+        <button class="category-btn" data-category="mechanics"${dataAttr} style="background: #D3D3D3; color: #000000; border: 2px solid #D3D3D3; padding: 8px 12px; border-radius: 20px; cursor: pointer; font-weight: bold; transition: all 0.2s;">Mechanics Error</button>
+        <button class="category-btn" data-category="spelling"${dataAttr} style="background: transparent; color: #DC143C; border: 2px solid #DC143C; padding: 8px 12px; border-radius: 20px; cursor: pointer; font-weight: bold; transition: all 0.2s;">Spelling Error</button>
+        <button class="category-btn" data-category="fluency"${dataAttr} style="background: #87CEEB; color: #000000; border: 2px solid #87CEEB; padding: 8px 12px; border-radius: 20px; cursor: pointer; font-weight: bold; transition: all 0.2s;">Fluency Error</button>
+        <button class="category-btn" data-category="delete"${dataAttr} style="background: transparent; color: #000000; border: 2px solid #000000; padding: 8px 12px; border-radius: 20px; cursor: pointer; font-weight: bold; text-decoration: line-through; transition: all 0.2s;">Delete Word</button>
+    `;
+}
+
+/**
+ * Create color legend HTML
+ * @returns {string} HTML string for color legend
+ */
+function createColorLegend() {
+    return `
+        <div style="padding: 10px 15px; border-top: 1px solid #ddd; background: #f9f9f9; font-size: 12px;">
+            <strong>Highlight Meanings:</strong>
+            <span style="color: #FF8C00; font-weight: bold; margin-left: 10px;">grammar</span>
+            <span style="color: #00A36C; font-weight: bold; margin-left: 15px;">vocabulary</span>
+            <span style="color: #DC143C; font-weight: bold; margin-left: 15px;">spelling</span>
+            <span style="background: #D3D3D3; color: #000; padding: 2px 6px; border-radius: 3px; font-weight: bold; margin-left: 15px;">mechanics</span>
+            <span style="background: #87CEEB; color: #000; padding: 2px 6px; border-radius: 3px; font-weight: bold; margin-left: 15px;">fluency</span>
+            <span style="color: #000; text-decoration: line-through; font-weight: bold; margin-left: 15px;">delete</span>
+        </div>
+    `;
+}
+
+/**
+ * Display batch grading results
+ * @param {Object} batchResult - The batch grading result
+ * @param {Object} originalData - The original form data
+ */
+function displayBatchResults(batchResult, originalData) {
+    console.log('🎯 DISPLAY BATCH RESULTS CALLED');
+    console.log('Batch result:', batchResult);
+    console.log('Original data:', originalData);
+
+    // Update loading indicators to checkmarks progressively
+    batchResult.results.forEach((essay, index) => {
+        setTimeout(() => {
+            if (window.EssayManagementModule) {
+                window.EssayManagementModule.markStudentComplete(index, essay.success);
+            }
+        }, index * 200); // 200ms delay between each completion
+    });
+
+    const resultsDiv = document.getElementById('results');
+    if (!resultsDiv) return;
+
+    // Create compact batch results UI
+    const successCount = batchResult.results.filter(r => r.success).length;
+    const failureCount = batchResult.results.filter(r => !r.success).length;
+
+    const compactHtml = createBatchResultsHTML(batchResult, successCount, failureCount);
+    resultsDiv.innerHTML = compactHtml;
+    resultsDiv.style.display = 'block';
+
+    // Store batch data globally for download and expand functions
+    window.currentBatchData = { batchResult, originalData };
+
+    // Store essay data for lazy loading when expanded
+    batchResult.results.forEach((essay, index) => {
+        if (essay.success) {
+            const essayFromOriginal = originalData.essays[index];
+            window[`essayData_${index}`] = {
+                essay: essay,
+                originalData: essayFromOriginal
+            };
+        }
+    });
+}
+
+/**
+ * Create HTML for batch results display
+ * @param {Object} batchResult - Batch grading results
+ * @param {number} successCount - Number of successful gradings
+ * @param {number} failureCount - Number of failed gradings
+ * @returns {string} HTML string
+ */
+function createBatchResultsHTML(batchResult, successCount, failureCount) {
+    let html = `
+        <div class="batch-results">
+            <h2>Batch Grading Results (${batchResult.totalEssays} essays)</h2>
+            <div class="batch-summary" style="background: #f8f9fa; padding: 15px; border-radius: 8px; margin: 15px 0;">
+                <p><strong>Summary:</strong> ${successCount} successful, ${failureCount} failed</p>
+            </div>
+            <div class="compact-student-list" style="margin: 20px 0;">
+    `;
+
+    // Create compact student list
+    batchResult.results.forEach((essay, index) => {
+        const statusIcon = essay.success ?
+            '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#28a745" stroke-width="2"><path d="M20 6L9 17l-5-5"></path></svg>' :
+            '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#dc3545" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><path d="M15 9l-6 6M9 9l6 6"></path></svg>';
+
+        html += createStudentRowHTML(essay, index, statusIcon);
+    });
+
+    html += `
+            </div>
+            <div style="margin: 20px 0; text-align: center;">
+                <button onclick="downloadAllEssays()" style="background: #28a745; color: white; border: none; padding: 10px 20px; border-radius: 6px; font-size: 1em; cursor: pointer; font-weight: 500;">Download All Essays</button>
+            </div>
+        </div>
+    `;
+
+    return html;
+}
+
+/**
+ * Create HTML for a single student row in batch results
+ * @param {Object} essay - Essay result object
+ * @param {number} index - Essay index
+ * @param {string} statusIcon - HTML for status icon
+ * @returns {string} HTML string
+ */
+function createStudentRowHTML(essay, index, statusIcon) {
+    const backgroundColor = essay.success ? '#f8f9fa' : '#fff5f5';
+    const hoverColor = essay.success ? '#e9ecef' : '#fed7d7';
+    const textColor = essay.success ? '#333' : '#721c24';
+
+    return `
+        <div class="student-row" style="border: 1px solid #ddd; margin: 8px 0; border-radius: 6px; overflow: hidden;">
+            <div class="student-header" onclick="toggleStudentDetails(${index})" style="
+                padding: 12px 15px;
+                background: ${backgroundColor};
+                cursor: pointer;
+                display: flex;
+                align-items: center;
+                justify-content: space-between;
+                transition: background-color 0.2s;
+            " onmouseover="this.style.backgroundColor='${hoverColor}'"
+               onmouseout="this.style.backgroundColor='${backgroundColor}'">
+                <div style="display: flex; align-items: center; gap: 10px;">
+                    ${statusIcon}
+                    <span style="font-weight: 500; color: ${textColor};">${essay.studentName}</span>
+                    ${!essay.success ? '<span style="color: #721c24; font-size: 0.9em;">(Failed)</span>' : ''}
+                </div>
+                <div style="display: flex; align-items: center; gap: 15px;">
+                    <label style="display: flex; align-items: center; gap: 5px; margin: 0; cursor: pointer;" onclick="event.stopPropagation();">
+                        <input type="checkbox" class="mark-complete-checkbox" data-student-index="${index}" style="margin: 0;">
+                        <span style="font-size: 0.9em; color: #666;">Mark Complete</span>
+                    </label>
+                    ${essay.success ? `<button onclick="event.stopPropagation(); downloadIndividualEssay(${index})" style="background: #007bff; color: white; border: none; padding: 4px 8px; border-radius: 4px; font-size: 0.8em; cursor: pointer;">Download</button>` : ''}
+                    <span style="color: #666; font-size: 0.9em;">▼</span>
+                </div>
+            </div>
+            <div id="student-details-${index}" class="student-details" style="display: none; border-top: 1px solid #ddd;">
+                ${essay.success ?
+                    `<div id="batch-essay-${index}" style="padding: 15px;">Loading formatted result...</div>` :
+                    `<div style="padding: 15px; color: #721c24;">Error: ${essay.error}</div>`
+                }
+            </div>
+        </div>
+    `;
+}
+
+/**
+ * Setup editable elements for single essay results
+ * @param {Object} gradingResult - Grading result object
+ * @param {Object} originalData - Original form data
+ */
+function setupEditableElements(gradingResult, originalData) {
+    currentGradingData = { ...gradingResult };
+    currentOriginalData = { ...originalData };
+
+    // Add listeners for score inputs
+    document.querySelectorAll('.editable-score').forEach(input => {
+        input.addEventListener('input', function() {
+            const category = this.dataset.category;
+            const newPoints = parseInt(this.value) || 0;
+            const maxPoints = parseInt(this.max) || 15;
+
+            // Validate range
+            if (newPoints < 0) this.value = 0;
+            if (newPoints > maxPoints) this.value = maxPoints;
+
+            // Update data
+            currentGradingData.scores[category].points = parseInt(this.value);
+
+            // Recalculate total score
+            updateTotalScore();
+        });
+    });
+
+    // Add listeners for feedback textareas
+    document.querySelectorAll('.editable-feedback').forEach(textarea => {
+        textarea.addEventListener('input', function() {
+            const category = this.dataset.category;
+            currentGradingData.scores[category].rationale = this.value;
+        });
+    });
+}
+
+/**
+ * Update total score display
+ */
+function updateTotalScore() {
+    if (!currentGradingData) return;
+
+    let totalPoints = 0;
+    let totalMaxPoints = 0;
+
+    Object.values(currentGradingData.scores).forEach(score => {
+        totalPoints += score.points;
+        totalMaxPoints += score.out_of;
+    });
+
+    currentGradingData.total.points = totalPoints;
+    currentGradingData.total.out_of = totalMaxPoints;
+
+    // Update the displayed total score
+    const overallScoreElement = document.querySelector('.overall-score');
+    if (overallScoreElement) {
+        const percentage = Math.round((totalPoints / totalMaxPoints) * 100);
+        overallScoreElement.textContent = `${totalPoints}/${totalMaxPoints} (${percentage}%)`;
+    }
+}
+
+/**
+ * Toggle student details in batch results
+ * @param {number} index - Student index
+ */
+function toggleStudentDetails(index) {
+    const detailsDiv = document.getElementById(`student-details-${index}`);
+    const arrowSpan = event.currentTarget.querySelector('span:last-child');
+
+    if (!detailsDiv) return;
+
+    if (detailsDiv.style.display === 'none') {
+        detailsDiv.style.display = 'block';
+        arrowSpan.textContent = '▲';
+        loadEssayDetails(index);
+    } else {
+        detailsDiv.style.display = 'none';
+        arrowSpan.textContent = '▼';
+    }
+}
+
+/**
+ * Load essay details for batch result expansion
+ * @param {number} index - Essay index
+ */
+function loadEssayDetails(index) {
+    const essayDiv = document.getElementById(`batch-essay-${index}`);
+    if (!essayDiv || !window[`essayData_${index}`]) return;
+
+    // Only load if not already loaded
+    if (essayDiv.innerHTML.includes('Loading formatted result...')) {
+        const { essay, originalData } = window[`essayData_${index}`];
+
+        fetch('/format', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                studentText: originalData.studentText,
+                gradingResults: essay.result,
+                studentName: essay.studentName,
+                editable: true
+            })
+        })
+        .then(response => response.json())
+        .then(formatted => {
+            if (formatted.success) {
+                essayDiv.innerHTML = createBatchEssayHTML(formatted, index);
+                if (window.EssayEditingModule) {
+                    window.EssayEditingModule.initializeBatchEssayEditing(index, essay.result, originalData);
+                }
+            } else {
+                essayDiv.innerHTML = '<div class="error">Error formatting essay</div>';
+            }
+        })
+        .catch(error => {
+            essayDiv.innerHTML = '<div class="error">Error loading essay details</div>';
+        });
+    }
+}
+
+/**
+ * Create HTML for batch essay display
+ * @param {Object} formatted - Formatted essay data
+ * @param {number} index - Essay index
+ * @returns {string} HTML string
+ */
+function createBatchEssayHTML(formatted, index) {
+    return `
+        ${formatted.feedbackSummary}
+        <h3 style="margin: 20px 0 10px 0;">Color-Coded Essay:</h3>
+        <div id="essayContainer-${index}" style="border: 1px solid #ddd; border-radius: 4px;">
+            <!-- Category selector bar -->
+            <div id="categoryBar-${index}" style="padding: 10px; background: #f8f9fa; border-bottom: 1px solid #ddd; border-radius: 4px 4px 0 0;">
+                <div style="margin-bottom: 5px; font-weight: bold; font-size: 14px;">Select category then highlight text, or highlight text then select category:</div>
+                <div id="categoryButtons-${index}" style="display: flex; flex-wrap: wrap; gap: 8px;">
+                    ${createCategoryButtons(index)}
+                    <button id="clearSelectionBtn-${index}" onclick="clearSelection(${index})" style="background: #f5f5f5; color: #666; border: 2px solid #ccc; padding: 8px 12px; border-radius: 4px; cursor: pointer; margin-left: 10px;">Clear Selection</button>
+                </div>
+                <div id="selectionStatus-${index}" style="margin-top: 8px; font-size: 12px; color: #666; min-height: 16px;"></div>
+            </div>
+            <!-- Essay text area -->
+            <div class="formatted-essay-content" data-essay-index="${index}" style="padding: 15px; line-height: 1.6; user-select: text;">
+                ${formatted.formattedText}
+            </div>
+            <!-- Color Legend -->
+            ${createColorLegend()}
+        </div>
+    `;
+}
+
+/**
+ * Download individual essay (placeholder)
+ * @param {number} index - Essay index
+ */
+function downloadIndividualEssay(index) {
+    // Implementation for individual essay download
+    console.log('Downloading essay for student index:', index);
+    // TODO: Implement individual download functionality
+}
+
+/**
+ * Download all essays (placeholder)
+ */
+function downloadAllEssays() {
+    // Implementation for bulk download
+    console.log('Downloading all essays');
+    // TODO: Implement bulk download functionality
+}
+
+// Export functions for use in other modules
+window.GradingDisplayModule = {
+    displayResults,
+    displayBatchResults,
+    setupEditableElements,
+    updateTotalScore,
+    toggleStudentDetails,
+    loadEssayDetails,
+    downloadIndividualEssay,
+    downloadAllEssays,
+    getCurrentGradingData: () => currentGradingData,
+    getCurrentOriginalData: () => currentOriginalData,
+    createSingleEssayHTML,
+    createBatchEssayHTML,
+    createStudentRowHTML,
+    createBatchResultsHTML
+};

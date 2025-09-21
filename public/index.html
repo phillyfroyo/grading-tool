@@ -1,0 +1,422 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ESL Essay Grader</title>
+    <link rel="icon" type="image/png" href="/images/LMGM-favicon.png">
+
+    <!-- External CSS Files -->
+    <link rel="stylesheet" href="/css/main.css">
+    <link rel="stylesheet" href="/css/components.css?v=10">
+    <link rel="stylesheet" href="/css/print.css">
+</head>
+<body>
+    <div class="container">
+        <!-- App Branding Header -->
+        <div class="app-header">
+            <img src="/images/LMGM.svg" alt="LMGM - Lean Mean Grading Machine">
+        </div>
+
+        <!-- Grading Mode Tabs -->
+        <div class="tab-container">
+            <div class="tab-buttons">
+                <button class="tab-button active" data-tab="gpt-grader">
+                    🤖 GPT Powered Grader
+                </button>
+                <button class="tab-button" data-tab="manual-grader">
+                    ✏️ Manual Grading
+                </button>
+            </div>
+        </div>
+
+        <!-- GPT Powered Grader Tab Content -->
+        <div class="tab-content" id="gpt-grader-content">
+            <form id="gradingForm">
+                <div class="form-group">
+                    <label for="classProfile">Class Profile:</label>
+                    <div class="profile-controls">
+                        <select id="classProfile" name="classProfile">
+                            <option value="">Loading profiles...</option>
+                        </select>
+                        <button type="button" id="manageProfilesBtn" class="manage-profiles-btn" data-action="manage-profiles">
+                            Manage Profiles
+                        </button>
+                    </div>
+                    <div id="classProfileError" class="error-message" style="display: none; color: #dc3545; font-size: 14px; margin-top: 5px; padding: 5px; background: #f8d7da; border: 1px solid #f5c6cb; border-radius: 4px;">
+                        <!-- Error message will appear here -->
+                    </div>
+                </div>
+
+
+
+                <div class="form-group">
+                    <label>Student Essays:</label>
+                    <div id="essaysContainer">
+                        <div class="essay-entry" data-essay-index="0">
+                            <div class="essay-header">
+                                <label>Essay 1:</label>
+                                <input type="text" class="student-name" placeholder="Student name" required>
+                                <button type="button" class="remove-essay-btn" onclick="removeEssay(0)" style="display: none;">Remove</button>
+                            </div>
+                            <textarea class="student-text" name="studentText" rows="15" required
+                                      placeholder="Paste the student's essay here..."></textarea>
+                        </div>
+                    </div>
+                    <div class="essay-controls">
+                        <button type="submit" id="gradeButton">Grade essay(s)</button>
+                        <button type="button" id="addEssayBtn" onclick="addAnotherEssay()">
+                            Add another essay
+                        </button>
+                    </div>
+                </div>
+            </form>
+
+            <div class="loading" id="loading">
+                <p>Grading essay... This may take a few moments.</p>
+            </div>
+
+            <div id="results"></div>
+        </div>
+
+        <!-- Manual Grading Tab Content -->
+        <div class="tab-content" id="manual-grader-content">
+            <div class="manual-grading-container">
+                <h2>Manual Grading Mode</h2>
+
+                <form id="manualGradingForm">
+                    <div class="form-group">
+                        <label for="manualStudentName">Student Name:</label>
+                        <input type="text" id="manualStudentName" name="studentName" placeholder="Enter student name" required>
+                    </div>
+
+
+                    <div class="form-group">
+                        <label>Student Essay:</label>
+                        <textarea id="manualEssayText" name="essayText" rows="15" required
+                                  placeholder="Paste the student's essay here..."></textarea>
+                    </div>
+
+                    <div class="form-actions">
+                        <button type="submit" class="grade-button">Generate Manual Grade Report</button>
+                        <button type="button" class="clear-button" onclick="clearManualForm()">Clear Form</button>
+                    </div>
+                </form>
+
+                <div id="manualResults"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal for Teacher Notes -->
+    <div id="teacherNotesModal" class="modal">
+        <div class="modal-content" style="width: 700px; max-width: 90vw;">
+            <div class="modal-header" style="cursor: move;">
+                <h3 class="modal-title" style="font-size: 26px;">Edit Teacher Notes</h3>
+                <button class="modal-close-btn" style="width: 42px; height: 42px; font-size: 22px;">×</button>
+            </div>
+            <div class="modal-body" style="padding: 32px;">
+                <textarea id="teacherNotesText" rows="6" style="width: 100%; padding: 12px; border: 2px solid #e9ecef; border-radius: 8px; font-size: 16px; line-height: 1.5;" placeholder="Enter teacher notes..."></textarea>
+                <div style="margin-top: 20px; text-align: right;">
+                    <button class="modal-save-btn" style="background: #28a745; color: white; border: none; padding: 12px 22px; border-radius: 6px; cursor: pointer; margin-right: 10px; font-size: 17px; font-weight: 600;">Save</button>
+                    <button class="modal-cancel-btn" style="background: #6c757d; color: white; border: none; padding: 12px 22px; border-radius: 6px; cursor: pointer; font-size: 17px; font-weight: 600;">Cancel</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal for Editing Highlights -->
+    <div id="editModal" class="modal">
+        <div class="modal-content" style="width: 800px; max-width: 90vw;">
+            <div class="modal-header" style="cursor: move;">
+                <h3 class="modal-title" style="font-size: 28px;">Edit Highlight</h3>
+                <button class="modal-close-btn" style="width: 44px; height: 44px; font-size: 24px;">×</button>
+            </div>
+            <div class="modal-body" style="padding: 36px;">
+                <!-- Display highlighted text -->
+                <div style="margin-bottom: 24px; padding: 16px; background: #f8f9fa; border-radius: 8px; border-left: 4px solid #667eea;">
+                    <label style="font-size: 18px; font-weight: bold; color: #495057; display: block; margin-bottom: 8px;">Highlighted Text:</label>
+                    <div id="highlightedTextDisplay" style="font-size: 18px; color: #212529; line-height: 1.5;">
+                        <!-- Text will be populated here -->
+                    </div>
+                </div>
+
+                <label style="font-size: 18px; font-weight: bold; margin-bottom: 12px; display: block;">Categories:</label>
+                <div id="modalCategoryButtons" style="margin: 16px 0; display: flex; flex-wrap: wrap; gap: 12px;">
+                    <!-- Category buttons will be dynamically populated -->
+                </div>
+
+                <label for="editNotes" style="font-size: 18px; font-weight: bold; margin-top: 24px; margin-bottom: 12px; display: block;">Notes:</label>
+                <textarea id="editNotes" rows="5" style="width: 100%; padding: 12px; border: 2px solid #e9ecef; border-radius: 8px; font-size: 16px; line-height: 1.5;" placeholder="Add notes about this highlight..."></textarea>
+
+                <div style="margin-top: 24px; text-align: right;">
+                    <button class="modal-save-btn" style="background: #28a745; color: white; border: none; padding: 14px 24px; border-radius: 6px; cursor: pointer; margin-right: 12px; font-size: 18px; font-weight: 600;">Save</button>
+                    <button class="modal-remove-btn" style="background: #dc3545; color: white; border: none; padding: 14px 24px; border-radius: 6px; cursor: pointer; margin-right: 12px; font-size: 18px; font-weight: 600;">Remove Highlight</button>
+                    <button class="modal-cancel-btn" style="background: #6c757d; color: white; border: none; padding: 14px 24px; border-radius: 6px; cursor: pointer; font-size: 18px; font-weight: 600;">Cancel</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal for Profile Management -->
+    <div id="profileManagementModal" class="modal">
+        <div class="modal-content" style="max-width: 800px; max-height: 90vh; overflow-y: auto;">
+            <div class="modal-header">
+                <h3 class="modal-title">Manage Class Profiles</h3>
+                <button class="modal-close-btn" onclick="closeProfileManagementModal()">×</button>
+            </div>
+            <div class="modal-body">
+                <!-- Profile List -->
+                <div id="profilesList" style="margin-bottom: 20px;">
+                    <p>Loading profiles...</p>
+                </div>
+
+            </div>
+        </div>
+    </div>
+
+    <!-- Error Modal -->
+    <div id="errorModal" class="modal">
+        <div class="modal-content" style="max-width: 500px;">
+            <div class="modal-header">
+                <h3 class="modal-title">Error</h3>
+                <button class="modal-close-btn">×</button>
+            </div>
+            <div class="modal-body">
+                <div id="errorMessage" style="margin-bottom: 15px; padding: 10px; background: #f8d7da; border: 1px solid #f5c6cb; border-radius: 4px; color: #721c24;">
+                    <!-- Error message will be inserted here -->
+                </div>
+                <div class="modal-actions">
+                    <button class="modal-close-btn" style="background: #007bff; color: white; border: none; padding: 8px 16px; border-radius: 4px; cursor: pointer;">OK</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Confirmation Modal -->
+    <div id="confirmationModal" class="modal">
+        <div class="modal-content" style="max-width: 400px;">
+            <div class="modal-header">
+                <h3 class="modal-title">Confirm Action</h3>
+                <button class="modal-close-btn">×</button>
+            </div>
+            <div class="modal-body">
+                <div id="confirmationMessage" style="margin-bottom: 15px; padding: 10px; background: #fff3cd; border: 1px solid #ffeaa7; border-radius: 4px; color: #856404;">
+                    <!-- Confirmation message will be inserted here -->
+                </div>
+                <div class="modal-actions" style="display: flex; gap: 10px; justify-content: flex-end;">
+                    <button id="confirmNo" class="modal-cancel-btn" style="background: #6c757d; color: white; border: none; padding: 8px 16px; border-radius: 4px; cursor: pointer;">No</button>
+                    <button id="confirmYes" class="modal-save-btn" style="background: #007bff; color: white; border: none; padding: 8px 16px; border-radius: 4px; cursor: pointer;">Yes</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Test function for manual grading -->
+    <script>
+        function testManualGrading() {
+            console.log('🧪 TESTING MANUAL GRADING DISPLAY...');
+
+            const testResult = {
+                studentName: "Test Student",
+                essayText: "This is a test essay. It has multiple sentences. This helps us test the formatting and display functionality.",
+                scores: {
+                    grammar: { points: 12, out_of: 15, rationale: "Some grammar issues to address." },
+                    vocabulary: { points: 11, out_of: 15, rationale: "Nice vocabulary choices." },
+                    spelling: { points: 8, out_of: 10, rationale: "A few spelling errors noted." },
+                    mechanics: { points: 13, out_of: 15, rationale: "Excellent mechanics and punctuation." },
+                    fluency: { points: 10, out_of: 15, rationale: "Could improve fluency and flow." },
+                    layout: { points: 14, out_of: 15, rationale: "Good layout and formatting." },
+                    content: { points: 12, out_of: 15, rationale: "Good content overall." }
+                },
+                feedback: {
+                    grammar: "Some grammar issues to address.",
+                    vocabulary: "Nice vocabulary choices.",
+                    spelling: "A few spelling errors noted.",
+                    mechanics: "Excellent mechanics and punctuation.",
+                    fluency: "Could improve fluency and flow.",
+                    layout: "Good layout and formatting.",
+                    content: "Good content overall."
+                },
+                overallFeedback: "This is a test of the manual grading system. The student shows promise.",
+                totalScore: 80,
+                totalMax: 100,
+                percentage: 80,
+                isManual: true,
+                timestamp: new Date().toISOString()
+            };
+
+            console.log('📊 Test result object:', testResult);
+
+            // Check if the function exists
+            if (window.UIInteractionsModule && window.UIInteractionsModule.displayManualGradingResults) {
+                console.log('✅ Found displayManualGradingResults in UIInteractionsModule');
+                window.UIInteractionsModule.displayManualGradingResults(testResult);
+            } else if (window.displayManualGradingResults) {
+                console.log('✅ Found global displayManualGradingResults function');
+                window.displayManualGradingResults(testResult);
+            } else {
+                console.error('❌ displayManualGradingResults function not found!');
+                console.log('Available window properties:', Object.keys(window).filter(k => k.includes('Manual') || k.includes('UI')));
+            }
+        }
+
+        function debugJS() {
+            console.log('=== JAVASCRIPT DEBUG INFO ===');
+            console.log('Available modules:');
+            console.log('- window.UIInteractionsModule:', !!window.UIInteractionsModule);
+            console.log('- window.GradingDisplayModule:', !!window.GradingDisplayModule);
+            console.log('- window.EssayManagementModule:', !!window.EssayManagementModule);
+            console.log('- window.ProfilesModule:', !!window.ProfilesModule);
+            console.log('- window.PDFExportModule:', !!window.PDFExportModule);
+
+            if (window.UIInteractionsModule) {
+                console.log('UIInteractionsModule functions:', Object.keys(window.UIInteractionsModule));
+            }
+
+            console.log('Global functions:');
+            const relevantGlobals = Object.keys(window).filter(k =>
+                k.includes('Manual') || k.includes('Grade') || k.includes('Display') || k.includes('Essay')
+            );
+            console.log('Relevant globals:', relevantGlobals);
+        }
+
+        function debugSwitchTab(tabName) {
+            console.log('DEBUG: Switching to tab:', tabName);
+
+            // Remove active from all
+            document.querySelectorAll('.tab-content').forEach(tab => {
+                tab.classList.remove('active');
+            });
+            document.querySelectorAll('.tab-button').forEach(btn => {
+                btn.classList.remove('active');
+            });
+
+            // Add active to selected
+            const selectedTab = document.getElementById(tabName + '-content');
+            const selectedButton = document.querySelector(`[data-tab="${tabName}"]`);
+
+            if (selectedTab) {
+                selectedTab.classList.add('active');
+                console.log('DEBUG: Activated tab:', selectedTab.id);
+            } else {
+                console.log('DEBUG: Could not find tab:', tabName + '-content');
+            }
+
+            if (selectedButton) {
+                selectedButton.classList.add('active');
+                console.log('DEBUG: Activated button');
+            } else {
+                console.log('DEBUG: Could not find button');
+            }
+        }
+
+        // Initialize when DOM is ready
+        document.addEventListener('DOMContentLoaded', function() {
+            console.log('DEBUG: DOM loaded, setting up tabs');
+
+            // Add event listeners
+            document.querySelectorAll('.tab-button').forEach(button => {
+                button.addEventListener('click', function() {
+                    const tabName = this.getAttribute('data-tab');
+                    console.log('DEBUG: Button clicked:', tabName);
+                    debugSwitchTab(tabName);
+                });
+            });
+
+            // Initialize first tab
+            debugSwitchTab('gpt-grader');
+            console.log('DEBUG: Tab system initialized');
+        });
+    </script>
+
+    <!-- Core JavaScript Modules (ES6) -->
+    <script type="module" src="/js/core/utils.js?v=14"></script>
+    <script type="module" src="/js/core/logger.js?v=14"></script>
+    <script type="module" src="/js/core/eventBus.js?v=14"></script>
+    <script type="module" src="/js/core/event-delegation.js?v=14"></script>
+    <script type="module" src="/js/core/dependency-container.js?v=14"></script>
+    <script type="module" src="/js/core/service-registry.js?v=14"></script>
+    <script type="module" src="/js/core/error-handler.js?v=14"></script>
+    <script type="module" src="/js/core/monitoring.js?v=14"></script>
+
+    <!-- UI Modules (ES6) -->
+    <script src="/js/ui/tab-management.js?v=14"></script>
+    <script type="module" src="/js/ui/modals.js?v=17"></script>
+    <script src="/js/ui/draggable-modal.js?v=1"></script>
+    <script src="/js/ui/form-handling.js?v=20"></script>
+    <script src="/js/ui/keyboard-shortcuts.js?v=14"></script>
+    <script src="/js/ui/editing-functions.js?v=14"></script>
+    <script src="/js/ui/manual-grading.js?v=14"></script>
+    <script src="/js/ui/ui-interactions-main.js?v=14"></script>
+
+    <!-- Essay Modules -->
+    <script src="/js/essay/text-selection.js?v=14"></script>
+    <script src="/js/essay/category-selection.js?v=14"></script>
+    <script src="/js/essay/highlighting.js?v=14"></script>
+    <script src="/js/essay/essay-formatter.js?v=14"></script>
+    <script src="/js/essay/essay-editing-main.js?v=14"></script>
+
+    <!-- Grading Modules (ES6) -->
+    <script src="/js/grading/display-utils.js?v=14"></script>
+    <script src="/js/grading/single-result.js?v=14"></script>
+    <script src="/js/grading/batch-processing.js?v=17"></script>
+    <script type="module" src="/js/grading/manual.js?v=14"></script>
+    <script src="/js/grading/grading-display-main.js?v=14"></script>
+
+    <!-- Other Modules -->
+    <script src="/js/profiles.js?v=18"></script>
+    <script src="/js/essay-management.js?v=14"></script>
+    <script src="/js/pdf-export.js?v=14"></script>
+
+    <!-- html2pdf library for direct PDF download -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+
+    <!-- Module System Check -->
+    <script>
+        // Use legacy initialization since we're in a hybrid mode
+        document.addEventListener('DOMContentLoaded', function() {
+            console.log('🚀 Initializing hybrid modular application...');
+
+            // Initialize UI Interactions (includes tab management, modals, forms, etc.)
+            if (window.UIInteractionsModule) {
+                window.UIInteractionsModule.initializeUIInteractions();
+            }
+
+            // Initialize Grading Display System
+            if (window.GradingDisplayModule) {
+                window.GradingDisplayModule.initializeGradingDisplay();
+            }
+
+            // Set up grading forms
+            if (window.FormHandlingModule) {
+                window.FormHandlingModule.setupMainGrading();
+                window.FormHandlingModule.setupManualGrading();
+            }
+
+            // Initialize Profiles Module
+            if (window.ProfilesModule) {
+                window.ProfilesModule.initializeProfiles();
+            }
+
+            console.log('✅ Hybrid modular application initialized');
+            console.log('📊 Module status:', {
+                ui: !!window.UIInteractionsModule,
+                grading: !!window.GradingDisplayModule,
+                formHandling: !!window.FormHandlingModule,
+                essay: !!window.EssayEditingModule,
+                textSelection: !!window.TextSelectionModule,
+                highlighting: !!window.HighlightingModule,
+                categorySelection: !!window.CategorySelectionModule,
+                batchProcessing: !!window.BatchProcessingModule,
+                displayUtils: !!window.DisplayUtilsModule,
+                modalManager: !!window.ModalManager,
+                profiles: !!window.ProfilesModule
+            });
+        });
+    </script>
+
+    <!-- Modern Entry Point (loaded by Vite) -->
+    <script type="module" src="/main.js?v=14"></script>
+</body>
+</html>
