@@ -3,6 +3,7 @@
 
 import express from 'express';
 import { asyncHandler } from '../middleware/errorHandler.js';
+import { requireAuth } from '../middleware/authMiddleware.js';
 import {
   handleLegacyGrade,
   handleApiGrade,
@@ -17,6 +18,9 @@ import {
 } from '../controllers/gradingController.js';
 
 const router = express.Router();
+
+// Apply authentication to all grading routes
+router.use(requireAuth);
 
 // Legacy grade endpoint (for backward compatibility)
 router.post('/grade', asyncHandler(handleLegacyGrade));

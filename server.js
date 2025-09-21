@@ -9,6 +9,7 @@ console.log("[BOOT] Platform:", process.platform);
 
 import express from "express";
 import morgan from "morgan";
+import session from "express-session";
 import { config, validateConfig, isVercel, isProduction } from "./src/config/index.js";
 import { initializeDatabase } from "./src/config/database.js";
 import { errorHandler, notFoundHandler } from "./src/middleware/errorHandler.js";
@@ -33,10 +34,30 @@ if (config.logging.enableMorgan) {
 app.use(express.json({ limit: config.api.requestLimit }));
 app.use(express.urlencoded({ extended: true, limit: config.api.requestLimit }));
 
+// Configure session middleware
+app.use(session({
+  secret: process.env.SESSION_SECRET || 'dev-session-secret-key-change-in-production',
+  resave: false,
+  saveUninitialized: false,
+  cookie: {
+    secure: isProduction, // Use secure cookies in production
+    httpOnly: true,
+    maxAge: 24 * 60 * 60 * 1000 // 24 hours
+  }
+}));
+
 // Configure static file serving with proper headers and caching
+// Exclude HTML files from static serving to allow route-based authentication
 app.use(express.static(config.files.publicPath, {
+  index: false, // Disable automatic index.html serving
   setHeaders: (res, path) => {
-    // Set proper MIME types
+    // Block HTML files from being served statically
+    if (path.endsWith('.html')) {
+      res.status(404).send('Not Found');
+      return;
+    }
+
+    // Set proper MIME types for allowed files
     if (path.endsWith('.css')) {
       res.setHeader('Content-Type', 'text/css');
     } else if (path.endsWith('.js')) {

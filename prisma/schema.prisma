@@ -13,6 +13,15 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+model User {
+  id        String   @id @default(uuid())
+  email     String   @unique
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("users")
+}
+
 model ClassProfile {
   id           String   @id @default(uuid())
   name         String
@@ -22,6 +31,6 @@ model ClassProfile {
   prompt       String?
   created      DateTime @default(now())
   lastModified DateTime @updatedAt
-  
+
   @@map("class_profiles")
 }

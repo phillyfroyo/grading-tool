@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard - Essay Grader</title>
+    <link rel="stylesheet" href="/css/main.css">
+    <style>
+        .dashboard-container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 2rem;
+        }
+
+        .dashboard-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 2rem;
+            padding-bottom: 1rem;
+            border-bottom: 1px solid #eee;
+        }
+
+        .user-info {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+        }
+
+        .user-email {
+            font-weight: 600;
+            color: #333;
+        }
+
+        .logout-btn {
+            background: #dc3545;
+            color: white;
+            padding: 0.5rem 1rem;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 0.9rem;
+        }
+
+        .logout-btn:hover {
+            background: #c82333;
+        }
+
+        .welcome-section {
+            background: #f8f9fa;
+            padding: 2rem;
+            border-radius: 8px;
+            margin-bottom: 2rem;
+        }
+
+        .welcome-section h1 {
+            color: #007bff;
+            margin: 0 0 1rem 0;
+        }
+
+        .quick-actions {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 1.5rem;
+            margin-bottom: 2rem;
+        }
+
+        .action-card {
+            background: white;
+            padding: 1.5rem;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            border: 1px solid #eee;
+        }
+
+        .action-card h3 {
+            margin: 0 0 1rem 0;
+            color: #333;
+        }
+
+        .action-card p {
+            color: #666;
+            margin: 0 0 1rem 0;
+        }
+
+        .action-btn {
+            background: #007bff;
+            color: white;
+            padding: 0.75rem 1.5rem;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            text-decoration: none;
+            display: inline-block;
+            transition: background-color 0.2s;
+        }
+
+        .action-btn:hover {
+            background: #0056b3;
+        }
+
+        .action-btn.secondary {
+            background: #6c757d;
+        }
+
+        .action-btn.secondary:hover {
+            background: #545b62;
+        }
+
+        .stats-section {
+            background: white;
+            padding: 1.5rem;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            border: 1px solid #eee;
+        }
+
+        .stats-section h3 {
+            margin: 0 0 1rem 0;
+            color: #333;
+        }
+
+        .coming-soon {
+            color: #666;
+            font-style: italic;
+        }
+    </style>
+</head>
+<body>
+    <div class="dashboard-container">
+        <div class="dashboard-header">
+            <div class="user-info">
+                <span>Welcome,</span>
+                <span class="user-email" id="userEmail">Loading...</span>
+            </div>
+            <button class="logout-btn" id="logoutBtn">Logout</button>
+        </div>
+
+        <div class="welcome-section">
+            <h1>Essay Grader Dashboard</h1>
+            <p>Your personalized grading workspace. Access all your grading tools and manage your essays from here.</p>
+        </div>
+
+        <div class="quick-actions">
+            <div class="action-card">
+                <h3>Grade Essays</h3>
+                <p>Use AI-powered grading to evaluate student essays quickly and consistently.</p>
+                <a href="/" class="action-btn">Start Grading</a>
+            </div>
+
+            <div class="action-card">
+                <h3>Class Profiles</h3>
+                <p>Manage class-specific grading profiles and customize rubrics for different student levels.</p>
+                <a href="/" class="action-btn secondary">Manage Profiles</a>
+            </div>
+
+            <div class="action-card">
+                <h3>Manual Grading</h3>
+                <p>Grade essays manually without AI assistance for complete control over the grading process.</p>
+                <a href="/#manual-mode" class="action-btn secondary">Manual Mode</a>
+            </div>
+
+            <div class="action-card">
+                <h3>Batch Processing</h3>
+                <p>Upload and grade multiple essays at once to save time on large assignments.</p>
+                <a href="/#batch-mode" class="action-btn secondary">Batch Grade</a>
+            </div>
+        </div>
+
+        <div class="stats-section">
+            <h3>Your Grading Stats</h3>
+            <p class="coming-soon">Statistics and analytics coming soon! Track your grading history, student progress, and more.</p>
+        </div>
+    </div>
+
+    <script>
+        // Check authentication and load user info
+        async function loadUserInfo() {
+            try {
+                const response = await fetch('/auth/status');
+                const data = await response.json();
+
+                if (!data.authenticated) {
+                    window.location.href = '/login.html';
+                    return;
+                }
+
+                document.getElementById('userEmail').textContent = data.user.email;
+            } catch (error) {
+                console.error('Failed to load user info:', error);
+                window.location.href = '/login.html';
+            }
+        }
+
+        // Handle logout
+        document.getElementById('logoutBtn').addEventListener('click', async () => {
+            try {
+                const response = await fetch('/auth/logout', {
+                    method: 'POST'
+                });
+
+                const data = await response.json();
+
+                if (data.success) {
+                    window.location.href = '/login.html';
+                } else {
+                    alert('Logout failed. Please try again.');
+                }
+            } catch (error) {
+                console.error('Logout error:', error);
+                alert('Network error during logout. Please try again.');
+            }
+        });
+
+        // Initialize dashboard
+        loadUserInfo();
+    </script>
+</body>
+</html>
