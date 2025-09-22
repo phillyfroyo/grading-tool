@@ -40,10 +40,12 @@ app.use(session({
   secret: process.env.SESSION_SECRET || 'dev-session-secret-key-change-in-production',
   resave: false,
   saveUninitialized: false,
+  proxy: true, // Trust proxy for Vercel
   cookie: {
     secure: isProduction, // Use secure cookies in production
     httpOnly: true,
-    maxAge: 24 * 60 * 60 * 1000 // 24 hours
+    maxAge: 24 * 60 * 60 * 1000, // 24 hours
+    sameSite: isProduction ? 'lax' : 'strict' // Allow cookies in production
   }
 }));
 
