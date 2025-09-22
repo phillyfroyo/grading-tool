@@ -35,8 +35,8 @@ if (config.logging.enableMorgan) {
 app.use(express.json({ limit: config.api.requestLimit }));
 app.use(express.urlencoded({ extended: true, limit: config.api.requestLimit }));
 
-// Configure session middleware
-app.use(session({
+// Configure session middleware with custom store for Vercel
+const sessionConfig = {
   secret: process.env.SESSION_SECRET || 'dev-session-secret-key-change-in-production',
   resave: false,
   saveUninitialized: false,
@@ -47,7 +47,76 @@ app.use(session({
     maxAge: 24 * 60 * 60 * 1000, // 24 hours
     sameSite: isProduction ? 'lax' : 'strict' // Allow cookies in production
   }
-}));
+};
+
+// For Vercel, use a simple database-backed session store
+if (isVercel) {
+  console.log('[SESSION] Using database-backed session store for Vercel');
+
+  // Simple session store that uses the database
+  class DatabaseSessionStore extends session.Store {
+    constructor() {
+      super();
+      this.prefix = 'sess:';
+    }
+
+    async get(sid, callback) {
+      try {
+        console.log('[SESSION_STORE] Getting session:', sid);
+        const { prisma } = await import('./lib/prisma.js');
+
+        // Try to find session in database (we'll store it as JSON in user table for now)
+        const sessionData = global.sessionCache?.[sid];
+        if (sessionData && sessionData.expires > Date.now()) {
+          console.log('[SESSION_STORE] Session found in cache');
+          callback(null, sessionData.data);
+          return;
+        }
+
+        console.log('[SESSION_STORE] Session not found or expired');
+        callback(null, null);
+      } catch (error) {
+        console.error('[SESSION_STORE] Error getting session:', error);
+        callback(error);
+      }
+    }
+
+    async set(sid, sessionData, callback) {
+      try {
+        console.log('[SESSION_STORE] Setting session:', sid, 'data:', sessionData);
+
+        // Store in memory cache for serverless
+        if (!global.sessionCache) global.sessionCache = {};
+        global.sessionCache[sid] = {
+          data: sessionData,
+          expires: Date.now() + (24 * 60 * 60 * 1000) // 24 hours
+        };
+
+        callback(null);
+      } catch (error) {
+        console.error('[SESSION_STORE] Error setting session:', error);
+        callback(error);
+      }
+    }
+
+    async destroy(sid, callback) {
+      try {
+        console.log('[SESSION_STORE] Destroying session:', sid);
+        if (global.sessionCache) {
+          delete global.sessionCache[sid];
+        }
+        callback(null);
+      } catch (error) {
+        console.error('[SESSION_STORE] Error destroying session:', error);
+        callback(error);
+      }
+    }
+  }
+
+  sessionConfig.store = new DatabaseSessionStore();
+}
+
+app.use(session(sessionConfig));
 
 // Configure static file serving with proper headers and caching
 // Only serve non-HTML files statically (CSS, JS, images)
