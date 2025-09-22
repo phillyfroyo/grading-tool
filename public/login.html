@@ -7,9 +7,9 @@
     <link rel="stylesheet" href="/css/main.css">
     <style>
         .login-container {
-            max-width: 400px;
+            max-width: 800px;
             margin: 100px auto;
-            padding: 2rem;
+            padding: 4rem;
             background: white;
             border-radius: 8px;
             box-shadow: 0 2px 10px rgba(0,0,0,0.1);
@@ -89,16 +89,16 @@
             margin-bottom: 2rem;
         }
 
-        .logo h1 {
-            color: #007bff;
-            margin: 0;
+        .logo img {
+            max-height: 120px;
+            margin-bottom: 1rem;
         }
     </style>
 </head>
 <body>
     <div class="login-container">
         <div class="logo">
-            <h1>Essay Grader</h1>
+            <img src="/images/LMGM.svg" alt="LMGM - Lean Mean Grading Machine">
             <p>Welcome to the grading platform</p>
         </div>
 
@@ -135,7 +135,7 @@
             .then(response => response.json())
             .then(data => {
                 if (data.authenticated) {
-                    window.location.href = '/dashboard';
+                    window.location.href = '/';
                 }
             })
             .catch(console.error);
@@ -172,9 +172,9 @@
                     successMessage.textContent = 'Login successful! Redirecting...';
                     successMessage.style.display = 'block';
 
-                    // Redirect to dashboard after short delay
+                    // Redirect to main grading interface after short delay
                     setTimeout(() => {
-                        window.location.href = '/dashboard';
+                        window.location.href = '/';
                     }, 1000);
                 } else {
                     errorMessage.textContent = data.error || 'Login failed. Please try again.';

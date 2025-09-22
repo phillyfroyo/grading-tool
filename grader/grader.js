@@ -334,8 +334,6 @@ STEP 2: MINIMAL CORRECTED TEXT (teach-first)
 
 Produce corrected_text_minimal: the smallest set of edits that make the text grammatical and faithful to the original meaning.
 
-Never duplicate subjects/verbs; never output sequences like "is a X is".
-
 Keep clause order unless ungrammatical.
 
 STEP 3: OPTIONAL POLISH (coaching only)
@@ -374,22 +372,18 @@ GRAMMAR CONTEXT AWARENESS:
   - Present tense for current/general statements even in past narratives (e.g., "now today is Monday")
 
 PAST TENSE CONTEXT DETECTION: If the essay contains past time markers ("past weekend", "on friday", "then", "yesterday", etc.) or past verbs ("came", "played", "woke"), assume past narrative context. For past context:
-- "make my homework" → "did my homework" 
+- "make my homework" → "did my homework"
 - "making my homework" → "was doing my homework"
-- "make homework" → "did homework"
-
-Be comprehensive in error detection but merciful in scoring.`,
-      },
-    ],
-    temperature: 0.35,
-  });
+- "make homework" → "did homework"`
+      }]
+    });
 
   try {
     let content = response.choices[0].message.content;
-    
+
     // Remove markdown code blocks if present
     content = content.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
-    
+
     const result = JSON.parse(content);
     
     // Add transition word detection locally (more reliable than GPT)
@@ -411,7 +405,6 @@ Be comprehensive in error detection but merciful in scoring.`,
     
     // Safety net: Add missing common errors
     if (result.inline_issues) {
-      result.inline_issues = patchHomeworkCollocations(studentText, result.inline_issues);
       result.inline_issues = patchCommonErrors(studentText, result.inline_issues);
       result.inline_issues = patchModalAndTooUsage(studentText, result.inline_issues);
     }
@@ -427,10 +420,21 @@ Be comprehensive in error detection but merciful in scoring.`,
       });
     }
     
-    // Apply CEFR level strictness modifier to scores - make B2 more lenient
+    // Apply CEFR level strictness modifier to scores - adjusted for all CEFR levels
     if (result.scores) {
-      // Enhanced leniency for B2, standard for C1
-      const leniencyMultiplier = cefrLevel === 'B2' ? 1.15 : 1.0;
+      // CEFR level leniency: A levels are most lenient, C levels are strictest
+      // A1/A2: Very lenient for beginners, A2: Lenient for elementary,
+      // B1: Moderate leniency for intermediate, B2: Enhanced leniency for upper-intermediate
+      // C1: Standard strictness, C2: Strict for near-native level
+      const leniencyMultipliers = {
+        'A1': 1.30,  // Very lenient for beginners
+        'A2': 1.25,  // Lenient for elementary
+        'B1': 1.20,  // Moderate leniency for intermediate
+        'B2': 1.15,  // Enhanced leniency for upper-intermediate
+        'C1': 1.05,  // Slight leniency for advanced
+        'C2': 1.0    // Standard strictness for near-native
+      };
+      const leniencyMultiplier = leniencyMultipliers[cefrLevel] || 1.0;
       
       Object.keys(result.scores).forEach(cat => {
         if (result.scores[cat].points) {
@@ -452,60 +456,6 @@ Be comprehensive in error detection but merciful in scoring.`,
   }
 }
 
-function patchHomeworkCollocations(text, issues) {
-  const re = /\b(made|make|making)\s+(my\s+)?homework\b/gi;
-  const matches = [...text.matchAll(re)];
-  
-  // Detect if this is past tense context
-  const pastMarkers = /\b(past\s+weekend|yesterday|last\s+\w+|came|played|woke|went|did|was|were)\b/i;
-  const isPastContext = pastMarkers.test(text);
-  
-  for (const match of matches) {
-    const verb = match[1].toLowerCase();
-    const fullMatch = match[0];
-    
-    // Context-aware suggestions
-    let suggestion;
-    if (isPastContext) {
-      suggestion = verb === "making" ? "was doing my homework" : "did my homework";
-    } else {
-      suggestion = 
-        verb === "made" ? "did homework" :
-        verb === "making" ? "doing homework" : "do homework";
-    }
-    
-    // Check if this error is already covered (more precise overlap detection)
-    const alreadyCovered = issues.some(issue => {
-      if (!issue.offsets) return false;
-      
-      // Check for any overlap, not just containment
-      const hasOverlap = !(match.index >= issue.offsets.end || match.index + fullMatch.length <= issue.offsets.start);
-      
-      // Also check if it's the same type of error
-      const sameType = (issue.type === "vocabulary" && issue.message && issue.message.includes("homework")) ||
-                      (issue.message && issue.message.includes("make") && issue.message.includes("homework"));
-      
-      return hasOverlap && sameType;
-    });
-    
-    if (!alreadyCovered) {
-      console.log(`Adding missing homework collocation: "${fullMatch}" → "${suggestion}" (past context: ${isPastContext})`);
-      issues.push({
-        type: "vocabulary-structure",
-        subtype: "collocation", 
-        message: `${fullMatch}→${suggestion}`,
-        offsets: { 
-          start: match.index, 
-          end: match.index + fullMatch.length 
-        }
-      });
-    } else {
-      console.log(`Homework collocation already covered: "${fullMatch}"`);
-    }
-  }
-  
-  return issues;
-}
 
 function patchCommonErrors(text, issues) {
   const newIssues = [];

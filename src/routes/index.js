@@ -10,14 +10,12 @@ import authRoutes from './auth.js';
 const router = express.Router();
 
 // Mount route modules - ORDER MATTERS!
-// Auth routes first (they don't conflict with other routes)
+// Specific routes FIRST (auth, api)
 router.use('/auth', authRoutes);
-
-// API routes before catch-all static routes
 router.use('/', gradingRoutes);
 router.use('/', profileRoutes);
 
-// Static routes last (they have catch-all patterns)
+// Static routes LAST (includes catch-all / route)
 router.use('/', staticRoutes);
 
 export default router;

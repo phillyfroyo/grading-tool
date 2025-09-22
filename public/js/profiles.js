@@ -134,7 +134,18 @@ function loadProfilesList() {
     if (!container) return;
 
     if (profiles.length === 0) {
-        container.innerHTML = '<p>No profiles found. <a href="javascript:void(0)" onclick="showAddNewProfileForm()">Create your first profile</a></p>';
+        container.innerHTML = `
+            <div style="margin-bottom: 20px;">
+                <button onclick="showAddNewProfileForm()" id="addNewProfileBtn">Add New Profile</button>
+            </div>
+
+            <!-- Add New Profile Form (Initially Hidden) -->
+            <div id="addNewProfileForm" style="display: none; border: 2px solid #28a745; padding: 20px; margin-bottom: 20px; border-radius: 4px; background: #f8fff8;">
+                ${createProfileFormHTML('new')}
+            </div>
+
+            <p style="color: #666; text-align: center; margin-top: 40px;">No profiles found. Click "Add New Profile" to create your first profile.</p>
+        `;
         return;
     }
 

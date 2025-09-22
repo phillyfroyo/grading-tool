@@ -113,10 +113,21 @@ class AuthController {
         });
       }
 
-      const user = await this.userService.getUserById(req.session.userId);
+      // Try to get user from database, fallback to session data
+      let user = null;
+      try {
+        user = await this.userService.getUserById(req.session.userId);
+      } catch (dbError) {
+        console.warn('[AUTH] Database unavailable for status check, using session data');
+        // Use session data as fallback
+        user = {
+          id: req.session.userId,
+          email: req.session.userEmail
+        };
+      }
 
-      if (!user) {
-        // User was deleted, clear session
+      if (!user || !user.email) {
+        // User was deleted or invalid session, clear session
         req.session.destroy();
         return res.json({
           success: true,

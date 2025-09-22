@@ -3,7 +3,7 @@
 
 export function buildErrorDetectionPrompt(classProfile, studentText) {
   return `
-You are an expert ESL writing grader. Find individual, specific errors - NOT sentence rewrites. *review*
+You are an expert ESL writing grader. Find specific errors within the essay provided.
 
 ## GOAL
 Mark individual mistakes like a copy editor. Each error = separate JSON entry.
@@ -12,38 +12,32 @@ Mark individual mistakes like a copy editor. Each error = separate JSON entry.
 - spelling — misspelled words
 - vocabulary — wrong word, collocation, or part of speech
 - grammar — tense, agreement, articles, prepositions, modals, sentence structure
-- mechanics — ONLY mark exact punctuation spots (1-2 words max)
+- mechanics — captialization and punctuation
 - fluency — naturalness coaching for awkward but correct language
 
 ## ATOMIC ERROR RULE *review*
-**MAXIMUM: 6 words per error. Each error = ONE mistake only.**
-
-WRONG: "I am Sergio, I COORDINATE the bussiness area" → grammar (whole phrase) *review*
-CORRECT: 
-- "bussiness" → spelling ("bussiness" → "business")
+- spelling - one word per error MAX
+- vocabulary - 1-2 words per error MAX
+- grammar - errors can be multi word, but try to use as few words as possible to highlight the grammar error
+- mechanics - 1-2 words MAX. 
+- fluency - use your best judgement to decide how many words to include in the error, but try to use as few words as possible to highlight the fluency error
 
 SINGLE WORD ERRORS = SINGLE WORD HIGHLIGHTS:
-✅ "bussiness" → spelling (just the misspelled word)
-❌ "the bussiness area" → spelling (don't include context)
-
-NEVER highlight multi-word spans unless it's genuinely ONE error:
-✅ "to can" → grammar (modal error)
-✅ "make homework" → vocabulary (collocation error)
-❌ "entire sentence with multiple unrelated errors" → any category
+Correct example: "bussiness" → spelling error (just the misspelled word)
+Incorrect example: "the bussiness area" → spelling error (don't include context)
 
 ## MECHANICS PRECISION
 Mark ONLY the word needing punctuation:
-✅ "dont" → mechanics ("dont" → "don't")
-✅ "INSIGHTS" → mechanics ("INSIGHTS" → "INSIGHTS.")
-❌ "entire sentence with punctuation issue" → mechanics
+Correct example: "dont" → mechanics error ("dont" → "don't")
+Incorrect example: "I dont like going to the movies." → mechanics error (whole sentence should not be highlighted)
 
 ## SPLITTING EXAMPLES
 Student: "If you take care with your money, you wont an a BAKRUPT"
 
 Split into 4 separate issues:
-- "with" → grammar ("with" → "of")
+- "take care with your money" → grammar (take care of your money)
 - "wont" → mechanics ("wont" → "won't")
-- "an a" → grammar ("an a" → "a")  
+- "you wont an a BAKRUPT" → grammar (you won't go BANKRUPT)  
 - "BAKRUPT" → spelling ("BAKRUPT" → "bankrupt")
 
 ## OUTPUT FORMAT
@@ -81,20 +75,8 @@ ${classProfile.grammar.join(', ')}
 
 Count correctly used vocabulary words and identify grammar structures present.
 
-## VALIDATION CHECKLIST
-Before submitting each error:
-✅ Is this 4 words or fewer?
-✅ Does this contain exactly ONE error type?
-✅ Is this the smallest unit that captures this mistake?
-✅ Would a copy editor mark just this portion, not the whole sentence?
-
 ## COMMON MISTAKES TO AVOID:
-❌ Highlighting entire phrases with multiple unrelated errors
-❌ Combining spelling + grammar errors into one span
-❌ Marking whole sentences for punctuation issues
-❌ Detecting "sentence structure" problems instead of specific errors
-
-Remember: Find individual mistakes like a copy editor, not sentence problems.
+❌ Please do not highlight almost the entire essay. Some of these essays will be pretty bad, so if you encounter a horrible essay, just try to stick to the errors that will get the student on the right track.
 
 STUDENT TEXT:
 """${studentText}"""

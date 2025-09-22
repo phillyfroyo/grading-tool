@@ -14,10 +14,11 @@ datasource db {
 }
 
 model User {
-  id        String   @id @default(uuid())
-  email     String   @unique
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id           String         @id @default(uuid())
+  email        String         @unique
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt
+  classProfiles ClassProfile[]
 
   @@map("users")
 }
@@ -29,8 +30,11 @@ model ClassProfile {
   vocabulary   String[]
   grammar      String[]
   prompt       String?
+  temperature  Int?     @default(0)
   created      DateTime @default(now())
   lastModified DateTime @updatedAt
+  userId       String
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@map("class_profiles")
 }

@@ -56,7 +56,7 @@ async function handleApiGrade(req, res) {
     console.log("🔍 Looking for profile:", classProfile);
 
     // Get profile data (unified for both environments)
-    const profileData = await findProfileById(classProfile);
+    const profileData = await findProfileById(classProfile, req.session.userId);
 
     if (!profileData) {
       console.log("❌ Profile not found, returning 404");
@@ -141,7 +141,7 @@ async function handleBatchGrade(req, res) {
     console.log("🔍 Looking for profile:", classProfile);
 
     // Get profile data (unified for both environments)
-    const profileData = await findProfileById(classProfile);
+    const profileData = await findProfileById(classProfile, req.session.userId);
 
     if (!profileData) {
       console.log("❌ Profile not found, returning 404");
@@ -231,7 +231,7 @@ async function handleStreamingBatchGrade(req, res, { essays, prompt, classProfil
 
     // Get profile data
     console.log("🔍 Looking for profile:", classProfile);
-    const profileData = await findProfileById(classProfile);
+    const profileData = await findProfileById(classProfile, req.session.userId);
     if (!profileData) {
       const errorMsg = `Profile not found: ${classProfile}`;
       console.error("❌", errorMsg);
@@ -517,7 +517,7 @@ async function handleDebugGrade(req, res) {
       console.log("Environment: Vercel");
       console.log("Looking for profile:", classProfile);
 
-      const profileData = await findProfileById(classProfile);
+      const profileData = await findProfileById(classProfile, req.session.userId);
 
       if (!profileData) {
         return res.json({
@@ -682,7 +682,7 @@ async function handleBatchGradeStream(req, res) {
     console.log("\n⚡ STARTING STREAMING BATCH GRADING...");
 
     // Get profile data
-    const profileData = await findProfileById(classProfile);
+    const profileData = await findProfileById(classProfile, req.session.userId);
 
     if (!profileData) {
       console.log("❌ Profile not found, returning 404");

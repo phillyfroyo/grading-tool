@@ -19,23 +19,20 @@ import {
 
 const router = express.Router();
 
-// Apply authentication to all grading routes
-router.use(requireAuth);
-
 // Legacy grade endpoint (for backward compatibility)
-router.post('/grade', asyncHandler(handleLegacyGrade));
+router.post('/grade', requireAuth, asyncHandler(handleLegacyGrade));
 
 // API grade endpoints
-router.post('/api/grade', asyncHandler(handleApiGrade));
-router.post('/api/grade-batch', asyncHandler(handleBatchGrade));
+router.post('/api/grade', requireAuth, asyncHandler(handleApiGrade));
+router.post('/api/grade-batch', requireAuth, asyncHandler(handleBatchGrade));
 
 // Format endpoint
-router.post('/format', asyncHandler(handleFormatEssay));
+router.post('/format', requireAuth, asyncHandler(handleFormatEssay));
 
 // Debug endpoints
-router.get('/api/debug', asyncHandler(handleDebug));
-router.post('/api/test-grade', asyncHandler(handleTestGrade));
-router.post('/api/debug-form', asyncHandler(handleDebugForm));
-router.post('/api/debug-grade', asyncHandler(handleDebugGrade));
+router.get('/api/debug', requireAuth, asyncHandler(handleDebug));
+router.post('/api/test-grade', requireAuth, asyncHandler(handleTestGrade));
+router.post('/api/debug-form', requireAuth, asyncHandler(handleDebugForm));
+router.post('/api/debug-grade', requireAuth, asyncHandler(handleDebugGrade));
 
 export default router;

@@ -13,13 +13,10 @@ import {
 
 const router = express.Router();
 
-// Apply authentication to all profile routes
-router.use(requireAuth);
-
 // Profile CRUD endpoints
-router.get('/api/profiles', asyncHandler(handleGetProfiles));
-router.post('/api/profiles', asyncHandler(handleCreateProfile));
-router.put('/api/profiles/:id', asyncHandler(handleUpdateProfile));
-router.delete('/api/profiles/:id', asyncHandler(handleDeleteProfile));
+router.get('/api/profiles', requireAuth, asyncHandler(handleGetProfiles));
+router.post('/api/profiles', requireAuth, asyncHandler(handleCreateProfile));
+router.put('/api/profiles/:id', requireAuth, asyncHandler(handleUpdateProfile));
+router.delete('/api/profiles/:id', requireAuth, asyncHandler(handleDeleteProfile));
 
 export default router;

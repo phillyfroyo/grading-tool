@@ -10,18 +10,12 @@ const router = express.Router();
 // Health check endpoint
 router.get('/health', (req, res) => res.send("ok"));
 
-// Login page (redirect if already authenticated)
-router.get('/login', redirectIfAuthenticated, (req, res) => {
+// Login page (always accessible) - MUST BE BEFORE CATCH-ALL
+router.get('/login', (req, res) => {
   res.sendFile(path.join(process.cwd(), 'public', 'login.html'));
 });
 
-// Dashboard (require authentication)
-router.get('/dashboard', requireAuth, (req, res) => {
-  res.sendFile(path.join(process.cwd(), 'public', 'dashboard.html'));
-});
-
 // Serve the main grading interface (require authentication)
-// NOTE: This should be the LAST route to avoid intercepting other routes
 router.get('/', requireAuth, (req, res) => {
   res.sendFile(path.join(process.cwd(), 'public', 'index.html'));
 });

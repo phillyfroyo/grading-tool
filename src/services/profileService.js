@@ -5,17 +5,18 @@ import { readFileSync, writeFileSync } from 'fs';
 import { getDatabaseConfig } from '../config/database.js';
 
 /**
- * Load profiles from database or file system
+ * Load profiles from database or file system for a specific user
+ * @param {string} userId - User ID to filter profiles
  * @returns {Promise<Object>} Profiles object with profiles array
  */
-async function loadProfiles() {
+async function loadProfiles(userId = null) {
   const { prisma, useDatabase } = getDatabaseConfig();
 
-  // Temporarily force file system usage to match endpoint behavior
-  if (false && useDatabase && prisma) {
-    console.log("[PROFILES] Loading from database");
+  if (useDatabase && prisma && userId) {
+    console.log("[PROFILES] Loading from database for user:", userId);
     try {
       const profiles = await prisma.classProfile.findMany({
+        where: { userId },
         orderBy: { lastModified: 'desc' }
       });
       return { profiles };
@@ -92,18 +93,22 @@ async function saveProfiles(profiles) {
 }
 
 /**
- * Find profile by ID
+ * Find profile by ID for a specific user
  * @param {string} profileId - Profile ID to find
+ * @param {string} userId - User ID to filter by
  * @returns {Promise<Object|null>} Profile object or null if not found
  */
-async function findProfileById(profileId) {
+async function findProfileById(profileId, userId = null) {
   const { prisma, useDatabase } = getDatabaseConfig();
 
-  if (useDatabase && prisma) {
+  if (useDatabase && prisma && userId) {
     console.log("📊 Searching database for profile...");
     try {
       const profileData = await prisma.classProfile.findFirst({
-        where: { id: profileId }
+        where: {
+          id: profileId,
+          userId
+        }
       });
       console.log("🎯 Database search result:", profileData ? "FOUND" : "NOT FOUND");
       return profileData;
@@ -122,21 +127,23 @@ async function findProfileById(profileId) {
 }
 
 /**
- * Create new profile
+ * Create new profile for a specific user
  * @param {Object} profileData - Profile data to create
+ * @param {string} userId - User ID to associate the profile with
  * @returns {Promise<Object>} Created profile
  */
-async function createProfile(profileData) {
+async function createProfile(profileData, userId) {
   const { prisma, useDatabase } = getDatabaseConfig();
 
-  // Temporarily force file system usage for profile creation to avoid DB schema issues
-  if (false && useDatabase && prisma) {
+  if (useDatabase && prisma && userId) {
+    console.log("[PROFILES] Creating profile in database for user:", userId);
     const createData = {
       name: profileData.name,
       cefrLevel: profileData.cefrLevel,
       vocabulary: profileData.vocabulary || [],
       grammar: profileData.grammar || [],
       prompt: profileData.prompt || '',
+      userId: userId
     };
 
     // Only add temperature if it exists in the request (avoid DB schema issues)
@@ -169,16 +176,17 @@ async function createProfile(profileData) {
 }
 
 /**
- * Update existing profile
+ * Update existing profile for a specific user
  * @param {string} profileId - Profile ID to update
  * @param {Object} updateData - Data to update
+ * @param {string} userId - User ID to filter by
  * @returns {Promise<Object>} Updated profile
  */
-async function updateProfile(profileId, updateData) {
+async function updateProfile(profileId, updateData, userId) {
   const { prisma, useDatabase } = getDatabaseConfig();
 
-  // Temporarily force file system usage for profile updates to avoid DB schema issues
-  if (false && useDatabase && prisma) {
+  if (useDatabase && prisma && userId) {
+    console.log("[PROFILES] Updating profile in database for user:", userId);
     const updateFields = {
       name: updateData.name,
       cefrLevel: updateData.cefrLevel,
@@ -192,8 +200,23 @@ async function updateProfile(profileId, updateData) {
       updateFields.temperature = updateData.temperature || 0;
     }
 
+    // First verify the profile exists and belongs to the user
+    const existingProfile = await prisma.classProfile.findFirst({
+      where: {
+        id: profileId,
+        userId
+      }
+    });
+
+    if (!existingProfile) {
+      throw new Error("Profile not found");
+    }
+
+    // Update using just the unique id
     const updatedProfile = await prisma.classProfile.update({
-      where: { id: profileId },
+      where: {
+        id: profileId
+      },
       data: updateFields
     });
     return updatedProfile;
@@ -229,16 +252,34 @@ async function updateProfile(profileId, updateData) {
 }
 
 /**
- * Delete profile
+ * Delete profile for a specific user
  * @param {string} profileId - Profile ID to delete
+ * @param {string} userId - User ID to filter by
  * @returns {Promise<boolean>} Success status
  */
-async function deleteProfile(profileId) {
+async function deleteProfile(profileId, userId) {
   const { prisma, useDatabase } = getDatabaseConfig();
 
-  if (useDatabase && prisma) {
+  if (useDatabase && prisma && userId) {
+    console.log("[PROFILES] Deleting profile in database for user:", userId);
+
+    // First verify the profile exists and belongs to the user
+    const profile = await prisma.classProfile.findFirst({
+      where: {
+        id: profileId,
+        userId
+      }
+    });
+
+    if (!profile) {
+      throw new Error("Profile not found");
+    }
+
+    // Delete using just the unique id
     await prisma.classProfile.delete({
-      where: { id: profileId }
+      where: {
+        id: profileId
+      }
     });
     return true;
   } else {

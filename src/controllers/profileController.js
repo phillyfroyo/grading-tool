@@ -14,7 +14,8 @@ import {
  */
 async function handleGetProfiles(req, res) {
   try {
-    const profiles = await loadProfiles();
+    const userId = req.session.userId;
+    const profiles = await loadProfiles(userId);
     res.json(profiles);
   } catch (error) {
     console.error('Error loading profiles:', error);
@@ -27,7 +28,8 @@ async function handleGetProfiles(req, res) {
  */
 async function handleCreateProfile(req, res) {
   try {
-    const newProfile = await createProfile(req.body);
+    const userId = req.session.userId;
+    const newProfile = await createProfile(req.body, userId);
     res.json(newProfile);
   } catch (error) {
     console.error('Error creating profile:', error);
@@ -40,7 +42,8 @@ async function handleCreateProfile(req, res) {
  */
 async function handleUpdateProfile(req, res) {
   try {
-    const updatedProfile = await updateProfile(req.params.id, req.body);
+    const userId = req.session.userId;
+    const updatedProfile = await updateProfile(req.params.id, req.body, userId);
     res.json(updatedProfile);
   } catch (error) {
     if (error.message === 'Profile not found' || error.code === 'P2025') {
@@ -61,7 +64,8 @@ async function handleUpdateProfile(req, res) {
  */
 async function handleDeleteProfile(req, res) {
   try {
-    await deleteProfile(req.params.id);
+    const userId = req.session.userId;
+    await deleteProfile(req.params.id, userId);
     res.json({ success: true });
   } catch (error) {
     if (error.message === 'Profile not found' || error.code === 'P2025') {

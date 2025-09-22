@@ -10,6 +10,7 @@ console.log("[BOOT] Platform:", process.platform);
 import express from "express";
 import morgan from "morgan";
 import session from "express-session";
+import path from "path";
 import { config, validateConfig, isVercel, isProduction } from "./src/config/index.js";
 import { initializeDatabase } from "./src/config/database.js";
 import { errorHandler, notFoundHandler } from "./src/middleware/errorHandler.js";
@@ -47,16 +48,11 @@ app.use(session({
 }));
 
 // Configure static file serving with proper headers and caching
-// Exclude HTML files from static serving to allow route-based authentication
+// Only serve non-HTML files statically (CSS, JS, images)
 app.use(express.static(config.files.publicPath, {
   index: false, // Disable automatic index.html serving
+  extensions: ['css', 'js', 'png', 'jpg', 'jpeg', 'gif', 'svg', 'ico', 'webp'], // Only serve these file types
   setHeaders: (res, path) => {
-    // Block HTML files from being served statically
-    if (path.endsWith('.html')) {
-      res.status(404).send('Not Found');
-      return;
-    }
-
     // Set proper MIME types for allowed files
     if (path.endsWith('.css')) {
       res.setHeader('Content-Type', 'text/css');
@@ -78,6 +74,9 @@ app.use(express.static(config.files.publicPath, {
 // Mount all routes
 console.log("[ROUTES] Mounting application routes...");
 console.log("[DEBUG] Force restart to pick up controller changes");
+
+// Routes are handled by the modular router
+
 app.use('/', routes);
 
 // Error handling middleware (must be last)

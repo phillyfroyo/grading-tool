@@ -6,7 +6,7 @@
  * Middleware to check if user is authenticated
  */
 export function requireAuth(req, res, next) {
-  if (!req.session.userId) {
+  if (!req.session || !req.session.userId) {
     // Check if this is an API request or HTML request
     if (req.xhr || req.headers.accept?.includes('application/json')) {
       return res.status(401).json({
@@ -26,8 +26,10 @@ export function requireAuth(req, res, next) {
  * Middleware to redirect authenticated users away from login page
  */
 export function redirectIfAuthenticated(req, res, next) {
+  console.log('[AUTH_MIDDLEWARE] redirectIfAuthenticated check for:', req.path, 'Session:', !!req.session.userId);
   if (req.session.userId) {
-    return res.redirect('/dashboard');
+    console.log('[AUTH_MIDDLEWARE] User authenticated, redirecting to main interface');
+    return res.redirect('/');
   }
   next();
 }

@@ -45,6 +45,25 @@ p, li, span {
     margin: 0 auto;
 }
 
+.app-header {
+    position: relative;
+    text-align: center;
+    margin-bottom: 40px;
+}
+
+.app-header img {
+    max-height: 80px;
+}
+
+/* User menu styles */
+.user-email:hover {
+    background: #e9ecef !important;
+}
+
+.user-dropdown button:hover {
+    background: #f8f9fa !important;
+}
+
 /* ===== FORM ELEMENTS ===== */
 .form-group {
     margin: 30px 0;
