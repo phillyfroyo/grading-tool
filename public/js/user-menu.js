@@ -16,6 +16,17 @@ document.addEventListener('DOMContentLoaded', function() {
             dropdown.style.display = 'none';
         }
     });
+
+    // Test manage profiles button
+    const manageBtn = document.getElementById('manageProfilesBtn');
+    if (manageBtn) {
+        console.log('[USER_MENU] Manage profiles button found, adding test listener');
+        manageBtn.addEventListener('click', function(e) {
+            console.log('[USER_MENU] Manage profiles button clicked!');
+        });
+    } else {
+        console.error('[USER_MENU] Manage profiles button NOT found');
+    }
 });
 
 /**
