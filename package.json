@@ -20,7 +20,7 @@
     "dev:backend": "nodemon server.js",
     "dev:frontend": "vite",
     "start": "node server.js",
-    "build": "vite build && npx prisma generate",
+    "build": "npx prisma generate && npx prisma migrate deploy && vite build",
     "build:frontend": "vite build",
     "preview": "vite preview",
     "postinstall": "npx prisma generate",
