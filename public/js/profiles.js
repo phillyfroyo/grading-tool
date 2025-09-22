@@ -13,12 +13,20 @@ async function loadProfilesData() {
     try {
         console.log('🔄 Loading profiles data...');
         const response = await fetch('/api/profiles?' + Date.now()); // Add cache buster
+        console.log('[PROFILES] Response status:', response.status, response.statusText);
+
+        if (!response.ok) {
+            const errorText = await response.text();
+            console.error('[PROFILES] Error response:', errorText);
+            throw new Error(`HTTP ${response.status}: ${errorText}`);
+        }
+
         const data = await response.json();
         profiles = data.profiles || [];
         console.log('📊 Loaded profiles:', profiles.length);
         updateProfileDropdown();
     } catch (error) {
-        console.error('Error loading profiles:', error);
+        console.error('[PROFILES] Error loading profiles:', error);
     }
 }
 
