@@ -106,7 +106,15 @@ class AuthController {
    */
   async status(req, res) {
     try {
+      console.log('[AUTH_STATUS] Session check:', {
+        hasSession: !!req.session,
+        sessionId: req.session?.id,
+        userId: req.session?.userId,
+        userEmail: req.session?.userEmail
+      });
+
       if (!req.session.userId) {
+        console.log('[AUTH_STATUS] No userId in session, returning unauthenticated');
         return res.json({
           success: true,
           authenticated: false
