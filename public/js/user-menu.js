@@ -29,6 +29,8 @@ async function loadUserInfo() {
 
         const data = await response.json();
         console.log('[USER_MENU] Auth status data:', data);
+        console.log('[USER_MENU] data.authenticated:', data.authenticated);
+        console.log('[USER_MENU] data.user:', data.user);
 
         const userEmailElement = document.getElementById('userEmail');
 
@@ -37,6 +39,7 @@ async function loadUserInfo() {
             userEmailElement.textContent = data.user.email;
         } else {
             console.log('[USER_MENU] User not authenticated or no user data');
+            console.log('[USER_MENU] authenticated:', data.authenticated, 'user:', data.user);
             userEmailElement.textContent = 'Not logged in';
             userEmailElement.style.color = '#dc3545';
         }
