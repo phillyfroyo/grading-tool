@@ -23,19 +23,25 @@ document.addEventListener('DOMContentLoaded', function() {
  */
 async function loadUserInfo() {
     try {
+        console.log('[USER_MENU] Fetching auth status...');
         const response = await fetch('/auth/status');
+        console.log('[USER_MENU] Auth status response:', response.status, response.statusText);
+
         const data = await response.json();
+        console.log('[USER_MENU] Auth status data:', data);
 
         const userEmailElement = document.getElementById('userEmail');
 
         if (data.authenticated && data.user) {
+            console.log('[USER_MENU] User authenticated:', data.user.email);
             userEmailElement.textContent = data.user.email;
         } else {
+            console.log('[USER_MENU] User not authenticated or no user data');
             userEmailElement.textContent = 'Not logged in';
             userEmailElement.style.color = '#dc3545';
         }
     } catch (error) {
-        console.error('Error loading user info:', error);
+        console.error('[USER_MENU] Error loading user info:', error);
         const userEmailElement = document.getElementById('userEmail');
         userEmailElement.textContent = 'Error loading user';
         userEmailElement.style.color = '#dc3545';
