@@ -331,15 +331,18 @@ class EventDelegation {
     }
 
     handleManageProfiles() {
+        console.log('[MANAGE_PROFILES] Opening profile management modal...');
         logger.info('Opening profile management modal');
 
         // Direct modal opening (avoid modal manager complexity)
         const modal = document.getElementById('profileManagementModal');
         if (modal) {
+            console.log('[MANAGE_PROFILES] Modal found, showing...');
             modal.style.display = 'block';
 
             // Load and display profiles list with protection against infinite loops
             if (window.ProfilesModule && !this._loadingProfiles) {
+                console.log('[MANAGE_PROFILES] Loading profiles list...');
                 this._loadingProfiles = true;
                 try {
                     window.ProfilesModule.loadProfilesList();
@@ -349,6 +352,7 @@ class EventDelegation {
             } else if (this._loadingProfiles) {
                 logger.warn('Already loading profiles, skipping to prevent infinite loop');
             } else {
+                console.error('[MANAGE_PROFILES] ProfilesModule not found');
                 logger.warn('ProfilesModule not found');
             }
         } else {
