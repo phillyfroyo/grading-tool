@@ -17,12 +17,31 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     });
 
-    // Test manage profiles button
+    // Handle manage profiles button directly
     const manageBtn = document.getElementById('manageProfilesBtn');
     if (manageBtn) {
-        console.log('[USER_MENU] Manage profiles button found, adding test listener');
+        console.log('[USER_MENU] Manage profiles button found, adding direct handler');
         manageBtn.addEventListener('click', function(e) {
-            console.log('[USER_MENU] Manage profiles button clicked!');
+            console.log('[USER_MENU] Manage profiles button clicked! Opening modal...');
+            e.preventDefault();
+            e.stopPropagation();
+
+            // Open modal directly
+            const modal = document.getElementById('profileManagementModal');
+            if (modal) {
+                console.log('[USER_MENU] Modal found, showing...');
+                modal.style.display = 'block';
+
+                // Load profiles list
+                if (window.ProfilesModule && window.ProfilesModule.loadProfilesList) {
+                    console.log('[USER_MENU] Loading profiles list...');
+                    window.ProfilesModule.loadProfilesList();
+                } else {
+                    console.error('[USER_MENU] ProfilesModule or loadProfilesList not found');
+                }
+            } else {
+                console.error('[USER_MENU] Profile management modal not found');
+            }
         });
     } else {
         console.error('[USER_MENU] Manage profiles button NOT found');
