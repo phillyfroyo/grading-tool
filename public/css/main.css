@@ -167,10 +167,15 @@ mark[data-type] {
 }
 
 /* ===== ZOOM FOR BETTER READABILITY ===== */
-/* Minimal zoom since elements are already doubled */
+/* Global zoom for more comfortable viewing */
+.container {
+    zoom: 0.9; /* Scale down to 90% for more comfortable viewing */
+}
+
+/* Additional zoom for very large screens */
 @media (min-width: 2560px) {
     .container {
-        zoom: 1.05; /* Only 5% larger on very large screens */
+        zoom: 0.95; /* Slightly less zoom on very large screens */
     }
 }
 
