@@ -105,7 +105,21 @@ async function handleGradingFormSubmission(e) {
     const formData = new FormData(e.target);
     const studentName = formData.get('studentName') || 'Student';
     const classProfile = formData.get('classProfile') || '';
-    const temperature = parseInt(formData.get('temperature')) || 0;
+
+    // Get temperature from the selected profile
+    let temperature = 0;
+    if (classProfile && window.ProfilesModule) {
+        const profiles = window.ProfilesModule.getProfiles();
+        const selectedProfile = profiles.find(p => p.id === classProfile);
+        if (selectedProfile && selectedProfile.temperature !== undefined) {
+            temperature = selectedProfile.temperature;
+            console.log('📡 Using profile temperature:', temperature, 'from profile:', classProfile);
+        }
+    }
+    // Fallback to form field if it exists (for backwards compatibility)
+    if (!temperature) {
+        temperature = parseInt(formData.get('temperature')) || 0;
+    }
 
     // Get all student texts from the form
     const studentTexts = [];
