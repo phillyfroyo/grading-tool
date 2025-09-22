@@ -8,7 +8,13 @@
 export function requireAuth(req, res, next) {
   if (!req.session || !req.session.userId) {
     // Check if this is an API request or HTML request
-    if (req.xhr || req.headers.accept?.includes('application/json')) {
+    // Check the URL path, XHR header, or Accept header
+    const isApiRequest = req.path.startsWith('/api/') ||
+                         req.xhr ||
+                         req.headers.accept?.includes('application/json') ||
+                         req.headers['content-type']?.includes('application/json');
+
+    if (isApiRequest) {
       return res.status(401).json({
         success: false,
         error: 'Authentication required',
