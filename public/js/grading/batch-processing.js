@@ -20,18 +20,37 @@ function displayBatchProgress(batchData) {
             <h2>Grading Essays (${batchData.essays.length} essays)</h2>
             <div class="compact-student-list" style="margin: 20px 0;">
                 ${batchData.essays.map((essay, index) => `
-                    <div class="student-row" id="student-row-${index}" style="border: 2px solid #ddd; margin: 16px 0; padding: 24px; background: #fff; border-radius: 8px; min-height: 60px;">
-                        <div style="display: flex; align-items: center; gap: 15px; min-height: 60px;">
-                            <div id="student-status-${index}" class="student-status" style="display: flex; align-items: center; gap: 12px;">
-                                <div class="loading-spinner" style="width: 24px; height: 24px; border: 3px solid #f3f3f3; border-top: 3px solid #007bff; border-radius: 50%; animation: spin 1s linear infinite;"></div>
-                                <span style="color: #666; font-size: 18px; font-weight: 500;">Processing...</span>
+                    <div class="student-row" id="student-row-${index}" style="border: 2px solid #ddd; margin: 16px 0; border-radius: 8px; overflow: hidden;">
+                        <div class="student-header" onclick="toggleStudentDetails(${index})" style="
+                            padding: 24px 30px;
+                            background: #fff;
+                            cursor: pointer;
+                            display: flex;
+                            align-items: center;
+                            justify-content: space-between;
+                            transition: background-color 0.2s;
+                            font-size: 22px;
+                            font-weight: 500;
+                            min-height: 60px;
+                        " onmouseover="this.style.backgroundColor='#f8f9fa'"
+                           onmouseout="this.style.backgroundColor='#fff'">
+                            <div style="display: flex; align-items: center; gap: 15px; flex: 1; min-width: 0;">
+                                <div id="student-status-${index}" class="student-status" style="display: flex; align-items: center; gap: 12px;">
+                                    <div class="loading-spinner" style="width: 24px; height: 24px; border: 3px solid #f3f3f3; border-top: 3px solid #007bff; border-radius: 50%; animation: spin 1s linear infinite;"></div>
+                                    <span style="color: #666; font-size: 18px; font-weight: 500;">Processing...</span>
+                                </div>
+                                <span style="font-weight: 600; color: #333; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: 24px;">${essay.studentName}</span>
                             </div>
-                            <div style="flex: 1; display: flex; align-items: center;">
-                                <span style="font-size: 24px; font-weight: 600; color: #333;">${essay.studentName}</span>
+                            <div style="display: flex; align-items: center; gap: 20px; flex-shrink: 0;">
+                                <label style="display: flex; align-items: center; gap: 10px; margin: 0; cursor: pointer; pointer-events: auto;" onclick="event.stopPropagation();">
+                                    <input type="checkbox" class="mark-complete-checkbox" data-student-index="${index}" style="margin: 0; transform: scale(2);">
+                                    <span style="font-size: 20px; color: #666; white-space: nowrap; font-weight: 600;">Mark Complete</span>
+                                </label>
+                                <button onclick="event.stopPropagation(); downloadIndividualEssay(${index})" disabled style="background: #6c757d; color: white; border: none; padding: 16px 24px; border-radius: 8px; font-size: 18px; cursor: not-allowed; white-space: nowrap; pointer-events: auto; font-weight: 600;">Download</button>
                             </div>
                         </div>
-                        <div id="student-details-${index}" style="display: none; margin-top: 15px; padding-top: 15px; border-top: 1px solid #eee;">
-                            <div id="batch-essay-${index}">Loading formatted result...</div>
+                        <div id="student-details-${index}" style="max-height: 0px; overflow: hidden; transition: max-height 0.3s ease-in-out; border-top: 1px solid #ddd;">
+                            <div id="batch-essay-${index}" style="padding: 15px;">Loading formatted result...</div>
                         </div>
                     </div>
                 `).join('')}
@@ -66,16 +85,25 @@ function updateEssayStatus(index, success, error = null) {
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#28a745" stroke-width="2">
                 <path d="M20 6L9 17l-5-5"></path>
             </svg>
-            <span style="color: #28a745; font-weight: 500;">Completed</span>
         `;
+
+        // Enable the download button for successful essays
+        const studentRow = document.getElementById(`student-row-${index}`);
+        if (studentRow) {
+            const downloadBtn = studentRow.querySelector('button[onclick*="downloadIndividualEssay"]');
+            if (downloadBtn) {
+                downloadBtn.disabled = false;
+                downloadBtn.style.background = '#007bff';
+                downloadBtn.style.cursor = 'pointer';
+            }
+        }
     } else {
         statusElement.innerHTML = `
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#dc3545" stroke-width="2">
                 <circle cx="12" cy="12" r="10"></circle>
                 <path d="M15 9l-6 6M9 9l6 6"></path>
             </svg>
-            <span style="color: #dc3545; font-weight: 500;">Failed</span>
-            ${error ? `<div style="font-size: 11px; color: #666; margin-top: 2px;">${error}</div>` : ''}
+            ${error ? `<div style="font-size: 11px; color: #666; margin-left: 8px;">${error}</div>` : ''}
         `;
     }
 }

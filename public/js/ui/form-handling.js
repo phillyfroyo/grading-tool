@@ -269,9 +269,14 @@ async function handleGradingFormSubmission(e) {
                 window.BatchProcessingModule.displayBatchProgress(batchData);
             }
 
-            // Use regular batch endpoint (streaming has issues - TODO: fix later)
-            console.log('🎯 CALLING FALLBACK BATCH GRADING WITH:', batchData);
-            await fallbackToBatchProcessing(batchData);
+            // Use streaming batch endpoint for better UX (essays return progressively)
+            console.log('🎯 CALLING STREAMING BATCH GRADING WITH:', batchData);
+            try {
+                await streamBatchGradingSimple(batchData);
+            } catch (streamError) {
+                console.error('Streaming failed, using fallback:', streamError);
+                await fallbackToBatchProcessing(batchData);
+            }
         }
 
     } catch (error) {
@@ -446,12 +451,7 @@ async function streamBatchGradingSimple(batchData) {
                 case 'result':
                         console.log(`✅ Received result for essay ${data.index}`);
 
-                        // Update the UI immediately for this essay
-                        if (window.BatchProcessingModule) {
-                            window.BatchProcessingModule.updateEssayStatus(data.index, data.success, data.error);
-                        }
-
-                        // Store the result
+                        // Store the result first
                         processedResults[data.index] = data;
 
                         // Store essay data for expansion
@@ -468,11 +468,23 @@ async function streamBatchGradingSimple(batchData) {
                                 }
                             };
                         }
+
+                        // Queue this result for staggered display (3-second delay between each)
+                        if (!window.batchResultQueue) {
+                            window.batchResultQueue = [];
+                            window.batchQueueProcessor = null;
+                        }
+
+                        window.batchResultQueue.push(data);
+
+                        // Start processing queue if not already running
+                        if (!window.batchQueueProcessor) {
+                            processBatchResultQueue();
+                        }
                         break;
 
                     case 'complete':
                         console.log('🎉 Streaming complete');
-                        // Stream ends naturally
 
                         // Create final batch result object
                         const finalBatchResult = {
@@ -485,6 +497,15 @@ async function streamBatchGradingSimple(batchData) {
                                 studentName: r.studentName
                             }))
                         };
+
+                        // Only rebuild UI if essays weren't already pre-loaded
+                        const alreadyLoaded = document.querySelector('.formatted-essay-content[data-essay-index="0"]');
+                        if (!alreadyLoaded && window.BatchProcessingModule) {
+                            console.log('🔄 UI not pre-loaded, rebuilding with batch results...');
+                            window.BatchProcessingModule.displayBatchResults(finalBatchResult, batchData);
+                        } else {
+                            console.log('✅ Essays already pre-loaded and interactive, skipping UI rebuild');
+                        }
 
                         resolve(finalBatchResult);
                         break;
@@ -576,12 +597,17 @@ async function streamBatchGrading(batchData) {
                                     index: data.index
                                 }
                             };
+
+                            // Pre-load the essay content immediately so users can click and view it right away
+                            console.log(`🔄 Pre-loading essay content for immediate access: ${data.index}`);
+                            if (window.BatchProcessingModule && window.BatchProcessingModule.loadEssayDetails) {
+                                window.BatchProcessingModule.loadEssayDetails(data.index);
+                            }
                         }
                         break;
 
                     case 'complete':
                         console.log('🎉 Streaming complete');
-                        // Stream ends naturally
 
                         // Create final batch result object
                         const finalBatchResult = {
@@ -594,6 +620,15 @@ async function streamBatchGrading(batchData) {
                                 studentName: r.studentName
                             }))
                         };
+
+                        // Only rebuild UI if essays weren't already pre-loaded
+                        const alreadyLoaded = document.querySelector('.formatted-essay-content[data-essay-index="0"]');
+                        if (!alreadyLoaded && window.BatchProcessingModule) {
+                            console.log('🔄 UI not pre-loaded, rebuilding with batch results...');
+                            window.BatchProcessingModule.displayBatchResults(finalBatchResult, batchData);
+                        } else {
+                            console.log('✅ Essays already pre-loaded and interactive, skipping UI rebuild');
+                        }
 
                         resolve(finalBatchResult);
                         break;
@@ -687,6 +722,38 @@ function setupFormValidation() {
     });
 }
 
+/**
+ * Process batch results with 1-second delay between each
+ */
+function processBatchResultQueue() {
+    if (!window.batchResultQueue || window.batchResultQueue.length === 0) {
+        window.batchQueueProcessor = null;
+        return;
+    }
+
+    window.batchQueueProcessor = setTimeout(() => {
+        const data = window.batchResultQueue.shift();
+
+        console.log(`🎯 Processing queued result for essay ${data.index} with 3s delay`);
+
+        // Update the UI for this essay
+        if (window.BatchProcessingModule) {
+            window.BatchProcessingModule.updateEssayStatus(data.index, data.success, data.error);
+        }
+
+        // Pre-load the essay content so users can click and view it right away
+        if (data.success) {
+            console.log(`🔄 Pre-loading essay content for immediate access: ${data.index}`);
+            if (window.BatchProcessingModule && window.BatchProcessingModule.loadEssayDetails) {
+                window.BatchProcessingModule.loadEssayDetails(data.index);
+            }
+        }
+
+        // Continue processing queue
+        processBatchResultQueue();
+    }, 3000); // 3-second delay
+}
+
 // Export functions for module usage
 window.FormHandlingModule = {
     handleGradingFormSubmission,
@@ -699,5 +766,6 @@ window.FormHandlingModule = {
     setupFormValidation,
     streamBatchGrading,
     streamBatchGradingSimple,
-    fallbackToBatchProcessing
+    fallbackToBatchProcessing,
+    processBatchResultQueue
 };

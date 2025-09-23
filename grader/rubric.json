@@ -26,7 +26,15 @@
         },
         {
           "range": "9% - 7%",
-          "description": "Some grammatical errors present, but communication remains clear. Shows good effort with grammar structures taught in class."
+          "description": "A few grammatical errors (6-9 no basic) and use of few structures seen in class (2). Good tense agreement with mistakes."
+        },
+        {
+          "range": "6% - 4%",
+          "description": "Several grammatical errors (10-15 almost no basic ones) and only uses 1 structure seen in class. Tense agreement is not correct."
+        },
+        {
+          "range": "3% - 0%",
+          "description": "Many grammatical errors (15 or + and basic ones) and no use of any structure seen in class. There is no tense agreement."
         }
       ]
     },
@@ -48,7 +56,15 @@
         },
         {
           "range": "9% - 7%",
-          "description": "Reasonable vocabulary attempt. Shows effort with word choice and some correct usage of class vocabulary."
+          "description": "Correct use of vocabulary seen in class (5-6 vocabulary words)."
+        },
+        {
+          "range": "6% - 4%",
+          "description": "Correct but few use of vocabulary seen in class (3-4 words)."
+        },
+        {
+          "range": "3% - 0%",
+          "description": "Incorrect or no use of vocabulary seen in class (0-2 words)."
         }
       ]
     },
@@ -70,7 +86,15 @@
         },
         {
           "range": "6% - 5%",
-          "description": "Several spelling errors present, but meaning remains clear. Shows good effort with challenging words."
+          "description": "Number of errors 6-8 that do not impede communication."
+        },
+        {
+          "range": "4% - 3%",
+          "description": "Errors may obscure communication at times. Spelling errors of 8-10."
+        },
+        {
+          "range": "2% - 0%",
+          "description": "Frequent errors that obscure communication. Many spelling errors (10 or more or basic ones)."
         }
       ]
     },
@@ -92,7 +116,15 @@
         },
         {
           "range": "9% - 7%",
-          "description": "Some punctuation errors present, but text remains readable. Shows understanding of basic punctuation rules."
+          "description": "A few punctuation errors (5-10 and almost no basic ones)."
+        },
+        {
+          "range": "6% - 4%",
+          "description": "Many punctuation errors (10 or + 20 basic ones)."
+        },
+        {
+          "range": "3% - 0%",
+          "description": "Lack of punctuation difficult to understand because of it. (20 or + including basic ones)."
         }
       ]
     },
@@ -113,8 +145,16 @@
           "description": "Mostly clear organization. Valid ideas organized logically."
         },
         {
-          "range": "9% - 7%",
-          "description": "Ideas are understandable with some organizational challenges. Shows effort to connect thoughts logically."
+          "range": "6% - 5%",
+          "description": "Inadequate organization or development. Structure of the answer(s) is (are) not easy to follow. Mainly valid ideas organized adequately."
+        },
+        {
+          "range": "4% - 3%",
+          "description": "Organization and structure detract from the answer(s). Choppy, ideas organized inadequately. Communication or purpose of writing sometimes obscured; repetitive."
+        },
+        {
+          "range": "2% - 0%",
+          "description": "Text is not structured. Confusing, ideas disconnected; lacks logical."
         }
       ]
     },
@@ -136,7 +176,15 @@
         },
         {
           "range": "9% - 7%",
-          "description": "Reasonable attempt at required structure and length. Shows understanding of assignment format with some cohesive devices used."
+          "description": "Several inconsistencies in text type requirements. The length is not the one asked (16-17 words less or 21-25 words more). Uses cohesive devices (4 transition words) but in a repetitive way."
+        },
+        {
+          "range": "6% - 4%",
+          "description": "Barely meets text type requirements. The length is not the one asked (18-19 words less or 26-30 words more). Incorrect use of cohesive devices (3-2 transition words)."
+        },
+        {
+          "range": "3% - 0%",
+          "description": "Does not meet text type requirements (20 or more words less or 31 or more words more). Attempts at appropriate writing are unsuccessful or inconsistent. No use of cohesive devices."
         }
       ]
     },
@@ -159,6 +207,14 @@
         {
           "range": "9% - 7%",
           "description": "Some valid ideas. Some content points elaborated. Main ideas stand out but choppy."
+        },
+        {
+          "range": "6% - 4%",
+          "description": "Limited variety of ideas. Hardly any content points elaborated."
+        },
+        {
+          "range": "3% - 0%",
+          "description": "Insufficient treatment of topic, no content point elaborated. Information has nothing to do with the main topic."
         }
       ]
     }

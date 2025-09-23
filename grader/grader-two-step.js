@@ -22,6 +22,9 @@ const openai = new OpenAI({
 
 export async function gradeEssay(studentText, prompt, classProfileId) {
   console.log('=== STARTING TWO-STEP GRADING PROCESS ===');
+  console.log('DEBUG: classProfileId received:', classProfileId);
+  console.log('DEBUG: classProfileId type:', typeof classProfileId);
+  console.log('FORCING NODEMON RESTART');
   
   // Load class profile
   const profilesData = JSON.parse(readFileSync('./class-profiles.json', 'utf8'));
@@ -112,9 +115,6 @@ async function detectErrors(studentText, classProfile) {
       
       result.inline_issues = patchVocabularyUsage(studentText, result.inline_issues);
       console.log(`After patchVocabularyUsage: ${result.inline_issues.length} errors`);
-      
-      result.inline_issues = attemptSmartSplitting(studentText, result.inline_issues);
-      console.log(`After attemptSmartSplitting: ${result.inline_issues.length} errors`);
       
       console.log('AFTER ALL PATCHING - First 3 issues:');
       result.inline_issues.slice(0, 3).forEach((issue, i) => {
@@ -364,64 +364,165 @@ function isAlreadyCovered(start, end, existingIssues) {
 // Split overly long error spans into smaller, specific issues
 function splitLongSpans(text, issues) {
   const newIssues = [];
-  const MAX_SPAN_LENGTH = 30; // Reduced from 50 to 30 characters
-  const MAX_WORD_COUNT = 4; // Reduced from 6 to 4 words max (very strict)
-  const MECHANICS_MAX_WORDS = 2; // Even stricter for mechanics (1-2 words only)
-  
+  const MAX_SPAN_LENGTH = 30; // Maximum characters for atomic errors
+  const MAX_WORD_COUNT = 4; // Maximum words for atomic errors
+  const MECHANICS_MAX_WORDS = 2; // Even stricter for mechanics
+
   for (const issue of issues) {
     const start = issue.start || issue.offsets?.start;
     const end = issue.end || issue.offsets?.end;
-    
+
     if (start === undefined || end === undefined) {
       newIssues.push(issue);
       continue;
     }
-    
+
     const spanText = text.slice(start, end);
     const wordCount = spanText.split(/\s+/).filter(word => word.length > 0).length;
     const charLength = end - start;
     const category = issue.category || issue.type || '';
-    
+
     // Special handling for mechanics-punctuation - be extra strict
     const isMechanics = category.includes('mechanics') || category.includes('punctuation');
     const maxWords = isMechanics ? MECHANICS_MAX_WORDS : MAX_WORD_COUNT;
-    
-    // If span is too long, either reject it or try to fix it
-    if (charLength > MAX_SPAN_LENGTH || wordCount > maxWords) {
-      console.warn(`⚠️ Long span detected (${wordCount} words, ${charLength} chars): "${spanText.substring(0, 50)}..."`);
-      console.warn(`   Category: ${category}, Range: ${start}-${end}`);
-      
-      // For mechanics errors, try to find a more specific target
+
+    // If span is acceptable length, keep as-is
+    if (charLength <= MAX_SPAN_LENGTH && wordCount <= maxWords) {
+      newIssues.push(issue);
+      continue;
+    }
+
+    // Attempt to split long spans into atomic errors
+    console.warn(`🔄 Attempting to split long span (${wordCount} words, ${charLength} chars): "${spanText}"`);
+    console.warn(`   Category: ${category}, Range: ${start}-${end}`);
+
+    const atomicErrors = attemptAtomicSplit(text, spanText, start, end, category, issue);
+
+    if (atomicErrors.length > 0) {
+      console.log(`✅ Successfully split into ${atomicErrors.length} atomic errors`);
+      newIssues.push(...atomicErrors);
+    } else {
+      // If we can't split it intelligently, apply stricter filtering
       if (isMechanics && wordCount > MECHANICS_MAX_WORDS) {
         console.warn(`❌ REJECTING overly broad mechanics error: "${spanText}"`);
-        console.warn(`   Mechanics errors should target specific punctuation spots, not entire sentences`);
-        // Skip this issue entirely - it's too broad for mechanics
-        continue;
+        continue; // Skip entirely
       }
-      
-      // Keep the original issue but add a warning flag
+
+      // Keep with warning flag for manual review
       newIssues.push({
         ...issue,
-        _warning: 'long_span',
+        _warning: 'long_span_unsplittable',
         _word_count: wordCount,
         _char_length: charLength
       });
-    } else {
-      newIssues.push(issue);
     }
   }
-  
-  const longSpanCount = newIssues.filter(issue => issue._warning === 'long_span').length;
-  const rejectedCount = issues.length - newIssues.length;
-  
-  if (longSpanCount > 0) {
-    console.warn(`🔍 Found ${longSpanCount} long spans that should be manually reviewed`);
+
+  const splitCount = newIssues.filter(issue => issue._split_from_group).length;
+  const rejectedCount = issues.length - newIssues.length + splitCount;
+
+  if (splitCount > 0) {
+    console.log(`🔄 Successfully split ${splitCount} atomic errors from grouped spans`);
   }
   if (rejectedCount > 0) {
-    console.warn(`❌ Rejected ${rejectedCount} overly broad error spans (likely mechanics)`);
+    console.warn(`❌ Rejected ${rejectedCount} overly broad error spans`);
   }
-  
+
   return newIssues;
+}
+
+function attemptAtomicSplit(fullText, spanText, spanStart, spanEnd, originalCategory, originalIssue) {
+  const atomicErrors = [];
+
+  // Common error patterns for intelligent splitting
+  const errorPatterns = [
+    // Spelling errors - common misspellings
+    { pattern: /\b(recieve|recieved|recieving)\b/gi, category: 'spelling', correct: (match) => match.replace(/ie/g, 'ei') },
+    { pattern: /\b(seperate|seperated|seperating)\b/gi, category: 'spelling', correct: () => 'separate' },
+    { pattern: /\b(definately)\b/gi, category: 'spelling', correct: () => 'definitely' },
+    { pattern: /\b(commond)\b/gi, category: 'spelling', correct: () => 'common' },
+    { pattern: /\b(tall me)\b/gi, category: 'spelling', correct: () => 'tell me' },
+    { pattern: /\b(bussiness)\b/gi, category: 'spelling', correct: () => 'business' },
+
+    // Grammar errors - preposition mistakes
+    { pattern: /\bheard for\b/gi, category: 'grammar', correct: () => 'heard from' },
+    { pattern: /\bfor one friend\b/gi, category: 'grammar', correct: () => 'from a friend' },
+    { pattern: /\bto can\b/gi, category: 'grammar', correct: () => 'to be able to' },
+    { pattern: /\bthat's right \?/gi, category: 'grammar', correct: () => 'is that right?' },
+
+    // Mechanics errors - capitalization and punctuation
+    { pattern: /\bi\b(?=\s)/g, category: 'mechanics', correct: () => 'I' },
+    { pattern: /\bdont\b/gi, category: 'mechanics', correct: () => "don't" },
+    { pattern: /\bcant\b/gi, category: 'mechanics', correct: () => "can't" },
+    { pattern: /\bwont\b/gi, category: 'mechanics', correct: () => "won't" },
+  ];
+
+  // Find all errors within the span
+  for (const errorPattern of errorPatterns) {
+    const matches = [...spanText.matchAll(errorPattern.pattern)];
+
+    for (const match of matches) {
+      const errorStart = spanStart + match.index;
+      const errorEnd = errorStart + match[0].length;
+      const errorText = match[0];
+      const correction = errorPattern.correct(match[0]);
+
+      // Skip if this exact range is already covered
+      if (atomicErrors.some(e => e.start === errorStart && e.end === errorEnd)) {
+        continue;
+      }
+
+      atomicErrors.push({
+        category: errorPattern.category,
+        text: errorText,
+        start: errorStart,
+        end: errorEnd,
+        correction: correction,
+        explanation: generateExplanation(errorPattern.category, errorText, correction),
+        _split_from_group: true,
+        _original_span: spanText,
+        _original_category: originalCategory
+      });
+    }
+  }
+
+  // If we found atomic errors, return them
+  if (atomicErrors.length > 0) {
+    return atomicErrors;
+  }
+
+  // Fallback: if it's a vocabulary error, try to extract the key problematic word
+  if (originalCategory === 'vocabulary' && spanText.split(/\s+/).length <= 3) {
+    const words = spanText.split(/\s+/);
+    const keyWord = words[0]; // Take first word as likely culprit
+
+    return [{
+      category: 'vocabulary',
+      text: keyWord,
+      start: spanStart,
+      end: spanStart + keyWord.length,
+      correction: originalIssue.correction || keyWord,
+      explanation: originalIssue.explanation || `Word choice issue with "${keyWord}"`,
+      _split_from_group: true,
+      _original_span: spanText,
+      _original_category: originalCategory
+    }];
+  }
+
+  return []; // Couldn't split intelligently
+}
+
+function generateExplanation(category, errorText, correction) {
+  switch (category) {
+    case 'spelling':
+      return `Misspelling: "${errorText}" should be "${correction}"`;
+    case 'grammar':
+      return `Grammar error: "${errorText}" should be "${correction}"`;
+    case 'mechanics':
+      return `Mechanics error: "${errorText}" should be "${correction}"`;
+    default:
+      return `Error: "${errorText}" should be "${correction}"`;
+  }
 }
 
 // Improve contextual word corrections based on surrounding grammar

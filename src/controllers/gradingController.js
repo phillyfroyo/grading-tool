@@ -310,16 +310,30 @@ async function handleStreamingBatchGrade(req, res, { essays, prompt, classProfil
         }
       });
 
-      // Wait for all essays in this batch to complete
-      const batchResults = await Promise.all(batchPromises);
+      // Wait for all essays in this batch to complete using allSettled for better error handling
+      const batchResults = await Promise.allSettled(batchPromises);
 
-      // Stream results immediately as the batch completes
-      batchResults.forEach(result => {
+      // Extract results and sort them to maintain a consistent order for the delay
+      const processedResults = batchResults
+        .map(result => result.status === 'fulfilled' ? result.value : null)
+        .filter(result => result !== null);
+
+      // Stream results with a 500ms delay between each for better UX
+      for (let i = 0; i < processedResults.length; i++) {
+        const result = processedResults[i];
+
+        // Add delay between essays (except for the first one)
+        if (i > 0) {
+          await new Promise(resolve => setTimeout(resolve, 500));
+        }
+
         res.write(`data: ${JSON.stringify({
           type: 'result',
           ...result
         })}\n\n`);
-      });
+
+        console.log(`📤 Streamed result for ${result.studentName} (index: ${result.index})`);
+      }
 
       console.log(`✅ Batch ${currentBatch}/${totalBatches} completed - ${batchResults.length} essays processed`);
       currentBatch++;

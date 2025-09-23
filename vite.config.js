@@ -52,6 +52,18 @@ export default defineConfig({
         target: 'http://localhost:3001',
         changeOrigin: true,
         secure: false
+      },
+      // Proxy auth routes to the backend server
+      '/auth': {
+        target: 'http://localhost:3001',
+        changeOrigin: true,
+        secure: false
+      },
+      // Proxy profiles routes to the backend server
+      '/profiles': {
+        target: 'http://localhost:3001',
+        changeOrigin: true,
+        secure: false
       }
     }
   },

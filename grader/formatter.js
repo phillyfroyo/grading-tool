@@ -293,59 +293,80 @@ function levenshteinDistance(str1, str2) {
 
 function resolveOverlapsFixed(issues, priorityOrder) {
   const resolved = [];
-  
-  // First, remove exact duplicates (same offsets)
+
+  // First, remove exact duplicates (same offsets AND same category)
   const uniqueIssues = [];
-  const seenOffsets = new Set();
-  
+  const seenKeys = new Set();
+
   for (const issue of issues) {
-    const offsetKey = `${issue.offsets.start}-${issue.offsets.end}`;
-    if (!seenOffsets.has(offsetKey)) {
-      seenOffsets.add(offsetKey);
+    const issueCategory = issue.category || issue.type || 'unknown';
+    const offsetKey = `${issue.offsets.start}-${issue.offsets.end}-${issueCategory}`;
+
+    if (!seenKeys.has(offsetKey)) {
+      seenKeys.add(offsetKey);
       uniqueIssues.push(issue);
     } else {
       const issueDesc = issue.message || issue.correction || issue.text;
-      console.log(`Removing duplicate highlight at ${offsetKey}: ${issueDesc}`);
+      console.log(`Removing exact duplicate: ${offsetKey} - ${issueDesc}`);
     }
   }
-  
-  // Then resolve overlaps by priority
+
+  // Enable overlapping highlights for compound errors
   for (const current of uniqueIssues) {
     let shouldAdd = true;
-    
+    const currentCategory = current.category || current.type || 'unknown';
+
     // Check against all issues already added
     for (const existing of resolved) {
       if (overlaps(current.offsets, existing.offsets)) {
-        const currentPriority = priorityOrder.indexOf(current.type);
-        const existingPriority = priorityOrder.indexOf(existing.type);
-        
+        const existingCategory = existing.category || existing.type || 'unknown';
+
+        // ALLOW overlapping highlights for different categories (compound errors)
+        if (currentCategory !== existingCategory) {
+          console.log(`✅ Allowing overlapping compound error: ${currentCategory} + ${existingCategory}`);
+          continue; // Skip conflict resolution, allow both
+        }
+
+        // For SAME categories, apply priority resolution
+        const currentPriority = priorityOrder.indexOf(currentCategory);
+        const existingPriority = priorityOrder.indexOf(existingCategory);
+
         // If existing has higher priority (lower index), drop current
         if (existingPriority >= 0 && (currentPriority < 0 || existingPriority < currentPriority)) {
-          console.log(`Dropping overlapping issue: ${current.message} (conflicts with ${existing.message})`);
+          console.log(`Dropping lower priority same-category overlap: ${current.message}`);
           shouldAdd = false;
           break;
         }
         // If current has higher priority, remove existing and add current
         else if (currentPriority >= 0 && currentPriority < existingPriority) {
-          console.log(`Replacing lower priority issue: ${existing.message} with ${current.message}`);
+          console.log(`Replacing lower priority same-category issue: ${existing.message} with ${current.message}`);
           const index = resolved.indexOf(existing);
           resolved.splice(index, 1);
         }
-        // If same priority, keep the first one
+        // If same priority and same category, keep the first one
         else if (currentPriority === existingPriority) {
-          console.log(`Same priority overlap, keeping first: ${existing.message}`);
+          console.log(`Same priority same-category overlap, keeping first: ${existing.message}`);
           shouldAdd = false;
           break;
         }
       }
     }
-    
+
     if (shouldAdd) {
       resolved.push(current);
     }
   }
-  
-  return resolved.sort((a, b) => a.offsets.start - b.offsets.start);
+
+  // Sort by start position, then by priority for overlapping highlights
+  return resolved.sort((a, b) => {
+    if (a.offsets.start !== b.offsets.start) {
+      return a.offsets.start - b.offsets.start;
+    }
+    // For same start position, sort by priority (higher priority first for nesting)
+    const aPriority = priorityOrder.indexOf(a.category || a.type || '');
+    const bPriority = priorityOrder.indexOf(b.category || b.type || '');
+    return (aPriority >= 0 ? aPriority : 999) - (bPriority >= 0 ? bPriority : 999);
+  });
 }
 
 function overlaps(range1, range2) {
@@ -353,6 +374,12 @@ function overlaps(range1, range2) {
 }
 
 function buildSegments(text, issues) {
+  // Handle overlapping highlights by creating a more sophisticated segmentation
+  if (hasOverlappingIssues(issues)) {
+    return buildOverlappingSegments(text, issues);
+  }
+
+  // Original non-overlapping logic for backward compatibility
   const segments = [];
   let cursor = 0;
 
@@ -395,6 +422,84 @@ function buildSegments(text, issues) {
   return segments;
 }
 
+function hasOverlappingIssues(issues) {
+  for (let i = 0; i < issues.length; i++) {
+    for (let j = i + 1; j < issues.length; j++) {
+      if (overlaps(issues[i].offsets, issues[j].offsets)) {
+        return true;
+      }
+    }
+  }
+  return false;
+}
+
+function buildOverlappingSegments(text, issues) {
+  console.log('🔄 Building overlapping segments for compound errors');
+
+  // Get all unique positions (start and end points)
+  const positions = new Set([0, text.length]);
+
+  for (const issue of issues) {
+    if (issue.isCaretMarker) continue; // Skip caret markers for position calculation
+    positions.add(issue.offsets.start);
+    positions.add(issue.offsets.end);
+  }
+
+  const sortedPositions = Array.from(positions).sort((a, b) => a - b);
+  const segments = [];
+
+  // Build segments for each position range
+  for (let i = 0; i < sortedPositions.length - 1; i++) {
+    const start = sortedPositions[i];
+    const end = sortedPositions[i + 1];
+    const segmentText = text.slice(start, end);
+
+    // Find all issues that cover this segment
+    const coveringIssues = issues.filter(issue => {
+      if (issue.isCaretMarker) return false;
+      return issue.offsets.start <= start && issue.offsets.end >= end;
+    });
+
+    // Handle caret markers at this position
+    const caretIssues = issues.filter(issue => issue.isCaretMarker && issue.offsets.start === start);
+
+    // Add caret markers first (they're zero-width)
+    for (const caretIssue of caretIssues) {
+      segments.push({
+        type: 'caret',
+        text: '',
+        issue: caretIssue
+      });
+    }
+
+    // Add the text segment with its covering issues
+    if (coveringIssues.length === 0) {
+      // Normal text with no issues
+      segments.push({
+        type: 'normal',
+        text: segmentText
+      });
+    } else if (coveringIssues.length === 1) {
+      // Single issue covering this segment
+      segments.push({
+        type: 'issue',
+        text: segmentText,
+        issue: coveringIssues[0]
+      });
+    } else {
+      // Multiple overlapping issues - create nested structure
+      segments.push({
+        type: 'overlapping',
+        text: segmentText,
+        issues: coveringIssues,
+        primaryIssue: coveringIssues[0] // Use first (highest priority) as primary
+      });
+    }
+  }
+
+  return segments;
+}
+
 function mergeAdjacentSegments(segments) {
   const merged = [];
   
@@ -416,77 +521,169 @@ function mergeAdjacentSegments(segments) {
 
 function renderSegmentsToHTML(segments, options = {}) {
   const { editable = false } = options;
-  
+
   const htmlContent = segments.map((segment, index) => {
     if (segment.type === 'normal') {
-      return editable ? 
+      return editable ?
         `<span class="text-segment" data-segment-id="${index}">${escapeHtmlWithFormatting(segment.text)}</span>` :
         escapeHtmlWithFormatting(segment.text);
     } else if (segment.type === 'caret') {
       // Render caret marker for comma/period suggestions
       const issueDesc = segment.issue.message || segment.issue.correction || segment.issue.text;
-      return `<span class="caret-marker" 
+      return `<span class="caret-marker"
                    data-type="${escapeHtml(segment.issue.category || segment.issue.type || '')}"
                    data-message="${escapeHtml(issueDesc)}"
                    title="${escapeHtml(issueDesc)}"
                    style="color: #DC143C; font-weight: bold; position: relative;">▿</span>`;
+    } else if (segment.type === 'overlapping') {
+      // Handle overlapping compound errors with nested highlights
+      console.log(`🎨 Rendering overlapping segment with ${segment.issues.length} issues:`,
+                  segment.issues.map(i => i.category || i.type).join(' + '));
+
+      return renderNestedHighlights(segment.text, segment.issues, index, editable);
     } else {
-      // Use correction guide colors for inline_issues, fallback to rubric colors
-      const issueCategory = segment.issue.category || segment.issue.type || '';
-      const correctionInfo = correctionGuideColors[issueCategory];
-      const categoryInfo = correctionInfo || rubric.categories[issueCategory];
-      const color = categoryInfo?.color || '#666';
-      const bgColor = categoryInfo?.backgroundColor || '#f5f5f5';
-      const textDecoration = categoryInfo?.textDecoration || 'none';
-      const categoryName = categoryInfo?.name || issueCategory;
-      
-      const editableAttrs = editable ? 
-        `data-segment-id="${index}" data-editable="true" class="highlighted-segment"` : '';
-      
-      // Build style string with conditional properties
-      let styleProps = `color: ${color}; text-decoration: ${textDecoration}; position: relative;`;
-      if (bgColor && bgColor !== 'transparent') {
-        styleProps += ` background: ${bgColor}; padding: 2px 4px; border-radius: 2px;`;
-      }
-      
-      // Special styling for delete category (strikethrough)
-      if (issueCategory === 'delete') {
-        styleProps = `color: #000000; text-decoration: line-through; position: relative; font-weight: bold;`;
-      }
-      // Special styling for coaching-only fluency suggestions
-      else if (segment.issue.coaching_only && issueCategory === 'fluency') {
-        styleProps = `color: #A855F7; text-decoration: underline dotted; position: relative; opacity: 0.8;`;
-      }
-      
-      const issueDesc = segment.issue.message || segment.issue.correction || segment.issue.text;
-      const coachingAttr = segment.issue.coaching_only ? 'data-coaching-only="true"' : '';
-
-      // Extract notes/explanation from the message
-      // If message contains arrow (→), it's a correction, use full message as notes
-      // Otherwise, use message as notes directly
-      const notes = segment.issue.explanation || segment.issue.notes || issueDesc || '';
-
-      return `<mark class="highlight-${issueCategory} highlight"
-                   data-type="${escapeHtml(issueCategory)}"
-                   data-category="${escapeHtml(issueCategory)}"
-                   data-message="${escapeHtml(issueDesc)}"
-                   data-notes="${escapeHtml(notes)}"
-                   data-original-text="${escapeHtml(segment.text)}"
-                   ${coachingAttr}
-                   ${editableAttrs}
-                   style="${styleProps}; cursor: pointer;"
-                   title="${escapeHtml(notes)}">
-                ${escapeHtmlWithFormatting(segment.text)}
-              </mark>`;
+      // Regular single issue segment
+      return renderSingleHighlight(segment.issue, segment.text, index, editable);
     }
   }).join('');
-  
+
   // Wrap content in paragraph tags if it contains paragraph breaks
   if (htmlContent.includes('</p><p>')) {
     return '<p>' + htmlContent + '</p>';
   }
-  
+
   return htmlContent;
+}
+
+function renderNestedHighlights(text, issues, segmentIndex, editable) {
+  // Sort issues by priority (highest priority becomes outermost highlight)
+  const priorityOrder = [
+    'grammar',
+    'mechanics-punctuation',
+    'spelling',
+    'vocabulary-structure',
+    'needs-rephrasing',
+    'redundancy',
+    'non-suitable-words',
+    'fluency',
+    'professor-comments'
+  ];
+
+  const sortedIssues = [...issues].sort((a, b) => {
+    const aPriority = priorityOrder.indexOf(a.category || a.type || '');
+    const bPriority = priorityOrder.indexOf(b.category || b.type || '');
+    return (aPriority >= 0 ? aPriority : 999) - (bPriority >= 0 ? bPriority : 999);
+  });
+
+  // Build nested HTML structure from outside to inside
+  let html = escapeHtmlWithFormatting(text);
+
+  // Apply highlights from lowest priority to highest (inside-out)
+  for (let i = sortedIssues.length - 1; i >= 0; i--) {
+    const issue = sortedIssues[i];
+    const issueCategory = issue.category || issue.type || '';
+    const correctionInfo = correctionGuideColors[issueCategory];
+    const categoryInfo = correctionInfo || rubric.categories[issueCategory];
+
+    // Create nested mark element
+    const color = categoryInfo?.color || '#666';
+    const bgColor = categoryInfo?.backgroundColor || '#f5f5f5';
+    const textDecoration = categoryInfo?.textDecoration || 'none';
+
+    const editableAttrs = editable ?
+      `data-segment-id="${segmentIndex}-${i}" data-editable="true" class="highlighted-segment"` : '';
+
+    // Build style string with conditional properties
+    let styleProps = `color: ${color}; text-decoration: ${textDecoration}; position: relative;`;
+    if (bgColor && bgColor !== 'transparent') {
+      styleProps += ` background: ${bgColor}; padding: 2px 4px; border-radius: 2px; margin: 1px;`;
+    }
+
+    // Special styling adjustments for nested highlights
+    if (i > 0) {
+      // Inner highlights get slightly different styling to be visible
+      styleProps += ` box-shadow: inset 0 0 0 1px ${color}; opacity: 0.9;`;
+    }
+
+    // Special styling for delete category (strikethrough)
+    if (issueCategory === 'delete') {
+      styleProps = `color: #000000; text-decoration: line-through; position: relative; font-weight: bold;`;
+    }
+    // Special styling for coaching-only fluency suggestions
+    else if (issue.coaching_only && issueCategory === 'fluency') {
+      styleProps = `color: #A855F7; text-decoration: underline dotted; position: relative; opacity: 0.8;`;
+    }
+
+    const issueDesc = issue.message || issue.correction || issue.text;
+    const coachingAttr = issue.coaching_only ? 'data-coaching-only="true"' : '';
+    const notes = issue.explanation || issue.notes || issueDesc || '';
+
+    html = `<mark class="highlight-${issueCategory} highlight nested-highlight"
+                 data-type="${escapeHtml(issueCategory)}"
+                 data-category="${escapeHtml(issueCategory)}"
+                 data-message="${escapeHtml(issueDesc)}"
+                 data-notes="${escapeHtml(notes)}"
+                 data-original-text="${escapeHtml(text)}"
+                 data-nesting-level="${i}"
+                 ${coachingAttr}
+                 ${editableAttrs}
+                 style="${styleProps}; cursor: pointer;"
+                 title="${escapeHtml(notes)}">
+              ${html}
+            </mark>`;
+  }
+
+  return html;
+}
+
+function renderSingleHighlight(issue, text, segmentIndex, editable) {
+  // Use correction guide colors for inline_issues, fallback to rubric colors
+  const issueCategory = issue.category || issue.type || '';
+  const correctionInfo = correctionGuideColors[issueCategory];
+  const categoryInfo = correctionInfo || rubric.categories[issueCategory];
+  const color = categoryInfo?.color || '#666';
+  const bgColor = categoryInfo?.backgroundColor || '#f5f5f5';
+  const textDecoration = categoryInfo?.textDecoration || 'none';
+  const categoryName = categoryInfo?.name || issueCategory;
+
+  const editableAttrs = editable ?
+    `data-segment-id="${segmentIndex}" data-editable="true" class="highlighted-segment"` : '';
+
+  // Build style string with conditional properties
+  let styleProps = `color: ${color}; text-decoration: ${textDecoration}; position: relative;`;
+  if (bgColor && bgColor !== 'transparent') {
+    styleProps += ` background: ${bgColor}; padding: 2px 4px; border-radius: 2px;`;
+  }
+
+  // Special styling for delete category (strikethrough)
+  if (issueCategory === 'delete') {
+    styleProps = `color: #000000; text-decoration: line-through; position: relative; font-weight: bold;`;
+  }
+  // Special styling for coaching-only fluency suggestions
+  else if (issue.coaching_only && issueCategory === 'fluency') {
+    styleProps = `color: #A855F7; text-decoration: underline dotted; position: relative; opacity: 0.8;`;
+  }
+
+  const issueDesc = issue.message || issue.correction || issue.text;
+  const coachingAttr = issue.coaching_only ? 'data-coaching-only="true"' : '';
+
+  // Extract notes/explanation from the message
+  // If message contains arrow (→), it's a correction, use full message as notes
+  // Otherwise, use message as notes directly
+  const notes = issue.explanation || issue.notes || issueDesc || '';
+
+  return `<mark class="highlight-${issueCategory} highlight"
+               data-type="${escapeHtml(issueCategory)}"
+               data-category="${escapeHtml(issueCategory)}"
+               data-message="${escapeHtml(issueDesc)}"
+               data-notes="${escapeHtml(notes)}"
+               data-original-text="${escapeHtml(text)}"
+               ${coachingAttr}
+               ${editableAttrs}
+               style="${styleProps}; cursor: pointer;"
+               title="${escapeHtml(notes)}">
+            ${escapeHtmlWithFormatting(text)}
+          </mark>`;
 }
 
 

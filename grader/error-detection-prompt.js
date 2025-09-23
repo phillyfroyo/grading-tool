@@ -32,13 +32,26 @@ Correct example: "dont" → mechanics error ("dont" → "don't")
 Incorrect example: "I dont like going to the movies." → mechanics error (whole sentence should not be highlighted)
 
 ## SPLITTING EXAMPLES
-Student: "If you take care with your money, you wont an a BAKRUPT"
+Student: "i heard for one friend that we have in commond tall me that you want to start your own business, that's right ?"
 
-Split into 4 separate issues:
-- "take care with your money" → grammar (take care of your money)
-- "wont" → mechanics ("wont" → "won't")
-- "you wont an a BAKRUPT" → grammar (you won't go BANKRUPT)  
-- "BAKRUPT" → spelling ("BAKRUPT" → "bankrupt")
+❌ WRONG: One large highlight with grouped corrections
+❌ "i heard for one friend that we have in commond tall me that you want to start your own business, that's right ?" → grammar error with correction "Incorrect use of 'i' (should be 'I'), 'for' should be 'from', 'commond' should be 'common', 'tall' should be 'tell', and 'that's right ?' should be 'is that right?' for clarity."
+
+✅ CORRECT: Split into 5 separate atomic highlights:
+- "i" → mechanics ("I")
+- "for" → grammar ("from")
+- "commond" → spelling ("common")
+- "tall" → spelling ("tell")
+- "that's right ?" → grammar ("is that right?")
+
+## OVERLAPPING HIGHLIGHTS ALLOWED
+For compound errors affecting the same text, create separate overlapping highlights:
+Student: "that's right ?" has BOTH grammar AND mechanics issues
+- "that's right ?" → grammar ("is that right?")
+- "right ?" → mechanics ("right?")
+
+## NEVER GROUP MULTIPLE ERRORS
+Each JSON entry = ONE specific error type with ONE correction
 
 ## OUTPUT FORMAT
 {
