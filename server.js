@@ -65,11 +65,14 @@ if (isVercel) {
         console.log('[SESSION_STORE] Getting session:', sid);
         const { prisma } = await import('./lib/prisma.js');
 
-        // Try to find session in database (we'll store it as JSON in user table for now)
-        const sessionData = global.sessionCache?.[sid];
-        if (sessionData && sessionData.expires > Date.now()) {
-          console.log('[SESSION_STORE] Session found in cache');
-          callback(null, sessionData.data);
+        // Find session in database
+        const session = await prisma.session.findUnique({
+          where: { sid }
+        });
+
+        if (session && session.expiresAt > new Date()) {
+          console.log('[SESSION_STORE] Session found in database');
+          callback(null, JSON.parse(session.data));
           return;
         }
 
@@ -84,13 +87,23 @@ if (isVercel) {
     async set(sid, sessionData, callback) {
       try {
         console.log('[SESSION_STORE] Setting session:', sid, 'data:', sessionData);
+        const { prisma } = await import('./lib/prisma.js');
 
-        // Store in memory cache for serverless
-        if (!global.sessionCache) global.sessionCache = {};
-        global.sessionCache[sid] = {
-          data: sessionData,
-          expires: Date.now() + (24 * 60 * 60 * 1000) // 24 hours
-        };
+        // Store session in database
+        const expiresAt = new Date(Date.now() + (24 * 60 * 60 * 1000)); // 24 hours
+
+        await prisma.session.upsert({
+          where: { sid },
+          update: {
+            data: JSON.stringify(sessionData),
+            expiresAt
+          },
+          create: {
+            sid,
+            data: JSON.stringify(sessionData),
+            expiresAt
+          }
+        });
 
         callback(null);
       } catch (error) {
@@ -102,9 +115,13 @@ if (isVercel) {
     async destroy(sid, callback) {
       try {
         console.log('[SESSION_STORE] Destroying session:', sid);
-        if (global.sessionCache) {
-          delete global.sessionCache[sid];
-        }
+        const { prisma } = await import('./lib/prisma.js');
+
+        // Delete session from database
+        await prisma.session.deleteMany({
+          where: { sid }
+        });
+
         callback(null);
       } catch (error) {
         console.error('[SESSION_STORE] Error destroying session:', error);
