@@ -27,7 +27,8 @@ export async function gradeEssay(studentText, prompt, classProfileId) {
   console.log('FORCING NODEMON RESTART');
   
   // Load class profile
-  const profilesData = JSON.parse(readFileSync('./class-profiles.json', 'utf8'));
+  const profilesPath = join(__dirname, '..', 'class-profiles.json');
+  const profilesData = JSON.parse(readFileSync(profilesPath, 'utf8'));
   const classProfile = profilesData.profiles.find(p => p.id === classProfileId);
   
   if (!classProfile) {

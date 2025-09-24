@@ -2,7 +2,13 @@
 // Handles profile management operations for both database and file system
 
 import { readFileSync, writeFileSync } from 'fs';
+import { fileURLToPath } from 'url';
+import { dirname, join } from 'path';
 import { getDatabaseConfig } from '../config/database.js';
+
+// Get current directory for ES modules
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
 
 /**
  * Load profiles from database or file system for a specific user
@@ -28,7 +34,8 @@ async function loadProfiles(userId = null) {
   // Fallback to file system (local development)
   console.log("[PROFILES] Loading from file system");
   try {
-    return JSON.parse(readFileSync('./class-profiles.json', 'utf8'));
+    const profilesPath = join(__dirname, '..', '..', 'class-profiles.json');
+    return JSON.parse(readFileSync(profilesPath, 'utf8'));
   } catch (error) {
     // Fallback for serverless environments - load from environment variable
     if (process.env.CLASS_PROFILES) {
@@ -86,7 +93,8 @@ async function saveProfiles(profiles) {
   // Fallback to file system (local development)
   console.log("[PROFILES] Saving to file system");
   try {
-    writeFileSync('./class-profiles.json', JSON.stringify(profiles, null, 2));
+    const profilesPath = join(__dirname, '..', '..', 'class-profiles.json');
+    writeFileSync(profilesPath, JSON.stringify(profiles, null, 2));
   } catch (error) {
     console.warn('Cannot save to file system:', error.message);
   }
