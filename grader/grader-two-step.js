@@ -33,7 +33,7 @@ export async function gradeEssay(studentText, prompt, classProfileId) {
   // Try database first
   try {
     const prisma = new PrismaClient();
-    classProfile = await prisma.classProfile.findUnique({
+    classProfile = await prisma.class_profiles.findUnique({
       where: { id: classProfileId }
     });
     await prisma.$disconnect();
