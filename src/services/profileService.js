@@ -71,7 +71,6 @@ async function loadProfiles(userId = null) {
         }
       ]
     };
-  }
 }
 
 /**
