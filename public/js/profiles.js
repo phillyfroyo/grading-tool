@@ -12,7 +12,10 @@ let profiles = [];
 async function loadProfilesData() {
     try {
         console.log('🔄 Loading profiles data...');
-        const response = await fetch('/api/profiles?' + Date.now()); // Add cache buster
+        const response = await fetch('/api/profiles?' + Date.now(), {
+            method: 'GET',
+            credentials: 'include'
+        }); // Add cache buster
         console.log('[PROFILES] Response status:', response.status, response.statusText);
 
         if (!response.ok) {
@@ -536,6 +539,7 @@ async function saveProfileData(profileData, profileId, form) {
         console.log('[PROFILES] Saving profile:', method, url, profileData);
         const response = await fetch(url, {
             method: method,
+            credentials: 'include',
             headers: {
                 'Content-Type': 'application/json'
             },
@@ -697,6 +701,7 @@ async function handleProfileFormSubmission(e) {
 
         const response = await fetch(url, {
             method: method,
+            credentials: 'include',
             headers: {
                 'Content-Type': 'application/json'
             },

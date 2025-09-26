@@ -54,7 +54,10 @@ document.addEventListener('DOMContentLoaded', function() {
 async function loadUserInfo() {
     try {
         console.log('[USER_MENU] Fetching auth status...');
-        const response = await fetch('/auth/status');
+        const response = await fetch('/auth/status', {
+            method: 'GET',
+            credentials: 'include'
+        });
         console.log('[USER_MENU] Auth status response:', response.status, response.statusText);
 
         const data = await response.json();

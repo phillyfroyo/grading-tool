@@ -45,13 +45,15 @@ app.use(express.urlencoded({ extended: true, limit: config.api.requestLimit }));
 const sessionConfig = {
   secret: process.env.SESSION_SECRET || 'dev-session-secret-key-change-in-production',
   resave: false,
-  saveUninitialized: false,
+  saveUninitialized: true, // Create session even if not modified (needed for Vercel)
   proxy: true, // Trust proxy for Vercel
+  name: 'sessionId', // Explicit session name
   cookie: {
     secure: isProduction, // Use secure cookies in production
     httpOnly: true,
     maxAge: 24 * 60 * 60 * 1000, // 24 hours
-    sameSite: isProduction ? 'lax' : 'strict' // Allow cookies in production
+    sameSite: 'lax', // Less restrictive for cross-origin scenarios
+    domain: isProduction ? undefined : 'localhost' // Let browser handle domain in production
   }
 };
 
