@@ -54,13 +54,22 @@ class AuthController {
 
       console.log(`[AUTH] User logged in: ${user.email}`);
 
-      res.json({
-        success: true,
-        user: {
-          id: user.id,
-          email: user.email
-        },
-        message: 'Login successful'
+      // Ensure session is saved before responding
+      req.session.save((err) => {
+        if (err) {
+          console.error('[AUTH] Session save error:', err);
+          // Continue anyway - session might still work with memory store
+        }
+
+        console.log('[AUTH] Session save completed');
+        res.json({
+          success: true,
+          user: {
+            id: user.id,
+            email: user.email
+          },
+          message: 'Login successful'
+        });
       });
 
     } catch (error) {
