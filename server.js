@@ -71,6 +71,13 @@ if (isVercel) {
         console.log('[SESSION_STORE] Getting session:', sid);
         const { prisma } = await import('./lib/prisma.js');
 
+        // Check if prisma is available
+        if (!prisma) {
+          console.log('[SESSION_STORE] Prisma not available, returning null session');
+          callback(null, null);
+          return;
+        }
+
         // Find session in database
         const session = await prisma.session.findUnique({
           where: { sid }
@@ -85,8 +92,9 @@ if (isVercel) {
         console.log('[SESSION_STORE] Session not found or expired');
         callback(null, null);
       } catch (error) {
-        console.error('[SESSION_STORE] Error getting session:', error);
-        callback(error);
+        console.error('[SESSION_STORE] Error getting session, falling back to no session:', error.message);
+        // Don't pass error to callback - just return null session to allow app to continue
+        callback(null, null);
       }
     }
 
@@ -94,6 +102,13 @@ if (isVercel) {
       try {
         console.log('[SESSION_STORE] Setting session:', sid, 'data:', sessionData);
         const { prisma } = await import('./lib/prisma.js');
+
+        // Check if prisma is available
+        if (!prisma) {
+          console.log('[SESSION_STORE] Prisma not available, skipping session save');
+          callback(null);
+          return;
+        }
 
         // Store session in database
         const expiresAt = new Date(Date.now() + (24 * 60 * 60 * 1000)); // 24 hours
@@ -113,8 +128,9 @@ if (isVercel) {
 
         callback(null);
       } catch (error) {
-        console.error('[SESSION_STORE] Error setting session:', error);
-        callback(error);
+        console.error('[SESSION_STORE] Error setting session, continuing without session save:', error.message);
+        // Don't pass error - allow app to continue without session persistence
+        callback(null);
       }
     }
 
@@ -123,6 +139,12 @@ if (isVercel) {
         console.log('[SESSION_STORE] Destroying session:', sid);
         const { prisma } = await import('./lib/prisma.js');
 
+        if (!prisma) {
+          console.log('[SESSION_STORE] Prisma not available, skipping session destroy');
+          callback(null);
+          return;
+        }
+
         // Delete session from database
         await prisma.session.deleteMany({
           where: { sid }
@@ -130,8 +152,9 @@ if (isVercel) {
 
         callback(null);
       } catch (error) {
-        console.error('[SESSION_STORE] Error destroying session:', error);
-        callback(error);
+        console.error('[SESSION_STORE] Error destroying session, continuing:', error.message);
+        // Don't pass error - allow app to continue
+        callback(null);
       }
     }
   }
