@@ -2,12 +2,22 @@
  * User service for managing user authentication and operations
  */
 
-import { prisma } from '../../lib/prisma.js';
-
 class UserService {
   constructor() {
-    this.prisma = prisma;
-    console.log('[USER_SERVICE] Constructor - prisma instance:', !!this.prisma);
+    console.log('[USER_SERVICE] Constructor initialized');
+  }
+
+  /**
+   * Get Prisma client with runtime check
+   */
+  async getPrismaClient() {
+    try {
+      const { prisma } = await import('../../lib/prisma.js');
+      return prisma;
+    } catch (error) {
+      console.error('[USER_SERVICE] Failed to import Prisma client:', error.message);
+      return null;
+    }
   }
 
   /**
@@ -16,16 +26,17 @@ class UserService {
    * @returns {Promise<Object|null>} User object or null if not found
    */
   async findUserByEmail(email) {
-    if (!this.prisma) {
+    const prisma = await this.getPrismaClient();
+    if (!prisma) {
       throw new Error('Database not available');
     }
 
-    if (!this.prisma.user) {
+    if (!prisma.user) {
       throw new Error('User model not available in database');
     }
 
     try {
-      const user = await this.prisma.user.findUnique({
+      const user = await prisma.user.findUnique({
         where: { email: email.toLowerCase() }
       });
       return user;
@@ -42,12 +53,13 @@ class UserService {
    */
   async createUser(email) {
     console.log('[USER_SERVICE] Creating user:', email);
-    if (!this.prisma) {
+    const prisma = await this.getPrismaClient();
+    if (!prisma) {
       throw new Error('Database not available');
     }
 
     try {
-      const user = await this.prisma.user.create({
+      const user = await prisma.user.create({
         data: {
           email: email.toLowerCase()
         }
@@ -99,12 +111,13 @@ class UserService {
    */
   async getUserById(userId) {
     console.log('[USER_SERVICE] Getting user by ID:', userId);
-    if (!this.prisma) {
+    const prisma = await this.getPrismaClient();
+    if (!prisma) {
       throw new Error('Database not available');
     }
 
     try {
-      const user = await this.prisma.user.findUnique({
+      const user = await prisma.user.findUnique({
         where: { id: userId }
       });
       return user;
