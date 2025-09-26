@@ -73,12 +73,14 @@ class UserService {
     }
 
     try {
+      const userId = 'user-' + Buffer.from(email.toLowerCase()).toString('base64').replace(/[+/=]/g, '').substring(0, 12) + '-' + Date.now();
       const user = await prisma.users.create({
         data: {
+          id: userId,
           email: email.toLowerCase()
         }
       });
-      console.log(`[USER_SERVICE] Created new user: ${email}`);
+      console.log(`[USER_SERVICE] Created new user: ${email} with ID: ${userId}`);
       return user;
     } catch (error) {
       console.error('[USER_SERVICE] Error creating user:', error);
