@@ -165,7 +165,8 @@ async function createProfile(profileData, userId) {
       vocabulary: profileData.vocabulary || [],
       grammar: profileData.grammar || [],
       prompt: profileData.prompt || '',
-      userId: userId
+      userId: userId,
+      lastModified: new Date()
     };
 
     // Only add temperature if it exists in the request
