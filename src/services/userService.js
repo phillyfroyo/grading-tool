@@ -31,18 +31,28 @@ class UserService {
    */
   async findUserByEmail(email) {
     const prisma = await this.getPrismaClient();
+    console.log('[USER_SERVICE] findUserByEmail - prisma client:', !!prisma);
+
     if (!prisma) {
+      console.log('[USER_SERVICE] No Prisma client, throwing database unavailable error');
       throw new Error('Database not available');
     }
 
+    console.log('[USER_SERVICE] Checking if prisma.user exists...');
+    console.log('[USER_SERVICE] prisma.user type:', typeof prisma.user);
+    console.log('[USER_SERVICE] prisma keys:', Object.keys(prisma));
+
     if (!prisma.user) {
+      console.log('[USER_SERVICE] User model not available, throwing error');
       throw new Error('User model not available in database');
     }
 
     try {
+      console.log('[USER_SERVICE] Attempting to find user by email:', email);
       const user = await prisma.user.findUnique({
         where: { email: email.toLowerCase() }
       });
+      console.log('[USER_SERVICE] User found:', !!user);
       return user;
     } catch (error) {
       console.error('[USER_SERVICE] Error finding user by email:', error);
