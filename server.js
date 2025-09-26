@@ -10,6 +10,7 @@ console.log("[BOOT] Platform:", process.platform);
 import express from "express";
 import morgan from "morgan";
 import session from "express-session";
+import cookieParser from "cookie-parser";
 import path from "path";
 import { config, validateConfig, isVercel, isProduction } from "./src/config/index.js";
 import { initializeDatabase } from "./src/config/database.js";
@@ -40,6 +41,9 @@ app.use((req, res, next) => {
 
 app.use(express.json({ limit: config.api.requestLimit }));
 app.use(express.urlencoded({ extended: true, limit: config.api.requestLimit }));
+
+// Add cookie parser with signing secret
+app.use(cookieParser(process.env.SESSION_SECRET || 'dev-session-secret-key-change-in-production'));
 
 // Configure session middleware with custom store for Vercel
 const sessionConfig = {

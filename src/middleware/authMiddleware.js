@@ -6,7 +6,18 @@
  * Middleware to check if user is authenticated
  */
 export function requireAuth(req, res, next) {
-  if (!req.session || !req.session.userId) {
+  // Check session first, then fall back to signed cookies
+  let userId = req.session?.userId;
+  let userEmail = req.session?.userEmail;
+
+  // Fallback to signed cookies if session is not available
+  if (!userId && req.signedCookies) {
+    userId = req.signedCookies.userId;
+    userEmail = req.signedCookies.userEmail;
+    console.log('[AUTH] Session not found, using signed cookies:', { userId: !!userId, userEmail: !!userEmail });
+  }
+
+  if (!userId) {
     // Check if this is an API request or HTML request
     // Check the URL path, XHR header, or Accept header
     const isApiRequest = req.path.startsWith('/api/') ||
@@ -44,10 +55,19 @@ export function redirectIfAuthenticated(req, res, next) {
  * Middleware to attach user info to request for authenticated users
  */
 export function attachUser(req, res, next) {
-  if (req.session.userId) {
+  let userId = req.session?.userId;
+  let userEmail = req.session?.userEmail;
+
+  // Fallback to signed cookies
+  if (!userId && req.signedCookies) {
+    userId = req.signedCookies.userId;
+    userEmail = req.signedCookies.userEmail;
+  }
+
+  if (userId) {
     req.user = {
-      id: req.session.userId,
-      email: req.session.userEmail
+      id: userId,
+      email: userEmail
     };
   }
   next();

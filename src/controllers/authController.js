@@ -52,7 +52,23 @@ class AuthController {
       req.session.userId = user.id;
       req.session.userEmail = user.email;
 
-      console.log(`[AUTH] User logged in: ${user.email}`);
+      // Also set signed cookies as backup for Vercel serverless environment
+      res.cookie('userId', user.id, {
+        signed: true,
+        secure: process.env.NODE_ENV === 'production',
+        httpOnly: true,
+        maxAge: 24 * 60 * 60 * 1000, // 24 hours
+        sameSite: 'lax'
+      });
+      res.cookie('userEmail', user.email, {
+        signed: true,
+        secure: process.env.NODE_ENV === 'production',
+        httpOnly: true,
+        maxAge: 24 * 60 * 60 * 1000, // 24 hours
+        sameSite: 'lax'
+      });
+
+      console.log(`[AUTH] User logged in: ${user.email} (session + cookies set)`);
 
       // Ensure session is saved before responding
       req.session.save((err) => {
@@ -95,7 +111,12 @@ class AuthController {
           });
         }
 
+        // Clear all cookies
         res.clearCookie('connect.sid');
+        res.clearCookie('sessionId');
+        res.clearCookie('userId');
+        res.clearCookie('userEmail');
+
         res.json({
           success: true,
           message: 'Logout successful'
@@ -115,31 +136,41 @@ class AuthController {
    */
   async status(req, res) {
     try {
-      console.log('[AUTH_STATUS] Session check:', {
+      // Check session first, then cookies
+      let userId = req.session?.userId;
+      let userEmail = req.session?.userEmail;
+
+      if (!userId && req.signedCookies) {
+        userId = req.signedCookies.userId;
+        userEmail = req.signedCookies.userEmail;
+        console.log('[AUTH_STATUS] Using signed cookies for auth check');
+      }
+
+      console.log('[AUTH_STATUS] Auth check:', {
         hasSession: !!req.session,
-        sessionId: req.session?.id,
-        userId: req.session?.userId,
-        userEmail: req.session?.userEmail
+        sessionUserId: req.session?.userId,
+        cookieUserId: req.signedCookies?.userId,
+        finalUserId: userId
       });
 
-      if (!req.session.userId) {
-        console.log('[AUTH_STATUS] No userId in session, returning unauthenticated');
+      if (!userId) {
+        console.log('[AUTH_STATUS] No userId found, returning unauthenticated');
         return res.json({
           success: true,
           authenticated: false
         });
       }
 
-      // Try to get user from database, fallback to session data
+      // Try to get user from database, fallback to auth data
       let user = null;
       try {
-        user = await this.userService.getUserById(req.session.userId);
+        user = await this.userService.getUserById(userId);
       } catch (dbError) {
-        console.warn('[AUTH] Database unavailable for status check, using session data');
-        // Use session data as fallback
+        console.warn('[AUTH] Database unavailable for status check, using auth data');
+        // Use available data as fallback
         user = {
-          id: req.session.userId,
-          email: req.session.userEmail
+          id: userId,
+          email: userEmail
         };
       }
 
