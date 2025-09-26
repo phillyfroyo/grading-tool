@@ -224,6 +224,14 @@ async function createProfile(profileData, userId) {
  */
 async function updateProfile(profileId, updateData, userId) {
   const { prisma, useDatabase } = getDatabaseConfig();
+  const { isVercel } = await import('../config/index.js');
+
+  console.log('[PROFILES] Update environment check:', {
+    useDatabase,
+    hasPrisma: !!prisma,
+    hasUserId: !!userId,
+    isVercel
+  });
 
   if (useDatabase && prisma && userId) {
     console.log("[PROFILES] Updating profile in database for user:", userId);
@@ -243,6 +251,9 @@ async function updateProfile(profileId, updateData, userId) {
       }
 
       // First verify the profile exists and belongs to the user
+      console.log('[PROFILES] About to call prisma.classProfile.findFirst with:', { profileId, userId });
+      console.log('[PROFILES] prisma object:', typeof prisma, Object.keys(prisma || {}));
+
       const existingProfile = await prisma.classProfile.findFirst({
         where: {
           id: profileId,
