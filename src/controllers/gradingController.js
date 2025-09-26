@@ -55,8 +55,15 @@ async function handleApiGrade(req, res) {
     console.log("\n⚡ STARTING UNIFIED GRADING SYSTEM...");
     console.log("🔍 Looking for profile:", classProfile);
 
+    // Get userId from session or cookies (same logic as profile controller)
+    let userId = req.session?.userId;
+    if (!userId && req.signedCookies) {
+      userId = req.signedCookies.userId;
+    }
+    console.log("🔑 User ID for grading:", userId, "from session:", !!req.session?.userId, "from cookies:", !!req.signedCookies?.userId);
+
     // Get profile data (unified for both environments)
-    const profileData = await findProfileById(classProfile, req.session.userId);
+    const profileData = await findProfileById(classProfile, userId);
 
     if (!profileData) {
       console.log("❌ Profile not found, returning 404");
@@ -140,8 +147,15 @@ async function handleBatchGrade(req, res) {
     console.log("\n⚡ STARTING BATCH GRADING SYSTEM...");
     console.log("🔍 Looking for profile:", classProfile);
 
+    // Get userId from session or cookies (same logic as profile controller)
+    let userId = req.session?.userId;
+    if (!userId && req.signedCookies) {
+      userId = req.signedCookies.userId;
+    }
+    console.log("🔑 User ID for batch grading:", userId, "from session:", !!req.session?.userId, "from cookies:", !!req.signedCookies?.userId);
+
     // Get profile data (unified for both environments)
-    const profileData = await findProfileById(classProfile, req.session.userId);
+    const profileData = await findProfileById(classProfile, userId);
 
     if (!profileData) {
       console.log("❌ Profile not found, returning 404");
@@ -231,7 +245,15 @@ async function handleStreamingBatchGrade(req, res, { essays, prompt, classProfil
 
     // Get profile data
     console.log("🔍 Looking for profile:", classProfile);
-    const profileData = await findProfileById(classProfile, req.session.userId);
+
+    // Get userId from session or cookies (same logic as profile controller)
+    let userId = req.session?.userId;
+    if (!userId && req.signedCookies) {
+      userId = req.signedCookies.userId;
+    }
+    console.log("🔑 User ID for streaming grading:", userId, "from session:", !!req.session?.userId, "from cookies:", !!req.signedCookies?.userId);
+
+    const profileData = await findProfileById(classProfile, userId);
     if (!profileData) {
       const errorMsg = `Profile not found: ${classProfile}`;
       console.error("❌", errorMsg);
@@ -531,7 +553,14 @@ async function handleDebugGrade(req, res) {
       console.log("Environment: Vercel");
       console.log("Looking for profile:", classProfile);
 
-      const profileData = await findProfileById(classProfile, req.session.userId);
+      // Get userId from session or cookies (same logic as profile controller)
+      let userId = req.session?.userId;
+      if (!userId && req.signedCookies) {
+        userId = req.signedCookies.userId;
+      }
+      console.log("🔑 User ID for debug grading:", userId, "from session:", !!req.session?.userId, "from cookies:", !!req.signedCookies?.userId);
+
+      const profileData = await findProfileById(classProfile, userId);
 
       if (!profileData) {
         return res.json({
@@ -695,8 +724,15 @@ async function handleBatchGradeStream(req, res) {
 
     console.log("\n⚡ STARTING STREAMING BATCH GRADING...");
 
+    // Get userId from session or cookies (same logic as profile controller)
+    let userId = req.session?.userId;
+    if (!userId && req.signedCookies) {
+      userId = req.signedCookies.userId;
+    }
+    console.log("🔑 User ID for streaming batch grading:", userId, "from session:", !!req.session?.userId, "from cookies:", !!req.signedCookies?.userId);
+
     // Get profile data
-    const profileData = await findProfileById(classProfile, req.session.userId);
+    const profileData = await findProfileById(classProfile, userId);
 
     if (!profileData) {
       console.log("❌ Profile not found, returning 404");
