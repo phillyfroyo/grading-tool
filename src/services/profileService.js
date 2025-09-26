@@ -107,10 +107,14 @@ async function findProfileById(profileId, userId = null) {
  */
 async function getPrismaClient() {
   try {
+    console.log('[PROFILES] Attempting to import Prisma client...');
     const { prisma } = await import('../../lib/prisma.js');
+    console.log('[PROFILES] Prisma import successful, client:', !!prisma);
+    console.log('[PROFILES] Prisma client type:', typeof prisma);
     return prisma;
   } catch (error) {
     console.error('[PROFILES] Failed to import Prisma client:', error.message);
+    console.error('[PROFILES] Full error:', error);
     return null;
   }
 }

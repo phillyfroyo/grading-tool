@@ -12,10 +12,14 @@ class UserService {
    */
   async getPrismaClient() {
     try {
+      console.log('[USER_SERVICE] Attempting to import Prisma client...');
       const { prisma } = await import('../../lib/prisma.js');
+      console.log('[USER_SERVICE] Prisma import successful, client:', !!prisma);
+      console.log('[USER_SERVICE] Prisma client type:', typeof prisma);
       return prisma;
     } catch (error) {
       console.error('[USER_SERVICE] Failed to import Prisma client:', error.message);
+      console.error('[USER_SERVICE] Full error:', error);
       return null;
     }
   }
