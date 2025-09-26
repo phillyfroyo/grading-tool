@@ -266,7 +266,11 @@ async function updateProfile(profileId, updateData, userId) {
       console.error('[PROFILES] Database update failed, falling back to file system:', dbError.message);
       // Fall through to file system update
     }
-  } else {
+  }
+
+  // File system fallback (either database unavailable or database operation failed)
+  console.log('[PROFILES] Using file system for profile update');
+  try {
     const profiles = await loadProfiles();
     const profileIndex = profiles.profiles.findIndex(p => p.id === profileId);
 
@@ -294,6 +298,9 @@ async function updateProfile(profileId, updateData, userId) {
     await saveProfiles(profiles);
     console.log('📝 Profile saved successfully');
     return profiles.profiles[profileIndex];
+  } catch (fileError) {
+    console.error('[PROFILES] File system update failed:', fileError.message);
+    throw new Error(`Profile update failed: ${fileError.message}`);
   }
 }
 
