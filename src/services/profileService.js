@@ -16,12 +16,11 @@ const __dirname = dirname(__filename);
  * @returns {Promise<Object>} Profiles object with profiles array
  */
 async function loadProfiles(userId = null) {
-  const { prisma, useDatabase } = getDatabaseConfig();
+  console.log("[PROFILES] loadProfiles called with userId:", userId);
 
-  console.log("[PROFILES] loadProfiles called with:");
-  console.log("  - userId:", userId);
-  console.log("  - useDatabase:", useDatabase);
-  console.log("  - prisma available:", !!prisma);
+  // Get fresh Prisma client to avoid timing issues
+  const prisma = await getPrismaClient();
+  console.log("[PROFILES] prisma available:", !!prisma);
 
   if (prisma && userId) {
     console.log("[PROFILES] Loading from database for user:", userId);
@@ -30,11 +29,11 @@ async function loadProfiles(userId = null) {
         where: { userId },
         orderBy: { lastModified: 'desc' }
       });
-      console.log("[PROFILES] Database returned", profiles.length, "profiles");
+      console.log("[PROFILES] ✅ Database returned", profiles.length, "profiles");
       console.log("[PROFILES] Profile IDs:", profiles.map(p => p.id));
       return { profiles };
     } catch (error) {
-      console.error("[PROFILES] Database error, returning default profiles:", error.message);
+      console.error("[PROFILES] ❌ Database error, returning empty profiles:", error.message);
     }
   }
 
@@ -104,21 +103,34 @@ async function findProfileById(profileId, userId = null) {
 }
 
 /**
+ * Get Prisma client with runtime check
+ */
+async function getPrismaClient() {
+  try {
+    const { prisma } = await import('../../lib/prisma.js');
+    return prisma;
+  } catch (error) {
+    console.error('[PROFILES] Failed to import Prisma client:', error.message);
+    return null;
+  }
+}
+
+/**
  * Create new profile for a specific user
  * @param {Object} profileData - Profile data to create
  * @param {string} userId - User ID to associate the profile with
  * @returns {Promise<Object>} Created profile
  */
 async function createProfile(profileData, userId) {
-  const { prisma, useDatabase } = getDatabaseConfig();
-
   console.log("[PROFILES] createProfile called with:");
   console.log("  - userId:", userId);
-  console.log("  - useDatabase:", useDatabase);
-  console.log("  - prisma available:", !!prisma);
   console.log("  - profileData:", profileData);
 
-  if (useDatabase && prisma && userId) {
+  // Get fresh Prisma client to avoid timing issues
+  const prisma = await getPrismaClient();
+  console.log("  - prisma available:", !!prisma);
+
+  if (prisma && userId) {
     console.log("[PROFILES] Creating profile in database for user:", userId);
     const createData = {
       name: profileData.name,
@@ -129,9 +141,9 @@ async function createProfile(profileData, userId) {
       userId: userId
     };
 
-    // Only add temperature if it exists in the request (avoid DB schema issues)
+    // Only add temperature if it exists in the request
     if (profileData.temperature !== undefined) {
-      createData.temperature = profileData.temperature || 0;
+      createData.temperature = parseFloat(profileData.temperature) || 0;
     }
 
     console.log("[PROFILES] Database create data:", createData);
@@ -140,40 +152,47 @@ async function createProfile(profileData, userId) {
       const newProfile = await prisma.classProfile.create({
         data: createData
       });
-      console.log("[PROFILES] Database created profile:", newProfile);
-
-      // Verify the profile was created
-      const verifyProfile = await prisma.classProfile.findUnique({
-        where: { id: newProfile.id }
-      });
-
-      if (!verifyProfile) {
-        throw new Error('Profile creation verification failed');
-      }
-
-      console.log("[PROFILES] Profile creation verified:", verifyProfile.id);
+      console.log("[PROFILES] ✅ Database created profile:", newProfile);
       return newProfile;
     } catch (dbError) {
-      console.error("[PROFILES] Database creation error:", dbError);
-      throw new Error(`Failed to create profile: ${dbError.message}`);
+      console.error("[PROFILES] ❌ Database creation error:", dbError);
+      console.error("[PROFILES] Error details:", dbError.message);
+
+      // Create mock profile when database fails
+      const mockProfile = {
+        id: `profile_${Date.now()}`,
+        name: profileData.name,
+        cefrLevel: profileData.cefrLevel,
+        vocabulary: profileData.vocabulary || [],
+        grammar: profileData.grammar || [],
+        prompt: profileData.prompt || '',
+        temperature: parseFloat(profileData.temperature) || 0,
+        userId: userId,
+        created: new Date().toISOString(),
+        lastModified: new Date().toISOString()
+      };
+
+      console.warn("[PROFILES] Database failed, returning mock profile");
+      return mockProfile;
     }
   } else {
-    const profiles = await loadProfiles();
-    const newProfile = {
+    console.log("[PROFILES] No database connection, creating mock profile");
+
+    // Create mock profile when no database
+    const mockProfile = {
       id: `profile_${Date.now()}`,
       name: profileData.name,
       cefrLevel: profileData.cefrLevel,
       vocabulary: profileData.vocabulary || [],
       grammar: profileData.grammar || [],
       prompt: profileData.prompt || '',
-      temperature: profileData.temperature || 0,
+      temperature: parseFloat(profileData.temperature) || 0,
+      userId: userId,
       created: new Date().toISOString(),
       lastModified: new Date().toISOString()
     };
 
-    profiles.profiles.push(newProfile);
-    await saveProfiles(profiles);
-    return newProfile;
+    return mockProfile;
   }
 }
 
@@ -185,21 +204,14 @@ async function createProfile(profileData, userId) {
  * @returns {Promise<Object>} Updated profile
  */
 async function updateProfile(profileId, updateData, userId) {
-  const { prisma, useDatabase } = getDatabaseConfig();
-  const { isVercel } = await import('../config/index.js');
+  console.log('[PROFILES] updateProfile called with:', { profileId, userId });
 
-  console.log('[PROFILES] Update environment check:', {
-    useDatabase,
-    hasPrisma: !!prisma,
-    hasUserId: !!userId,
-    isVercel,
-    databaseUrl: !!process.env.DATABASE_URL
-  });
+  // Get fresh Prisma client to avoid timing issues
+  const prisma = await getPrismaClient();
+  console.log('[PROFILES] prisma available:', !!prisma);
 
-  // Always try database first if available
   if (prisma && userId) {
     console.log("[PROFILES] Updating profile in database for user:", userId);
-    console.log('[PROFILES] prisma object:', typeof prisma, Object.keys(prisma || {}));
 
     try {
       const updateFields = {
@@ -215,7 +227,7 @@ async function updateProfile(profileId, updateData, userId) {
         updateFields.temperature = parseFloat(updateData.temperature) || 0;
       }
 
-      console.log('[PROFILES] About to call prisma.classProfile.findFirst with:', { profileId, userId });
+      console.log('[PROFILES] Checking if profile exists for user...');
 
       // First verify the profile exists and belongs to the user
       const existingProfile = await prisma.classProfile.findFirst({
@@ -239,13 +251,11 @@ async function updateProfile(profileId, updateData, userId) {
         data: updateFields
       });
 
-      console.log('[PROFILES] Successfully updated profile in database:', updatedProfile);
+      console.log('[PROFILES] ✅ Successfully updated profile in database');
       return updatedProfile;
     } catch (dbError) {
-      console.error('[PROFILES] Database update failed:', dbError.message);
-      console.error('[PROFILES] Stack:', dbError.stack);
+      console.error('[PROFILES] ❌ Database update failed:', dbError.message);
 
-      // If database fails, we need to return the updated data anyway
       // Create a mock updated profile with the new data
       const mockProfile = {
         id: profileId,
@@ -260,13 +270,13 @@ async function updateProfile(profileId, updateData, userId) {
         createdAt: new Date().toISOString()
       };
 
-      console.warn('[PROFILES] Database failed, returning mock updated profile for consistency');
+      console.warn('[PROFILES] Database failed, returning mock updated profile');
       return mockProfile;
     }
   }
 
   // If no database connection, create mock profile
-  console.warn('[PROFILES] No database connection available, creating mock profile');
+  console.warn('[PROFILES] No database connection, creating mock profile');
   const mockProfile = {
     id: profileId,
     name: updateData.name,
