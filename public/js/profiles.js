@@ -47,7 +47,7 @@ function updateProfileDropdown() {
     profiles.forEach(profile => {
         const option = document.createElement('option');
         option.value = profile.id;
-        option.textContent = profile.name + ' (' + profile.cefrLevel + ')';
+        option.textContent = profile.name;
         select.appendChild(option);
     });
 }
@@ -190,7 +190,8 @@ function loadProfilesList() {
     profiles.forEach((profile, index) => {
         html += `
             <div class="profile-item" style="border: 1px solid #ddd; padding: 15px; margin: 10px 0; border-radius: 4px;">
-                <h3>${profile.name} (${profile.cefrLevel})</h3>
+                <h3>${profile.name}</h3>
+                <p><strong>CEFR Level:</strong> ${profile.cefrLevel}</p>
                 <p><strong>Temperature:</strong> ${profile.temperature || 0}</p>
                 <p><strong>Vocabulary:</strong> ${profile.vocabulary ? profile.vocabulary.length : 0} items</p>
                 <p><strong>Grammar:</strong> ${profile.grammar ? profile.grammar.length : 0} items</p>
@@ -250,22 +251,30 @@ function createProfileFormHTML(profileId) {
                 </div>
 
                 <div style="margin-bottom: 15px;">
-                    <label for="profileVocab-${profileId}">Target Vocabulary (one per line):</label>
+                    <label for="profileVocab-${profileId}">Target Vocabulary (one per line):
+                        <span class="info-icon" title="Paste the vocab taught in class into the box below. GPT will take this into consideration when grading essays." style="display: inline-block; width: 20px; height: 20px; border-radius: 50%; background: lightgray; color: white; text-align: center; line-height: 20px; font-size: 14px; font-style: italic; cursor: help; margin-left: 5px;">i</span>
+                    </label>
                     <textarea id="profileVocab-${profileId}" name="vocabulary" rows="16" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px; resize: vertical; min-height: 320px; max-height: 800px;" placeholder="Enter vocabulary words, one per line"></textarea>
                 </div>
 
                 <div style="margin-bottom: 15px;">
-                    <label for="profileGrammar-${profileId}">Target Grammar Structures (one per line):</label>
+                    <label for="profileGrammar-${profileId}">Target Grammar Structures (one per line):
+                        <span class="info-icon" title="Paste the grammar taught in class into the box below. GPT will take this into consideration when grading essays." style="display: inline-block; width: 20px; height: 20px; border-radius: 50%; background: lightgray; color: white; text-align: center; line-height: 20px; font-size: 14px; font-style: italic; cursor: help; margin-left: 5px;">i</span>
+                    </label>
                     <textarea id="profileGrammar-${profileId}" name="grammar" rows="16" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px; resize: vertical; min-height: 320px; max-height: 800px;" placeholder="Enter grammar structures, one per line"></textarea>
                 </div>
 
                 <div style="margin-bottom: 15px;">
-                    <label for="profilePrompt-${profileId}">Custom Grading Prompt (optional):</label>
+                    <label for="profilePrompt-${profileId}">Custom Grading Prompt (optional):
+                        <span class="info-icon" title="In this section, paste the prompt provided to the students during the exam. GPT will take this into consideration when grading essays." style="display: inline-block; width: 20px; height: 20px; border-radius: 50%; background: lightgray; color: white; text-align: center; line-height: 20px; font-size: 14px; font-style: italic; cursor: help; margin-left: 5px;">i</span>
+                    </label>
                     <textarea id="profilePrompt-${profileId}" name="prompt" rows="12" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px; resize: vertical; min-height: 240px; max-height: 600px;" placeholder="Enter custom grading instructions (leave blank to use default)"></textarea>
                 </div>
 
                 <div style="margin-bottom: 15px;">
-                    <label for="profileTemperature-${profileId}">Temperature: <span id="profileTemperatureValue-${profileId}">0</span></label>
+                    <label for="profileTemperature-${profileId}">Temperature: <span id="profileTemperatureValue-${profileId}">0</span>
+                        <span class="info-icon" title="Temperature control adjusts how harsh/merciful the grade output is relative to the grading rubric. To find the right temperature, we recommend testing a few essays that you've graded manually in the past and play around with different temperature settings until the app provides grades similar to how you grade manually." style="display: inline-block; width: 20px; height: 20px; border-radius: 50%; background: lightgray; color: white; text-align: center; line-height: 20px; font-size: 14px; font-style: italic; cursor: help; margin-left: 5px;">i</span>
+                    </label>
                     <input type="range" id="profileTemperature-${profileId}" name="temperature" min="-5" max="5" step="0.5" value="0" style="width: 100%;" oninput="updateTemperatureDisplay('${profileId}', this.value)">
                     <div style="display: flex; justify-content: space-between; margin-top: 5px; color: #666; font-size: 12px;">
                         <span>Harsh</span>
