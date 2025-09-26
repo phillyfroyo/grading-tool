@@ -75,10 +75,15 @@ async function saveProfiles(profiles) {
  * @returns {Promise<Object|null>} Profile object or null if not found
  */
 async function findProfileById(profileId, userId = null) {
-  const { prisma, useDatabase } = getDatabaseConfig();
+  console.log(`[FIND_PROFILE] Searching for profile: ${profileId}`);
+  console.log(`[FIND_PROFILE] User ID: ${userId}`);
 
-  if (useDatabase && prisma && userId) {
-    console.log("📊 Searching database for profile...");
+  // Get fresh Prisma client
+  const prisma = await getPrismaClient();
+  console.log(`[FIND_PROFILE] Prisma client available: ${!!prisma}`);
+
+  if (prisma && userId) {
+    console.log("[FIND_PROFILE] Searching database for profile...");
     try {
       const profileData = await prisma.class_profiles.findFirst({
         where: {
@@ -86,10 +91,26 @@ async function findProfileById(profileId, userId = null) {
           userId
         }
       });
-      console.log("🎯 Database search result:", profileData ? "FOUND" : "NOT FOUND");
+      console.log(`[FIND_PROFILE] Database search result: ${profileData ? "FOUND" : "NOT FOUND"}`);
+      if (profileData) {
+        console.log(`[FIND_PROFILE] Found profile name: ${profileData.name}`);
+      } else {
+        // Debug: Check if profile exists without userId filter
+        const allUserProfiles = await prisma.class_profiles.findMany({
+          where: { userId },
+          select: { id: true, name: true }
+        });
+        console.log(`[FIND_PROFILE] Available profiles for user: ${JSON.stringify(allUserProfiles)}`);
+
+        const profileWithoutUser = await prisma.class_profiles.findFirst({
+          where: { id: profileId },
+          select: { id: true, name: true, userId: true }
+        });
+        console.log(`[FIND_PROFILE] Profile exists for other user: ${JSON.stringify(profileWithoutUser)}`);
+      }
       return profileData;
     } catch (error) {
-      console.error("Database search error:", error);
+      console.error("[FIND_PROFILE] Database search error:", error);
       // Fall through to file system search
     }
   }
