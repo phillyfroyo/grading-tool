@@ -57,24 +57,9 @@ const sessionConfig = {
   }
 };
 
-// For Vercel, check if database is available before using database session store
-if (isVercel) {
-  // First check if we can actually use the database
-  let canUseDatabase = false;
-  try {
-    const { prisma } = await import('./lib/prisma.js');
-    if (prisma && process.env.DATABASE_URL) {
-      // Test database connection
-      await prisma.$queryRaw`SELECT 1`;
-      canUseDatabase = true;
-      console.log('[SESSION] Database available - using database-backed session store for Vercel');
-    }
-  } catch (error) {
-    console.warn('[SESSION] Database not available, using memory store:', error.message);
-  }
-
-if (canUseDatabase) {
-  console.log('[SESSION] Initializing database session store');
+// For Vercel, temporarily disable database session store due to configuration issues
+if (false && isVercel) { // Disable database sessions for now
+  console.log('[SESSION] Database session store disabled - using memory store on Vercel');
 
   // Simple session store that uses the database
   class DatabaseSessionStore extends session.Store {
@@ -177,9 +162,6 @@ if (canUseDatabase) {
   }
 
   sessionConfig.store = new DatabaseSessionStore();
-} else {
-  console.log('[SESSION] Database not available - using memory store on Vercel');
-}
 } else {
   console.log('[SESSION] Using memory store for local development');
 }
