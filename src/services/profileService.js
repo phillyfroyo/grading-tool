@@ -227,39 +227,45 @@ async function updateProfile(profileId, updateData, userId) {
 
   if (useDatabase && prisma && userId) {
     console.log("[PROFILES] Updating profile in database for user:", userId);
-    const updateFields = {
-      name: updateData.name,
-      cefrLevel: updateData.cefrLevel,
-      vocabulary: updateData.vocabulary || [],
-      grammar: updateData.grammar || [],
-      prompt: updateData.prompt || '',
-    };
 
-    // Only add temperature if it exists in the request (avoid DB schema issues)
-    if (updateData.temperature !== undefined) {
-      updateFields.temperature = updateData.temperature || 0;
-    }
+    try {
+      const updateFields = {
+        name: updateData.name,
+        cefrLevel: updateData.cefrLevel,
+        vocabulary: updateData.vocabulary || [],
+        grammar: updateData.grammar || [],
+        prompt: updateData.prompt || '',
+      };
 
-    // First verify the profile exists and belongs to the user
-    const existingProfile = await prisma.classProfile.findFirst({
-      where: {
-        id: profileId,
-        userId
+      // Only add temperature if it exists in the request (avoid DB schema issues)
+      if (updateData.temperature !== undefined) {
+        updateFields.temperature = updateData.temperature || 0;
       }
-    });
 
-    if (!existingProfile) {
-      throw new Error("Profile not found");
+      // First verify the profile exists and belongs to the user
+      const existingProfile = await prisma.classProfile.findFirst({
+        where: {
+          id: profileId,
+          userId
+        }
+      });
+
+      if (!existingProfile) {
+        throw new Error("Profile not found");
+      }
+
+      // Update using just the unique id
+      const updatedProfile = await prisma.classProfile.update({
+        where: {
+          id: profileId
+        },
+        data: updateFields
+      });
+      return updatedProfile;
+    } catch (dbError) {
+      console.error('[PROFILES] Database update failed, falling back to file system:', dbError.message);
+      // Fall through to file system update
     }
-
-    // Update using just the unique id
-    const updatedProfile = await prisma.classProfile.update({
-      where: {
-        id: profileId
-      },
-      data: updateFields
-    });
-    return updatedProfile;
   } else {
     const profiles = await loadProfiles();
     const profileIndex = profiles.profiles.findIndex(p => p.id === profileId);

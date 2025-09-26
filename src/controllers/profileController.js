@@ -14,7 +14,12 @@ import {
  */
 async function handleGetProfiles(req, res) {
   try {
-    const userId = req.session.userId;
+    // Get userId from session or cookies
+    let userId = req.session?.userId;
+    if (!userId && req.signedCookies) {
+      userId = req.signedCookies.userId;
+    }
+
     const profiles = await loadProfiles(userId);
     res.json(profiles);
   } catch (error) {
@@ -28,7 +33,16 @@ async function handleGetProfiles(req, res) {
  */
 async function handleCreateProfile(req, res) {
   try {
-    const userId = req.session.userId;
+    // Get userId from session or cookies
+    let userId = req.session?.userId;
+    if (!userId && req.signedCookies) {
+      userId = req.signedCookies.userId;
+    }
+
+    if (!userId) {
+      return res.status(401).json({ error: 'Authentication required' });
+    }
+
     const newProfile = await createProfile(req.body, userId);
     res.json(newProfile);
   } catch (error) {
@@ -42,7 +56,18 @@ async function handleCreateProfile(req, res) {
  */
 async function handleUpdateProfile(req, res) {
   try {
-    const userId = req.session.userId;
+    // Get userId from session or cookies (same logic as auth middleware)
+    let userId = req.session?.userId;
+    if (!userId && req.signedCookies) {
+      userId = req.signedCookies.userId;
+    }
+
+    console.log('[PROFILE_UPDATE] User ID:', userId, 'from session:', !!req.session?.userId, 'from cookies:', !!req.signedCookies?.userId);
+
+    if (!userId) {
+      return res.status(401).json({ error: 'Authentication required' });
+    }
+
     const updatedProfile = await updateProfile(req.params.id, req.body, userId);
     res.json(updatedProfile);
   } catch (error) {
@@ -64,7 +89,16 @@ async function handleUpdateProfile(req, res) {
  */
 async function handleDeleteProfile(req, res) {
   try {
-    const userId = req.session.userId;
+    // Get userId from session or cookies
+    let userId = req.session?.userId;
+    if (!userId && req.signedCookies) {
+      userId = req.signedCookies.userId;
+    }
+
+    if (!userId) {
+      return res.status(401).json({ error: 'Authentication required' });
+    }
+
     await deleteProfile(req.params.id, userId);
     res.json({ success: true });
   } catch (error) {
