@@ -38,18 +38,18 @@ class UserService {
       throw new Error('Database not available');
     }
 
-    console.log('[USER_SERVICE] Checking if prisma.user exists...');
-    console.log('[USER_SERVICE] prisma.user type:', typeof prisma.user);
+    console.log('[USER_SERVICE] Checking if prisma.users exists...');
+    console.log('[USER_SERVICE] prisma.users type:', typeof prisma.users);
     console.log('[USER_SERVICE] prisma keys:', Object.keys(prisma));
 
-    if (!prisma.user) {
-      console.log('[USER_SERVICE] User model not available, throwing error');
-      throw new Error('User model not available in database');
+    if (!prisma.users) {
+      console.log('[USER_SERVICE] Users model not available, throwing error');
+      throw new Error('Users model not available in database');
     }
 
     try {
       console.log('[USER_SERVICE] Attempting to find user by email:', email);
-      const user = await prisma.user.findUnique({
+      const user = await prisma.users.findUnique({
         where: { email: email.toLowerCase() }
       });
       console.log('[USER_SERVICE] User found:', !!user);
@@ -73,7 +73,7 @@ class UserService {
     }
 
     try {
-      const user = await prisma.user.create({
+      const user = await prisma.users.create({
         data: {
           email: email.toLowerCase()
         }
@@ -131,7 +131,7 @@ class UserService {
     }
 
     try {
-      const user = await prisma.user.findUnique({
+      const user = await prisma.users.findUnique({
         where: { id: userId }
       });
       return user;

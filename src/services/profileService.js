@@ -25,7 +25,7 @@ async function loadProfiles(userId = null) {
   if (prisma && userId) {
     console.log("[PROFILES] Loading from database for user:", userId);
     try {
-      const profiles = await prisma.classProfile.findMany({
+      const profiles = await prisma.class_profiles.findMany({
         where: { userId },
         orderBy: { lastModified: 'desc' }
       });
@@ -80,7 +80,7 @@ async function findProfileById(profileId, userId = null) {
   if (useDatabase && prisma && userId) {
     console.log("📊 Searching database for profile...");
     try {
-      const profileData = await prisma.classProfile.findFirst({
+      const profileData = await prisma.class_profiles.findFirst({
         where: {
           id: profileId,
           userId
@@ -153,7 +153,7 @@ async function createProfile(profileData, userId) {
     console.log("[PROFILES] Database create data:", createData);
 
     try {
-      const newProfile = await prisma.classProfile.create({
+      const newProfile = await prisma.class_profiles.create({
         data: createData
       });
       console.log("[PROFILES] ✅ Database created profile:", newProfile);
@@ -234,7 +234,7 @@ async function updateProfile(profileId, updateData, userId) {
       console.log('[PROFILES] Checking if profile exists for user...');
 
       // First verify the profile exists and belongs to the user
-      const existingProfile = await prisma.classProfile.findFirst({
+      const existingProfile = await prisma.class_profiles.findFirst({
         where: {
           id: profileId,
           userId
@@ -248,7 +248,7 @@ async function updateProfile(profileId, updateData, userId) {
 
       // Update using just the unique id
       console.log('[PROFILES] Updating profile with data:', updateFields);
-      const updatedProfile = await prisma.classProfile.update({
+      const updatedProfile = await prisma.class_profiles.update({
         where: {
           id: profileId
         },
@@ -310,7 +310,7 @@ async function deleteProfile(profileId, userId) {
     console.log("[PROFILES] Deleting profile in database for user:", userId);
 
     // First verify the profile exists and belongs to the user
-    const profile = await prisma.classProfile.findFirst({
+    const profile = await prisma.class_profiles.findFirst({
       where: {
         id: profileId,
         userId
@@ -322,7 +322,7 @@ async function deleteProfile(profileId, userId) {
     }
 
     // Delete using just the unique id
-    await prisma.classProfile.delete({
+    await prisma.class_profiles.delete({
       where: {
         id: profileId
       }
