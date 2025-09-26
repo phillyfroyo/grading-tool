@@ -27,9 +27,9 @@ class AuthController {
 
       console.log('[AUTH_CONTROLLER] Attempting to login/register user:', email);
 
-      // TEMPORARY: Create mock user for testing
+      // Create unique user ID based on email to prevent cross-user contamination
       const user = {
-        id: 'temp-user-' + Date.now(),
+        id: 'user-' + Buffer.from(email.toLowerCase()).toString('base64').replace(/[+/=]/g, '').substring(0, 12) + '-' + Date.now(),
         email: email.toLowerCase(),
         createdAt: new Date(),
         updatedAt: new Date()
