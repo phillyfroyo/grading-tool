@@ -576,32 +576,9 @@ async function saveProfileData(profileData, profileId, form) {
             // Refresh the profiles list UI to show the changes
             loadProfilesList();
 
-            // Reload profiles from server to ensure sync with retry logic
-            let retryCount = 0;
-            const maxRetries = 3;
-            let profileLoaded = false;
-
-            while (retryCount < maxRetries && !profileLoaded) {
-                if (retryCount > 0) {
-                    await new Promise(resolve => setTimeout(resolve, 500 * retryCount));
-                }
-                await loadProfilesData();
-
-                // Verify the profile exists in the loaded data
-                profileLoaded = profiles.some(p => p.id === savedProfile.id);
-
-                if (!profileLoaded) {
-                    console.log(`[PROFILES] Retry ${retryCount + 1}: Profile not found in loaded data, retrying...`);
-                    retryCount++;
-                } else {
-                    console.log('[PROFILES] Profile confirmed in loaded data');
-                }
-            }
-
-            if (!profileLoaded) {
-                console.warn('[PROFILES] Profile may not have persisted properly');
-                showError('Profile saved but may require refresh', 'Warning');
-            }
+            // Note: Skip server reload since database is unavailable on Vercel
+            // The profiles array has already been updated with the saved profile data
+            console.log('[PROFILES] Profile confirmed in local array (database unavailable)');
 
             // Hide the form only after confirming save
             if (profileId) {

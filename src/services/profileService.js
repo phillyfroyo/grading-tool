@@ -23,7 +23,7 @@ async function loadProfiles(userId = null) {
   console.log("  - useDatabase:", useDatabase);
   console.log("  - prisma available:", !!prisma);
 
-  if (useDatabase && prisma && userId) {
+  if (prisma && userId) {
     console.log("[PROFILES] Loading from database for user:", userId);
     try {
       const profiles = await prisma.classProfile.findMany({
@@ -34,21 +34,12 @@ async function loadProfiles(userId = null) {
       console.log("[PROFILES] Profile IDs:", profiles.map(p => p.id));
       return { profiles };
     } catch (error) {
-      console.error("[PROFILES] Database error, falling back to file:", error.message);
+      console.error("[PROFILES] Database error, returning default profiles:", error.message);
     }
   }
 
-  // Fallback to file system (local development)
-  console.log("[PROFILES] Loading from file system");
-  try {
-    const profilesPath = join(__dirname, '..', '..', 'class-profiles.json');
-    return JSON.parse(readFileSync(profilesPath, 'utf8'));
-  } catch (error) {
-    // Fallback for serverless environments - load from environment variable
-    if (process.env.CLASS_PROFILES) {
-      return JSON.parse(process.env.CLASS_PROFILES);
-    }
-    // Default profiles for fresh deployments
+  // Return default profiles when database is unavailable
+  console.log("[PROFILES] Using default profiles (no database connection)");
     return {
       "profiles": [
         {
