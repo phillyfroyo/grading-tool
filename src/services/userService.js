@@ -77,7 +77,8 @@ class UserService {
       const user = await prisma.users.create({
         data: {
           id: userId,
-          email: email.toLowerCase()
+          email: email.toLowerCase(),
+          updatedAt: new Date()
         }
       });
       console.log(`[USER_SERVICE] Created new user: ${email} with ID: ${userId}`);
