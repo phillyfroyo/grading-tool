@@ -32,6 +32,12 @@ if (config.logging.enableMorgan) {
   app.use(morgan("dev"));
 }
 
+// Debug middleware to log all requests
+app.use((req, res, next) => {
+  console.log(`[REQUEST] ${req.method} ${req.url} from ${req.get('User-Agent')?.substring(0, 50) || 'Unknown'}`);
+  next();
+});
+
 app.use(express.json({ limit: config.api.requestLimit }));
 app.use(express.urlencoded({ extended: true, limit: config.api.requestLimit }));
 
@@ -131,6 +137,8 @@ if (isVercel) {
   }
 
   sessionConfig.store = new DatabaseSessionStore();
+} else {
+  console.log('[SESSION] Using memory store for local development');
 }
 
 app.use(session(sessionConfig));
@@ -161,7 +169,7 @@ app.use(express.static(config.files.publicPath, {
 
 // Mount all routes
 console.log("[ROUTES] Mounting application routes...");
-console.log("[DEBUG] Force restart to pick up controller changes");
+// console.log("[DEBUG] Force restart to pick up controller changes");
 
 // Routes are handled by the modular router
 
@@ -182,12 +190,28 @@ if (config.logging.enableHeartbeat) {
 // Start server for local development
 // For Vercel serverless, export the app
 if (!isVercel) {
-  app.listen(config.server.port, () => {
+  const server = app.listen(config.server.port, () => {
     console.log("\n=== SERVER SUCCESSFULLY STARTED (MODULAR) ===\n");
     console.log(`🌐 Grader running on http://localhost:${config.server.port}`);
     console.log("📝 Submit essays to see grading logs here");
     console.log("⚡ Using modular architecture");
     console.log("📁 Routes organized by feature\n");
+  });
+
+  // Keep the process alive and handle graceful shutdown
+  process.on('SIGTERM', () => {
+    console.log('SIGTERM signal received: closing HTTP server');
+    server.close(() => {
+      console.log('HTTP server closed');
+    });
+  });
+
+  process.on('SIGINT', () => {
+    console.log('SIGINT signal received: closing HTTP server');
+    server.close(() => {
+      console.log('HTTP server closed');
+      process.exit(0);
+    });
   });
 } else {
   console.log("🚀 Configured for Vercel serverless deployment (modular)");

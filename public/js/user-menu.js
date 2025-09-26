@@ -94,6 +94,17 @@ function toggleUserDropdown() {
  */
 async function signOut() {
     try {
+        // First check if user is actually authenticated
+        const authResponse = await fetch('/auth/status');
+        const authData = await authResponse.json();
+
+        if (!authData.authenticated) {
+            // User is not authenticated, just redirect to login
+            window.location.href = '/login';
+            return;
+        }
+
+        // User is authenticated, proceed with logout
         const response = await fetch('/auth/logout', {
             method: 'POST'
         });

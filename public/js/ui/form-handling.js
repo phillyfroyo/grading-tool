@@ -118,7 +118,8 @@ async function handleGradingFormSubmission(e) {
     }
     // Fallback to form field if it exists (for backwards compatibility)
     if (!temperature) {
-        temperature = parseInt(formData.get('temperature')) || 0;
+        const temp = parseFloat(formData.get('temperature'));
+        temperature = (isNaN(temp) || !isFinite(temp)) ? 0 : temp;
     }
 
     // Get all student texts from the form

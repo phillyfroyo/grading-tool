@@ -189,7 +189,10 @@ function createStudentRowHTML(essay, index, statusIcon) {
 function createBatchResultsHTML(batchResult, successCount, failureCount) {
     let html = `
         <div class="batch-results">
-            <h2>Batch Grading Results (${batchResult.totalEssays} essays)</h2>
+            <h2>Grading Results (${batchResult.totalEssays} essays)</h2>
+            <div style="background: #fff3cd; border: 2px solid #ffc107; padding: 20px; border-radius: 8px; margin: 20px 0; color: #856404; font-size: 18px; line-height: 1.5; font-weight: 500;">
+                <strong style="font-size: 20px;">⚠️ Important:</strong> The AI will make mistakes. Please review all essays and make any necessary manual edits.
+            </div>
             <div class="batch-summary" style="background: #f8f9fa; padding: 15px; border-radius: 8px; margin: 15px 0;">
                 <p><strong>Summary:</strong> ${successCount} successful, ${failureCount} failed</p>
             </div>

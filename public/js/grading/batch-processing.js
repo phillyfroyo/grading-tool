@@ -4,6 +4,38 @@
  */
 
 /**
+ * Get a random Claude-style loading message
+ */
+function getClaudeLoadingMessage() {
+    const messages = [
+        "🤔 Cogitating on this essay...",
+        "✨ Percolating thoughts...",
+        "🔮 Ruminating deeply...",
+        "💭 Mulling this over...",
+        "🌀 Churning through ideas...",
+        "🎯 Calibrating analysis...",
+        "📚 Parsing pedagogical patterns...",
+        "🧠 Neurons firing...",
+        "⚡ Synapses sparking...",
+        "🔍 Scrutinizing semantics...",
+        "💡 Illuminating insights...",
+        "🎨 Crafting comprehension...",
+        "🌟 Crystallizing conclusions...",
+        "📖 Decoding discourse...",
+        "🎭 Contemplating composition...",
+        "🔬 Analyzing argumentation...",
+        "🌈 Synthesizing structures...",
+        "🎪 Juggling judgments...",
+        "🎢 Navigating nuances...",
+        "🎪 Orchestrating observations...",
+        "💪 Working hard...",
+        "🧠 Thinking vigorously...",
+        "🤗 I'm trying my best..."
+    ];
+    return messages[Math.floor(Math.random() * messages.length)];
+}
+
+/**
  * Display initial batch grading progress UI
  * @param {Object} batchData - The batch data being processed
  */
@@ -17,7 +49,10 @@ function displayBatchProgress(batchData) {
     // Create the progress UI immediately
     const progressHtml = `
         <div class="batch-results">
-            <h2>Grading Essays (${batchData.essays.length} essays)</h2>
+            <h2>Grading ${batchData.essays.length} Essays. This will take a few minutes.</h2>
+            <div style="background: #fff3cd; border: 2px solid #ffc107; padding: 20px; border-radius: 8px; margin: 20px 0; color: #856404; font-size: 18px; line-height: 1.5; font-weight: 500;">
+                <strong style="font-size: 20px;">⚠️ Important:</strong> The AI will make mistakes. Please review all essays and make any necessary manual edits.
+            </div>
             <div class="compact-student-list" style="margin: 20px 0;">
                 ${batchData.essays.map((essay, index) => `
                     <div class="student-row" id="student-row-${index}" style="border: 2px solid #ddd; margin: 16px 0; border-radius: 8px; overflow: hidden;">
@@ -37,7 +72,7 @@ function displayBatchProgress(batchData) {
                             <div style="display: flex; align-items: center; gap: 15px; flex: 1; min-width: 0;">
                                 <div id="student-status-${index}" class="student-status" style="display: flex; align-items: center; gap: 12px;">
                                     <div class="loading-spinner" style="width: 24px; height: 24px; border: 3px solid #f3f3f3; border-top: 3px solid #007bff; border-radius: 50%; animation: spin 1s linear infinite;"></div>
-                                    <span style="color: #666; font-size: 18px; font-weight: 500;">Processing...</span>
+                                    <span id="processing-message-${index}" style="color: #666; font-size: 18px; font-weight: 500;">Processing...</span>
                                 </div>
                                 <span style="font-weight: 600; color: #333; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: 24px;">${essay.studentName}</span>
                             </div>
@@ -50,7 +85,7 @@ function displayBatchProgress(batchData) {
                             </div>
                         </div>
                         <div id="student-details-${index}" style="max-height: 0px; overflow: hidden; transition: max-height 0.3s ease-in-out; border-top: 1px solid #ddd;">
-                            <div id="batch-essay-${index}" style="padding: 15px;">Loading formatted result...</div>
+                            <div id="batch-essay-${index}" style="padding: 15px;">${getClaudeLoadingMessage()}</div>
                         </div>
                     </div>
                 `).join('')}
@@ -68,6 +103,30 @@ function displayBatchProgress(batchData) {
     resultsDiv.style.display = 'block';
 
     console.log('✅ Batch progress UI displayed');
+
+    // Set up rotating Claude message for the first essay only
+    // Start with "Processing..." then switch to funny messages after 10 seconds
+    if (batchData.essays.length > 0) {
+        const firstEssayMessageElement = document.getElementById('processing-message-0');
+        if (firstEssayMessageElement) {
+            // After 10 seconds, start rotating funny messages
+            setTimeout(() => {
+                // Only switch if still processing
+                if (firstEssayMessageElement.textContent === 'Processing...') {
+                    firstEssayMessageElement.textContent = getClaudeLoadingMessage();
+
+                    // Now set up interval for continued rotation
+                    window.claudeMessageTimer = setInterval(() => {
+                        // Only update if still showing a Claude message (not if completed)
+                        const currentText = firstEssayMessageElement.textContent;
+                        if (currentText !== 'Processing...' && !currentText.includes('✓') && !currentText.includes('✗')) {
+                            firstEssayMessageElement.textContent = getClaudeLoadingMessage();
+                        }
+                    }, 10000); // Update every 10 seconds
+                }
+            }, 10000); // Wait 10 seconds before first funny message
+        }
+    }
 }
 
 /**
@@ -79,6 +138,12 @@ function displayBatchProgress(batchData) {
 function updateEssayStatus(index, success, error = null) {
     const statusElement = document.getElementById(`student-status-${index}`);
     if (!statusElement) return;
+
+    // Clear the Claude message timer when the first essay status is updated
+    if (index === 0 && window.claudeMessageTimer) {
+        clearInterval(window.claudeMessageTimer);
+        window.claudeMessageTimer = null;
+    }
 
     if (success) {
         statusElement.innerHTML = `
@@ -203,14 +268,22 @@ function loadEssayDetails(index) {
     const essayDiv = document.getElementById(`batch-essay-${index}`);
     if (!essayDiv || !window[`essayData_${index}`]) return;
 
-    // Only load if not already loaded
-    if (essayDiv.innerHTML.includes('Loading formatted result...')) {
+    // Only load if not already loaded (contains one of the initial Claude messages from the dropdown)
+    const initialClaudeMessages = ["🤔 Cogitating", "✨ Percolating", "🔮 Ruminating", "💭 Mulling", "🌀 Churning",
+                                   "🎯 Calibrating", "📚 Parsing", "🧠 Neurons", "⚡ Synapses", "🔍 Scrutinizing",
+                                   "💡 Illuminating", "🎨 Crafting", "🌟 Crystallizing", "📖 Decoding", "🎭 Contemplating",
+                                   "🔬 Analyzing", "🌈 Synthesizing", "🎪 Juggling", "🎢 Navigating", "🎪 Orchestrating",
+                                   "💪 Working", "🧠 Thinking", "🤗 I'm trying"];
+    const containsInitialMessage = initialClaudeMessages.some(msg => essayDiv.innerHTML.includes(msg));
+
+    if (containsInitialMessage || essayDiv.innerHTML.includes('Loading formatted result...')) {
         const { essay, originalData } = window[`essayData_${index}`];
 
-        // Show loading spinner
+        // Show loading spinner with Claude-style message
+        const loadingMessage = getClaudeLoadingMessage();
         essayDiv.innerHTML = window.DisplayUtilsModule ?
-            window.DisplayUtilsModule.createLoadingSpinner('Formatting essay...') :
-            '<div>Loading essay details...</div>';
+            window.DisplayUtilsModule.createLoadingSpinner(loadingMessage) :
+            `<div style="padding: 20px; font-size: 16px; color: #666;">${loadingMessage}</div>`;
 
         fetch('/format', {
             method: 'POST',
@@ -576,7 +649,7 @@ function clearBatchCompletionStatus() {
 function createBatchResultsHTMLFallback(batchResult, successCount, failureCount) {
     return `
         <div class="batch-results">
-            <h2>Batch Grading Results (${batchResult.totalEssays} essays)</h2>
+            <h2>Grading Results (${batchResult.totalEssays} essays)</h2>
             <div class="batch-summary" style="background: #f8f9fa; padding: 15px; border-radius: 8px; margin: 15px 0;">
                 <p><strong>Summary:</strong> ${successCount} successful, ${failureCount} failed</p>
             </div>

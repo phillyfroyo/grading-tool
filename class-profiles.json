@@ -236,6 +236,23 @@
       "prompt": "The students are instructed to write about the following:\nWrite a narrative text about what happened last time you went to the doctor, incorporating reported speech, indirect questions, narrative tenses, and vocabulary related to health and medicine (going to the doctor).\n\nFollow the specific pattern:\n\nParagraph 1: How you got to the doctor’s office. Use narrative tenses to set the scene.\nParagraph 2: How you got the appointment. Include indirect questions to reflect on your thoughts or what you wanted to ask. \nParagraph 3: What the doctor told you. Incorporate reported speech to convey what the doctor said and how you responded.\nParagraph 4: How the story ended. Use vocabulary related to health and medicine (going to the doctor).\nWrite your essay in 150 – 170 words. Don’t forget to use storytelling elements to engage the reader. You can add the following sentence to your story:\n\nAs I settled into the waiting room, I noticed … \n\nIt is mandatory to use at least:\n4 linkers. Write the linkers between *asterisks*.\n10 vocabulary items (adverbs of time, going to the doctor, media, high-frequency verb collocations, etc.) seen in class. Write the vocabulary items in CAPITAL LETTERS.",
       "created": "2025-09-08T04:01:09.916Z",
       "lastModified": "2025-09-08T04:01:09.916Z"
+    },
+    {
+      "id": "profile_1758889332307",
+      "name": "Test Profile",
+      "cefrLevel": "B1",
+      "vocabulary": [
+        "test",
+        "words"
+      ],
+      "grammar": [
+        "present simple",
+        "past simple"
+      ],
+      "prompt": "Test prompt",
+      "temperature": 1.5,
+      "created": "2025-09-26T12:22:12.307Z",
+      "lastModified": "2025-09-26T12:22:12.308Z"
     }
   ]
 }

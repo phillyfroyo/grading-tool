@@ -22,6 +22,9 @@ async function loadProfilesData() {
         }
 
         const data = await response.json();
+        console.log('[PROFILES] Raw API response:', data);
+        console.log('[PROFILES] data.profiles exists?', !!data.profiles);
+        console.log('[PROFILES] data.profiles length:', data.profiles ? data.profiles.length : 'undefined');
         profiles = data.profiles || [];
         console.log('📊 Loaded profiles:', profiles.length);
         updateProfileDropdown();
@@ -64,6 +67,17 @@ function updateTemperatureDisplay(value) {
  */
 function updateProfileTemperatureDisplay(value, profileId = '') {
     const elementId = profileId ? `profileTemperatureValue-${profileId}` : 'profileTemperatureValue';
+    const element = document.getElementById(elementId);
+    if (element) {
+        element.textContent = value;
+    }
+}
+
+/**
+ * Update temperature display when slider changes (for modal forms)
+ */
+function updateTemperatureDisplay(profileId, value) {
+    const elementId = `profileTemperatureValue-${profileId}`;
     const element = document.getElementById(elementId);
     if (element) {
         element.textContent = value;
@@ -154,6 +168,8 @@ function loadProfilesList() {
 
             <p style="color: #666; text-align: center; margin-top: 40px;">No profiles found. Click "Add New Profile" to create your first profile.</p>
         `;
+        // CRITICAL FIX: Set up form handlers even when there are no profiles
+        setupProfileFormHandlers();
         return;
     }
 
@@ -247,8 +263,12 @@ function createProfileFormHTML(profileId) {
 
                 <div style="margin-bottom: 15px;">
                     <label for="profileTemperature-${profileId}">Temperature: <span id="profileTemperatureValue-${profileId}">0</span></label>
-                    <input type="range" id="profileTemperature-${profileId}" name="temperature" min="-5" max="5" value="0" style="width: 100%;">
-                    <small style="color: #666;">-5 = Harsh, 0 = Follow the Rubric, +5 = Merciful</small>
+                    <input type="range" id="profileTemperature-${profileId}" name="temperature" min="-5" max="5" step="0.5" value="0" style="width: 100%;" oninput="updateTemperatureDisplay('${profileId}', this.value)">
+                    <div style="display: flex; justify-content: space-between; margin-top: 5px; color: #666; font-size: 12px;">
+                        <span>Harsh</span>
+                        <span>Follow the Rubric</span>
+                        <span>Merciful</span>
+                    </div>
                 </div>
             </div>
 
@@ -269,6 +289,8 @@ function showAddNewProfileForm() {
     if (form) {
         form.style.display = 'block';
         document.getElementById('addNewProfileBtn').style.display = 'none';
+        // Ensure form handlers are attached (in case they weren't already)
+        setupProfileFormHandlers();
     }
 }
 
@@ -454,10 +476,12 @@ function setupProfileFormHandlers() {
  */
 async function handleNewProfileFormSubmission(e) {
     e.preventDefault();
+    console.log('[PROFILES] Form submission triggered');
 
     const form = e.target;
     const formData = new FormData(form);
     const profileId = form.dataset.profileId;
+    console.log('[PROFILES] Form data collected, profileId:', profileId);
 
     const profileData = {
         name: formData.get('name'),
@@ -465,8 +489,15 @@ async function handleNewProfileFormSubmission(e) {
         vocabulary: formData.get('vocabulary').split('\n').filter(item => item.trim()),
         grammar: formData.get('grammar').split('\n').filter(item => item.trim()),
         prompt: formData.get('prompt'),
-        temperature: parseInt(formData.get('temperature')) || 0
+        temperature: (() => {
+            const temp = parseFloat(formData.get('temperature'));
+            return (isNaN(temp) || !isFinite(temp)) ? 0 : temp;
+        })()
     };
+
+    console.log('🔍 [PROFILE_SAVE] Temperature from form:', formData.get('temperature'));
+    console.log('🔍 [PROFILE_SAVE] Parsed temperature:', profileData.temperature);
+    console.log('🔍 [PROFILE_SAVE] Full profile data:', profileData);
 
     // Check if prompt is empty and show confirmation
     if (!profileData.prompt || !profileData.prompt.trim()) {
@@ -502,6 +533,7 @@ async function saveProfileData(profileData, profileId, form) {
         const url = profileId ? `/api/profiles/${profileId}` : '/api/profiles';
         const method = profileId ? 'PUT' : 'POST';
 
+        console.log('[PROFILES] Saving profile:', method, url, profileData);
         const response = await fetch(url, {
             method: method,
             headers: {
@@ -510,9 +542,17 @@ async function saveProfileData(profileData, profileId, form) {
             body: JSON.stringify(profileData)
         });
 
+        console.log('[PROFILES] Save response status:', response.status, response.statusText);
         if (response.ok) {
             const savedProfile = await response.json();
             console.log('✅ Profile saved successfully:', savedProfile);
+
+            // Validate that the profile was actually saved
+            if (!savedProfile || !savedProfile.id) {
+                throw new Error('Profile save response is missing expected data');
+            }
+
+            console.log('📊 Current profiles array before update:', profiles);
 
             // Update the local profiles array
             if (profileId) {
@@ -524,10 +564,42 @@ async function saveProfileData(profileData, profileId, form) {
                 profiles.push(savedProfile);
             }
 
+            console.log('📊 Current profiles array after update:', profiles);
+
             // Update dropdown only (avoid circular refresh)
             updateProfileDropdown();
 
-            // Just hide the form and show success message instead of full refresh
+            // Refresh the profiles list UI to show the changes
+            loadProfilesList();
+
+            // Reload profiles from server to ensure sync with retry logic
+            let retryCount = 0;
+            const maxRetries = 3;
+            let profileLoaded = false;
+
+            while (retryCount < maxRetries && !profileLoaded) {
+                if (retryCount > 0) {
+                    await new Promise(resolve => setTimeout(resolve, 500 * retryCount));
+                }
+                await loadProfilesData();
+
+                // Verify the profile exists in the loaded data
+                profileLoaded = profiles.some(p => p.id === savedProfile.id);
+
+                if (!profileLoaded) {
+                    console.log(`[PROFILES] Retry ${retryCount + 1}: Profile not found in loaded data, retrying...`);
+                    retryCount++;
+                } else {
+                    console.log('[PROFILES] Profile confirmed in loaded data');
+                }
+            }
+
+            if (!profileLoaded) {
+                console.warn('[PROFILES] Profile may not have persisted properly');
+                showError('Profile saved but may require refresh', 'Warning');
+            }
+
+            // Hide the form only after confirming save
             if (profileId) {
                 hideProfileEditForm(profileId);
             } else {
@@ -537,8 +609,19 @@ async function saveProfileData(profileData, profileId, form) {
         } else {
             console.error('❌ Profile save failed:', response.status, response.statusText);
             const errorText = await response.text();
-            console.error('Error response:', errorText);
-            showError('Error saving profile: ' + response.status, 'Save Error');
+            console.error('[PROFILES] Error response body:', errorText);
+            try {
+                const errorData = JSON.parse(errorText);
+                console.error('[PROFILES] Parsed error:', errorData);
+                if (errorData.redirect === '/login') {
+                    console.error('[PROFILES] Authentication required - redirecting to login');
+                    window.location.href = '/login';
+                    return;
+                }
+                showError('Error saving profile: ' + (errorData.error || errorData.message || response.status), 'Save Error');
+            } catch {
+                showError('Error saving profile: ' + response.status, 'Save Error');
+            }
         }
     } catch (error) {
         console.error('❌ Profile save error:', error);
@@ -549,9 +632,21 @@ async function saveProfileData(profileData, profileId, form) {
 /**
  * Initialize profile management
  */
-function initializeProfiles() {
-    // Load profiles on page load
-    loadProfilesData();
+async function initializeProfiles() {
+    // Check auth status first before loading profiles
+    try {
+        const authResponse = await fetch('/auth/status');
+        const authData = await authResponse.json();
+
+        if (authData.authenticated) {
+            // Only load profiles if authenticated
+            loadProfilesData();
+        } else {
+            console.log('[PROFILES] User not authenticated, skipping profile load');
+        }
+    } catch (error) {
+        console.error('[PROFILES] Error checking auth status:', error);
+    }
 
     // Set up profile selection handler
     handleProfileSelectionChange();
@@ -590,7 +685,10 @@ async function handleProfileFormSubmission(e) {
         vocabulary: formData.get('vocabulary').split('\n').filter(item => item.trim()),
         grammar: formData.get('grammar').split('\n').filter(item => item.trim()),
         prompt: formData.get('prompt'),
-        temperature: parseInt(formData.get('temperature')) || 0
+        temperature: (() => {
+            const temp = parseFloat(formData.get('temperature'));
+            return (isNaN(temp) || !isFinite(temp)) ? 0 : temp;
+        })()
     };
 
     try {
@@ -608,6 +706,7 @@ async function handleProfileFormSubmission(e) {
         if (response.ok) {
             const savedProfile = await response.json();
             console.log('✅ Profile saved successfully:', savedProfile);
+            console.log('📊 Current profiles array before update:', profiles);
 
             // Update the local profiles array immediately for UI feedback
             if (profileId) {
@@ -623,7 +722,12 @@ async function handleProfileFormSubmission(e) {
                 profiles.push(savedProfile);
             }
 
+            console.log('📊 Current profiles array after update:', profiles);
             console.log('🔄 Refreshing UI components...');
+
+            // Reload profiles from server to ensure sync
+            await loadProfilesData();
+
             loadProfilesList();
             updateProfileDropdown();
 
@@ -650,8 +754,19 @@ async function handleProfileFormSubmission(e) {
         } else {
             console.error('❌ Profile save failed:', response.status, response.statusText);
             const errorText = await response.text();
-            console.error('Error response:', errorText);
-            showError('Error saving profile: ' + response.status, 'Save Error');
+            console.error('[PROFILES] Error response body:', errorText);
+            try {
+                const errorData = JSON.parse(errorText);
+                console.error('[PROFILES] Parsed error:', errorData);
+                if (errorData.redirect === '/login') {
+                    console.error('[PROFILES] Authentication required - redirecting to login');
+                    window.location.href = '/login';
+                    return;
+                }
+                showError('Error saving profile: ' + (errorData.error || errorData.message || response.status), 'Save Error');
+            } catch {
+                showError('Error saving profile: ' + response.status, 'Save Error');
+            }
         }
     } catch (error) {
         console.error('❌ Profile save error:', error);
@@ -672,6 +787,9 @@ window.ProfilesModule = {
     initializeProfiles,
     getProfiles: () => profiles
 };
+
+// Make updateTemperatureDisplay available globally for inline handlers
+window.updateTemperatureDisplay = updateTemperatureDisplay;
 
 // Make functions available globally for onclick handlers
 window.showProfileForm = showProfileForm;

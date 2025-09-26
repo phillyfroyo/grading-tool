@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Profile Test</title>
+</head>
+<body>
+    <h1>Profile System Test</h1>
+    <div id="status"></div>
+    <button onclick="testAuth()">Test Auth</button>
+    <button onclick="testLoadProfiles()">Test Load Profiles</button>
+    <button onclick="testCreateProfile()">Test Create Profile</button>
+    <div id="results"></div>
+
+    <script>
+    async function testAuth() {
+        const statusDiv = document.getElementById('status');
+        const resultsDiv = document.getElementById('results');
+
+        try {
+            const response = await fetch('/auth/status');
+            const data = await response.json();
+            statusDiv.innerHTML = `Auth Status: ${data.authenticated ? 'Authenticated as ' + data.user.email : 'Not authenticated'}`;
+            resultsDiv.innerHTML = `<pre>${JSON.stringify(data, null, 2)}</pre>`;
+        } catch (error) {
+            statusDiv.innerHTML = 'Error: ' + error.message;
+        }
+    }
+
+    async function testLoadProfiles() {
+        const resultsDiv = document.getElementById('results');
+
+        try {
+            const response = await fetch('/api/profiles');
+            console.log('Response status:', response.status);
+
+            if (!response.ok) {
+                const errorText = await response.text();
+                resultsDiv.innerHTML = `<h3>Error ${response.status}</h3><pre>${errorText}</pre>`;
+                return;
+            }
+
+            const data = await response.json();
+            console.log('Profiles data:', data);
+            resultsDiv.innerHTML = `<h3>Profiles Loaded: ${data.profiles ? data.profiles.length : 0}</h3><pre>${JSON.stringify(data, null, 2)}</pre>`;
+        } catch (error) {
+            resultsDiv.innerHTML = 'Error: ' + error.message;
+        }
+    }
+
+    async function testCreateProfile() {
+        const resultsDiv = document.getElementById('results');
+
+        const testProfile = {
+            name: "Test Profile " + new Date().toISOString(),
+            cefrLevel: "B1",
+            vocabulary: ["test", "vocabulary"],
+            grammar: ["test grammar"],
+            prompt: "Test prompt",
+            temperature: 1.5
+        };
+
+        try {
+            const response = await fetch('/api/profiles', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(testProfile)
+            });
+
+            console.log('Create response status:', response.status);
+
+            if (!response.ok) {
+                const errorText = await response.text();
+                resultsDiv.innerHTML = `<h3>Error ${response.status}</h3><pre>${errorText}</pre>`;
+                return;
+            }
+
+            const data = await response.json();
+            resultsDiv.innerHTML = `<h3>Profile Created Successfully!</h3><pre>${JSON.stringify(data, null, 2)}</pre>`;
+
+            // Reload profiles to verify
+            setTimeout(testLoadProfiles, 1000);
+        } catch (error) {
+            resultsDiv.innerHTML = 'Error: ' + error.message;
+        }
+    }
+
+    // Test auth on load
+    window.onload = testAuth;
+    </script>
+</body>
+</html>

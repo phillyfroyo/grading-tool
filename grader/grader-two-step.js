@@ -8,6 +8,7 @@ import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
 import { buildErrorDetectionPrompt } from './error-detection-prompt.js';
 import { buildGradingPrompt } from './grading-prompt.js';
+import { PrismaClient } from '@prisma/client';
 
 // Load environment variables
 dotenv.config();
@@ -26,13 +27,41 @@ export async function gradeEssay(studentText, prompt, classProfileId) {
   console.log('DEBUG: classProfileId type:', typeof classProfileId);
   console.log('FORCING NODEMON RESTART');
   
-  // Load class profile
-  const profilesPath = join(__dirname, '..', 'class-profiles.json');
-  const profilesData = JSON.parse(readFileSync(profilesPath, 'utf8'));
-  const classProfile = profilesData.profiles.find(p => p.id === classProfileId);
-  
+  // Load class profile from database first, then fall back to file
+  let classProfile = null;
+
+  // Try database first
+  try {
+    const prisma = new PrismaClient();
+    classProfile = await prisma.classProfile.findUnique({
+      where: { id: classProfileId }
+    });
+    await prisma.$disconnect();
+
+    if (classProfile) {
+      console.log(`Profile loaded from database: ${classProfile.name}`);
+    }
+  } catch (dbError) {
+    console.log('Database lookup failed, will try file system:', dbError.message);
+  }
+
+  // Fall back to file system if not found in database
   if (!classProfile) {
-    throw new Error(`Class profile ${classProfileId} not found`);
+    try {
+      const profilesPath = join(__dirname, '..', 'class-profiles.json');
+      const profilesData = JSON.parse(readFileSync(profilesPath, 'utf8'));
+      classProfile = profilesData.profiles.find(p => p.id === classProfileId);
+
+      if (classProfile) {
+        console.log(`Profile loaded from file system: ${classProfile.name}`);
+      }
+    } catch (fileError) {
+      console.log('File system lookup also failed:', fileError.message);
+    }
+  }
+
+  if (!classProfile) {
+    throw new Error(`Class profile ${classProfileId} not found in database or file system`);
   }
   
   const cefrLevel = classProfile.cefrLevel;

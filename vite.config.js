@@ -64,6 +64,12 @@ export default defineConfig({
         target: 'http://localhost:3001',
         changeOrigin: true,
         secure: false
+      },
+      // Proxy format route to the backend server
+      '/format': {
+        target: 'http://localhost:3001',
+        changeOrigin: true,
+        secure: false
       }
     }
   },

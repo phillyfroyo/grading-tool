@@ -26,7 +26,15 @@
       "Bash(pkill:*)",
       "Bash(cat:*)",
       "Bash(npm test)",
-      "Bash(npm run test:backend:*)"
+      "Bash(npm run test:backend:*)",
+      "Bash(npm run dev:frontend:*)",
+      "Bash(npm run dev:backend:*)",
+      "Bash(wmic process where processid=10916 delete:*)",
+      "Bash(wmic process where processid=21304 delete:*)",
+      "Bash(netstat:*)",
+      "Bash(findstr:*)",
+      "Bash(wmic process where processid=9752 delete:*)",
+      "Bash(kill:*)"
     ],
     "deny": [],
     "ask": []

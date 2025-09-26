@@ -18,6 +18,11 @@ const __dirname = dirname(__filename);
 async function loadProfiles(userId = null) {
   const { prisma, useDatabase } = getDatabaseConfig();
 
+  console.log("[PROFILES] loadProfiles called with:");
+  console.log("  - userId:", userId);
+  console.log("  - useDatabase:", useDatabase);
+  console.log("  - prisma available:", !!prisma);
+
   if (useDatabase && prisma && userId) {
     console.log("[PROFILES] Loading from database for user:", userId);
     try {
@@ -25,6 +30,8 @@ async function loadProfiles(userId = null) {
         where: { userId },
         orderBy: { lastModified: 'desc' }
       });
+      console.log("[PROFILES] Database returned", profiles.length, "profiles");
+      console.log("[PROFILES] Profile IDs:", profiles.map(p => p.id));
       return { profiles };
     } catch (error) {
       console.error("[PROFILES] Database error, falling back to file:", error.message);
@@ -143,6 +150,12 @@ async function findProfileById(profileId, userId = null) {
 async function createProfile(profileData, userId) {
   const { prisma, useDatabase } = getDatabaseConfig();
 
+  console.log("[PROFILES] createProfile called with:");
+  console.log("  - userId:", userId);
+  console.log("  - useDatabase:", useDatabase);
+  console.log("  - prisma available:", !!prisma);
+  console.log("  - profileData:", profileData);
+
   if (useDatabase && prisma && userId) {
     console.log("[PROFILES] Creating profile in database for user:", userId);
     const createData = {
@@ -159,10 +172,29 @@ async function createProfile(profileData, userId) {
       createData.temperature = profileData.temperature || 0;
     }
 
-    const newProfile = await prisma.classProfile.create({
-      data: createData
-    });
-    return newProfile;
+    console.log("[PROFILES] Database create data:", createData);
+
+    try {
+      const newProfile = await prisma.classProfile.create({
+        data: createData
+      });
+      console.log("[PROFILES] Database created profile:", newProfile);
+
+      // Verify the profile was created
+      const verifyProfile = await prisma.classProfile.findUnique({
+        where: { id: newProfile.id }
+      });
+
+      if (!verifyProfile) {
+        throw new Error('Profile creation verification failed');
+      }
+
+      console.log("[PROFILES] Profile creation verified:", verifyProfile.id);
+      return newProfile;
+    } catch (dbError) {
+      console.error("[PROFILES] Database creation error:", dbError);
+      throw new Error(`Failed to create profile: ${dbError.message}`);
+    }
   } else {
     const profiles = await loadProfiles();
     const newProfile = {

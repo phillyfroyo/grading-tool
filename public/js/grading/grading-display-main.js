@@ -191,7 +191,7 @@ function createBatchResultsHTML(batchResult, successCount, failureCount) {
     // Fallback implementation
     return `
         <div class="batch-results">
-            <h2>Batch Grading Results</h2>
+            <h2>Grading Results</h2>
             <p>Success: ${successCount}, Failed: ${failureCount}</p>
         </div>
     `;

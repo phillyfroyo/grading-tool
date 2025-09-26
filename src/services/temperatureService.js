@@ -20,7 +20,7 @@ function applyTemperatureAdjustment(gradingResult, temperature) {
     const originalPoints = scoreData.points;
     const maxPoints = scoreData.out_of;
 
-    // Calculate adjustment: +1 temp = +10% of max points
+    // Calculate adjustment: +0.5 temp = +5% of max points, +1 temp = +10% of max points
     const adjustment = maxPoints * (temperature * 0.1);
     const adjustedPoints = Math.min(maxPoints, Math.max(0, originalPoints + adjustment));
 
