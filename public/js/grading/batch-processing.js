@@ -3,6 +3,15 @@
  * Handles batch grading display and management functionality
  */
 
+// Track processing status for queue management
+let processingQueue = {
+    currentlyProcessing: 0,
+    maxConcurrent: 3,
+    totalEssays: 0,
+    completedEssays: [],
+    nextInQueue: 3
+};
+
 /**
  * Get a random Claude-style loading message
  */
@@ -43,6 +52,15 @@ function displayBatchProgress(batchData) {
     console.log('🎯 DISPLAY BATCH PROGRESS UI CALLED');
     console.log('📊 Batch data:', batchData);
 
+    // Initialize queue tracking
+    processingQueue = {
+        currentlyProcessing: Math.min(3, batchData.essays.length),
+        maxConcurrent: 3,
+        totalEssays: batchData.essays.length,
+        completedEssays: [],
+        nextInQueue: 3
+    };
+
     const resultsDiv = document.getElementById('results');
     if (!resultsDiv) return;
 
@@ -71,8 +89,11 @@ function displayBatchProgress(batchData) {
                            onmouseout="this.style.backgroundColor='#fff'">
                             <div style="display: flex; align-items: center; gap: 15px; flex: 1; min-width: 0;">
                                 <div id="student-status-${index}" class="student-status" style="display: flex; align-items: center; gap: 12px;">
-                                    <div class="loading-spinner" style="width: 24px; height: 24px; border: 3px solid #f3f3f3; border-top: 3px solid #007bff; border-radius: 50%; animation: spin 1s linear infinite;"></div>
-                                    <span id="processing-message-${index}" style="color: #666; font-size: 18px; font-weight: 500;">Processing...</span>
+                                    ${index < 3 ?
+                                        `<div class="loading-spinner" id="spinner-${index}" style="width: 24px; height: 24px; border: 3px solid #f3f3f3; border-top: 3px solid #007bff; border-radius: 50%; animation: spin 1s linear infinite;"></div>
+                                        <span id="processing-message-${index}" style="color: #666; font-size: 18px; font-weight: 500;">Processing...</span>` :
+                                        `<span id="processing-message-${index}" style="color: #999; font-size: 18px; font-weight: 500;">In queue</span>`
+                                    }
                                 </div>
                                 <span style="font-weight: 600; color: #333; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: 24px;">${essay.studentName}</span>
                             </div>
@@ -145,6 +166,9 @@ function updateEssayStatus(index, success, error = null) {
         window.claudeMessageTimer = null;
     }
 
+    // Mark essay as completed
+    processingQueue.completedEssays.push(index);
+
     if (success) {
         statusElement.innerHTML = `
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#28a745" stroke-width="2">
@@ -170,6 +194,22 @@ function updateEssayStatus(index, success, error = null) {
             </svg>
             ${error ? `<div style="font-size: 11px; color: #666; margin-left: 8px;">${error}</div>` : ''}
         `;
+    }
+
+    // Activate next essay in queue if there is one
+    if (processingQueue.nextInQueue < processingQueue.totalEssays) {
+        const nextIndex = processingQueue.nextInQueue;
+        const nextStatusElement = document.getElementById(`student-status-${nextIndex}`);
+
+        if (nextStatusElement) {
+            // Update from "In queue" to "Processing..."
+            nextStatusElement.innerHTML = `
+                <div class="loading-spinner" id="spinner-${nextIndex}" style="width: 24px; height: 24px; border: 3px solid #f3f3f3; border-top: 3px solid #007bff; border-radius: 50%; animation: spin 1s linear infinite;"></div>
+                <span id="processing-message-${nextIndex}" style="color: #666; font-size: 18px; font-weight: 500;">Processing...</span>
+            `;
+        }
+
+        processingQueue.nextInQueue++;
     }
 }
 
