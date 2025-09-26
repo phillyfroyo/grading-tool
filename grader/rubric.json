@@ -225,15 +225,71 @@
     "transition_words_min": 5
   },
   "cefr_levels": {
+    "A1": {
+      "name": "A1 - Beginner",
+      "strictness_modifier": 0.6,
+      "description": "Very lenient grading - communication success valued over accuracy",
+      "expectations": {
+        "grammar": "Basic sentence patterns, many errors expected and acceptable",
+        "vocabulary": "Simple everyday words, basic word choice praised",
+        "error_tolerance": "High tolerance - 15+ grammar errors acceptable if meaning is clear",
+        "complexity": "Simple sentences and basic connectors sufficient for top scores"
+      }
+    },
+    "A2": {
+      "name": "A2 - Elementary",
+      "strictness_modifier": 0.7,
+      "description": "Lenient grading - focus on basic communication effectiveness",
+      "expectations": {
+        "grammar": "Basic tense usage, some complex structures emerging, errors common",
+        "vocabulary": "Everyday vocabulary for familiar topics, simple word choices accepted",
+        "error_tolerance": "Moderate-high tolerance - 10-12 grammar errors acceptable",
+        "complexity": "Simple and compound sentences, basic transitions expected"
+      }
+    },
+    "B1": {
+      "name": "B1 - Intermediate",
+      "strictness_modifier": 0.8,
+      "description": "Balanced grading - accuracy becoming more important",
+      "expectations": {
+        "grammar": "Most basic structures correct, some complex structures attempted",
+        "vocabulary": "Good range for familiar topics, some sophistication emerging",
+        "error_tolerance": "Moderate tolerance - 6-8 grammar errors acceptable",
+        "complexity": "Mix of simple and complex sentences, clear organization expected"
+      }
+    },
     "B2": {
       "name": "B2 - Upper Intermediate",
-      "strictness_modifier": 1.0,
-      "description": "Lenient grading focusing on communication over perfection"
+      "strictness_modifier": 0.9,
+      "description": "Standard grading - good accuracy expected with some flexibility",
+      "expectations": {
+        "grammar": "Complex structures mostly correct, few basic errors acceptable",
+        "vocabulary": "Wide range with some sophisticated choices, generally accurate",
+        "error_tolerance": "Lower tolerance - 4-6 grammar errors acceptable",
+        "complexity": "Complex sentences and sophisticated organization expected"
+      }
     },
     "C1": {
-      "name": "C1 - Advanced", 
+      "name": "C1 - Advanced",
       "strictness_modifier": 1.0,
-      "description": "Standard grading expectations for advanced students"
+      "description": "Strict grading - high accuracy and sophistication expected",
+      "expectations": {
+        "grammar": "Complex structures correct, minimal errors, advanced patterns expected",
+        "vocabulary": "Sophisticated and precise word choices, wide range expected",
+        "error_tolerance": "Low tolerance - 2-4 grammar errors maximum",
+        "complexity": "Sophisticated expression, complex argumentation, advanced organization"
+      }
+    },
+    "C2": {
+      "name": "C2 - Proficient",
+      "strictness_modifier": 1.1,
+      "description": "Very strict grading - near-native performance expected",
+      "expectations": {
+        "grammar": "Near-perfect grammar, sophisticated structures required",
+        "vocabulary": "Precise, nuanced vocabulary choices, advanced range required",
+        "error_tolerance": "Very low tolerance - 0-2 grammar errors maximum",
+        "complexity": "Native-like sophistication in all areas required"
+      }
     }
   }
 }

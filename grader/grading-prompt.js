@@ -19,7 +19,25 @@ GRAMMAR STRUCTURES: ${errorDetectionResults.grammar_structures_used?.join(', ') 
 - Score based on demonstrated competency
 - Provide accurate assessment
 
-CEFR Level: ${cefrLevel} (${levelInfo.name})
+## CEFR LEVEL REQUIREMENTS: ${cefrLevel} (${levelInfo.name})
+
+**CRITICAL: Adjust your grading expectations based on this CEFR level:**
+
+${levelInfo.expectations ? `
+**Grammar Expectations for ${cefrLevel}:** ${levelInfo.expectations.grammar}
+**Vocabulary Expectations for ${cefrLevel}:** ${levelInfo.expectations.vocabulary}
+**Error Tolerance for ${cefrLevel}:** ${levelInfo.expectations.error_tolerance}
+**Complexity Expectations for ${cefrLevel}:** ${levelInfo.expectations.complexity}
+
+**Grading Philosophy for ${cefrLevel}:** ${levelInfo.description}
+` : ''}
+
+## LEVEL-SPECIFIC SCORING ADJUSTMENTS:
+- **${cefrLevel} students should be graded with expectations appropriate to their level**
+- **A simple sentence that's correct is better than a complex sentence with errors for lower levels**
+- **Higher levels (B2+) should demonstrate sophistication to earn top scores**
+- **Lower levels (A1-A2) should be rewarded for successful communication even with errors**
+- **Consider what constitutes "excellent" performance for a ${cefrLevel} student specifically**
 
 ## ZERO SCORE RULES (automatic 0 if any apply):
 ${rubric.zero_rules.map(rule => `- ${rule}`).join('\n')}
@@ -47,10 +65,26 @@ ${category.bands.map(band => `  ${band.range}: ${band.description}`).join('\n')}
 - Grammar structures: ${classProfile.grammar.join(', ')}
 
 ## SCORING RULES:
-- Follow rubric bands precisely
-- Score based on actual performance against criteria
-- Perfect performance = FULL POINTS
-- Use the full range of the rubric
+- Follow rubric bands precisely **BUT ADJUST FOR CEFR LEVEL**
+- Score based on actual performance against **${cefrLevel}-APPROPRIATE** criteria
+- Perfect performance **for ${cefrLevel} level** = FULL POINTS
+- Use the full range of the rubric **within ${cefrLevel} expectations**
+
+## CEFR-SPECIFIC SCORING EXAMPLES:
+**For A1/A2 (Beginner/Elementary):**
+- Simple vocabulary used correctly = HIGH vocabulary score
+- Basic grammar with some errors = MEDIUM/HIGH grammar score if communication is clear
+- Short, simple sentences = adequate for FULL fluency score
+
+**For B1/B2 (Intermediate/Upper-Intermediate):**
+- Mix of simple and complex vocabulary expected for high scores
+- Most grammar should be correct, complex structures attempted
+- Organized writing with clear paragraphs expected
+
+**For C1/C2 (Advanced/Proficient):**
+- Sophisticated vocabulary choices required for high scores
+- Complex grammar structures expected with minimal errors
+- Nuanced expression and advanced organization required
 
 ## STUDENT TEXT:
 "${studentText}"
@@ -66,11 +100,13 @@ ${errorDetectionResults.inline_issues.map(issue =>
 
 ## FEEDBACK WRITING GUIDELINES:
 - Be accurate but constructive, not harsh or discouraging
+- **Tailor feedback to ${cefrLevel} level expectations and capabilities**
 - Focus on what needs improvement without being overly critical
 - Don't reveal internal grading mechanics (specific word counts, exact error counts, score ranges)
 - When performance is mixed, acknowledge both strengths and weaknesses
-- Provide actionable advice for improvement
+- Provide actionable advice **appropriate for ${cefrLevel} student level**
 - Use 2nd person ("you") not 3rd person ("the student")
+- **Remember: A1 students need different feedback than C1 students**
 
 ## FEEDBACK LANGUAGE EXAMPLES:
 
