@@ -136,7 +136,9 @@ async function createProfile(profileData, userId) {
 
   if (prisma && userId) {
     console.log("[PROFILES] Creating profile in database for user:", userId);
+    const profileId = profileData.id || `profile_${Date.now()}`;
     const createData = {
+      id: profileId,
       name: profileData.name,
       cefrLevel: profileData.cefrLevel,
       vocabulary: profileData.vocabulary || [],
