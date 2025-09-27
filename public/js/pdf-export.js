@@ -807,15 +807,22 @@ function enhanceContentForPDF(content) {
         }
     }
 
-    // Simplify overall score to plain text
+    // Simplify overall score to plain text with Grade: prefix and no color
     const overallScoreElement = tempDiv.querySelector('.overall-score');
     if (overallScoreElement) {
-        const scoreMatch = overallScoreElement.textContent.match(/(\d+\/\d+[^%]*%)/);
+        const scoreMatch = overallScoreElement.textContent.match(/(\d+\/\d+)/);
         if (scoreMatch) {
-            // Replace the entire content with plain text
-            overallScoreElement.innerHTML = `<p style="margin: 10px 0; font-weight: normal;">Grade: ${scoreMatch[0]}</p>`;
-            // Remove all styling classes
+            // Calculate percentage
+            const parts = scoreMatch[0].split('/');
+            const score = parseInt(parts[0]);
+            const total = parseInt(parts[1]);
+            const percentage = Math.round((score / total) * 100);
+
+            // Replace the entire content with plain text, no color
+            overallScoreElement.innerHTML = `<p style="margin: 10px 0; font-weight: normal; color: black;">Grade: ${score}/${total} (${percentage}%)</p>`;
+            // Remove all styling classes and inline styles
             overallScoreElement.className = '';
+            overallScoreElement.removeAttribute('style');
         }
     }
 
@@ -830,42 +837,55 @@ function enhanceContentForPDF(content) {
     // Convert score sections to plain text format
     const scoreSections = tempDiv.querySelectorAll('.score-section');
     scoreSections.forEach(section => {
-        // Extract the category information
+        // Extract category name from h3/h4/strong elements
         const categoryNameEl = section.querySelector('h3, h4, strong');
-        const categoryName = categoryNameEl ? categoryNameEl.textContent.trim() : '';
+        let categoryName = categoryNameEl ? categoryNameEl.textContent.trim() : '';
 
-        // Extract score
+        // Clean up category name (remove colons, etc)
+        categoryName = categoryName.replace(/[:]/g, '').trim();
+
+        // Extract score - look for patterns like [13] /15 or 13/15
         let scoreText = '';
-        const scoreMatch = section.textContent.match(/(\d+)\s*\/\s*(\d+)/);
+        const scorePattern = /\[?\s*(\d+)\s*\]?\s*\/\s*(\d+)/;
+        const scoreMatch = section.textContent.match(scorePattern);
         if (scoreMatch) {
             scoreText = `${scoreMatch[1]}/${scoreMatch[2]}`;
         }
 
-        // Extract comments/feedback
+        // Extract comments/feedback - look for actual comment text
         let comments = '';
-        const commentElements = section.querySelectorAll('p, div');
-        commentElements.forEach(el => {
-            const text = el.textContent.trim();
-            // Skip if it's the category name or score
-            if (text && !text.includes(categoryName) && !text.match(/^\d+\s*\/\s*\d+/)) {
-                // Filter out UI elements and edit indicators
-                if (!text.includes('✎') && !text.includes('Click to edit') &&
-                    !text.includes('Next Steps') && text.length > 0) {
-                    comments = text;
-                }
+        const allText = section.textContent;
+
+        // Try to find comments after the score
+        const scoreIndex = allText.search(scorePattern);
+        if (scoreIndex !== -1) {
+            // Get text after the score
+            const afterScore = allText.substring(scoreIndex + scoreMatch[0].length).trim();
+
+            // Clean up the comments
+            const cleanedComments = afterScore
+                .replace(/✎/g, '')
+                .replace(/Click to edit/gi, '')
+                .replace(/Next Steps.*$/i, '')
+                .replace(/^Comments?:\s*/i, '')
+                .trim();
+
+            if (cleanedComments && cleanedComments.length > 0 &&
+                !cleanedComments.match(/^\d+\s*\/\s*\d+/)) {
+                comments = cleanedComments;
             }
-        });
+        }
 
         // Replace the entire section with plain text format
         if (categoryName && scoreText) {
             const plainTextHTML = `
-                <div style="margin: 10px 0; padding: 0;">
-                    <p style="margin: 5px 0; font-weight: normal;">${categoryName}: ${scoreText}</p>
-                    ${comments ? `<p style="margin: 5px 0 5px 20px; font-weight: normal;">Comments: ${comments}</p>` : ''}
+                <div style="margin: 8px 0; padding: 0; background: transparent; border: none;">
+                    <p style="margin: 5px 0; font-weight: normal; color: black;">${categoryName}: ${scoreText}</p>
+                    ${comments ? `<p style="margin: 5px 0 10px 20px; font-weight: normal; color: black;">Comments: ${comments}</p>` : ''}
                 </div>
             `;
             section.innerHTML = plainTextHTML;
-            // Remove all styling classes
+            // Remove all styling classes and attributes
             section.className = '';
             section.removeAttribute('style');
         }
@@ -938,10 +958,10 @@ function enhanceContentForPDF(content) {
     });
 
     // Add Category Breakdown header if we have score sections
-    const firstScoreSection = tempDiv.querySelector('.score-section, div[style*="margin: 10px 0"]');
+    const firstScoreSection = tempDiv.querySelector('.score-section, div[style*="margin: 8px 0"]');
     if (firstScoreSection && firstScoreSection.textContent.includes('/')) {
         const categoryHeader = document.createElement('div');
-        categoryHeader.innerHTML = '<p style="margin: 15px 0 10px 0; font-weight: bold; font-size: 16px;">Category Breakdown:</p>';
+        categoryHeader.innerHTML = '<p style="margin: 15px 0 10px 0; font-weight: normal; font-size: 14px; color: black;">Category Breakdown:</p>';
         firstScoreSection.parentNode.insertBefore(categoryHeader, firstScoreSection);
     }
 
