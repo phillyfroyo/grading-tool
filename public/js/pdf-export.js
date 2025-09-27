@@ -137,35 +137,36 @@ function openPrintDialog(resultsDiv, studentName) {
                 h3 { font-size: 16px; margin: 12px 0 8px 0; }
                 .grading-summary { margin: 20px 0; }
                 .overall-score {
-                    font-size: 24px;
-                    font-weight: bold;
-                    text-align: center;
-                    margin: 20px 0;
-                    padding: 20px;
-                    background: #f8f9fa;
-                    border: 2px solid #007bff;
-                    border-radius: 8px;
+                    font-size: 18px;
+                    font-weight: normal;
+                    text-align: left;
+                    margin: 10px 0;
+                    padding: 0;
+                    background: transparent;
+                    border: none;
+                    border-radius: 0;
                 }
                 .teacher-notes-section {
-                    margin: 25px 0;
-                    padding: 20px;
-                    background: #fff3cd;
-                    border: 1px solid #ffeaa7;
-                    border-radius: 8px;
-                    border-left: 4px solid #856404;
+                    margin: 15px 0;
+                    padding: 0;
+                    background: transparent;
+                    border: none;
+                    border-radius: 0;
+                    border-left: none;
                 }
                 .teacher-notes-section h3 {
                     margin-top: 0;
-                    color: #856404;
-                    font-size: 18px;
+                    color: #000;
+                    font-size: 16px;
+                    font-weight: normal;
                 }
                 /* STRONGER PAGE BREAK PROTECTION FOR SCORE SECTIONS */
                 .score-section {
-                    margin: 15px 0 !important;
-                    padding: 15px !important;
-                    background: #f8f9fa !important;
-                    border-radius: 6px !important;
-                    border-left: 4px solid #007bff !important;
+                    margin: 10px 0 !important;
+                    padding: 5px 0 !important;
+                    background: transparent !important;
+                    border-radius: 0 !important;
+                    border-left: none !important;
 
                     /* Multiple page break rules for maximum protection */
                     page-break-inside: avoid !important;
@@ -798,8 +799,7 @@ function enhanceContentForPDF(content) {
         if (notesText && notesText !== 'No notes provided') {
             teacherNotesSection = `
                 <div class="teacher-notes-section">
-                    <h3>📝 Teacher Notes</h3>
-                    <p style="margin: 0; line-height: 1.6;">${notesText}</p>
+                    <p style="margin: 10px 0; line-height: 1.6;"><strong>Overall Notes:</strong> ${notesText}</p>
                 </div>
             `;
             // Remove the original teacher notes to prevent duplication
@@ -807,15 +807,15 @@ function enhanceContentForPDF(content) {
         }
     }
 
-    // Add "Grade:" prefix to overall score
+    // Simplify overall score to plain text
     const overallScoreElement = tempDiv.querySelector('.overall-score');
     if (overallScoreElement) {
         const scoreMatch = overallScoreElement.textContent.match(/(\d+\/\d+[^%]*%)/);
-        if (scoreMatch && !overallScoreElement.textContent.includes('Grade:')) {
-            overallScoreElement.innerHTML = overallScoreElement.innerHTML.replace(
-                scoreMatch[0],
-                `Grade: ${scoreMatch[0]}`
-            );
+        if (scoreMatch) {
+            // Replace the entire content with plain text
+            overallScoreElement.innerHTML = `<p style="margin: 10px 0; font-weight: normal;">Grade: ${scoreMatch[0]}</p>`;
+            // Remove all styling classes
+            overallScoreElement.className = '';
         }
     }
 
@@ -827,39 +827,48 @@ function enhanceContentForPDF(content) {
         }
     });
 
-    // Clean up score sections properly using DOM
+    // Convert score sections to plain text format
     const scoreSections = tempDiv.querySelectorAll('.score-section');
     scoreSections.forEach(section => {
-        // Remove nested score boxes and inner boxes
-        section.querySelectorAll('.score-box, .inner-box').forEach(box => {
-            // Move content out and remove the box
-            while (box.firstChild) {
-                box.parentNode.insertBefore(box.firstChild, box);
-            }
-            box.remove();
-        });
+        // Extract the category information
+        const categoryNameEl = section.querySelector('h3, h4, strong');
+        const categoryName = categoryNameEl ? categoryNameEl.textContent.trim() : '';
 
-        // Remove teacher notes from category sections
-        section.querySelectorAll('.teacher-notes').forEach(notes => notes.remove());
-
-        // Remove edit indicators
-        section.querySelectorAll('.edit-indicator').forEach(indicator => indicator.remove());
-
-        // Fix score display format [10] /15 -> 10/15
-        const textNodes = [];
-        const walker = document.createTreeWalker(
-            section,
-            NodeFilter.SHOW_TEXT,
-            null,
-            false
-        );
-        let node;
-        while (node = walker.nextNode()) {
-            textNodes.push(node);
+        // Extract score
+        let scoreText = '';
+        const scoreMatch = section.textContent.match(/(\d+)\s*\/\s*(\d+)/);
+        if (scoreMatch) {
+            scoreText = `${scoreMatch[1]}/${scoreMatch[2]}`;
         }
-        textNodes.forEach(textNode => {
-            textNode.textContent = textNode.textContent.replace(/\[\s*(\d+)\s*\]\s*\/(\d+)/g, '$1/$2');
+
+        // Extract comments/feedback
+        let comments = '';
+        const commentElements = section.querySelectorAll('p, div');
+        commentElements.forEach(el => {
+            const text = el.textContent.trim();
+            // Skip if it's the category name or score
+            if (text && !text.includes(categoryName) && !text.match(/^\d+\s*\/\s*\d+/)) {
+                // Filter out UI elements and edit indicators
+                if (!text.includes('✎') && !text.includes('Click to edit') &&
+                    !text.includes('Next Steps') && text.length > 0) {
+                    comments = text;
+                }
+            }
         });
+
+        // Replace the entire section with plain text format
+        if (categoryName && scoreText) {
+            const plainTextHTML = `
+                <div style="margin: 10px 0; padding: 0;">
+                    <p style="margin: 5px 0; font-weight: normal;">${categoryName}: ${scoreText}</p>
+                    ${comments ? `<p style="margin: 5px 0 5px 20px; font-weight: normal;">Comments: ${comments}</p>` : ''}
+                </div>
+            `;
+            section.innerHTML = plainTextHTML;
+            // Remove all styling classes
+            section.className = '';
+            section.removeAttribute('style');
+        }
     });
 
     // Clean up essay content positioning issues
@@ -927,6 +936,14 @@ function enhanceContentForPDF(content) {
             }
         }
     });
+
+    // Add Category Breakdown header if we have score sections
+    const firstScoreSection = tempDiv.querySelector('.score-section, div[style*="margin: 10px 0"]');
+    if (firstScoreSection && firstScoreSection.textContent.includes('/')) {
+        const categoryHeader = document.createElement('div');
+        categoryHeader.innerHTML = '<p style="margin: 15px 0 10px 0; font-weight: bold; font-size: 16px;">Category Breakdown:</p>';
+        firstScoreSection.parentNode.insertBefore(categoryHeader, firstScoreSection);
+    }
 
     // Get the cleaned HTML
     let htmlContent = tempDiv.innerHTML;

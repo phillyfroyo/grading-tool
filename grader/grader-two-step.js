@@ -161,7 +161,7 @@ async function detectErrors(studentText, classProfile) {
 
 async function gradeBasedOnRubric(studentText, classProfile, cefrLevel, errorDetectionResults) {
   const prompt = buildGradingPrompt(rubric, classProfile, cefrLevel, studentText, errorDetectionResults);
-  
+
   console.log('Calling GPT for rubric-based grading...');
   console.log(`Errors to consider: ${errorDetectionResults.inline_issues.length} issues`);
   
