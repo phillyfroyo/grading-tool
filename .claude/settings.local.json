@@ -35,7 +35,9 @@
       "Bash(findstr:*)",
       "Bash(wmic process where processid=9752 delete:*)",
       "Bash(kill:*)",
-      "Bash(wmic process where processid=19892 delete:*)"
+      "Bash(wmic process where processid=19892 delete:*)",
+      "Bash(vercel:*)",
+      "Bash(git stash:*)"
     ],
     "deny": [],
     "ask": []

@@ -53,7 +53,18 @@ function applyHighlight(range, text, category) {
             editHighlight(this);
         });
 
-        range.surroundContents(mark);
+        // Use extractContents and insertNode for complex ranges that span multiple elements
+        try {
+            range.surroundContents(mark);
+        } catch (surroundError) {
+            console.log('🔄 surroundContents failed, using extractContents method for complex selection');
+            // Extract the selected content
+            const extractedContent = range.extractContents();
+            // Append the extracted content to our mark element
+            mark.appendChild(extractedContent);
+            // Insert the mark at the range position
+            range.insertNode(mark);
+        }
 
         // Auto-open modal for editing the new highlight
         setTimeout(() => {
@@ -103,7 +114,18 @@ function applyBatchHighlight(range, text, category, essayIndex) {
             editBatchHighlight(this, essayIndex);
         });
 
-        range.surroundContents(mark);
+        // Use extractContents and insertNode for complex ranges that span multiple elements
+        try {
+            range.surroundContents(mark);
+        } catch (surroundError) {
+            console.log('🔄 surroundContents failed, using extractContents method for complex selection');
+            // Extract the selected content
+            const extractedContent = range.extractContents();
+            // Append the extracted content to our mark element
+            mark.appendChild(extractedContent);
+            // Insert the mark at the range position
+            range.insertNode(mark);
+        }
 
         // Auto-open modal for editing the new highlight
         setTimeout(() => {
