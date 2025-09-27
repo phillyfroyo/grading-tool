@@ -224,27 +224,44 @@ function openPrintDialog(resultsDiv, studentName) {
                     /* Force container behavior */
                     contain: layout !important;
                 }
-                /* FORCE remove ALL formatting from category sections */
-                .score-section, .score-section *,
-                .category, .category *,
-                .score-box, .score-box *,
-                .inner-box, .inner-box *,
-                [class*="score"], [class*="score"] * {
+                /* NUCLEAR OPTION: Remove ALL formatting from category sections */
+                .score-section, .score-section *, .category, .category *,
+                .score-box, .score-box *, .inner-box, .inner-box *,
+                [class*="score"], [class*="score"] *, [class*="category"], [class*="category"] *,
+                div[style], div[style] *, span[style], span[style] * {
                     background: transparent !important;
                     background-color: transparent !important;
+                    background-image: none !important;
                     border: none !important;
+                    border-radius: 0 !important;
                     box-shadow: none !important;
                     margin: 0 !important;
                     padding: 0 !important;
                     color: black !important;
                     font-weight: normal !important;
+                    font-style: normal !important;
+                    text-decoration: none !important;
+                    outline: none !important;
+                }
+                /* Force override any inline styles */
+                *[style] {
+                    background: transparent !important;
+                    background-color: transparent !important;
+                    border: none !important;
+                    color: black !important;
                 }
                 /* Only allow specific margins for plain categories */
                 .plain-category {
                     margin: 8px 0 !important;
+                    background: transparent !important;
+                    border: none !important;
                 }
-                .plain-category p:first-child {
+                .plain-category p {
                     margin: 5px 0 !important;
+                    background: transparent !important;
+                    border: none !important;
+                    color: black !important;
+                    font-weight: normal !important;
                 }
                 .plain-category p:last-child {
                     margin: 5px 0 10px 20px !important;
@@ -832,8 +849,8 @@ function enhanceContentForPDF(content) {
             const score = parseInt(parts[0]);
             const total = parseInt(parts[1]);
 
-            // Replace with large plain text, no percentage, no color
-            overallScoreElement.innerHTML = `<p style="margin: 15px 0; font-weight: normal; color: black; font-size: 20px;">Grade: ${score}/${total}</p>`;
+            // Replace with extra large plain text, no percentage, no color
+            overallScoreElement.innerHTML = `<p style="margin: 15px 0; font-weight: normal; color: black; font-size: 40px;">Grade: ${score}/${total}</p>`;
             // Remove all styling classes and inline styles
             overallScoreElement.className = '';
             overallScoreElement.removeAttribute('style');
@@ -919,7 +936,18 @@ function enhanceContentForPDF(content) {
             // Completely replace the section
             const newDiv = document.createElement('div');
             newDiv.innerHTML = plainTextHTML;
-            section.parentNode.replaceChild(newDiv.firstChild, section);
+            const newElement = newDiv.firstChild;
+
+            // Strip ALL style attributes from the new element and its children
+            if (newElement) {
+                newElement.removeAttribute('style');
+                newElement.removeAttribute('class');
+                newElement.querySelectorAll('*').forEach(child => {
+                    child.removeAttribute('style');
+                    child.removeAttribute('class');
+                });
+                section.parentNode.replaceChild(newElement, section);
+            }
         }
     });
 
@@ -990,12 +1018,34 @@ function enhanceContentForPDF(content) {
     });
 
     // Add Category Breakdown header if we have score sections
-    const firstScoreSection = tempDiv.querySelector('.score-section, div[style*="margin: 8px 0"]');
+    const firstScoreSection = tempDiv.querySelector('.score-section, div[style*="margin: 8px 0"], .plain-category');
     if (firstScoreSection && firstScoreSection.textContent.includes('/')) {
         const categoryHeader = document.createElement('div');
         categoryHeader.innerHTML = '<p style="margin: 15px 0 10px 0; font-weight: normal; font-size: 14px; color: black;">Category Breakdown:</p>';
         firstScoreSection.parentNode.insertBefore(categoryHeader, firstScoreSection);
     }
+
+    // FINAL PASS: Remove ALL style attributes and classes from everything (except our Grade and Category Breakdown header)
+    tempDiv.querySelectorAll('*').forEach(element => {
+        // Skip our special elements
+        if (element.textContent && (
+            element.textContent.includes('Grade:') ||
+            element.textContent.includes('Category Breakdown:') ||
+            element.textContent.includes('Overall Notes:')
+        )) {
+            return;
+        }
+
+        // Remove all styling attributes from other elements
+        element.removeAttribute('style');
+        element.removeAttribute('class');
+        element.removeAttribute('id');
+
+        // If it's a div or span with background/border styles, clear them
+        if (element.tagName === 'DIV' || element.tagName === 'SPAN') {
+            element.style.cssText = 'background: transparent !important; border: none !important; color: black !important;';
+        }
+    });
 
     // Get the cleaned HTML
     let htmlContent = tempDiv.innerHTML;
@@ -1184,11 +1234,11 @@ function createPrintContent(resultsDiv, studentName) {
     // Process and enhance the content for better PDF formatting
     const enhancedContent = enhanceContentForPDF(clone);
 
-    // Create the print-friendly content (simplified header, highlights legend, no footer)
+    // Create the print-friendly content (no header, just content)
     return `
-        <div style="text-align: center; margin-bottom: 30px; border-bottom: 2px solid #333; padding-bottom: 20px;">
-            <h1>Essay Grading Report</h1>
-            <h2>${studentName}</h2>
+        <div style="text-align: center; margin-bottom: 20px;">
+            <h1 style="margin: 0; padding: 0; font-size: 24px; color: black;">Essay Grading Report</h1>
+            <h2 style="margin: 10px 0 0 0; padding: 0; font-size: 20px; color: black;">${studentName}</h2>
         </div>
 
         ${enhancedContent}
