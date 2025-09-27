@@ -26,6 +26,7 @@ class EventDelegation {
 
         // Set up global click handler for event delegation
         document.addEventListener('click', this.handleGlobalClick.bind(this), true);
+        console.log('Global click listener added to document');
 
         // Register all standard handlers
         this.registerStandardHandlers();
@@ -41,10 +42,19 @@ class EventDelegation {
     handleGlobalClick(event) {
         const target = event.target;
 
+        // Debug: Log all button clicks
+        if (target.tagName === 'BUTTON') {
+            console.log('Button clicked:', target.textContent, 'data-action:', target.dataset.action);
+        }
+
         // Handle data-action attributes
         const action = target.dataset.action;
+        if (action) {
+            console.log('Action found:', action, 'Handler exists:', this.handlers.has(action));
+        }
         if (action && this.handlers.has(action)) {
             event.preventDefault();
+            console.log('Calling handler for action:', action);
             const handler = this.handlers.get(action);
             handler(event, target);
             return;
@@ -176,6 +186,7 @@ class EventDelegation {
      * Register all standard handlers
      */
     registerStandardHandlers() {
+        console.log('Registering standard handlers...');
         // Modal actions
         this.registerHandler('close-modal', (event, target) => {
             const modalId = target.closest('.modal')?.id;
@@ -210,8 +221,10 @@ class EventDelegation {
 
         // PDF Export
         this.registerHandler('export-pdf', (event, target) => {
+            console.log('export-pdf handler triggered');
             this.handleExportToPDF();
         });
+        console.log('Registered export-pdf handler');
 
         // Profile Management
         this.registerHandler('manage-profiles', (event, target) => {
@@ -229,10 +242,16 @@ class EventDelegation {
     }
 
     handleExportToPDF() {
+        console.log('🎯 handleExportToPDF called');
+
         // Determine which export function to call based on current tab/context
         const isManualTab = document.querySelector('.tab-button[data-tab="manual-grader"]')?.classList.contains('active');
         const hasManualResults = document.getElementById('manualResults')?.innerHTML.trim();
         const hasMainResults = document.getElementById('results')?.innerHTML.trim();
+
+        console.log('Manual tab active:', isManualTab);
+        console.log('Has manual results:', !!hasManualResults);
+        console.log('Has main results:', !!hasMainResults);
 
         if (isManualTab || (hasManualResults && !hasMainResults)) {
             // Manual grading context
