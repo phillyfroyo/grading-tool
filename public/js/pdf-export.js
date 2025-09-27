@@ -893,12 +893,33 @@ function enhanceContentForPDF(content) {
         // Clean up category name (remove colons, etc)
         categoryName = categoryName.replace(/[:]/g, '').trim();
 
-        // Extract score - look for patterns like [13] /15 or 13/15
+        // Extract score - look for patterns like [13] /15 or 13/15 or broken patterns
         let scoreText = '';
-        const scorePattern = /\[?\s*(\d+)\s*\]?\s*\/\s*(\d+)/;
-        const scoreMatch = section.textContent.match(scorePattern);
-        if (scoreMatch) {
-            scoreText = `${scoreMatch[1]}/${scoreMatch[2]}`;
+        const allText = section.textContent.replace(/\s+/g, ' ').trim();
+
+        // Try multiple patterns to catch broken formatting
+        const scorePatterns = [
+            /\[(\d+)\]\s*\/\s*(\d+)/,     // [13] /15
+            /(\d+)\s*\/\s*(\d+)/,         // 13/15 or 13 /15
+            /(\d+)\s+(\d+)/,              // 13 15 (separated numbers)
+            /\[(\d+)\]\s+(\d+)/,          // [13] 15
+        ];
+
+        for (const pattern of scorePatterns) {
+            const match = allText.match(pattern);
+            if (match) {
+                scoreText = `${match[1]}/${match[2]}`;
+                break;
+            }
+        }
+
+        // If still no match, try to find separate numbers
+        if (!scoreText) {
+            const numbers = allText.match(/\d+/g);
+            if (numbers && numbers.length >= 2) {
+                // Usually first number is score, second is total
+                scoreText = `${numbers[0]}/${numbers[1]}`;
+            }
         }
 
         // Extract comments/feedback - look for actual comment text
@@ -930,7 +951,7 @@ function enhanceContentForPDF(content) {
             const plainTextHTML = `
                 <div class="plain-category" style="margin: 8px 0 !important; padding: 0 !important; background: transparent !important; border: none !important;">
                     <p style="margin: 5px 0 !important; padding: 0 !important; font-weight: normal !important; color: black !important; background: transparent !important; border: none !important;">${categoryName}: ${scoreText}</p>
-                    ${comments ? `<p style="margin: 5px 0 10px 20px !important; padding: 0 !important; font-weight: normal !important; color: black !important; background: transparent !important; border: none !important;">Comments: ${comments}</p>` : ''}
+                    <p style="margin: 5px 0 10px 20px !important; padding: 0 !important; font-weight: normal !important; color: black !important; background: transparent !important; border: none !important;">Notes: ${comments || 'No feedback provided'}</p>
                 </div>
             `;
             // Completely replace the section
