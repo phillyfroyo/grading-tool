@@ -224,14 +224,30 @@ function openPrintDialog(resultsDiv, studentName) {
                     /* Force container behavior */
                     contain: layout !important;
                 }
-                /* Remove nested boxes in category breakdown */
-                .score-section .score-box,
-                .score-section .inner-box {
-                    background: none !important;
+                /* FORCE remove ALL formatting from category sections */
+                .score-section, .score-section *,
+                .category, .category *,
+                .score-box, .score-box *,
+                .inner-box, .inner-box *,
+                [class*="score"], [class*="score"] * {
+                    background: transparent !important;
+                    background-color: transparent !important;
                     border: none !important;
                     box-shadow: none !important;
                     margin: 0 !important;
                     padding: 0 !important;
+                    color: black !important;
+                    font-weight: normal !important;
+                }
+                /* Only allow specific margins for plain categories */
+                .plain-category {
+                    margin: 8px 0 !important;
+                }
+                .plain-category p:first-child {
+                    margin: 5px 0 !important;
+                }
+                .plain-category p:last-child {
+                    margin: 5px 0 10px 20px !important;
                 }
                 .teacher-notes {
                     background: #f0f8ff;
@@ -798,8 +814,8 @@ function enhanceContentForPDF(content) {
 
         if (notesText && notesText !== 'No notes provided') {
             teacherNotesSection = `
-                <div class="teacher-notes-section">
-                    <p style="margin: 10px 0; line-height: 1.6;"><strong>Overall Notes:</strong> ${notesText}</p>
+                <div class="teacher-notes-section" style="margin: 10px 0 !important; padding: 0 !important; background: transparent !important; border: none !important;">
+                    <p style="margin: 10px 0 !important; padding: 0 !important; line-height: 1.6 !important; color: black !important; font-weight: normal !important; background: transparent !important; border: none !important;"><span style="font-weight: normal !important;">Overall Notes:</span> ${notesText}</p>
                 </div>
             `;
             // Remove the original teacher notes to prevent duplication
@@ -812,14 +828,12 @@ function enhanceContentForPDF(content) {
     if (overallScoreElement) {
         const scoreMatch = overallScoreElement.textContent.match(/(\d+\/\d+)/);
         if (scoreMatch) {
-            // Calculate percentage
             const parts = scoreMatch[0].split('/');
             const score = parseInt(parts[0]);
             const total = parseInt(parts[1]);
-            const percentage = Math.round((score / total) * 100);
 
-            // Replace the entire content with plain text, no color
-            overallScoreElement.innerHTML = `<p style="margin: 10px 0; font-weight: normal; color: black;">Grade: ${score}/${total} (${percentage}%)</p>`;
+            // Replace with large plain text, no percentage, no color
+            overallScoreElement.innerHTML = `<p style="margin: 15px 0; font-weight: normal; color: black; font-size: 20px;">Grade: ${score}/${total}</p>`;
             // Remove all styling classes and inline styles
             overallScoreElement.className = '';
             overallScoreElement.removeAttribute('style');
@@ -834,8 +848,26 @@ function enhanceContentForPDF(content) {
         }
     });
 
+    // Remove ALL formatting from score sections and category breakdowns
+    // First, remove score-box and inner-box elements completely
+    tempDiv.querySelectorAll('.score-box, .inner-box').forEach(box => {
+        // Extract text content before removing
+        const textContent = box.textContent;
+        const textNode = document.createTextNode(textContent);
+        box.parentNode.replaceChild(textNode, box);
+    });
+
+    // Remove any parent category-breakdown containers
+    tempDiv.querySelectorAll('.category-breakdown').forEach(container => {
+        // Move children out and remove the container
+        while (container.firstChild) {
+            container.parentNode.insertBefore(container.firstChild, container);
+        }
+        container.remove();
+    });
+
     // Convert score sections to plain text format
-    const scoreSections = tempDiv.querySelectorAll('.score-section');
+    const scoreSections = tempDiv.querySelectorAll('.score-section, .category, [class*="score"]');
     scoreSections.forEach(section => {
         // Extract category name from h3/h4/strong elements
         const categoryNameEl = section.querySelector('h3, h4, strong');
@@ -879,15 +911,15 @@ function enhanceContentForPDF(content) {
         // Replace the entire section with plain text format
         if (categoryName && scoreText) {
             const plainTextHTML = `
-                <div style="margin: 8px 0; padding: 0; background: transparent; border: none;">
-                    <p style="margin: 5px 0; font-weight: normal; color: black;">${categoryName}: ${scoreText}</p>
-                    ${comments ? `<p style="margin: 5px 0 10px 20px; font-weight: normal; color: black;">Comments: ${comments}</p>` : ''}
+                <div class="plain-category" style="margin: 8px 0 !important; padding: 0 !important; background: transparent !important; border: none !important;">
+                    <p style="margin: 5px 0 !important; padding: 0 !important; font-weight: normal !important; color: black !important; background: transparent !important; border: none !important;">${categoryName}: ${scoreText}</p>
+                    ${comments ? `<p style="margin: 5px 0 10px 20px !important; padding: 0 !important; font-weight: normal !important; color: black !important; background: transparent !important; border: none !important;">Comments: ${comments}</p>` : ''}
                 </div>
             `;
-            section.innerHTML = plainTextHTML;
-            // Remove all styling classes and attributes
-            section.className = '';
-            section.removeAttribute('style');
+            // Completely replace the section
+            const newDiv = document.createElement('div');
+            newDiv.innerHTML = plainTextHTML;
+            section.parentNode.replaceChild(newDiv.firstChild, section);
         }
     });
 
