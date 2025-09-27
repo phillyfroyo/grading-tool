@@ -75,7 +75,9 @@ Each JSON entry = ONE specific error type with ONE correction
   ],
   "corrected_text_minimal": "Text with only objective errors fixed",
   "vocabulary_count": 5,
+  "class_vocabulary_used": ["amazing", "incredible", "however"],
   "grammar_structures_used": ["Present Perfect", "Second Conditional"],
+  "transition_words_found": ["however", "moreover", "therefore"],
   "input_is_assignment_prompt": false
 }
 
@@ -93,10 +95,25 @@ ${classProfile.grammar.join(', ')}
 - Count phrases and expressions that appear in the student text
 - Return the total count of vocabulary items used correctly
 
+**CLASS VOCABULARY IDENTIFICATION:**
+- Find exact matches of vocabulary words/phrases from the class vocabulary list
+- Include prefixes and suffixes as specified in vocabulary counting instructions
+- Return an array of the actual vocabulary items found in the text (not just the count)
+- Use the exact form found in the student text
+
 **GRAMMAR STRUCTURE IDENTIFICATION:**
-- Identify specific grammar structures from the list that appear in the student text
-- Look for patterns like passive voice, reported speech, conditionals, relative pronouns, etc.
-- Return an array of the specific structures found (use exact names from the list when possible)
+- Carefully identify which grammar structures from the class grammar list appear in the student text
+- Look for the EXACT structures listed in the class profile (provided above)
+- Match structure names exactly as they appear in the class list
+- Be thorough and systematic - scan the entire text for each structure
+- Common structures to look for include: Present Perfect, Past Simple, Conditionals, Passive Voice, Reported Speech, Relative Clauses, Modal Verbs, Future Forms, Comparative/Superlative, etc.
+- Return an array of the specific structures found (use exact names from the class list)
+
+**TRANSITION WORDS DETECTION:**
+- Identify transition words and phrases used in the student text
+- Look for common transitions like: however, therefore, moreover, furthermore, in addition, on the other hand, as a result, consequently, meanwhile, first, second, finally, in conclusion, etc.
+- Return an array of the transition words/phrases actually found in the text
+- Include both single words and phrases
 
 ## COMMON MISTAKES TO AVOID:
 ❌ Please do not highlight almost the entire essay. Some of these essays will be pretty bad, so if you encounter a horrible essay, just try to stick to the errors that will get the student on the right track.

@@ -85,6 +85,25 @@ export async function gradeEssay(studentText, prompt, classProfileId) {
 
   console.log(`Vocabulary counting: AI=${aiVocabCount}, Backup=${backupVocabCount}, Final=${finalVocabCount}`);
 
+  // Backup transition counting if AI didn't provide them
+  const aiTransitions = errorDetectionResults.transition_words_found || [];
+  const backupTransitions = countTransitionWords(studentText);
+  const finalTransitions = aiTransitions.length > 0 ? aiTransitions : backupTransitions;
+
+  // Backup class vocabulary identification if AI didn't provide them
+  const aiClassVocab = errorDetectionResults.class_vocabulary_used || [];
+  const backupClassVocab = identifyClassVocabulary(studentText, classProfile.vocabulary);
+  const finalClassVocab = aiClassVocab.length > 0 ? aiClassVocab : backupClassVocab;
+
+  // Backup grammar structure identification if AI didn't provide them
+  const aiGrammarStructures = errorDetectionResults.grammar_structures_used || [];
+  const backupGrammarStructures = identifyGrammarStructures(studentText, classProfile.grammar);
+  const finalGrammarStructures = aiGrammarStructures.length > 0 ? aiGrammarStructures : backupGrammarStructures;
+
+  console.log(`Transition words: AI=${aiTransitions.length}, Backup=${backupTransitions.length}, Final=${finalTransitions.length}`);
+  console.log(`Class vocabulary: AI=${aiClassVocab.length}, Backup=${backupClassVocab.length}, Final=${finalClassVocab.length}`);
+  console.log(`Grammar structures: AI=${aiGrammarStructures.length}, Backup=${backupGrammarStructures.length}, Final=${finalGrammarStructures.length}`);
+
   const finalResults = {
     ...gradingResults,
     inline_issues: errorDetectionResults.inline_issues,
@@ -92,7 +111,9 @@ export async function gradeEssay(studentText, prompt, classProfileId) {
     meta: {
       word_count: studentText.split(/\s+/).filter(word => word.length > 0).length,
       vocabulary_count: finalVocabCount,
-      grammar_structures_used: errorDetectionResults.grammar_structures_used || []
+      class_vocabulary_used: finalClassVocab,
+      grammar_structures_used: finalGrammarStructures,
+      transition_words_found: finalTransitions
     }
   };
 
@@ -276,7 +297,7 @@ function patchCommonErrors(text, issues) {
   for (const match of text.matchAll(iRegex)) {
     if (!isAlreadyCovered(match.index + 1, match.index + 2, issues)) {
       newIssues.push({
-        category: "mechanics-punctuation",
+        category: "mechanics",
         text: "i",
         start: match.index + 1,
         end: match.index + 2,
@@ -420,8 +441,8 @@ function splitLongSpans(text, issues) {
     const charLength = end - start;
     const category = issue.category || issue.type || '';
 
-    // Special handling for mechanics-punctuation - be extra strict
-    const isMechanics = category.includes('mechanics') || category.includes('punctuation');
+    // Special handling for mechanics - be extra strict
+    const isMechanics = category.includes('mechanics');
     const maxWords = isMechanics ? MECHANICS_MAX_WORDS : MAX_WORD_COUNT;
 
     // If span is acceptable length, keep as-is
@@ -782,7 +803,8 @@ function countVocabularyUsage(studentText, vocabulary) {
       }
     } else {
       // Single words - check for word boundaries
-      const wordRegex = new RegExp(`\\b${item.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`, 'gi');
+      const escapedItem = item.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      const wordRegex = new RegExp(`\\b${escapedItem}\\b`, 'gi');
       if (wordRegex.test(text) && !foundWords.has(item)) {
         foundWords.add(item);
         count++;
@@ -792,10 +814,12 @@ function countVocabularyUsage(studentText, vocabulary) {
   }
 
   // Check for prefix usage
-  const words = text.split(/\s+/);
+  const words = text.split(/\s+/).map(w => w.replace(/[^\w]/g, '')); // Remove punctuation
   for (const word of words) {
+    if (word.length < 4) continue; // Skip very short words
+
     for (const prefix of prefixes) {
-      const cleanPrefix = prefix.replace('-', '').replace('/', '');
+      const cleanPrefix = prefix.replace(/[-\/]/g, '');
       if (word.startsWith(cleanPrefix) && word.length > cleanPrefix.length + 2) {
         const key = `prefix:${cleanPrefix}:${word}`;
         if (!foundWords.has(key)) {
@@ -809,7 +833,7 @@ function countVocabularyUsage(studentText, vocabulary) {
 
     // Check for suffix usage
     for (const suffix of suffixes) {
-      const cleanSuffix = suffix.replace('-', '');
+      const cleanSuffix = suffix.replace(/[-\/]/g, '');
       if (word.endsWith(cleanSuffix) && word.length > cleanSuffix.length + 2) {
         const key = `suffix:${cleanSuffix}:${word}`;
         if (!foundWords.has(key)) {
@@ -825,3 +849,290 @@ function countVocabularyUsage(studentText, vocabulary) {
   console.log(`Backup vocabulary count: ${count} items found`);
   return count;
 }
+
+/**
+ * Backup class vocabulary identification function
+ * Identifies actual vocabulary words used from class profile vocabulary list
+ */
+function identifyClassVocabulary(studentText, vocabulary) {
+  if (!vocabulary || vocabulary.length === 0) {
+    return [];
+  }
+
+  const text = studentText.toLowerCase();
+  const foundVocab = [];
+  const foundWords = new Set(); // Avoid duplicates
+
+  for (const vocabItem of vocabulary) {
+    const item = vocabItem.toLowerCase().trim();
+
+    // Skip metadata entries
+    if (item.includes('prefix') || item.includes('suffix') || item.includes('(any word')) {
+      continue;
+    }
+
+    // Check for exact word/phrase matches
+    if (item.includes(' ')) {
+      // Multi-word phrases
+      if (text.includes(item) && !foundWords.has(item)) {
+        foundWords.add(item);
+        foundVocab.push(vocabItem); // Use original case
+        console.log(`Found class vocabulary phrase: "${vocabItem}"`);
+      }
+    } else {
+      // Single words - check for word boundaries
+      const escapedItem = item.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      const wordRegex = new RegExp(`\\b${escapedItem}\\b`, 'gi');
+      if (wordRegex.test(text) && !foundWords.has(item)) {
+        foundWords.add(item);
+        foundVocab.push(vocabItem); // Use original case
+        console.log(`Found class vocabulary word: "${vocabItem}"`);
+      }
+    }
+  }
+
+  console.log(`Backup class vocabulary identification: ${foundVocab.length} items found`);
+  return foundVocab;
+}
+
+/**
+ * Backup transition words counting function
+ * Counts transition words and phrases in student text
+ */
+function countTransitionWords(studentText) {
+  // Common transition words and phrases
+  const transitions = [
+    // Addition
+    'also', 'and', 'furthermore', 'moreover', 'in addition', 'additionally', 'besides', 'plus', 'too', 'as well', 'again', 'further', 'another', 'equally important', 'along with', 'together with',
+    // Contrast
+    'but', 'however', 'although', 'though', 'nevertheless', 'nonetheless', 'on the other hand', 'in contrast', 'while', 'whereas', 'yet', 'still', 'despite', 'in spite of', 'even though', 'rather', 'instead', 'alternatively', 'on the contrary', 'unlike', 'different from', 'otherwise',
+    // Cause and Effect
+    'because', 'since', 'as a result', 'therefore', 'thus', 'consequently', 'so', 'hence', 'due to', 'for this reason', 'as a consequence', 'accordingly', 'owing to', 'thanks to', 'because of', 'leads to', 'results in', 'causes', 'brings about',
+    // Time/Sequence
+    'first', 'second', 'third', 'firstly', 'secondly', 'thirdly', 'then', 'next', 'after', 'before', 'finally', 'lastly', 'meanwhile', 'subsequently', 'afterwards', 'later', 'earlier', 'previously', 'initially', 'at first', 'in the beginning', 'to begin with', 'during', 'while', 'until', 'when', 'once', 'as soon as', 'immediately', 'eventually', 'in the end', 'at last', 'in the meantime',
+    // Example
+    'for example', 'for instance', 'such as', 'namely', 'in particular', 'specifically', 'to illustrate', 'as an example', 'like', 'including', 'especially', 'particularly', 'that is', 'in other words',
+    // Conclusion
+    'in conclusion', 'to conclude', 'in summary', 'to summarize', 'overall', 'all in all', 'ultimately', 'in short', 'briefly', 'to sum up', 'on the whole', 'as I have shown', 'as can be seen', 'evidently', 'clearly', 'obviously', 'undoubtedly',
+    // Emphasis
+    'indeed', 'certainly', 'surely', 'of course', 'obviously', 'in fact', 'actually', 'really', 'truly', 'definitely', 'absolutely', 'without doubt', 'undoubtedly', 'clearly', 'evidently',
+    // Clarification
+    'that is', 'in other words', 'namely', 'specifically', 'to put it differently', 'to clarify', 'what I mean is'
+  ];
+
+  const text = studentText.toLowerCase();
+  const foundTransitions = [];
+  const foundWords = new Set(); // Avoid duplicates
+
+  for (const transition of transitions) {
+    // Check for exact matches with word boundaries
+    const escapedTransition = transition.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const regex = new RegExp(`\\b${escapedTransition}\\b`, 'gi');
+    const matches = text.match(regex);
+
+    if (matches && !foundWords.has(transition)) {
+      foundWords.add(transition);
+      foundTransitions.push(transition);
+      console.log(`Found transition: "${transition}"`);
+    }
+  }
+
+  console.log(`Backup transition count: ${foundTransitions.length} items found`);
+  return foundTransitions;
+}
+
+/**
+ * Backup grammar structure identification function
+ * Identifies grammar structures used in student text
+ */
+function identifyGrammarStructures(studentText, grammarStructures) {
+  if (!grammarStructures || grammarStructures.length === 0) {
+    return [];
+  }
+
+  const text = studentText.toLowerCase();
+  const foundStructures = [];
+  const foundPatterns = new Set(); // Avoid duplicates
+
+  // Grammar structure patterns and their indicators
+  const grammarPatterns = {
+    'Present Perfect': [
+      /\b(?:have|has)\s+(?:been|gone|done|seen|made|taken|given|written|read|eaten|drunk|spoken|heard|felt|thought|known|found|lost|won|left|met|brought|bought|sold|taught|learned|worked|lived|traveled|played|studied|finished|started|helped|asked|answered|called|visited|watched|listened|looked|walked|run|come|become|got|gotten)\b/gi,
+      /\b(?:have|has)\s+\w+ed\b/gi,
+      /\b(?:have|has)\s+never\b/gi,
+      /\b(?:have|has)\s+already\b/gi,
+      /\b(?:have|has)\s+just\b/gi,
+      /\b(?:have|has)\s+ever\b/gi,
+      /\b(?:have|has)\s+recently\b/gi
+    ],
+    'Past Simple': [
+      /\b(?:yesterday|last\s+\w+|ago)\b/gi,
+      /\b\w+ed\s+(?:yesterday|last|ago)\b/gi,
+      /\bwas\s+born\b/gi,
+      /\bwent\s+to\b/gi,
+      /\bcame\s+(?:home|back)\b/gi,
+      /\bsaw\s+\w+\b/gi,
+      /\bmade\s+\w+\b/gi,
+      /\btook\s+\w+\b/gi,
+      /\bgave\s+\w+\b/gi,
+      /\bwrote\s+\w+\b/gi,
+      /\bread\s+\w+\b/gi,
+      /\bate\s+\w+\b/gi,
+      /\bdrank\s+\w+\b/gi,
+      /\bspoke\s+\w+\b/gi,
+      /\bheard\s+\w+\b/gi,
+      /\bfelt\s+\w+\b/gi,
+      /\bthought\s+\w+\b/gi,
+      /\bknew\s+\w+\b/gi,
+      /\bfound\s+\w+\b/gi,
+      /\blost\s+\w+\b/gi,
+      /\bwon\s+\w+\b/gi,
+      /\bleft\s+\w+\b/gi,
+      /\bmet\s+\w+\b/gi,
+      /\bbrought\s+\w+\b/gi,
+      /\bbought\s+\w+\b/gi,
+      /\bsold\s+\w+\b/gi,
+      /\btaught\s+\w+\b/gi,
+      /\blearned\s+\w+\b/gi,
+      /\bworked\s+\w+\b/gi,
+      /\blived\s+\w+\b/gi,
+      /\btraveled\s+\w+\b/gi,
+      /\bplayed\s+\w+\b/gi,
+      /\bstudied\s+\w+\b/gi,
+      /\bfinished\s+\w+\b/gi,
+      /\bstarted\s+\w+\b/gi,
+      /\bhelped\s+\w+\b/gi,
+      /\basked\s+\w+\b/gi,
+      /\banswered\s+\w+\b/gi,
+      /\bcalled\s+\w+\b/gi,
+      /\bvisited\s+\w+\b/gi,
+      /\bwatched\s+\w+\b/gi,
+      /\blistened\s+\w+\b/gi,
+      /\blooked\s+\w+\b/gi,
+      /\bwalked\s+\w+\b/gi
+    ],
+    'Present Continuous': [
+      /\b(?:am|is|are)\s+\w+ing\b/gi,
+      /\b(?:am|is|are)\s+(?:not\s+)?\w+ing\b/gi,
+      /\bright\s+now\b/gi,
+      /\bat\s+the\s+moment\b/gi,
+      /\bcurrently\b/gi
+    ],
+    'Past Continuous': [
+      /\b(?:was|were)\s+\w+ing\b/gi,
+      /\bwhile\s+(?:was|were)\s+\w+ing\b/gi,
+      /\bwhen\s+(?:was|were)\s+\w+ing\b/gi
+    ],
+    'Future Simple': [
+      /\bwill\s+\w+\b/gi,
+      /\bwon't\s+\w+\b/gi,
+      /\bshall\s+\w+\b/gi,
+      /\btomorrow\b/gi,
+      /\bnext\s+\w+\b/gi,
+      /\bin\s+the\s+future\b/gi,
+      /\bsoon\b/gi
+    ],
+    'Going to Future': [
+      /\b(?:am|is|are)\s+going\s+to\s+\w+\b/gi,
+      /\b(?:am|is|are)\s+gonna\s+\w+\b/gi
+    ],
+    'First Conditional': [
+      /\bif\s+\w+.*will\s+\w+\b/gi,
+      /\bif\s+(?:you|I|we|they|he|she|it)\s+\w+.*will\b/gi,
+      /\bunless\s+\w+.*will\s+\w+\b/gi
+    ],
+    'Second Conditional': [
+      /\bif\s+\w+.*would\s+\w+\b/gi,
+      /\bif\s+(?:I|you|we|they|he|she|it)\s+(?:was|were|had|could|would)\s+.*would\b/gi,
+      /\bif\s+I\s+were\b/gi,
+      /\bif\s+he\s+were\b/gi,
+      /\bif\s+she\s+were\b/gi
+    ],
+    'Third Conditional': [
+      /\bif\s+\w+\s+had\s+\w+.*would\s+have\s+\w+\b/gi,
+      /\bif\s+(?:I|you|we|they|he|she|it)\s+had\s+\w+.*would\s+have\b/gi
+    ],
+    'Passive Voice': [
+      /\b(?:am|is|are|was|were|will\s+be|have\s+been|has\s+been|had\s+been)\s+\w+ed\b/gi,
+      /\b(?:am|is|are|was|were|will\s+be|have\s+been|has\s+been|had\s+been)\s+(?:made|done|seen|given|taken|written|read|eaten|drunk|spoken|heard|felt|thought|known|found|lost|won|left|met|brought|bought|sold|taught|learned|built|broken|chosen|driven|forgotten|gotten|held|kept|paid|run|sent|shown|told|understood|worn)\b/gi
+    ],
+    'Modal Verbs': [
+      /\b(?:can|could|may|might|must|should|would|will|shall|ought\s+to|have\s+to|need\s+to|be\s+able\s+to)\s+\w+\b/gi,
+      /\b(?:can't|couldn't|won't|wouldn't|shouldn't|mustn't|might\s+not|may\s+not)\s+\w+\b/gi
+    ],
+    'Relative Clauses': [
+      /\b\w+\s+(?:who|which|that|whose|where|when)\s+\w+\b/gi,
+      /\bthe\s+\w+\s+(?:who|which|that)\s+\w+\b/gi,
+      /\ba\s+\w+\s+(?:who|which|that)\s+\w+\b/gi
+    ],
+    'Reported Speech': [
+      /\b(?:said|told|asked|explained|mentioned|reported|announced|declared|stated|claimed|insisted|suggested|admitted|denied|promised|warned|advised|ordered|requested|begged|pleaded)\s+(?:that\s+)?\w+\b/gi,
+      /\bhe\s+said\s+(?:that\s+)?\w+\b/gi,
+      /\bshe\s+told\s+me\s+(?:that\s+)?\w+\b/gi
+    ],
+    'Comparative': [
+      /\b\w+er\s+than\b/gi,
+      /\bmore\s+\w+\s+than\b/gi,
+      /\bless\s+\w+\s+than\b/gi,
+      /\bbetter\s+than\b/gi,
+      /\bworse\s+than\b/gi,
+      /\bfaster\s+than\b/gi,
+      /\bslower\s+than\b/gi,
+      /\bbigger\s+than\b/gi,
+      /\bsmaller\s+than\b/gi
+    ],
+    'Superlative': [
+      /\bthe\s+\w+est\b/gi,
+      /\bthe\s+most\s+\w+\b/gi,
+      /\bthe\s+least\s+\w+\b/gi,
+      /\bthe\s+best\b/gi,
+      /\bthe\s+worst\b/gi,
+      /\bthe\s+fastest\b/gi,
+      /\bthe\s+slowest\b/gi,
+      /\bthe\s+biggest\b/gi,
+      /\bthe\s+smallest\b/gi
+    ],
+    'Gerunds': [
+      /\b(?:enjoy|like|love|hate|dislike|prefer|mind|avoid|finish|stop|start|begin|continue|keep|suggest|recommend|practice|consider|imagine|admit|deny|risk|fancy|feel\s+like)\s+\w+ing\b/gi,
+      /\b\w+ing\s+is\s+\w+\b/gi,
+      /\bby\s+\w+ing\b/gi,
+      /\bafter\s+\w+ing\b/gi,
+      /\bbefore\s+\w+ing\b/gi,
+      /\bwithout\s+\w+ing\b/gi
+    ],
+    'Infinitives': [
+      /\bto\s+\w+\b/gi,
+      /\b(?:want|need|plan|hope|expect|promise|decide|agree|refuse|offer|ask|tell|remind|warn|advise|encourage|persuade|force|allow|help|teach|learn)\s+(?:\w+\s+)?to\s+\w+\b/gi,
+      /\bit's\s+\w+\s+to\s+\w+\b/gi,
+      /\bin\s+order\s+to\s+\w+\b/gi
+    ],
+    'Question Tags': [
+      /\b\w+.*,\s+(?:isn't|aren't|wasn't|weren't|doesn't|don't|didn't|won't|wouldn't|can't|couldn't|shouldn't|mustn't)\s+(?:it|he|she|they|you|we)\s*\?/gi,
+      /\b\w+.*,\s+(?:is|are|was|were|does|do|did|will|would|can|could|should|must)\s+(?:it|he|she|they|you|we)\s*\?/gi
+    ]
+  };
+
+  // Check each grammar structure
+  for (const [structureName, patterns] of Object.entries(grammarPatterns)) {
+    // Only check structures that are in the class profile
+    if (!grammarStructures.includes(structureName)) {
+      continue;
+    }
+
+    for (const pattern of patterns) {
+      const matches = text.match(pattern);
+      if (matches && !foundPatterns.has(structureName)) {
+        foundPatterns.add(structureName);
+        foundStructures.push(structureName);
+        console.log(`Found grammar structure: "${structureName}" (matched: "${matches[0]}")`);
+        break; // Only count each structure once
+      }
+    }
+  }
+
+  console.log(`Backup grammar structure identification: ${foundStructures.length} structures found`);
+  return foundStructures;
+}
+
+// Export functions for testing
+export { countVocabularyUsage, identifyClassVocabulary, countTransitionWords, identifyGrammarStructures };
