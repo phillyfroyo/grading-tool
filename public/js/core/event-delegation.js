@@ -6,6 +6,7 @@
 import { createLogger } from './logger.js';
 
 const logger = createLogger('Core:EventDelegation');
+console.log('🔧 Event delegation module loaded');
 
 class EventDelegation {
     constructor() {
@@ -17,11 +18,14 @@ class EventDelegation {
      * Initialize event delegation system
      */
     initialize() {
+        console.log('🚀 Event delegation initialize() called');
         if (this.initialized) {
             logger.warn('Event delegation already initialized');
+            console.log('⚠️ Event delegation already initialized');
             return;
         }
 
+        console.log('🔧 Starting event delegation initialization...');
         logger.info('Initializing event delegation system');
 
         // Set up global click handler for event delegation

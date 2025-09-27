@@ -67,6 +67,25 @@ function displayManualGradingResults(result) {
 
         resultsDiv.style.display = 'block';
 
+        // Add direct event listener for PDF export button as fallback
+        const exportButton = resultsDiv.querySelector('[data-action="export-pdf"]');
+        if (exportButton) {
+            console.log('📝 Adding direct event listener to manual PDF export button');
+            exportButton.addEventListener('click', (event) => {
+                console.log('📝 Manual PDF export button clicked directly!');
+                event.preventDefault();
+                if (window.PDFExportModule && window.PDFExportModule.exportManualToPDF) {
+                    console.log('📝 Calling PDFExportModule.exportManualToPDF');
+                    window.PDFExportModule.exportManualToPDF();
+                } else {
+                    console.error('❌ PDFExportModule.exportManualToPDF not found');
+                    alert('PDF export is not available. Please refresh the page and try again.');
+                }
+            });
+        } else {
+            console.error('❌ Export button not found in manual results');
+        }
+
         // Add event listeners for editable elements
         if (window.GradingDisplayModule && window.GradingDisplayModule.setupEditableElements) {
             console.log('🔄 Using shared editable elements setup');
