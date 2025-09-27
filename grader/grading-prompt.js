@@ -66,15 +66,11 @@ ${errorDetectionResults.inline_issues.map(issue =>
 1. SCORING: Apply rubric bands objectively to determine points
 2. FEEDBACK: Write constructive, helpful comments (see guidelines below)
 
-## FEEDBACK WRITING GUIDELINES:
-- Be accurate but constructive, not harsh or discouraging
-- **Tailor feedback to ${cefrLevel} level expectations and capabilities**
-- Focus on what needs improvement without being overly critical
-- Don't reveal internal grading mechanics (specific word counts, exact error counts, score ranges)
-- When performance is mixed, acknowledge both strengths and weaknesses
-- Provide actionable advice **appropriate for ${cefrLevel} student level**
-- Use 2nd person ("you") not 3rd person ("the student")
-- **Remember: A1 students need different feedback than C1 students**
+## IMPORTANT NOTES:
+- **LEAVE ALL rationale FIELDS BLANK** (empty string "")
+- Category feedback is optional and should be added manually by teachers
+- Only provide overall teacher_notes for general essay feedback
+- Score objectively based on rubric but don't include category-specific comments
 
 ## FEEDBACK LANGUAGE EXAMPLES:
 
@@ -101,13 +97,13 @@ For lower scores, be constructive:
 ## OUTPUT FORMAT:
 {
   "scores": {
-    "grammar": {"points": X, "out_of": 15, "rationale": "Constructive feedback on grammar performance"},
-    "vocabulary": {"points": X, "out_of": 15, "rationale": "Helpful comments on vocabulary usage"},
-    "spelling": {"points": X, "out_of": 10, "rationale": "Constructive spelling feedback"},
-    "mechanics": {"points": X, "out_of": 15, "rationale": "Helpful feedback on punctuation and mechanics"},
-    "fluency": {"points": X, "out_of": 15, "rationale": "Constructive comments on organization and flow"},
-    "layout": {"points": X, "out_of": 15, "rationale": "Helpful feedback on structure and format"},
-    "content": {"points": X, "out_of": 15, "rationale": "Constructive feedback on content and ideas"}
+    "grammar": {"points": X, "out_of": 15, "rationale": ""},
+    "vocabulary": {"points": X, "out_of": 15, "rationale": ""},
+    "spelling": {"points": X, "out_of": 10, "rationale": ""},
+    "mechanics": {"points": X, "out_of": 15, "rationale": ""},
+    "fluency": {"points": X, "out_of": 15, "rationale": ""},
+    "layout": {"points": X, "out_of": 15, "rationale": ""},
+    "content": {"points": X, "out_of": 15, "rationale": ""}
   },
   "total": {"points": X, "out_of": 100},
   "teacher_notes": "Overall constructive feedback that helps the student understand their performance and how to improve.",

@@ -36,8 +36,6 @@ class ModalManager {
         this.registerModal('teacherNotes', {
             element: document.getElementById('teacherNotesModal'),
             handlers: {
-                open: this.openTeacherNotesModal.bind(this),
-                close: this.closeTeacherNotesModal.bind(this),
                 save: this.saveTeacherNotes.bind(this)
             }
         });
@@ -287,6 +285,13 @@ class ModalManager {
             return false;
         }
 
+        // Prevent duplicate saves
+        if (modal.saving) {
+            logger.debug(`Modal ${modalId} already saving, skipping duplicate save`);
+            return false;
+        }
+
+        modal.saving = true;
         logger.info(`Saving modal: ${modalId}`);
 
         // Call custom save handler
@@ -295,6 +300,15 @@ class ModalManager {
         }
 
         eventBus.emit('modal:saved', { modalId });
+
+        // Auto-close modal after saving
+        this.closeModal(modalId);
+
+        // Reset saving flag after a brief delay
+        setTimeout(() => {
+            modal.saving = false;
+        }, 100);
+
         return true;
     }
 
@@ -432,6 +446,17 @@ class ModalManager {
         const modal = this.modals.get('teacherNotes');
         if (!modal) return;
 
+        if (!element || !element.dataset) {
+            console.error('Teacher notes modal: invalid element provided', element);
+            return;
+        }
+
+        // Ensure element has an ID for reference
+        if (!element.id) {
+            element.id = 'teacher-notes-target-' + Date.now();
+            console.log('🆔 Generated ID for element:', element.id);
+        }
+
         const currentText = element.dataset.teacherNotes || '';
         const textArea = document.getElementById('teacherNotesText');
 
@@ -440,7 +465,23 @@ class ModalManager {
         }
 
         modal.element.dataset.targetElement = element.id;
-        this.openModal('teacherNotes', { targetElement: element });
+        console.log('🎯 Set target element ID:', element.id);
+
+        // Store reference for saving
+        modal.data = { targetElement: element };
+
+        // Directly open the modal (not through the modal system to avoid recursion)
+        modal.element.style.display = 'block';
+        this.activeModal = 'teacherNotes';
+
+        // Add backdrop click handler
+        this.setupBackdropClick(modal.element);
+
+        // Make modal draggable
+        this.makeDraggable(modal.element);
+
+        eventBus.emit('modal:opened', { modalId: 'teacherNotes' });
+        console.log('✅ Teacher notes modal opened for element:', element.id);
     }
 
     /**
@@ -459,29 +500,47 @@ class ModalManager {
         const textArea = document.getElementById('teacherNotesText');
         const notesText = textArea?.value || '';
 
+        console.log('💾 Saving teacher notes:', {
+            modal: !!modal,
+            targetElementId,
+            textAreaFound: !!textArea,
+            notesText: notesText,
+            notesLength: notesText.length
+        });
+
         if (targetElementId) {
             const targetElement = document.getElementById(targetElementId);
+            console.log('🎯 Target element found:', !!targetElement, targetElementId);
+
             if (targetElement) {
                 targetElement.dataset.teacherNotes = notesText;
+                console.log('✅ Notes saved to element dataset');
 
                 // Update visual indicator
                 if (notesText.trim()) {
                     targetElement.style.backgroundColor = '#fff3cd';
                     targetElement.title = 'Teacher notes: ' + notesText.substring(0, 100) +
                                          (notesText.length > 100 ? '...' : '');
+                    console.log('🟡 Applied yellow background and title');
                 } else {
                     targetElement.style.backgroundColor = '';
                     targetElement.title = '';
+                    console.log('🔄 Cleared background and title');
                 }
 
                 eventBus.emit('teacher-notes:saved', {
                     element: targetElement,
                     notes: notesText
                 });
+                console.log('📡 Emitted teacher-notes:saved event');
+            } else {
+                console.error('❌ Target element not found:', targetElementId);
             }
+        } else {
+            console.error('❌ No target element ID found');
         }
 
-        this.closeTeacherNotesModal();
+        // Don't auto-close modal - let user decide when to close
     }
 
     /**

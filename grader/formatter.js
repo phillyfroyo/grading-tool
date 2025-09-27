@@ -773,9 +773,10 @@ function generateFeedbackSummary(scores, total, meta, teacherNotes, encouragemen
             </div>
           </div>
           <div style="background: white; padding: 10px; border-radius: 4px; line-height: 1.4;">
-            <textarea class="editable-feedback" 
+            <textarea class="editable-feedback"
                       data-category="${category}"
-                      style="width: 100%; min-height: 80px; border: 1px solid #ddd; border-radius: 3px; padding: 8px; resize: vertical; font-family: inherit; line-height: 1.4;">${escapeHtml(details.rationale || 'No feedback provided')}</textarea>
+                      placeholder="Click to add notes..."
+                      style="width: 100%; min-height: 80px; border: 1px solid #ddd; border-radius: 3px; padding: 8px; resize: vertical; font-family: inherit; line-height: 1.4;">${escapeHtml(details.rationale || '')}</textarea>
           </div>
         </div>`;
     } else {
@@ -795,9 +796,9 @@ function generateFeedbackSummary(scores, total, meta, teacherNotes, encouragemen
               ${details.points}/${details.out_of}
             </span>
           </div>
-          <div style="background: white; padding: 10px; border-radius: 4px; line-height: 1.4;">
-            ${escapeHtml(details.rationale || 'No feedback provided')}
-          </div>
+          ${details.rationale ? `<div style="background: white; padding: 10px; border-radius: 4px; line-height: 1.4;">
+            ${escapeHtml(details.rationale)}
+          </div>` : ''}
         </div>`;
     }
   });

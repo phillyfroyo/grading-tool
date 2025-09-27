@@ -57,7 +57,9 @@ export default defineConfig({
       '/auth': {
         target: 'http://localhost:3001',
         changeOrigin: true,
-        secure: false
+        secure: false,
+        timeout: 5000,
+        proxyTimeout: 5000
       },
       // Proxy profiles routes to the backend server
       '/profiles': {

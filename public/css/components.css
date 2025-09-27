@@ -488,6 +488,12 @@
     font-weight: bold;
 }
 
+/* Support for decimal scores */
+input[type="number"].manual-score-input,
+input[type="number"].editable-score {
+    step: 0.1;
+}
+
 .score-display {
     font-weight: bold;
     color: #6c757d;

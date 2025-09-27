@@ -43,10 +43,10 @@ function editStat(element, statType) {
         element.style.backgroundColor = '#e8f5e8';
 
         // Check if this is a score in format "points/max" and update data structure
-        const scoreMatch = trimmedValue.match(/(\d+)\/(\d+)/);
+        const scoreMatch = trimmedValue.match(/([\d.]+)\/([\d.]+)/);
         if (scoreMatch && element.closest('.category-feedback, .category-item')) {
-            const points = parseInt(scoreMatch[1]);
-            const maxPoints = parseInt(scoreMatch[2]);
+            const points = parseFloat(scoreMatch[1]);
+            const maxPoints = parseFloat(scoreMatch[2]);
             const categoryElement = element.closest('.category-feedback, .category-item');
             const category = categoryElement?.dataset?.category || element.dataset?.category;
 

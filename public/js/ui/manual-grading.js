@@ -74,12 +74,27 @@ function displayManualGradingResults(result) {
             exportButton.addEventListener('click', (event) => {
                 console.log('📝 Manual PDF export button clicked directly!');
                 event.preventDefault();
+
+                // Try multiple ways to access the PDF export function
                 if (window.PDFExportModule && window.PDFExportModule.exportManualToPDF) {
                     console.log('📝 Calling PDFExportModule.exportManualToPDF');
                     window.PDFExportModule.exportManualToPDF();
+                } else if (window.exportManualToPDF) {
+                    console.log('📝 Calling window.exportManualToPDF directly');
+                    window.exportManualToPDF();
                 } else {
-                    console.error('❌ PDFExportModule.exportManualToPDF not found');
-                    alert('PDF export is not available. Please refresh the page and try again.');
+                    console.error('❌ PDF export functions not found');
+                    console.log('Available window properties:', Object.keys(window).filter(k => k.includes('PDF') || k.includes('export')));
+
+                    // Try to load the function dynamically
+                    setTimeout(() => {
+                        if (window.exportManualToPDF) {
+                            console.log('📝 PDF export loaded after delay, retrying...');
+                            window.exportManualToPDF();
+                        } else {
+                            alert('PDF export is not available. Please refresh the page and try again.');
+                        }
+                    }, 100);
                 }
             });
         } else {
@@ -109,6 +124,21 @@ function displayManualGradingResults(result) {
             // Ensure all existing highlights have click handlers for modal reopening
             if (window.HighlightingModule) {
                 window.HighlightingModule.ensureHighlightClickHandlers();
+            }
+
+            // Add listener for teacher notes updates
+            if (window.eventBus) {
+                window.eventBus.on('teacher-notes:saved', (data) => {
+                    const targetElement = data.element;
+                    const notesText = data.notes;
+
+                    // Update the displayed text in the teacher notes content span
+                    const notesContentSpan = targetElement.querySelector('.teacher-notes-content');
+                    if (notesContentSpan) {
+                        notesContentSpan.textContent = notesText || 'Manual grading notes';
+                        console.log('✅ Updated teacher notes display text:', notesText);
+                    }
+                });
             }
         }, 100);
     })
@@ -176,8 +206,8 @@ function displayManualGradingResultsBasic(result) {
                 ${result.totalScore}/${result.totalMax} (${result.percentage}%)
             </div>
 
-            <div class="teacher-notes" style="background: #e8f5e8; padding: 15px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #4CAF50;">
-                <strong>📝 Teacher Notes:</strong> ${result.overallFeedback || 'No notes provided'}
+            <div class="teacher-notes editable-section" style="background: #e8f5e8; padding: 15px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #4CAF50; cursor: pointer; border: 2px solid transparent;" onclick="editTeacherNotes(this)" title="Click to edit teacher notes">
+                <strong>📝 Teacher Notes:</strong> <span class="teacher-notes-content">${result.overallFeedback || 'Manual grading notes'}</span> <span class="edit-indicator">✎</span>
             </div>
 
             <div class="category-breakdown">

@@ -34,7 +34,8 @@
       "Bash(netstat:*)",
       "Bash(findstr:*)",
       "Bash(wmic process where processid=9752 delete:*)",
-      "Bash(kill:*)"
+      "Bash(kill:*)",
+      "Bash(wmic process where processid=19892 delete:*)"
     ],
     "deny": [],
     "ask": []

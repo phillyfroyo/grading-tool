@@ -77,13 +77,21 @@ export async function gradeEssay(studentText, prompt, classProfileId) {
   
   // STEP 3: COMBINE RESULTS
   console.log('\n=== STEP 3: COMBINING RESULTS ===');
+
+  // Backup vocabulary counting if AI didn't provide accurate count
+  const aiVocabCount = errorDetectionResults.vocabulary_count || 0;
+  const backupVocabCount = countVocabularyUsage(studentText, classProfile.vocabulary);
+  const finalVocabCount = Math.max(aiVocabCount, backupVocabCount);
+
+  console.log(`Vocabulary counting: AI=${aiVocabCount}, Backup=${backupVocabCount}, Final=${finalVocabCount}`);
+
   const finalResults = {
     ...gradingResults,
     inline_issues: errorDetectionResults.inline_issues,
     corrected_text_minimal: errorDetectionResults.corrected_text_minimal,
     meta: {
       word_count: studentText.split(/\s+/).filter(word => word.length > 0).length,
-      vocabulary_count: errorDetectionResults.vocabulary_count || 0,
+      vocabulary_count: finalVocabCount,
       grammar_structures_used: errorDetectionResults.grammar_structures_used || []
     }
   };
@@ -732,9 +740,88 @@ function patchVocabularyUsage(text, issues) {
   }
   
   if (newIssues.length > 0) {
-    console.log(`📚 Added ${newIssues.length} vocabulary usage/collocation errors:`, 
+    console.log(`📚 Added ${newIssues.length} vocabulary usage/collocation errors:`,
       newIssues.map(i => `"${i.text}" → "${i.correction}"`));
   }
-  
+
   return [...issues, ...newIssues];
+}
+
+/**
+ * Backup vocabulary counting function
+ * Counts vocabulary usage from class profile against student text
+ */
+function countVocabularyUsage(studentText, vocabulary) {
+  if (!vocabulary || vocabulary.length === 0) {
+    return 0;
+  }
+
+  const text = studentText.toLowerCase();
+  let count = 0;
+  const foundWords = new Set(); // Avoid double counting
+
+  // Define prefixes and suffixes to check
+  const prefixes = ['un-', 're-', 'in-', 'im-', 'il-', 'ir-', 'dis-', 'pre-', 'mis-', 'non-', 'inter-', 'sub-', 'super-', 'anti-'];
+  const suffixes = ['-able', '-ible', '-ive', '-ness', '-ment', '-tion', '-sion', '-ity', '-ence', '-ship'];
+
+  for (const vocabItem of vocabulary) {
+    const item = vocabItem.toLowerCase().trim();
+
+    // Skip metadata entries
+    if (item.includes('prefix') || item.includes('suffix') || item.includes('(any word')) {
+      continue;
+    }
+
+    // Check for exact word/phrase matches
+    if (item.includes(' ')) {
+      // Multi-word phrases
+      if (text.includes(item) && !foundWords.has(item)) {
+        foundWords.add(item);
+        count++;
+        console.log(`Found vocabulary phrase: "${item}"`);
+      }
+    } else {
+      // Single words - check for word boundaries
+      const wordRegex = new RegExp(`\\b${item.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`, 'gi');
+      if (wordRegex.test(text) && !foundWords.has(item)) {
+        foundWords.add(item);
+        count++;
+        console.log(`Found vocabulary word: "${item}"`);
+      }
+    }
+  }
+
+  // Check for prefix usage
+  const words = text.split(/\s+/);
+  for (const word of words) {
+    for (const prefix of prefixes) {
+      const cleanPrefix = prefix.replace('-', '').replace('/', '');
+      if (word.startsWith(cleanPrefix) && word.length > cleanPrefix.length + 2) {
+        const key = `prefix:${cleanPrefix}:${word}`;
+        if (!foundWords.has(key)) {
+          foundWords.add(key);
+          count++;
+          console.log(`Found prefix usage: "${word}" (prefix: ${prefix})`);
+        }
+        break; // Only count one prefix per word
+      }
+    }
+
+    // Check for suffix usage
+    for (const suffix of suffixes) {
+      const cleanSuffix = suffix.replace('-', '');
+      if (word.endsWith(cleanSuffix) && word.length > cleanSuffix.length + 2) {
+        const key = `suffix:${cleanSuffix}:${word}`;
+        if (!foundWords.has(key)) {
+          foundWords.add(key);
+          count++;
+          console.log(`Found suffix usage: "${word}" (suffix: ${suffix})`);
+        }
+        break; // Only count one suffix per word
+      }
+    }
+  }
+
+  console.log(`Backup vocabulary count: ${count} items found`);
+  return count;
 }

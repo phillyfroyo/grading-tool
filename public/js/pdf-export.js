@@ -90,18 +90,33 @@ function openPrintDialog(resultsDiv, studentName) {
         <html>
         <head>
             <meta charset="utf-8">
-            <title>Essay Grading Report - ${studentName}</title>
+            <title></title>
             <style>
                 /* Force background colors for printing */
                 * {
                     -webkit-print-color-adjust: exact !important;
-                    color-adjust: exact !important;
                     print-color-adjust: exact !important;
                 }
                 @media print {
                     @page {
-                        margin: 1in 0.5in;
+                        margin: 0.5in;
                         size: letter;
+                        /* Force removal of all headers and footers */
+                        @top-left { content: ""; }
+                        @top-center { content: ""; }
+                        @top-right { content: ""; }
+                        @bottom-left { content: ""; }
+                        @bottom-center { content: ""; }
+                        @bottom-right { content: ""; }
+                        @top-left-corner { content: ""; }
+                        @top-right-corner { content: ""; }
+                        @bottom-left-corner { content: ""; }
+                        @bottom-right-corner { content: ""; }
+                    }
+                    /* Hide any browser-generated content */
+                    * {
+                        -webkit-print-color-adjust: exact !important;
+                        print-color-adjust: exact !important;
                     }
                     body {
                         margin: 0;
@@ -111,7 +126,13 @@ function openPrintDialog(resultsDiv, studentName) {
                     /* Force highlight backgrounds to print */
                     mark {
                         -webkit-print-color-adjust: exact !important;
-                        color-adjust: exact !important;
+                        print-color-adjust: exact !important;
+                    }
+                    /* Ensure yellow category headers print with background */
+                    .category-header-yellow {
+                        background: #FFFF99 !important;
+                        background-color: #FFFF99 !important;
+                        -webkit-print-color-adjust: exact !important;
                         print-color-adjust: exact !important;
                     }
                 }
@@ -250,13 +271,26 @@ function openPrintDialog(resultsDiv, studentName) {
                     border: none !important;
                     color: black !important;
                 }
+
+                /* OVERRIDE RULE ABOVE - Force yellow background on category headers - MUST BE AFTER */
+                .category-header-yellow,
+                p.category-header-yellow,
+                .category-score-yellow,
+                *[style].category-header-yellow {
+                    background: #FFFF99 !important;
+                    background-color: #FFFF99 !important;
+                    -webkit-print-color-adjust: exact !important;
+                    print-color-adjust: exact !important;
+                    font-weight: bold !important;
+                    padding: 2px 4px !important;
+                }
                 /* Only allow specific margins for plain categories */
                 .plain-category {
                     margin: 8px 0 !important;
                     background: transparent !important;
                     border: none !important;
                 }
-                .plain-category p {
+                .plain-category p:not(.category-header-yellow) {
                     margin: 5px 0 !important;
                     background: transparent !important;
                     border: none !important;
@@ -467,6 +501,13 @@ function openPrintDialog(resultsDiv, studentName) {
                     text-decoration: line-through !important;
                     padding: 0 !important;
                 }
+                /* Legend labels with colors */
+                .legend-grammar { color: #FF8C00 !important; font-weight: bold !important; }
+                .legend-vocabulary { color: #00A36C !important; font-weight: bold !important; }
+                .legend-spelling { color: #DC143C !important; font-weight: bold !important; }
+                .legend-mechanics { background: #D3D3D3 !important; color: #000000 !important; padding: 2px 4px !important; }
+                .legend-fluency { background: #87CEEB !important; color: #000000 !important; padding: 2px 4px !important; }
+                .legend-delete { text-decoration: line-through !important; color: #000000 !important; }
                 /* Fallback for any mark elements */
                 mark {
                     background: transparent !important;
@@ -564,6 +605,19 @@ function openPrintDialog(resultsDiv, studentName) {
                 *:contains("Grammar Structures:") {
                     display: none !important;
                 }
+
+                /* YELLOW HIGHLIGHTING FOR CATEGORY HEADERS - MUST BE LAST WITH HIGHEST SPECIFICITY */
+                .category-header-yellow,
+                p.category-header-yellow,
+                *[style].category-header-yellow,
+                .plain-category p.category-header-yellow {
+                    background: #FFFF99 !important;
+                    background-color: #FFFF99 !important;
+                    -webkit-print-color-adjust: exact !important;
+                    print-color-adjust: exact !important;
+                    font-weight: bold !important;
+                    padding: 2px 4px !important;
+                }
             </style>
         </head>
         <body>
@@ -628,17 +682,27 @@ function createPrintIframe(resultsDiv, studentName) {
         <html>
         <head>
             <meta charset="utf-8">
-            <title>Essay Grading Report - ${studentName}</title>
+            <title>Essay Grading Report</title>
             <style>
                 /* Force background colors for printing */
                 * {
                     -webkit-print-color-adjust: exact !important;
-                    color-adjust: exact !important;
                     print-color-adjust: exact !important;
                 }
                 @page {
-                    margin: 1in 0.5in;
+                    margin: 0.5in;
                     size: letter;
+                    /* Force removal of all headers and footers */
+                    @top-left { content: ""; }
+                    @top-center { content: ""; }
+                    @top-right { content: ""; }
+                    @bottom-left { content: ""; }
+                    @bottom-center { content: ""; }
+                    @bottom-right { content: ""; }
+                    @top-left-corner { content: ""; }
+                    @top-right-corner { content: ""; }
+                    @bottom-left-corner { content: ""; }
+                    @bottom-right-corner { content: ""; }
                 }
                 body {
                     margin: 0;
@@ -690,6 +754,38 @@ function createPrintIframe(resultsDiv, studentName) {
  */
 function processHighlightsForPDF(content) {
     const highlights = content.querySelectorAll('mark[data-category], mark[data-type]');
+    console.log('🔍 Looking for highlights with mark[data-category], mark[data-type]:', highlights.length);
+
+    // Debug: Check what mark elements exist
+    const allMarks = content.querySelectorAll('mark');
+    console.log('🔍 Found total mark elements:', allMarks.length);
+
+    // Also check for span elements with highlighting classes
+    const highlightSpans = content.querySelectorAll('span[data-category], span.highlight, span[class*="highlight"]');
+    console.log('🔍 Found span highlights:', highlightSpans.length);
+    if (highlightSpans.length > 0) {
+        highlightSpans.forEach((span, index) => {
+            console.log(`📝 Highlight span ${index}:`, {
+                attributes: Array.from(span.attributes).map(attr => `${attr.name}="${attr.value}"`),
+                text: span.textContent.substring(0, 50),
+                classes: span.className
+            });
+        });
+    }
+    if (allMarks.length > 0) {
+        allMarks.forEach((mark, index) => {
+            console.log(`🏷️ Mark ${index}:`, {
+                attributes: Array.from(mark.attributes).map(attr => `${attr.name}="${attr.value}"`),
+                text: mark.textContent.substring(0, 50),
+                classes: mark.className,
+                hasDataCategory: !!mark.dataset.category,
+                hasDataType: !!mark.dataset.type,
+                dataCategory: mark.dataset.category,
+                dataType: mark.dataset.type
+            });
+        });
+    }
+
     const highlightsData = [];
     let highlightNumber = 1;
 
@@ -810,15 +906,23 @@ function createHighlightsLegend(highlightsData) {
  * @param {HTMLElement} content - Content element to enhance
  * @returns {string} Enhanced HTML content
  */
-function enhanceContentForPDF(content) {
+function enhanceContentForPDF(content, studentName) {
     // Create a working copy in DOM for safer manipulation
     const tempDiv = document.createElement('div');
     tempDiv.innerHTML = content.innerHTML;
 
+    // Remove "Grading Results for [student name]" heading
+    const resultsHeading = tempDiv.querySelector('h2');
+    if (resultsHeading && resultsHeading.textContent.includes('Grading Results for')) {
+        resultsHeading.remove();
+    }
+
     // Extract and process teacher notes
     let teacherNotesSection = '';
     const teacherNotesElement = tempDiv.querySelector('.teacher-notes');
+    console.log('🔍 Looking for teacher notes element:', !!teacherNotesElement);
     if (teacherNotesElement) {
+        console.log('📝 Found teacher notes element:', teacherNotesElement.innerHTML);
         // Remove pencil icons and edit indicators
         teacherNotesElement.querySelectorAll('.edit-indicator').forEach(el => el.remove());
         teacherNotesElement.querySelectorAll('span').forEach(el => {
@@ -828,11 +932,13 @@ function enhanceContentForPDF(content) {
         });
 
         const notesText = teacherNotesElement.textContent?.replace(/📝\s*Teacher Notes:\s*/i, '').replace(/✎/g, '').trim();
+        console.log('📝 Extracted teacher notes text:', `"${notesText}"`);
 
-        if (notesText && notesText !== 'No notes provided') {
+        if (notesText && notesText !== 'No notes provided' && notesText !== 'Manual grading notes') {
+            console.log('✅ Teacher notes passed validation, creating section');
             teacherNotesSection = `
                 <div class="teacher-notes-section" style="margin: 10px 0 !important; padding: 0 !important; background: transparent !important; border: none !important;">
-                    <p style="margin: 10px 0 !important; padding: 0 !important; line-height: 1.6 !important; color: black !important; font-weight: normal !important; background: transparent !important; border: none !important;"><span style="font-weight: normal !important;">Overall Notes:</span> ${notesText}</p>
+                    <p style="margin: 10px 0 !important; padding: 0 !important; line-height: 1.6 !important; color: black !important; font-weight: normal !important; background: transparent !important; border: none !important;"><span style="font-weight: normal !important;">${studentName} -</span> ${notesText}</p>
                 </div>
             `;
             // Remove the original teacher notes to prevent duplication
@@ -843,14 +949,15 @@ function enhanceContentForPDF(content) {
     // Simplify overall score to plain text with Grade: prefix and no color
     const overallScoreElement = tempDiv.querySelector('.overall-score');
     if (overallScoreElement) {
-        const scoreMatch = overallScoreElement.textContent.match(/(\d+\/\d+)/);
+        const scoreMatch = overallScoreElement.textContent.match(/([\d.]+)\/([\d.]+)/);
         if (scoreMatch) {
             const parts = scoreMatch[0].split('/');
-            const score = parseInt(parts[0]);
-            const total = parseInt(parts[1]);
+            const score = parseFloat(parts[0]);
+            const total = parseFloat(parts[1]);
 
             // Replace with extra large plain text, no percentage, no color
             overallScoreElement.innerHTML = `<p style="margin: 15px 0; font-weight: normal; color: black; font-size: 40px;">Grade: ${score}/${total}</p>`;
+
             // Remove all styling classes and inline styles
             overallScoreElement.className = '';
             overallScoreElement.removeAttribute('style');
@@ -864,6 +971,11 @@ function enhanceContentForPDF(content) {
             heading.remove();
         }
     });
+
+    // Remove category selector bars (interactive elements not needed in PDF)
+    tempDiv.querySelectorAll('#categoryBar, [id^="categoryBar-"]').forEach(el => el.remove());
+    tempDiv.querySelectorAll('.category-btn, #clearSelectionBtn, [id^="clearSelectionBtn-"]').forEach(el => el.remove());
+    tempDiv.querySelectorAll('#selectionStatus, [id^="selectionStatus-"]').forEach(el => el.remove());
 
     // Remove ALL formatting from score sections and category breakdowns
     // First, remove score-box and inner-box elements completely
@@ -884,88 +996,213 @@ function enhanceContentForPDF(content) {
     });
 
     // Convert score sections to plain text format
-    const scoreSections = tempDiv.querySelectorAll('.score-section, .category, [class*="score"]');
-    scoreSections.forEach(section => {
+    const scoreSections = tempDiv.querySelectorAll('.score-section, .category, .category-feedback, [class*="score"]');
+    console.log(`Found ${scoreSections.length} score sections to process`);
+    scoreSections.forEach((section, index) => {
+        console.log(`Processing section ${index}:`, section.className, section.innerHTML.substring(0, 200) + '...');
         // Extract category name from h3/h4/strong elements
         const categoryNameEl = section.querySelector('h3, h4, strong');
         let categoryName = categoryNameEl ? categoryNameEl.textContent.trim() : '';
 
-        // Clean up category name (remove colons, etc)
-        categoryName = categoryName.replace(/[:]/g, '').trim();
+        // If no category name found in h3/h4/strong, check for other patterns
+        if (!categoryName) {
+            // Try to find category name from the section content
+            const textContent = section.textContent;
+            // Common category names
+            const categories = ['Grammar', 'Vocabulary', 'Spelling', 'Mechanics', 'Fluency', 'Layout', 'Content'];
+            for (const cat of categories) {
+                if (textContent.includes(cat)) {
+                    categoryName = cat;
+                    break;
+                }
+            }
+        }
 
-        // Extract score - look for patterns like [13] /15 or 13/15 or broken patterns
-        let scoreText = '';
+        // Clean up category name (remove colons, etc)
+        categoryName = categoryName.replace(/[:]/g, '').replace(/&.*$/, '').trim();
+
+        // Normalize text for pattern matching
         const allText = section.textContent.replace(/\s+/g, ' ').trim();
 
-        // Try multiple patterns to catch broken formatting
+        // Define score patterns (support decimals)
         const scorePatterns = [
-            /\[(\d+)\]\s*\/\s*(\d+)/,     // [13] /15
-            /(\d+)\s*\/\s*(\d+)/,         // 13/15 or 13 /15
-            /(\d+)\s+(\d+)/,              // 13 15 (separated numbers)
-            /\[(\d+)\]\s+(\d+)/,          // [13] 15
+            /\[([\d.]+)\]\s*\/\s*([\d.]+)/,     // [13.5] /15
+            /([\d.]+)\s*\/\s*([\d.]+)/,         // 13.5/15 or 13.5 /15
+            /([\d.]+)\s+([\d.]+)/,              // 13.5 15 (separated numbers)
+            /\[([\d.]+)\]\s+([\d.]+)/,          // [13.5] 15
         ];
 
-        for (const pattern of scorePatterns) {
-            const match = allText.match(pattern);
-            if (match) {
-                scoreText = `${match[1]}/${match[2]}`;
-                break;
+        // Extract score - prioritize manual grading inputs by ID, then other input types
+        let scoreText = '';
+
+        // First check for manual grading inputs by specific ID
+        const categoryMap = {
+            'Grammar': 'grammar',
+            'Vocabulary': 'vocabulary',
+            'Spelling': 'spelling',
+            'Mechanics': 'mechanics',
+            'Mechanics & Punctuation': 'mechanics',
+            'Fluency': 'fluency',
+            'Layout': 'layout',
+            'Layout & Follow Specs': 'layout',
+            'Content': 'content',
+            'Content & Information': 'content'
+        };
+        const categoryId = categoryMap[categoryName] || categoryName.toLowerCase();
+        const manualScoreInput = document.getElementById(`score-${categoryId}`);
+
+        // Then check for other input elements in this section
+        const scoreInput = section.querySelector('input.editable-score, input[type="number"]');
+        const editableStatScore = section.querySelector('.editable-stat-score');
+
+        if (manualScoreInput) {
+            const score = manualScoreInput.value || '0';
+            const max = manualScoreInput.getAttribute('max') || manualScoreInput.dataset.max || '15';
+            scoreText = `${score}/${max}`;
+            console.log(`Found manualScoreInput for ${categoryName}: ${scoreText}`);
+        } else if (scoreInput) {
+            const score = scoreInput.value || '0';
+            const max = scoreInput.getAttribute('max') || scoreInput.dataset.max || '15';
+            scoreText = `${score}/${max}`;
+            console.log(`Found scoreInput for ${categoryName}: ${scoreText}`);
+        } else if (editableStatScore) {
+            // Extract score from editable stat score element (GPT grading with manual edits)
+            scoreText = editableStatScore.textContent.trim();
+            console.log(`Found editableStatScore for ${categoryName}: ${scoreText}`);
+        } else {
+            // Try multiple patterns to catch broken formatting
+            for (const pattern of scorePatterns) {
+                const match = allText.match(pattern);
+                if (match) {
+                    scoreText = `${match[1]}/${match[2]}`;
+                    break;
+                }
+            }
+
+            // If still no match, try to find separate numbers (including decimals)
+            if (!scoreText) {
+                const numbers = allText.match(/[\d.]+/g);
+                if (numbers && numbers.length >= 2) {
+                    // Usually first number is score, second is total
+                    scoreText = `${numbers[0]}/${numbers[1]}`;
+                }
             }
         }
 
-        // If still no match, try to find separate numbers
-        if (!scoreText) {
-            const numbers = allText.match(/\d+/g);
-            if (numbers && numbers.length >= 2) {
-                // Usually first number is score, second is total
-                scoreText = `${numbers[0]}/${numbers[1]}`;
-            }
-        }
-
-        // Extract comments/feedback - look for actual comment text
+        // Extract comments/feedback - first check for textarea elements (manual grading)
         let comments = '';
-        const allText = section.textContent;
+        const feedbackTextarea = section.querySelector('textarea.editable-feedback, textarea');
+        console.log(`  Looking for textarea in section for ${categoryName}:`, !!feedbackTextarea);
+        if (feedbackTextarea) {
+            // Try to get the current value from the original DOM element (not the cloned one)
+            const category = feedbackTextarea.dataset.category || categoryName.toLowerCase();
+            const originalTextarea = document.querySelector(`textarea[data-category="${category}"], textarea.editable-feedback[data-category="${category}"]`);
 
-        // Try to find comments after the score
-        const scoreIndex = allText.search(scorePattern);
-        if (scoreIndex !== -1) {
-            // Get text after the score
-            const afterScore = allText.substring(scoreIndex + scoreMatch[0].length).trim();
+            let textareaValue = '';
+            if (originalTextarea) {
+                textareaValue = originalTextarea.value || originalTextarea.textContent || '';
+                console.log(`  Found original textarea for ${category}, value: "${originalTextarea.value}"`);
+            } else {
+                textareaValue = feedbackTextarea.value || feedbackTextarea.textContent || feedbackTextarea.innerHTML || '';
+                console.log(`  Using cloned textarea, value: "${feedbackTextarea.value}"`);
+            }
 
-            // Clean up the comments
-            const cleanedComments = afterScore
-                .replace(/✎/g, '')
-                .replace(/Click to edit/gi, '')
-                .replace(/Next Steps.*$/i, '')
-                .replace(/^Comments?:\s*/i, '')
-                .trim();
+            console.log(`  Textarea found, value: "${feedbackTextarea.value}"`);
+            console.log(`  Textarea textContent: "${feedbackTextarea.textContent}"`);
+            console.log(`  Textarea innerHTML: "${feedbackTextarea.innerHTML}"`);
+            console.log(`  Final textareaValue: "${textareaValue}"`);
+            console.log(`  Textarea classes:`, feedbackTextarea.className);
 
-            if (cleanedComments && cleanedComments.length > 0 &&
-                !cleanedComments.match(/^\d+\s*\/\s*\d+/)) {
-                comments = cleanedComments;
+            if (textareaValue && textareaValue.trim()) {
+                const cleanValue = textareaValue.trim();
+                // Don't filter out manual textarea content - use it as-is
+                if (cleanValue.length > 0 &&
+                    !cleanValue.match(/^Click to add notes/i) &&
+                    !cleanValue.match(/^No feedback provided/i)) {
+                    comments = cleanValue;
+                    console.log(`  Using textarea content as comments: "${comments}"`);
+                } else {
+                    console.log(`  Textarea content filtered out: "${cleanValue}"`);
+                }
+            } else {
+                console.log(`  Textarea is empty or whitespace only`);
+            }
+        } else {
+            // Try to find comments after the score
+            // Use the first successful pattern match from above
+            let scoreMatch = null;
+            for (const pattern of scorePatterns) {
+                scoreMatch = allText.match(pattern);
+                if (scoreMatch) break;
+            }
+
+            if (scoreMatch) {
+                const scoreIndex = allText.indexOf(scoreMatch[0]);
+                // Get text after the score
+                const afterScore = allText.substring(scoreIndex + scoreMatch[0].length).trim();
+
+                // Clean up the comments
+                const cleanedComments = afterScore
+                    .replace(/✎/g, '')
+                    .replace(/Click to edit/gi, '')
+                    .replace(/Click to add notes/gi, '')
+                    .replace(/Next Steps.*$/i, '')
+                    .replace(/^Comments?:\s*/i, '')
+                    .replace(/^Notes?:\s*/i, '')
+                    .replace(/No feedback provided/gi, '')
+                    .replace(/\.\.\./g, '')
+                    .trim();
+
+                if (cleanedComments && cleanedComments.length > 0 &&
+                    !cleanedComments.match(/^\d+\s*\/\s*\d+/) &&
+                    !cleanedComments.match(/^Click/i)) {
+                    comments = cleanedComments;
+                }
             }
         }
 
         // Replace the entire section with plain text format
         if (categoryName && scoreText) {
-            const plainTextHTML = `
+            // Debug logging
+            console.log(`Processing category: ${categoryName}, Score: ${scoreText}, Comments: "${comments}"`);
+            console.log('🟡 Creating category element with yellow highlighting');
+
+            // Include notes inline with category header if there are comments
+            const notesInline = (comments && comments.length > 0) ? ` (${comments})` : '';
+
+            let plainTextHTML = `
                 <div class="plain-category" style="margin: 8px 0 !important; padding: 0 !important; background: transparent !important; border: none !important;">
-                    <p style="margin: 5px 0 !important; padding: 0 !important; font-weight: normal !important; color: black !important; background: transparent !important; border: none !important;">${categoryName}: ${scoreText}</p>
-                    <p style="margin: 5px 0 10px 20px !important; padding: 0 !important; font-weight: normal !important; color: black !important; background: transparent !important; border: none !important;">Notes: ${comments || 'No feedback provided'}</p>
+                    <p class="category-header-yellow" style="margin: 5px 0 !important; padding: 2px 4px !important; font-weight: bold !important; color: black !important; background: #FFFF99 !important; background-color: #FFFF99 !important; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; border: none !important;">${categoryName}: ${scoreText}${notesInline}</p>`;
+
+            if (comments && comments.length > 0) {
+                console.log(`Added inline notes for ${categoryName}: ${comments}`);
+            } else {
+                console.log(`No notes found for ${categoryName}`);
+            }
+
+            plainTextHTML += `
                 </div>
             `;
             // Completely replace the section
             const newDiv = document.createElement('div');
             newDiv.innerHTML = plainTextHTML;
-            const newElement = newDiv.firstChild;
+            const newElement = newDiv.firstElementChild; // Use firstElementChild instead of firstChild
 
-            // Strip ALL style attributes from the new element and its children
-            if (newElement) {
+            // Strip style attributes but PRESERVE yellow highlighting
+            if (newElement && newElement.nodeType === 1) { // Check if it's an element node
                 newElement.removeAttribute('style');
-                newElement.removeAttribute('class');
+                // Keep plain-category class for later processing
+
                 newElement.querySelectorAll('*').forEach(child => {
-                    child.removeAttribute('style');
-                    child.removeAttribute('class');
+                    if (child.nodeType === 1) { // Only process element nodes
+                        // DON'T remove styles/classes from category-header-yellow elements
+                        if (!child.classList.contains('category-header-yellow')) {
+                            child.removeAttribute('style');
+                            child.removeAttribute('class');
+                        } else {
+                            console.log('🟡 Preserving yellow highlighting for:', child.textContent.substring(0, 50));
+                        }
+                    }
                 });
                 section.parentNode.replaceChild(newElement, section);
             }
@@ -1038,47 +1275,127 @@ function enhanceContentForPDF(content) {
         }
     });
 
-    // Add Category Breakdown header if we have score sections
+    // Add Category Breakdown header if we have score sections and no existing header
     const firstScoreSection = tempDiv.querySelector('.score-section, div[style*="margin: 8px 0"], .plain-category');
-    if (firstScoreSection && firstScoreSection.textContent.includes('/')) {
+    const existingCategoryHeader = tempDiv.querySelector('h3, h2, h4');
+    let hasCategoryBreakdownHeader = false;
+
+    if (existingCategoryHeader) {
+        const allHeaders = tempDiv.querySelectorAll('h1, h2, h3, h4, h5, h6');
+        allHeaders.forEach(header => {
+            if (header.textContent.includes('Category Breakdown')) {
+                hasCategoryBreakdownHeader = true;
+            }
+        });
+    }
+
+    if (firstScoreSection && firstScoreSection.textContent.includes('/') && !hasCategoryBreakdownHeader) {
         const categoryHeader = document.createElement('div');
         categoryHeader.innerHTML = '<p style="margin: 15px 0 10px 0; font-weight: normal; font-size: 14px; color: black;">Category Breakdown:</p>';
         firstScoreSection.parentNode.insertBefore(categoryHeader, firstScoreSection);
     }
 
-    // FINAL PASS: Remove ALL style attributes and classes from everything (except our Grade and Category Breakdown header)
+    // Add teacher notes after Grade but before Category Breakdown
+    if (teacherNotesSection) {
+        console.log('✅ Adding teacher notes after Grade, before Category Breakdown');
+        const teacherNotesDiv = document.createElement('div');
+        teacherNotesDiv.innerHTML = teacherNotesSection;
+
+        // Find the Grade element and Category Breakdown header or first score section
+        const gradeElement = tempDiv.querySelector('.overall-score') ||
+            Array.from(tempDiv.querySelectorAll('div, p')).find(el =>
+                el.textContent.includes('Grade:') || el.style.fontSize === '2em');
+        const categoryBreakdownHeader = Array.from(tempDiv.querySelectorAll('h1, h2, h3, h4, h5, h6, p')).find(el =>
+                el.textContent.includes('Category Breakdown'));
+        const firstScoreSection = tempDiv.querySelector('.score-section, div[style*="margin: 8px 0"], .plain-category');
+
+        if (gradeElement && (categoryBreakdownHeader || firstScoreSection)) {
+            // Insert after grade but before category breakdown
+            const insertTarget = categoryBreakdownHeader || firstScoreSection;
+            insertTarget.parentNode.insertBefore(teacherNotesDiv, insertTarget);
+        } else if (gradeElement) {
+            // If no category breakdown found, insert after grade
+            gradeElement.parentNode.insertBefore(teacherNotesDiv, gradeElement.nextSibling);
+        } else {
+            // Fallback: insert at the top
+            tempDiv.insertBefore(teacherNotesDiv, tempDiv.firstChild);
+        }
+    }
+
+    // FINAL PASS: Selectively remove style attributes (preserve essay and highlight styling)
     tempDiv.querySelectorAll('*').forEach(element => {
-        // Skip our special elements
+        // Skip our special elements that need styling preserved
         if (element.textContent && (
             element.textContent.includes('Grade:') ||
             element.textContent.includes('Category Breakdown:') ||
-            element.textContent.includes('Overall Notes:')
+            element.textContent.includes('Overall Notes:') ||
+            element.textContent.includes('Color-Coded Essay') ||
+            element.textContent.includes('Color-coded Essay') ||
+            element.textContent.includes('Highlight Meanings:')
         )) {
             return;
         }
 
-        // Remove all styling attributes from other elements
-        element.removeAttribute('style');
-        element.removeAttribute('class');
-        element.removeAttribute('id');
-
-        // If it's a div or span with background/border styles, clear them
-        if (element.tagName === 'DIV' || element.tagName === 'SPAN') {
-            element.style.cssText = 'background: transparent !important; border: none !important; color: black !important;';
+        // Preserve styling for essay content, highlights, and legend
+        if (element.classList.contains('formatted-essay-content') ||
+            element.classList.contains('essay-content') ||
+            element.classList.contains('essay-display') ||
+            element.tagName === 'MARK' ||
+            element.dataset.category ||
+            element.classList.contains('highlights-legend') ||
+            element.classList.contains('highlight-entry') ||
+            element.classList.contains('color-legend') ||
+            element.className?.includes('legend-') ||
+            element.closest('.color-legend')) {
+            return; // Keep styling for these elements
         }
+
+        // Check if this is a legend item by its parent
+        const parent = element.parentElement;
+        if (parent && (parent.classList.contains('color-legend') ||
+            parent.textContent?.includes('Highlight Meanings:'))) {
+            return; // Preserve legend item styling
+        }
+
+        // For category score sections, only remove excessive styling
+        if (element.classList.contains('plain-category') ||
+            element.closest('.plain-category')) {
+            // Remove style but preserve yellow highlighting class
+            if (!element.classList.contains('category-header-yellow')) {
+                element.removeAttribute('style');
+                element.removeAttribute('class');
+                element.removeAttribute('id');
+            } else {
+                // Keep the yellow class AND yellow background styles for proper highlighting
+                element.style.border = '';
+                element.removeAttribute('id');
+                // Ensure yellow background is preserved and strengthened
+                element.style.backgroundColor = '#FFFF99';
+                element.style.background = '#FFFF99';
+                element.style.setProperty('-webkit-print-color-adjust', 'exact', 'important');
+                element.style.setProperty('print-color-adjust', 'exact', 'important');
+                console.log('🟡 Applied strong yellow highlighting to:', element.textContent.substring(0, 50));
+            }
+        }
+    });
+
+    // Final pass: Ensure all category headers have correct yellow highlighting
+    const yellowHeaders = tempDiv.querySelectorAll('.category-header-yellow');
+    console.log('🔍 Found .category-header-yellow elements for final pass:', yellowHeaders.length);
+
+    yellowHeaders.forEach(header => {
+        // Force yellow background with maximum strength
+        header.style.setProperty('background-color', '#FFFF99', 'important');
+        header.style.setProperty('background', '#FFFF99', 'important');
+        header.style.setProperty('-webkit-print-color-adjust', 'exact', 'important');
+        header.style.setProperty('print-color-adjust', 'exact', 'important');
+        console.log('🟡 Final pass: Applied yellow highlighting to:', header.textContent.substring(0, 50));
     });
 
     // Get the cleaned HTML
     let htmlContent = tempDiv.innerHTML;
 
-    // Insert teacher notes section after overall score but before category breakdown
-    if (teacherNotesSection) {
-        // Find the overall score section and insert teacher notes after it
-        htmlContent = htmlContent.replace(
-            /(<div[^>]*class[^>]*overall-score[^>]*>[\s\S]*?<\/div>)/i,
-            `$1${teacherNotesSection}`
-        );
-    }
+    // Teacher notes are now handled directly in the overall score processing above
 
     return htmlContent;
 }
@@ -1213,7 +1530,18 @@ function createPrintContent(resultsDiv, studentName) {
             text.includes('grammar structures:') ||
             text.includes('grammar structures used:') ||
             text.includes('grammatical structures:') ||
-            text.match(/\bgrammar structures?\b/)
+            text.match(/\bgrammar structures?\b/) ||
+
+            // Remove "Highlight applied successfully" messages
+            text.includes('highlight applied successfully') ||
+            text.includes('highlight removed') ||
+            text.includes('highlight updated') ||
+
+            // Remove category selection status messages
+            text.includes('selected category:') ||
+            text.includes('now highlight text to apply') ||
+            text.includes('select category then highlight') ||
+            text.includes('highlight text then select category')
         )) {
             // Don't remove if it's part of essay content
             if (!el.querySelector('.formatted-essay-content') &&
@@ -1253,15 +1581,10 @@ function createPrintContent(resultsDiv, studentName) {
     });
 
     // Process and enhance the content for better PDF formatting
-    const enhancedContent = enhanceContentForPDF(clone);
+    const enhancedContent = enhanceContentForPDF(clone, studentName);
 
-    // Create the print-friendly content (no header, just content)
+    // Create the print-friendly content (removed headers as requested)
     return `
-        <div style="text-align: center; margin-bottom: 20px;">
-            <h1 style="margin: 0; padding: 0; font-size: 24px; color: black;">Essay Grading Report</h1>
-            <h2 style="margin: 10px 0 0 0; padding: 0; font-size: 20px; color: black;">${studentName}</h2>
-        </div>
-
         ${enhancedContent}
 
         ${highlightsData.length > 0 ? createHighlightsLegend(highlightsData) : ''}
@@ -1459,6 +1782,30 @@ function exportManualToPDF() {
 
     console.log('📋 Manual container found:', manualContainer);
     console.log('📋 Manual content preview:', manualContainer.innerHTML.substring(0, 200));
+
+    // CRITICAL: Sync all editable score values before export
+    let totalScore = 0;
+    let totalMax = 0;
+    manualContainer.querySelectorAll('.editable-score').forEach(input => {
+        // Ensure the input's value attribute matches its current value
+        input.setAttribute('value', input.value);
+        const score = parseFloat(input.value) || 0;
+        const max = parseFloat(input.getAttribute('max')) || 0;
+        totalScore += score;
+        totalMax += max;
+        console.log(`💾 Synced ${input.dataset.category}: ${input.value}/${input.getAttribute('max')}`);
+    });
+
+    // Fix floating point precision
+    totalScore = Math.round(totalScore * 10) / 10;
+
+    // Update the overall score display before export
+    const overallScoreElement = manualContainer.querySelector('.overall-score');
+    if (overallScoreElement) {
+        const percentage = totalMax > 0 ? Math.round((totalScore / totalMax) * 100) : 0;
+        overallScoreElement.innerHTML = `<div style="font-size: 2em; font-weight: bold; text-align: center; margin: 20px 0;">${totalScore}/${totalMax} (${percentage}%)</div>`;
+        console.log(`📊 Updated overall score: ${totalScore}/${totalMax} (${percentage}%)`);
+    }
 
     // Get student name - handle different possible formats
     const heading = manualContainer.querySelector('h2');
@@ -1682,8 +2029,8 @@ function extractManualScores() {
     // Extract scores
     document.querySelectorAll('.manual-score-input').forEach(input => {
         const category = input.dataset.category;
-        const points = parseInt(input.value) || 0;
-        const max = parseInt(input.dataset.max) || 15;
+        const points = parseFloat(input.value) || 0;
+        const max = parseFloat(input.dataset.max) || 15;
 
         scores[category] = {
             points: points,
@@ -1927,3 +2274,38 @@ window.PDFExportModule = {
     // Legacy compatibility
     exportManualResults: exportManualToPDF
 };
+
+// Also expose individual functions globally for compatibility
+window.exportToPDF = exportToPDF;
+window.exportManualToPDF = exportManualToPDF;
+window.exportIndividualEssay = exportIndividualEssay;
+window.downloadIndividualEssay = function(index) {
+    // Wrapper function for batch download
+    // Try multiple ways to get the essay data
+    let essayData = window[`essayData_${index}`];
+
+    if (!essayData) {
+        essayData = window.batchResults?.essays?.[index];
+    }
+
+    if (!essayData && window.BatchProcessingModule) {
+        // Delegate to the batch processing module
+        return window.BatchProcessingModule.downloadIndividualEssay(index);
+    }
+
+    if (essayData) {
+        exportIndividualEssay(essayData);
+    } else {
+        console.error('Essay data not found for index:', index);
+        console.log('Available essay data keys:', Object.keys(window).filter(k => k.startsWith('essayData_')));
+        alert('Error: Essay data not found. Please try again.');
+    }
+};
+
+// Log successful loading
+console.log('✅ PDF Export Module loaded successfully', {
+    PDFExportModule: !!window.PDFExportModule,
+    exportToPDF: !!window.exportToPDF,
+    exportManualToPDF: !!window.exportManualToPDF,
+    exportIndividualEssay: !!window.exportIndividualEssay
+});

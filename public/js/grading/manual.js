@@ -175,7 +175,7 @@ class ManualGradingManager {
             const feedbackInput = document.getElementById(`feedback-${category.id}`);
 
             formData.scores[category.id] = {
-                points: parseInt(scoreInput?.value) || 0,
+                points: parseFloat(scoreInput?.value) || 0,
                 out_of: category.max,
                 rationale: feedbackInput?.value || ''
             };
@@ -247,12 +247,14 @@ class ManualGradingManager {
         this.scoringCategories.forEach(category => {
             const input = document.getElementById(`score-${category.id}`);
             if (input) {
-                const points = parseInt(input.value) || 0;
+                const points = parseFloat(input.value) || 0;
                 totalPoints += points;
                 totalMax += category.max;
             }
         });
 
+        // Fix floating point precision issues
+        totalPoints = Math.round(totalPoints * 10) / 10;
         const percentage = totalMax > 0 ? Math.round((totalPoints / totalMax) * 100) : 0;
 
         // Update display elements
@@ -278,8 +280,8 @@ class ManualGradingManager {
      * @param {HTMLInputElement} input - Score input element
      */
     validateScoreInput(input) {
-        const value = parseInt(input.value);
-        const max = parseInt(input.dataset.max) || 15;
+        const value = parseFloat(input.value);
+        const max = parseFloat(input.dataset.max) || 15;
         const min = 0;
 
         if (isNaN(value) || value < min) {

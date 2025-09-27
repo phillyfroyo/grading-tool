@@ -93,8 +93,8 @@ function setupEditableElements(gradingResult, originalData) {
     document.querySelectorAll('.editable-score').forEach(input => {
         input.addEventListener('input', function() {
             const category = this.dataset.category;
-            const newPoints = parseInt(this.value) || 0;
-            const maxPoints = parseInt(this.max) || 15;
+            const newPoints = parseFloat(this.value) || 0;
+            const maxPoints = parseFloat(this.max) || 15;
 
             // Validate range
             if (newPoints < 0) this.value = 0;
@@ -102,7 +102,7 @@ function setupEditableElements(gradingResult, originalData) {
 
             // Update data
             if (currentGradingData.scores && currentGradingData.scores[category]) {
-                currentGradingData.scores[category].points = parseInt(this.value);
+                currentGradingData.scores[category].points = parseFloat(this.value);
             }
 
             // Recalculate total score
@@ -132,8 +132,8 @@ function setupBatchEditableElements(gradingResult, originalData, essayIndex) {
         essayContainer.querySelectorAll('.editable-score').forEach(input => {
             input.addEventListener('input', function() {
                 const category = this.dataset.category;
-                const newPoints = parseInt(this.value) || 0;
-                const maxPoints = parseInt(this.max) || 15;
+                const newPoints = parseFloat(this.value) || 0;
+                const maxPoints = parseFloat(this.max) || 15;
 
                 // Validate range
                 if (newPoints < 0) this.value = 0;
@@ -141,7 +141,7 @@ function setupBatchEditableElements(gradingResult, originalData, essayIndex) {
 
                 // Update data
                 if (currentGradingData.scores && currentGradingData.scores[category]) {
-                    currentGradingData.scores[category].points = parseInt(this.value);
+                    currentGradingData.scores[category].points = parseFloat(this.value);
                 }
 
                 // Recalculate total score for this specific essay

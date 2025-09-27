@@ -176,7 +176,11 @@ class AuthController {
 
       if (!user || !user.email) {
         // User was deleted or invalid session, clear session
-        req.session.destroy();
+        req.session.destroy((err) => {
+          if (err) {
+            console.error('[AUTH_STATUS] Session destroy error:', err);
+          }
+        });
         return res.json({
           success: true,
           authenticated: false

@@ -86,7 +86,17 @@ ${classProfile.vocabulary.join(', ')}
 GRAMMAR STRUCTURES:
 ${classProfile.grammar.join(', ')}
 
-Count correctly used vocabulary words and identify grammar structures present.
+**VOCABULARY COUNTING INSTRUCTIONS:**
+- Count exact matches from the vocabulary list (case-insensitive)
+- Count words that use the specified prefixes (un-, re-, in-/im-/il-/ir-, dis-, pre-, mis-, non-, inter-, sub-, super-, anti-)
+- Count words that use the specified suffixes (-able/-ible, -ive, -ness, -ment, -tion/-sion, -ity, -ence, -ship)
+- Count phrases and expressions that appear in the student text
+- Return the total count of vocabulary items used correctly
+
+**GRAMMAR STRUCTURE IDENTIFICATION:**
+- Identify specific grammar structures from the list that appear in the student text
+- Look for patterns like passive voice, reported speech, conditionals, relative pronouns, etc.
+- Return an array of the specific structures found (use exact names from the list when possible)
 
 ## COMMON MISTAKES TO AVOID:
 ❌ Please do not highlight almost the entire essay. Some of these essays will be pretty bad, so if you encounter a horrible essay, just try to stick to the errors that will get the student on the right track.
