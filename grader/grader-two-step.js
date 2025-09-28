@@ -338,18 +338,27 @@ async function detectErrors(studentText, classProfile) {
     content = content.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
     const result = JSON.parse(content);
 
-    // Post-process to add "Final text should be" to corrections (except spelling errors)
+    // Post-process to add category-specific feedback messages
     if (result.inline_issues) {
       result.inline_issues = result.inline_issues.map(issue => {
-        // Check for various forms of "final text should be" messages already present
+        // Check for existing final text messages to avoid duplication
         const alreadyHasFinalText = issue.explanation && (
           issue.explanation.toLowerCase().includes('final text should be') ||
-          issue.explanation.toLowerCase().includes('the final text should be')
+          issue.explanation.toLowerCase().includes('the final text should be') ||
+          issue.explanation.toLowerCase().includes('try using')
         );
 
-        // Only add final text message for non-spelling errors that don't already have it
-        if (issue.correction && issue.explanation && !alreadyHasFinalText && issue.category !== 'spelling') {
-          issue.explanation = `${issue.explanation}. Final text should be "${issue.correction}".`;
+        if (issue.correction && issue.explanation && !alreadyHasFinalText) {
+          if (issue.category === 'spelling') {
+            // Spelling errors: No additional message needed
+            // Keep explanation as-is
+          } else if (issue.category === 'vocabulary') {
+            // Vocabulary errors: Add "Try using [suggestion] instead"
+            issue.explanation = `${issue.explanation}. Try using "${issue.correction}" instead.`;
+          } else {
+            // All other errors: Add "Final text should be"
+            issue.explanation = `${issue.explanation}. Final text should be "${issue.correction}".`;
+          }
         }
         return issue;
       });
