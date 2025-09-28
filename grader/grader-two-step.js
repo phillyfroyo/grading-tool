@@ -179,10 +179,17 @@ async function processQueue() {
 }
 
 export async function gradeEssay(studentText, prompt, classProfileId) {
+  // Debug logging for cooling period
+  console.log(`🔍 DEBUG: essayProcessedCount=${essayProcessedCount}, essayProcessedCount % ${ESSAYS_PER_BATCH} = ${essayProcessedCount % ESSAYS_PER_BATCH}`);
+  console.log(`🔍 DEBUG: Cooling condition check: essayProcessedCount > 0 = ${essayProcessedCount > 0}, essayProcessedCount % ESSAYS_PER_BATCH === 0 = ${essayProcessedCount % ESSAYS_PER_BATCH === 0}`);
+
   // Check if we need a cooling period BEFORE processing this essay
   if (essayProcessedCount > 0 && essayProcessedCount % ESSAYS_PER_BATCH === 0) {
     const now = Date.now();
     const timeSinceLastCooling = now - lastCoolingPeriod;
+
+    console.log(`🔍 DEBUG: Time since last cooling: ${timeSinceLastCooling}ms, Cooling period duration: ${COOLING_PERIOD_MS}ms`);
+    console.log(`🔍 DEBUG: Need cooling? ${timeSinceLastCooling > COOLING_PERIOD_MS}`);
 
     // Only enforce cooling period if we haven't had one recently
     if (timeSinceLastCooling > COOLING_PERIOD_MS) {
@@ -190,7 +197,11 @@ export async function gradeEssay(studentText, prompt, classProfileId) {
       await new Promise(resolve => setTimeout(resolve, COOLING_PERIOD_MS));
       lastCoolingPeriod = Date.now();
       console.log(`✅ Cooling period complete. Resuming processing...`);
+    } else {
+      console.log(`⏭️ Skipping cooling period - too recent (${timeSinceLastCooling}ms ago)`);
     }
+  } else {
+    console.log(`⏭️ No cooling period needed - not at batch boundary`);
   }
 
   // Increment essay counter for batch cooling period tracking
@@ -1352,6 +1363,13 @@ export function getProcessingStats() {
     essaysUntilCooling: ESSAYS_PER_BATCH - ((essayProcessedCount - 1) % ESSAYS_PER_BATCH) - 1,
     timeSinceLastCooling: Date.now() - lastCoolingPeriod
   };
+}
+
+/**
+ * Get current counter value for debugging
+ */
+export function getCurrentEssayCount() {
+  return essayProcessedCount;
 }
 
 // Export functions for testing
