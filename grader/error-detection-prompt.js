@@ -65,7 +65,7 @@ Each JSON entry = ONE specific error type with ONE correction
       "explanation": "Wrong word choice - 'too' implies excess, use 'so' for emphasis"
     },
     {
-      "category": "grammar", 
+      "category": "grammar",
       "text": "to can",
       "start": 36,
       "end": 42,

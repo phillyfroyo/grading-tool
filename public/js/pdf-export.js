@@ -911,6 +911,9 @@ function enhanceContentForPDF(content, studentName) {
     const tempDiv = document.createElement('div');
     tempDiv.innerHTML = content.innerHTML;
 
+    // Remove all no-print elements (including color legend)
+    tempDiv.querySelectorAll('.no-print').forEach(element => element.remove());
+
     // Remove "Grading Results for [student name]" heading
     const resultsHeading = tempDiv.querySelector('h2');
     if (resultsHeading && resultsHeading.textContent.includes('Grading Results for')) {
