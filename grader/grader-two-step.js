@@ -338,10 +338,10 @@ async function detectErrors(studentText, classProfile) {
     content = content.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
     const result = JSON.parse(content);
 
-    // Post-process to add "Final text should be" to ALL corrections
+    // Post-process to add "Final text should be" to ALL corrections except spelling errors
     if (result.inline_issues) {
       result.inline_issues = result.inline_issues.map(issue => {
-        if (issue.correction && issue.explanation && !issue.explanation.includes('Final text should be')) {
+        if (issue.correction && issue.explanation && !issue.explanation.includes('Final text should be') && issue.category !== 'spelling') {
           issue.explanation = `${issue.explanation}. Final text should be "${issue.correction}".`;
         }
         return issue;
@@ -527,7 +527,7 @@ function patchCommonErrors(text, issues) {
           start: match.index,
           end: match.index + error.wrong.length,
           correction: error.correct,
-          explanation: `Misspelling: "${error.wrong}" should be "${error.correct}".${isMultiWordHighlight(error.wrong) ? ` Final text should be "${error.correct}".` : ''}`
+          explanation: `Misspelling: "${error.wrong}" should be "${error.correct}".`
         });
       }
     }
@@ -784,7 +784,7 @@ function generateExplanation(category, errorText, correction) {
 
   switch (category) {
     case 'spelling':
-      return `Misspelling: "${errorText}" should be "${correction}".${finalTextSuffix}`;
+      return `Misspelling: "${errorText}" should be "${correction}".`;
     case 'grammar':
       return `Grammar error: "${errorText}" should be "${correction}".${finalTextSuffix}`;
     case 'mechanics':
