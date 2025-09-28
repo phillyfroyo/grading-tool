@@ -38,6 +38,7 @@ let essayProcessedCount = 0;
 const ESSAYS_PER_BATCH = 6; // Process 6 essays before cooling period
 const COOLING_PERIOD_MS = 90000; // 1.5 minutes cooling period
 let lastCoolingPeriod = 0;
+let batchControllerMode = false; // Flag to indicate if batch controller is managing cooling
 
 /**
  * Retry utility with exponential backoff for rate limiting
@@ -179,29 +180,26 @@ async function processQueue() {
 }
 
 export async function gradeEssay(studentText, prompt, classProfileId) {
-  // Debug logging for cooling period
-  console.log(`🔍 DEBUG: essayProcessedCount=${essayProcessedCount}, essayProcessedCount % ${ESSAYS_PER_BATCH} = ${essayProcessedCount % ESSAYS_PER_BATCH}`);
-  console.log(`🔍 DEBUG: Cooling condition check: essayProcessedCount > 0 = ${essayProcessedCount > 0}, essayProcessedCount % ESSAYS_PER_BATCH === 0 = ${essayProcessedCount % ESSAYS_PER_BATCH === 0}`);
+  // Rate limiting: Check if we need cooling period before processing
+  const currentBatchPosition = (essayProcessedCount % ESSAYS_PER_BATCH) || ESSAYS_PER_BATCH;
+  console.log(`📊 Grader-level: Essay queue position ${essayProcessedCount}, batch position ${currentBatchPosition}/${ESSAYS_PER_BATCH}`);
 
   // Check if we need a cooling period BEFORE processing this essay
-  if (essayProcessedCount > 0 && essayProcessedCount % ESSAYS_PER_BATCH === 0) {
-    const now = Date.now();
-    const timeSinceLastCooling = now - lastCoolingPeriod;
+  if (!batchControllerMode && essayProcessedCount > 0 && essayProcessedCount % ESSAYS_PER_BATCH === 0) {
+    console.log(`🧊 GRADER-LEVEL COOLING: Completed batch of ${ESSAYS_PER_BATCH} essays. Enforcing ${COOLING_PERIOD_MS/1000}s cooling period...`);
+    console.log(`⏰ Starting cooling period at: ${new Date().toISOString()}`);
 
-    console.log(`🔍 DEBUG: Time since last cooling: ${timeSinceLastCooling}ms, Cooling period duration: ${COOLING_PERIOD_MS}ms`);
-    console.log(`🔍 DEBUG: Need cooling? ${timeSinceLastCooling > COOLING_PERIOD_MS}`);
+    // Always enforce cooling period at batch boundaries - no exceptions
+    await new Promise(resolve => setTimeout(resolve, COOLING_PERIOD_MS));
 
-    // Only enforce cooling period if we haven't had one recently
-    if (timeSinceLastCooling > COOLING_PERIOD_MS) {
-      console.log(`🧊 COOLING PERIOD: Completed batch of ${ESSAYS_PER_BATCH} essays. Waiting ${COOLING_PERIOD_MS/1000}s before starting essay #${essayProcessedCount + 1}...`);
-      await new Promise(resolve => setTimeout(resolve, COOLING_PERIOD_MS));
-      lastCoolingPeriod = Date.now();
-      console.log(`✅ Cooling period complete. Resuming processing...`);
-    } else {
-      console.log(`⏭️ Skipping cooling period - too recent (${timeSinceLastCooling}ms ago)`);
-    }
+    lastCoolingPeriod = Date.now();
+    console.log(`✅ Cooling period complete at: ${new Date().toISOString()}. Resuming processing...`);
   } else {
-    console.log(`⏭️ No cooling period needed - not at batch boundary`);
+    if (batchControllerMode) {
+      console.log(`⏭️ Skipping grader-level cooling - batch controller handles cooling periods`);
+    } else {
+      console.log(`⏭️ No grader-level cooling needed - not at batch boundary (essay ${essayProcessedCount + 1})`);
+    }
   }
 
   // Increment essay counter for batch cooling period tracking
@@ -1367,6 +1365,22 @@ export function resetEssayCounter() {
   essayProcessedCount = 0;
   lastCoolingPeriod = 0;
   console.log('🔄 Essay counter reset for new session');
+}
+
+/**
+ * Enable batch controller mode (cooling handled at controller level)
+ */
+export function enableBatchControllerMode() {
+  batchControllerMode = true;
+  console.log('🎯 Batch controller mode enabled - cooling handled by controller');
+}
+
+/**
+ * Disable batch controller mode (cooling handled at grader level)
+ */
+export function disableBatchControllerMode() {
+  batchControllerMode = false;
+  console.log('🎯 Batch controller mode disabled - cooling handled by grader');
 }
 
 /**

@@ -6,6 +6,7 @@ import { findProfileById } from '../services/profileService.js';
 import { applyTemperatureAdjustment } from '../services/temperatureService.js';
 import { formatGradedEssay } from '../../grader/formatter.js';
 import { isVercel } from '../config/index.js';
+import { getProcessingStats, resetEssayCounter, enableBatchControllerMode, disableBatchControllerMode } from '../../grader/grader-two-step.js';
 
 // Simple session store for streaming batch grading
 const streamingSessions = new Map();
@@ -168,9 +169,30 @@ async function handleBatchGrade(req, res) {
     const results = [];
     const finalTemperature = temperature !== undefined ? temperature : (profileData.temperature || 0);
 
-    // Grade each essay
+    // Reset essay counter and enable batch controller mode
+    resetEssayCounter();
+    enableBatchControllerMode();
+    console.log("🔄 Reset essay counter and enabled batch controller mode");
+
+    // Grade each essay with cooling period management
     for (let i = 0; i < essays.length; i++) {
       const essay = essays[i];
+
+      // Check if we need a cooling period BEFORE processing this essay
+      const stats = getProcessingStats();
+      console.log(`📊 Pre-processing stats: ${stats.essaysProcessed} processed, batch position ${stats.currentBatchPosition}, essays until cooling: ${stats.essaysUntilCooling}`);
+
+      // If we've processed essays and are at a batch boundary (6, 12, 18, etc.), enforce cooling
+      if (stats.essaysProcessed > 0 && stats.essaysUntilCooling === 0) {
+        console.log(`🧊 BATCH COOLING: Completed ${stats.essaysProcessed} essays. Enforcing 90s cooling period before processing "${essay.studentName}"...`);
+        console.log(`⏰ Cooling period started at: ${new Date().toISOString()}`);
+
+        // 90-second cooling period
+        await new Promise(resolve => setTimeout(resolve, 90000));
+
+        console.log(`✅ Cooling period complete at: ${new Date().toISOString()}. Resuming with "${essay.studentName}"...`);
+      }
+
       console.log(`\n📝 Grading essay ${i + 1}/${essays.length} for ${essay.studentName}...`);
 
       try {
@@ -200,6 +222,10 @@ async function handleBatchGrade(req, res) {
     console.log("Successfully graded:", results.filter(r => r.success).length);
     console.log("Failed:", results.filter(r => !r.success).length);
 
+    // Disable batch controller mode after completion
+    disableBatchControllerMode();
+    console.log("🔄 Disabled batch controller mode");
+
     res.json({
       success: true,
       totalEssays: essays.length,
@@ -208,6 +234,10 @@ async function handleBatchGrade(req, res) {
   } catch (error) {
     console.error("\n❌ BATCH GRADING ERROR:", error);
     console.error("Error stack:", error.stack);
+
+    // Ensure batch controller mode is disabled even on error
+    disableBatchControllerMode();
+    console.log("🔄 Disabled batch controller mode (error cleanup)");
     res.json({
       success: false,
       error: error.message,
