@@ -764,10 +764,8 @@ function generateFeedbackSummary(scores, total, meta, teacherNotes, encouragemen
                        style="width: 80px; height: 40px; padding: 8px 30px 8px 8px; border: 2px solid #ddd; border-radius: 6px; text-align: center; font-weight: bold; font-size: 1.2em; color: ${categoryColor};">
 
                 <!-- Large clickable areas for increment/decrement - 50/50 split -->
-                <div class="arrow-up-area" style="position: absolute; top: 0; right: 0; width: 35px; height: 50%; cursor: pointer; z-index: 10; background: transparent;"
-                     onclick="this.previousElementSibling.stepUp(); this.previousElementSibling.dispatchEvent(new Event('input'));"></div>
-                <div class="arrow-down-area" style="position: absolute; bottom: 0; right: 0; width: 35px; height: 50%; cursor: pointer; z-index: 10; background: transparent;"
-                     onclick="this.previousElementSibling.previousElementSibling.stepDown(); this.previousElementSibling.previousElementSibling.dispatchEvent(new Event('input'));"></div>
+                <div class="arrow-up-area" data-action="increment" style="position: absolute; top: 0; right: 0; width: 35px; height: 50%; cursor: pointer; z-index: 10; background: transparent;"></div>
+                <div class="arrow-down-area" data-action="decrement" style="position: absolute; bottom: 0; right: 0; width: 35px; height: 50%; cursor: pointer; z-index: 10; background: transparent;"></div>
               </div>
               <span style="color: ${categoryColor}; font-weight: bold; font-size: 1.2em;">/${details.out_of}</span>
             </div>

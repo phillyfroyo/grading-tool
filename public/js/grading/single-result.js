@@ -7,6 +7,9 @@
 let currentGradingData = null;
 let currentOriginalData = null;
 
+// Track grading data for multiple essays in batch processing
+let batchGradingData = {};
+
 /**
  * Display results for a single essay
  * @param {Object} gradingResult - The grading result from the server
@@ -16,6 +19,10 @@ function displayResults(gradingResult, originalData) {
     console.log('🎯 DISPLAY RESULTS CALLED');
     console.log('Grading result:', gradingResult);
     console.log('Original data:', originalData);
+
+    // Clear any batch data when displaying single results
+    batchGradingData = {};
+    console.log('🧹 Cleared batch grading data for single essay display');
 
     const resultsDiv = document.getElementById('results');
     if (!resultsDiv) return;
@@ -89,12 +96,18 @@ function setupEditableElements(gradingResult, originalData) {
     currentGradingData = { ...gradingResult };
     currentOriginalData = { ...originalData };
 
-    // Add listeners for score inputs
-    document.querySelectorAll('.editable-score').forEach(input => {
+    console.log('🔧 Setting up editable elements for single essay');
+
+    // Add listeners for score inputs (only if not already added)
+    document.querySelectorAll('.editable-score:not([data-listener-added])').forEach(input => {
+        input.dataset.listenerAdded = 'true';
+
         input.addEventListener('input', function() {
             const category = this.dataset.category;
             const newPoints = parseFloat(this.value) || 0;
             const maxPoints = parseFloat(this.max) || 15;
+
+            console.log('📝 Single essay score changed:', { category, newPoints });
 
             // Validate range
             if (newPoints < 0) this.value = 0;
@@ -107,6 +120,41 @@ function setupEditableElements(gradingResult, originalData) {
 
             // Recalculate total score
             updateTotalScore();
+        });
+    });
+
+    // Add listeners for arrow click areas (only if not already added)
+    document.querySelectorAll('.arrow-up-area:not([data-listener-added]), .arrow-down-area:not([data-listener-added])').forEach(arrow => {
+        arrow.dataset.listenerAdded = 'true';
+        arrow.addEventListener('click', function(e) {
+            e.stopPropagation(); // Prevent event bubbling
+            e.preventDefault(); // Prevent default behavior
+
+            const input = this.parentElement.querySelector('.editable-score');
+            if (input) {
+                // Store current value
+                const currentValue = parseFloat(input.value) || 0;
+                const max = parseFloat(input.max) || 15;
+                const min = parseFloat(input.min) || 0;
+
+                // Calculate new value (increment by 1)
+                let newValue;
+                if (this.classList.contains('arrow-up-area')) {
+                    newValue = Math.min(currentValue + 1, max);
+                } else if (this.classList.contains('arrow-down-area')) {
+                    newValue = Math.max(currentValue - 1, min);
+                }
+
+                // Set the new value and let the input event handler take care of the rest
+                if (newValue !== currentValue) {
+                    input.value = newValue;
+
+                    // Trigger input event to let existing listeners handle the update
+                    input.dispatchEvent(new Event('input'));
+
+                    console.log('⬆️⬇️ Arrow clicked, new value:', newValue);
+                }
+            }
         });
     });
 
@@ -123,29 +171,100 @@ function setupEditableElements(gradingResult, originalData) {
  * @param {number} essayIndex - Essay index for batch processing
  */
 function setupBatchEditableElements(gradingResult, originalData, essayIndex) {
-    currentGradingData = { ...gradingResult };
-    currentOriginalData = { ...originalData };
+    // Clear single essay data when setting up batch
+    if (essayIndex === 0) {
+        currentGradingData = null;
+        currentOriginalData = null;
+        console.log('🧹 Cleared single essay data for batch processing');
+    }
+
+    // Store data for this specific essay index
+    batchGradingData[essayIndex] = {
+        gradingData: { ...gradingResult },
+        originalData: { ...originalData }
+    };
 
     // Add listeners for score inputs within the specific essay container
     const essayContainer = document.getElementById(`batch-essay-${essayIndex}`);
     if (essayContainer) {
+        console.log('🔧 Setting up editable elements for batch essay', essayIndex);
+
+        // Check if we've already set up listeners for this container
+        if (essayContainer.dataset.listenersAttached === 'true') {
+            console.log('⚠️ Listeners already attached for essay', essayIndex, '- skipping');
+            return;
+        }
+
+        // Mark that we're attaching listeners
+        essayContainer.dataset.listenersAttached = 'true';
+        essayContainer.dataset.essayIndex = essayIndex;
+
         essayContainer.querySelectorAll('.editable-score').forEach(input => {
-            input.addEventListener('input', function() {
-                const category = this.dataset.category;
-                const newPoints = parseFloat(this.value) || 0;
-                const maxPoints = parseFloat(this.max) || 15;
+            // Store essay index on each input for easy access
+            input.dataset.essayIndex = essayIndex;
 
-                // Validate range
-                if (newPoints < 0) this.value = 0;
-                if (newPoints > maxPoints) this.value = maxPoints;
+            // Only add listener if not already added
+            if (!input.dataset.listenerAdded) {
+                input.dataset.listenerAdded = 'true';
 
-                // Update data
-                if (currentGradingData.scores && currentGradingData.scores[category]) {
-                    currentGradingData.scores[category].points = parseFloat(this.value);
+                input.addEventListener('input', function() {
+                    // Get the essay index from the input's data attribute
+                    const currentEssayIndex = parseInt(this.dataset.essayIndex);
+                    const category = this.dataset.category;
+                    const newPoints = parseFloat(this.value) || 0;
+                    const maxPoints = parseFloat(this.max) || 15;
+
+                    console.log('📝 Batch essay score changed:', { essayIndex: currentEssayIndex, category, newPoints });
+
+                    // Validate range
+                    if (newPoints < 0) this.value = 0;
+                    if (newPoints > maxPoints) this.value = maxPoints;
+
+                    // Update data for this specific essay
+                    if (batchGradingData[currentEssayIndex] &&
+                        batchGradingData[currentEssayIndex].gradingData.scores &&
+                        batchGradingData[currentEssayIndex].gradingData.scores[category]) {
+                        batchGradingData[currentEssayIndex].gradingData.scores[category].points = parseFloat(this.value);
+                    }
+
+                    // Recalculate total score for this specific essay
+                    updateTotalScore(currentEssayIndex);
+                });
+            }
+        });
+
+        // Add listeners for arrow click areas within this essay container
+        essayContainer.querySelectorAll('.arrow-up-area:not([data-listener-added]), .arrow-down-area:not([data-listener-added])').forEach(arrow => {
+            arrow.dataset.listenerAdded = 'true';
+            arrow.addEventListener('click', function(e) {
+                e.stopPropagation(); // Prevent event bubbling
+                e.preventDefault(); // Prevent default behavior
+
+                const input = this.parentElement.querySelector('.editable-score');
+                if (input) {
+                    // Store current value
+                    const currentValue = parseFloat(input.value) || 0;
+                    const max = parseFloat(input.max) || 15;
+                    const min = parseFloat(input.min) || 0;
+
+                    // Calculate new value (increment by 1)
+                    let newValue;
+                    if (this.classList.contains('arrow-up-area')) {
+                        newValue = Math.min(currentValue + 1, max);
+                    } else if (this.classList.contains('arrow-down-area')) {
+                        newValue = Math.max(currentValue - 1, min);
+                    }
+
+                    // Set the new value and let the input event handler take care of the rest
+                    if (newValue !== currentValue) {
+                        input.value = newValue;
+
+                        // Trigger input event to let existing listeners handle the update
+                        input.dispatchEvent(new Event('input'));
+
+                        console.log(`⬆️⬇️ Arrow clicked for essay ${essayIndex}, new value:`, newValue);
+                    }
                 }
-
-                // Recalculate total score for this specific essay
-                updateTotalScore(essayIndex);
             });
         });
     }
@@ -155,8 +274,11 @@ function setupBatchEditableElements(gradingResult, originalData, essayIndex) {
         essayContainer.querySelectorAll('.editable-feedback').forEach(textarea => {
             textarea.addEventListener('input', function() {
                 const category = this.dataset.category;
-                if (currentGradingData.scores && currentGradingData.scores[category]) {
-                    currentGradingData.scores[category].rationale = this.value;
+                // Update data for this specific essay
+                if (batchGradingData[essayIndex] &&
+                    batchGradingData[essayIndex].gradingData.scores &&
+                    batchGradingData[essayIndex].gradingData.scores[category]) {
+                    batchGradingData[essayIndex].gradingData.scores[category].rationale = this.value;
                 }
             });
 
@@ -179,20 +301,38 @@ function setupBatchEditableElements(gradingResult, originalData, essayIndex) {
  * @param {number} essayIndex - Optional essay index for batch processing
  */
 function updateTotalScore(essayIndex = null) {
-    if (!currentGradingData || !currentGradingData.scores) return;
+    let gradingData;
+
+    console.log('🔄 updateTotalScore called with essayIndex:', essayIndex);
+
+    // Determine which data to use based on whether this is batch or single
+    if (essayIndex !== null && batchGradingData[essayIndex]) {
+        gradingData = batchGradingData[essayIndex].gradingData;
+        console.log('📊 Using batch grading data for essay', essayIndex);
+    } else {
+        gradingData = currentGradingData;
+        console.log('📊 Using single grading data');
+    }
+
+    if (!gradingData || !gradingData.scores) {
+        console.warn('⚠️ No grading data available');
+        return;
+    }
 
     let totalPoints = 0;
     let totalMaxPoints = 0;
 
-    Object.values(currentGradingData.scores).forEach(score => {
-        totalPoints += score.points;
-        totalMaxPoints += score.out_of;
+    Object.values(gradingData.scores).forEach(score => {
+        totalPoints += score.points || 0;
+        totalMaxPoints += score.out_of || 0;
     });
 
+    console.log('📈 Calculated totals:', { totalPoints, totalMaxPoints });
+
     // Update stored data
-    if (currentGradingData.total) {
-        currentGradingData.total.points = totalPoints;
-        currentGradingData.total.out_of = totalMaxPoints;
+    if (gradingData.total) {
+        gradingData.total.points = totalPoints;
+        gradingData.total.out_of = totalMaxPoints;
     }
 
     // Update the displayed total score
@@ -212,16 +352,33 @@ function updateTotalScore(essayIndex = null) {
     }
 
     // Update individual category displays if needed
-    updateCategoryPercentages();
+    updateCategoryPercentages(essayIndex);
 }
 
 /**
  * Update category percentage displays
+ * @param {number} essayIndex - Optional essay index for batch processing
  */
-function updateCategoryPercentages() {
-    document.querySelectorAll('.editable-score').forEach(input => {
+function updateCategoryPercentages(essayIndex = null) {
+    // Determine which data to use
+    let gradingData;
+    if (essayIndex !== null && batchGradingData[essayIndex]) {
+        gradingData = batchGradingData[essayIndex].gradingData;
+    } else {
+        gradingData = currentGradingData;
+    }
+
+    if (!gradingData || !gradingData.scores) return;
+
+    // Update percentages for the appropriate container
+    let container = document;
+    if (essayIndex !== null) {
+        container = document.getElementById(`batch-essay-${essayIndex}`) || document;
+    }
+
+    container.querySelectorAll('.editable-score').forEach(input => {
         const category = input.dataset.category;
-        const score = currentGradingData.scores[category];
+        const score = gradingData.scores[category];
 
         if (score) {
             const percentage = Math.round((score.points / score.out_of) * 100);
@@ -232,6 +389,29 @@ function updateCategoryPercentages() {
             }
         }
     });
+}
+
+/**
+ * Update batch essay score
+ * @param {number} essayIndex - Essay index
+ * @param {string} category - Category to update
+ * @param {number} points - New points value
+ * @param {number} maxPoints - Maximum points
+ */
+function updateBatchScore(essayIndex, category, points, maxPoints) {
+    if (!batchGradingData[essayIndex]) {
+        console.warn(`No batch grading data for essay ${essayIndex}`);
+        return;
+    }
+
+    const data = batchGradingData[essayIndex].gradingData;
+    if (data && data.scores && data.scores[category]) {
+        data.scores[category].points = points;
+        data.scores[category].out_of = maxPoints;
+
+        // Trigger total score update
+        updateTotalScore(essayIndex);
+    }
 }
 
 /**
@@ -371,6 +551,7 @@ window.SingleResultModule = {
     setupBatchEditableElements,
     updateTotalScore,
     updateCategoryPercentages,
+    updateBatchScore,
     getCurrentGradingData,
     getCurrentOriginalData,
     saveGradingState,
@@ -378,5 +559,7 @@ window.SingleResultModule = {
     clearGradingState,
     exportGradingData,
     importGradingData,
-    validateGradingData
+    validateGradingData,
+    // Expose batch data for debugging
+    getBatchGradingData: () => batchGradingData
 };

@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test Score Update</title>
+</head>
+<body>
+    <h1>Test Score Update Functionality</h1>
+    <p>Open the browser console and then navigate to <a href="http://localhost:3000">http://localhost:3000</a></p>
+
+    <h2>Test Instructions:</h2>
+    <ol>
+        <li><strong>Single Essay Test:</strong>
+            <ul>
+                <li>Grade a single essay using GPT</li>
+                <li>Click on any category score to edit it</li>
+                <li>Check if the overall score updates correctly</li>
+            </ul>
+        </li>
+        <li><strong>Batch Essay Test:</strong>
+            <ul>
+                <li>Grade multiple essays (2-3) using GPT</li>
+                <li>Expand each essay result</li>
+                <li>Edit category scores for essay 1 - verify overall updates</li>
+                <li>Edit category scores for essay 2 - verify overall updates independently</li>
+                <li>Edit category scores for essay 3 - verify overall updates independently</li>
+            </ul>
+        </li>
+        <li><strong>Manual Grading Test:</strong>
+            <ul>
+                <li>Switch to manual grading tab</li>
+                <li>Grade an essay manually</li>
+                <li>Click on category scores to edit them</li>
+                <li>Verify the overall score updates correctly</li>
+            </ul>
+        </li>
+    </ol>
+
+    <h2>Console Commands for Debugging:</h2>
+    <pre>
+// Check if modules are loaded
+console.log('SingleResultModule:', !!window.SingleResultModule);
+console.log('ManualGradingModule:', !!window.ManualGradingModule);
+console.log('EditingFunctionsModule:', !!window.EditingFunctionsModule);
+
+// Check current grading data
+if (window.SingleResultModule) {
+    console.log('Current grading data:', window.SingleResultModule.getCurrentGradingData());
+}
+
+// Check batch grading data (after grading multiple essays)
+if (window.SingleResultModule && window.SingleResultModule.batchGradingData) {
+    console.log('Batch grading data:', window.SingleResultModule.batchGradingData);
+}
+    </pre>
+
+    <script>
+        console.log('Test page loaded. Please navigate to http://localhost:3000 to test the grading functionality.');
+    </script>
+</body>
+</html>

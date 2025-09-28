@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Test Arrow Clicks</title>
+</head>
+<body>
+    <h1>Debug Arrow Button Clicks</h1>
+    <p>After grading an essay, open the browser console (F12) and paste this code:</p>
+
+    <pre style="background: #f5f5f5; padding: 15px; border: 1px solid #ddd;">
+// Check if arrow areas exist
+console.log('=== ARROW DEBUG ===');
+const arrows = document.querySelectorAll('.arrow-up-area, .arrow-down-area');
+console.log('Found', arrows.length, 'arrow areas');
+
+// Check their attributes
+arrows.forEach((arrow, i) => {
+    console.log(`Arrow ${i}:`, {
+        class: arrow.className,
+        dataAction: arrow.dataset.action,
+        hasClickListener: arrow.onclick !== null,
+        parent: arrow.parentElement.className
+    });
+});
+
+// Try to manually add a click listener to the first arrow
+if (arrows.length > 0) {
+    console.log('Testing first arrow...');
+    const firstArrow = arrows[0];
+
+    // Check what input it should control
+    const input = firstArrow.parentElement.querySelector('.editable-score');
+    if (input) {
+        console.log('Found associated input:', {
+            value: input.value,
+            category: input.dataset.category
+        });
+
+        // Try clicking it
+        console.log('Simulating click on first arrow...');
+        firstArrow.click();
+    } else {
+        console.log('No input found for first arrow');
+    }
+}
+    </pre>
+
+    <h2>Manual Fix</h2>
+    <p>If arrows aren't working, paste this to fix them:</p>
+    <pre style="background: #f5f5f5; padding: 15px; border: 1px solid #ddd;">
+// Fix all arrow buttons
+document.querySelectorAll('.arrow-up-area, .arrow-down-area').forEach(arrow => {
+    arrow.addEventListener('click', function(e) {
+        e.stopPropagation();
+        const input = this.parentElement.querySelector('.editable-score');
+        if (input) {
+            if (this.classList.contains('arrow-up-area')) {
+                input.stepUp();
+            } else {
+                input.stepDown();
+            }
+            input.dispatchEvent(new Event('input'));
+            console.log('Arrow clicked, new value:', input.value);
+        }
+    });
+});
+console.log('✅ Arrow buttons fixed!');
+    </pre>
+</body>
+</html>

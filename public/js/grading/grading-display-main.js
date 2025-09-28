@@ -42,10 +42,11 @@ function setupEditableElements(gradingResult, originalData) {
 
 /**
  * Update total score display
+ * @param {number} essayIndex - Optional essay index for batch processing
  */
-function updateTotalScore() {
+function updateTotalScore(essayIndex = null) {
     if (window.SingleResultModule) {
-        window.SingleResultModule.updateTotalScore();
+        window.SingleResultModule.updateTotalScore(essayIndex);
     }
 }
 

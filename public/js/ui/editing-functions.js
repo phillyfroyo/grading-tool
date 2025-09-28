@@ -50,27 +50,57 @@ function editStat(element, statType) {
             const categoryElement = element.closest('.category-feedback, .category-item');
             const category = categoryElement?.dataset?.category || element.dataset?.category;
 
-            // Update the underlying data structure if available (GPT grading)
-            if (category && window.SingleResultModule && window.SingleResultModule.getCurrentGradingData) {
-                const currentData = window.SingleResultModule.getCurrentGradingData();
-                if (currentData && currentData.scores && currentData.scores[category]) {
-                    currentData.scores[category].points = points;
-                    currentData.scores[category].out_of = maxPoints;
+            // Check if this is part of a batch essay by looking for batch-essay container
+            let essayIndex = null;
+            const batchEssayContainer = element.closest('[id^="batch-essay-"]');
+            if (batchEssayContainer) {
+                const idMatch = batchEssayContainer.id.match(/batch-essay-(\d+)/);
+                if (idMatch) {
+                    essayIndex = parseInt(idMatch[1]);
                 }
             }
 
-            // Also try to update manual grading data if available (use ManualGradingModule, not ManualGradingManager)
-            if (category && window.ManualGradingModule && window.ManualGradingModule.updateCategoryScore) {
-                window.ManualGradingModule.updateCategoryScore(category, points, maxPoints);
+            // Update the appropriate data structure based on context
+            if (category) {
+                // For batch essays, update the specific essay's data
+                if (essayIndex !== null && window.SingleResultModule && window.SingleResultModule.updateBatchScore) {
+                    window.SingleResultModule.updateBatchScore(essayIndex, category, points, maxPoints);
+                }
+                // For single GPT grading
+                else if (window.SingleResultModule && window.SingleResultModule.getCurrentGradingData) {
+                    const currentData = window.SingleResultModule.getCurrentGradingData();
+                    if (currentData && currentData.scores && currentData.scores[category]) {
+                        currentData.scores[category].points = points;
+                        currentData.scores[category].out_of = maxPoints;
+                    }
+                }
+                // For manual grading
+                else if (window.ManualGradingModule && window.ManualGradingModule.updateCategoryScore) {
+                    window.ManualGradingModule.updateCategoryScore(category, points, maxPoints);
+                }
             }
-        }
 
-        // Update total score when individual scores are edited
-        // Try GPT grading first, then manual grading
-        if (typeof updateTotalScore === 'function') {
-            updateTotalScore();
-        } else if (window.ManualGradingModule && window.ManualGradingModule.updateManualTotalScore) {
-            window.ManualGradingModule.updateManualTotalScore();
+            // Update total score with correct context
+            if (typeof updateTotalScore === 'function') {
+                updateTotalScore(essayIndex); // Pass the essay index if available
+            } else if (window.ManualGradingModule && window.ManualGradingModule.updateManualTotalScore) {
+                window.ManualGradingModule.updateManualTotalScore();
+            }
+        } else {
+            // For non-score stat edits, just update the display
+            // Update total score in case this affects calculations
+            if (typeof updateTotalScore === 'function') {
+                // Check if we're in a batch context
+                const batchEssayContainer = element.closest('[id^="batch-essay-"]');
+                if (batchEssayContainer) {
+                    const idMatch = batchEssayContainer.id.match(/batch-essay-(\d+)/);
+                    if (idMatch) {
+                        updateTotalScore(parseInt(idMatch[1]));
+                    }
+                } else {
+                    updateTotalScore();
+                }
+            }
         }
     }
 }
