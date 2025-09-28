@@ -53,6 +53,14 @@ Student: "that's right ?" has BOTH grammar AND mechanics issues
 ## NEVER GROUP MULTIPLE ERRORS
 Each JSON entry = ONE specific error type with ONE correction
 
+## EXPLANATION GUIDELINES
+- Keep explanations concise and specific
+- Do NOT include "Final text should be" or similar phrases in explanations
+- Focus on explaining WHY the error exists, not what the final text should be
+- For spelling errors: Use format "Misspelling - 'word' should be 'correction'"
+- For grammar errors: Explain the grammar rule being violated
+- For vocabulary errors: Explain why the word choice is wrong
+
 ## OUTPUT FORMAT
 {
   "inline_issues": [
@@ -71,6 +79,14 @@ Each JSON entry = ONE specific error type with ONE correction
       "end": 42,
       "correction": "to be able to",
       "explanation": "Modal 'can' cannot follow 'to'"
+    },
+    {
+      "category": "spelling",
+      "text": "recieve",
+      "start": 50,
+      "end": 57,
+      "correction": "receive",
+      "explanation": "Misspelling - 'recieve' should be 'receive'"
     }
   ],
   "corrected_text_minimal": "Text with only objective errors fixed",

@@ -621,9 +621,6 @@ function renderNestedHighlights(text, issues, segmentIndex, editable) {
     let notes = '';
     if (issue.explanation) {
       notes = issue.explanation;
-      if (issue.correction && issue.correction !== issue.text) {
-        notes += ` The final text should be '${issue.correction}'.`;
-      }
     } else if (issue.notes) {
       notes = issue.notes;
     } else {
@@ -683,9 +680,6 @@ function renderSingleHighlight(issue, text, segmentIndex, editable) {
   let notes = '';
   if (issue.explanation) {
     notes = issue.explanation;
-    if (issue.correction && issue.correction !== issue.text) {
-      notes += ` The final text should be '${issue.correction}'.`;
-    }
   } else if (issue.notes) {
     notes = issue.notes;
   } else {
