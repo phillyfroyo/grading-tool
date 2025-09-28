@@ -361,8 +361,10 @@ async function handleStreamingBatchGrade(req, res, { essays, prompt, classProfil
         })}\n\n`);
       });
 
-      // Process all essays in this batch in parallel
-      const batchPromises = batch.map(async (essay, batchIndex) => {
+      // Process essays in this batch sequentially (not parallel) to avoid hanging issues
+      const batchResults = [];
+      for (let batchIndex = 0; batchIndex < batch.length; batchIndex++) {
+        const essay = batch[batchIndex];
         const globalIndex = batchStart + batchIndex;
 
         try {
@@ -375,27 +377,46 @@ async function handleStreamingBatchGrade(req, res, { essays, prompt, classProfil
           const finalResult = applyTemperatureAdjustment(result, finalTemperature);
           finalResult.studentName = essay.studentName;
 
-          return {
+          const essayResult = {
             index: globalIndex,
             success: true,
             studentName: essay.studentName,
             result: finalResult
           };
 
+          batchResults.push({ status: 'fulfilled', value: essayResult });
+
+          // Send immediate result via SSE
+          res.write(`data: ${JSON.stringify({
+            type: 'result',
+            index: globalIndex,
+            studentName: essay.studentName,
+            success: true,
+            result: finalResult
+          })}\n\n`);
+
         } catch (error) {
           console.error(`❌ Error grading essay ${globalIndex + 1} for ${essay.studentName}:`, error);
 
-          return {
+          const errorResult = {
             index: globalIndex,
             success: false,
             studentName: essay.studentName,
             error: error.message
           };
-        }
-      });
 
-      // Wait for all essays in this batch to complete using allSettled for better error handling
-      const batchResults = await Promise.allSettled(batchPromises);
+          batchResults.push({ status: 'rejected', reason: error, value: errorResult });
+
+          // Send immediate error via SSE
+          res.write(`data: ${JSON.stringify({
+            type: 'result',
+            index: globalIndex,
+            studentName: essay.studentName,
+            success: false,
+            error: error.message
+          })}\n\n`);
+        }
+      }
 
       // Extract results and sort them to maintain a consistent order for the delay
       const processedResults = batchResults
