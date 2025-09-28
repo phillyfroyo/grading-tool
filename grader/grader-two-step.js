@@ -33,6 +33,12 @@ const TOKENS_PER_MINUTE_LIMIT = 30000; // OpenAI's TPM limit
 const WINDOW_SIZE_MS = 60000; // 1 minute window
 const SAFETY_BUFFER = 0.8; // Use only 80% of limit for safety
 
+// Batch processing tracking for cooling periods
+let essayProcessedCount = 0;
+const ESSAYS_PER_BATCH = 6; // Process 6 essays before cooling period
+const COOLING_PERIOD_MS = 90000; // 1.5 minutes cooling period
+let lastCoolingPeriod = 0;
+
 /**
  * Retry utility with exponential backoff for rate limiting
  */
@@ -98,9 +104,36 @@ function getCurrentTokenUsage() {
 }
 
 /**
- * Calculate dynamic delay based on token usage
+ * Check if we need a cooling period based on batch processing
+ */
+function checkCoolingPeriod() {
+  const now = Date.now();
+
+  // Check if we've processed enough essays to warrant a cooling period
+  if (essayProcessedCount > 0 && essayProcessedCount % ESSAYS_PER_BATCH === 0) {
+    const timeSinceLastCooling = now - lastCoolingPeriod;
+
+    // Only enforce cooling period if we haven't had one recently
+    if (timeSinceLastCooling > COOLING_PERIOD_MS) {
+      console.log(`🧊 COOLING PERIOD: Processed ${essayProcessedCount} essays. Waiting ${COOLING_PERIOD_MS/1000}s before continuing...`);
+      lastCoolingPeriod = now;
+      return COOLING_PERIOD_MS;
+    }
+  }
+
+  return 0;
+}
+
+/**
+ * Calculate dynamic delay based on token usage and batch cooling
  */
 function calculateDynamicDelay(estimatedTokens = 3000) {
+  // First check if we need a batch cooling period
+  const coolingDelay = checkCoolingPeriod();
+  if (coolingDelay > 0) {
+    return coolingDelay;
+  }
+
   const currentUsage = getCurrentTokenUsage();
   const safeLimit = TOKENS_PER_MINUTE_LIMIT * SAFETY_BUFFER;
   const remainingCapacity = safeLimit - currentUsage;
@@ -156,11 +189,17 @@ async function processQueue() {
       reject(error);
     }
 
-    // Calculate dynamic delay based on token usage
+    // Calculate dynamic delay based on token usage and batch cooling
     if (requestQueue.length > 0) {
       const nextEstimatedTokens = requestQueue[0]?.estimatedTokens || 3000;
       const delay = calculateDynamicDelay(nextEstimatedTokens);
-      console.log(`⏳ Waiting ${delay}ms before next request (${requestQueue.length} requests remaining)...`);
+
+      if (delay >= COOLING_PERIOD_MS) {
+        console.log(`🧊 COOLING PERIOD: ${delay/1000}s wait (${requestQueue.length} requests remaining)`);
+      } else {
+        console.log(`⏳ Standard delay: ${delay}ms before next request (${requestQueue.length} requests remaining)`);
+      }
+
       await new Promise(resolve => setTimeout(resolve, delay));
     }
   }
@@ -170,7 +209,11 @@ async function processQueue() {
 }
 
 export async function gradeEssay(studentText, prompt, classProfileId) {
+  // Increment essay counter for batch cooling period tracking
+  essayProcessedCount++;
+
   console.log('=== STARTING TWO-STEP GRADING PROCESS ===');
+  console.log(`📊 Processing essay #${essayProcessedCount} (batch position: ${((essayProcessedCount - 1) % ESSAYS_PER_BATCH) + 1}/${ESSAYS_PER_BATCH})`);
   console.log('DEBUG: classProfileId received:', classProfileId);
   console.log('DEBUG: classProfileId type:', typeof classProfileId);
   console.log('FORCING NODEMON RESTART');
@@ -1304,6 +1347,27 @@ function identifyGrammarStructures(studentText, grammarStructures) {
 
   console.log(`Backup grammar structure identification: ${foundStructures.length} structures found`);
   return foundStructures;
+}
+
+/**
+ * Reset essay counter (useful for testing or new sessions)
+ */
+export function resetEssayCounter() {
+  essayProcessedCount = 0;
+  lastCoolingPeriod = 0;
+  console.log('🔄 Essay counter reset for new session');
+}
+
+/**
+ * Get current essay processing stats
+ */
+export function getProcessingStats() {
+  return {
+    essaysProcessed: essayProcessedCount,
+    currentBatchPosition: ((essayProcessedCount - 1) % ESSAYS_PER_BATCH) + 1,
+    essaysUntilCooling: ESSAYS_PER_BATCH - ((essayProcessedCount - 1) % ESSAYS_PER_BATCH) - 1,
+    timeSinceLastCooling: Date.now() - lastCoolingPeriod
+  };
 }
 
 // Export functions for testing
