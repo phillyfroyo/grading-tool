@@ -457,9 +457,22 @@ class ModalManager {
             console.log('🆔 Generated ID for element:', element.id);
         }
 
-        const currentText = element.dataset.teacherNotes || '';
-        const textArea = document.getElementById('teacherNotesText');
+        // Try to get existing notes from dataset first, then from displayed content
+        let currentText = element.dataset.teacherNotes || '';
 
+        // If no dataset value, extract from the displayed content
+        if (!currentText || currentText === 'No notes provided') {
+            const contentElement = element.querySelector('.teacher-notes-content');
+            if (contentElement) {
+                const displayedText = contentElement.textContent || contentElement.innerText || '';
+                // Don't use the default placeholder text
+                if (displayedText && displayedText !== 'No notes provided' && displayedText !== 'Click to add teacher notes') {
+                    currentText = displayedText;
+                }
+            }
+        }
+
+        const textArea = document.getElementById('teacherNotesText');
         if (textArea) {
             textArea.value = currentText;
         }
@@ -513,8 +526,16 @@ class ModalManager {
             console.log('🎯 Target element found:', !!targetElement, targetElementId);
 
             if (targetElement) {
+                // Save to dataset for manual grading compatibility
                 targetElement.dataset.teacherNotes = notesText;
                 console.log('✅ Notes saved to element dataset');
+
+                // Update the displayed content
+                const contentElement = targetElement.querySelector('.teacher-notes-content');
+                if (contentElement) {
+                    contentElement.textContent = notesText.trim() || 'No notes provided';
+                    console.log('✅ Updated displayed teacher notes content');
+                }
 
                 // Update visual indicator
                 if (notesText.trim()) {
@@ -526,6 +547,12 @@ class ModalManager {
                     targetElement.style.backgroundColor = '';
                     targetElement.title = '';
                     console.log('🔄 Cleared background and title');
+                }
+
+                // Update the stored grading data if it exists (for GPT-generated grades)
+                if (typeof window !== 'undefined' && window.currentGradingData) {
+                    window.currentGradingData.teacher_notes = notesText;
+                    console.log('✅ Updated currentGradingData.teacher_notes');
                 }
 
                 eventBus.emit('teacher-notes:saved', {
