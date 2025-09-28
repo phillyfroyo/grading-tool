@@ -298,6 +298,11 @@ async function handleStreamingBatchGrade(req, res, { essays, prompt, classProfil
     console.log("✅ Profile found:", profileData.name);
     const finalTemperature = temperature !== undefined ? temperature : (profileData.temperature || 0);
 
+    // Reset essay counter and enable batch controller mode for streaming
+    resetEssayCounter();
+    enableBatchControllerMode();
+    console.log("🔄 Reset essay counter and enabled batch controller mode for streaming");
+
     // Send initial status
     res.write(`data: ${JSON.stringify({
       type: 'start',
@@ -311,6 +316,33 @@ async function handleStreamingBatchGrade(req, res, { essays, prompt, classProfil
     const totalBatches = Math.ceil(essays.length / BATCH_SIZE);
 
     for (let batchStart = 0; batchStart < essays.length; batchStart += BATCH_SIZE) {
+      // Check if we need a cooling period before processing this batch
+      // Apply cooling logic at every 2nd batch (after 6 essays: batch 3, 5, 7, etc.)
+      if (currentBatch > 2 && (currentBatch - 1) % 2 === 0) {
+        console.log(`🧊 STREAMING COOLING: Completed ${(currentBatch - 1) * BATCH_SIZE} essays. Enforcing 90s cooling period before batch ${currentBatch}...`);
+        console.log(`⏰ Cooling period started at: ${new Date().toISOString()}`);
+
+        // Send cooling period notification
+        res.write(`data: ${JSON.stringify({
+          type: 'cooling',
+          message: `Cooling period: 90 seconds before processing batch ${currentBatch}...`,
+          batch: currentBatch,
+          totalBatches: totalBatches
+        })}\n\n`);
+
+        // 90-second cooling period
+        await new Promise(resolve => setTimeout(resolve, 90000));
+
+        console.log(`✅ Cooling period complete at: ${new Date().toISOString()}. Resuming with batch ${currentBatch}...`);
+
+        // Send cooling complete notification
+        res.write(`data: ${JSON.stringify({
+          type: 'cooling_complete',
+          message: `Cooling period complete. Resuming batch ${currentBatch}...`,
+          batch: currentBatch,
+          totalBatches: totalBatches
+        })}\n\n`);
+      }
       const batchEnd = Math.min(batchStart + BATCH_SIZE, essays.length);
       const batch = essays.slice(batchStart, batchEnd);
 
@@ -400,8 +432,16 @@ async function handleStreamingBatchGrade(req, res, { essays, prompt, classProfil
     res.end();
     console.log(`\n✅ STREAMING BATCH GRADING COMPLETED! ${essays.length} essays in ${totalBatches} batches`);
 
+    // Disable batch controller mode after streaming completion
+    disableBatchControllerMode();
+    console.log("🔄 Disabled batch controller mode (streaming completed)");
+
   } catch (error) {
     console.error("\n❌ STREAMING BATCH GRADING ERROR:", error);
+
+    // Ensure batch controller mode is disabled even on error
+    disableBatchControllerMode();
+    console.log("🔄 Disabled batch controller mode (streaming error cleanup)");
     res.write(`data: ${JSON.stringify({
       type: 'error',
       error: error.message
@@ -845,8 +885,16 @@ async function handleBatchGradeStream(req, res) {
     // Clean up the session
     streamingSessions.delete(sessionId);
 
+    // Disable batch controller mode after completion
+    disableBatchControllerMode();
+    console.log("🔄 Disabled batch controller mode (stream session completed)");
+
   } catch (error) {
     console.error("\n❌ STREAMING BATCH GRADING ERROR:", error);
+
+    // Ensure batch controller mode is disabled even on error
+    disableBatchControllerMode();
+    console.log("🔄 Disabled batch controller mode (stream session error cleanup)");
     res.write(`data: ${JSON.stringify({
       type: 'error',
       error: error.message
