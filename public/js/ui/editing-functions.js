@@ -59,15 +59,18 @@ function editStat(element, statType) {
                 }
             }
 
-            // Also try to update manual grading data if available
-            if (category && window.ManualGradingManager && window.ManualGradingManager.updateCategoryScore) {
-                window.ManualGradingManager.updateCategoryScore(category, points, maxPoints);
+            // Also try to update manual grading data if available (use ManualGradingModule, not ManualGradingManager)
+            if (category && window.ManualGradingModule && window.ManualGradingModule.updateCategoryScore) {
+                window.ManualGradingModule.updateCategoryScore(category, points, maxPoints);
             }
         }
 
         // Update total score when individual scores are edited
+        // Try GPT grading first, then manual grading
         if (typeof updateTotalScore === 'function') {
             updateTotalScore();
+        } else if (window.ManualGradingModule && window.ManualGradingModule.updateManualTotalScore) {
+            window.ManualGradingModule.updateManualTotalScore();
         }
     }
 }

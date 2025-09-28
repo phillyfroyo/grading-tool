@@ -14,6 +14,9 @@ function displayManualGradingResults(result) {
     console.log('🎯 DISPLAY MANUAL RESULTS CALLED');
     console.log('Manual result:', result);
 
+    // Set the current manual grading data for editing
+    setCurrentManualGradingData(result);
+
     // Convert manual result to GPT-compatible format for formatting
     const gradingResults = {
         scores: result.scores,
@@ -369,6 +372,86 @@ function testManualGrading() {
     displayManualGradingResults(testResult);
 }
 
+// Track current manual grading data
+let currentManualGradingData = null;
+
+/**
+ * Update category score for manual grading
+ * @param {string} category - Category identifier
+ * @param {number} points - New points value
+ * @param {number} maxPoints - Maximum points for category
+ */
+function updateCategoryScore(category, points, maxPoints) {
+    console.log('🔄 Updating manual category score:', { category, points, maxPoints });
+
+    if (!currentManualGradingData) {
+        console.warn('No manual grading data to update');
+        return;
+    }
+
+    // Update the score in the data structure
+    if (!currentManualGradingData.scores) {
+        currentManualGradingData.scores = {};
+    }
+
+    currentManualGradingData.scores[category] = {
+        points: points,
+        out_of: maxPoints
+    };
+
+    // Recalculate and update total score
+    updateManualTotalScore();
+}
+
+/**
+ * Update total score for manual grading
+ */
+function updateManualTotalScore() {
+    if (!currentManualGradingData || !currentManualGradingData.scores) {
+        console.warn('No manual grading data available for total calculation');
+        return;
+    }
+
+    let totalPoints = 0;
+    let totalMaxPoints = 0;
+
+    // Calculate totals from all categories
+    Object.values(currentManualGradingData.scores).forEach(score => {
+        totalPoints += score.points || 0;
+        totalMaxPoints += score.out_of || 0;
+    });
+
+    // Update stored data
+    currentManualGradingData.totalScore = totalPoints;
+    currentManualGradingData.totalMax = totalMaxPoints;
+    currentManualGradingData.percentage = Math.round((totalPoints / totalMaxPoints) * 100);
+
+    console.log('📊 Manual total score updated:', { totalPoints, totalMaxPoints, percentage: currentManualGradingData.percentage });
+
+    // Update the displayed overall score
+    const overallScoreElement = document.querySelector('.overall-score');
+    if (overallScoreElement) {
+        const scoreColor = getScoreColor(currentManualGradingData.percentage);
+        overallScoreElement.innerHTML = `${totalPoints}/${totalMaxPoints} (${currentManualGradingData.percentage}%)`;
+        overallScoreElement.style.color = scoreColor;
+    }
+
+    // Also update any editable-stat-score elements that show the total
+    const totalScoreStats = document.querySelectorAll('.editable-stat-score[data-category="total"]');
+    totalScoreStats.forEach(element => {
+        element.textContent = `${totalPoints}/${totalMaxPoints}`;
+    });
+}
+
+/**
+ * Set current manual grading data
+ * @param {Object} data - Manual grading data
+ */
+function setCurrentManualGradingData(data) {
+    currentManualGradingData = data;
+    console.log('📝 Manual grading data set:', data);
+}
+
 // Export functions for module usage
 window.ManualGradingModule = {
     displayManualGradingResults,
@@ -381,5 +464,8 @@ window.ManualGradingModule = {
     escapeHtml,
     createManualCategoryButtons,
     createManualColorLegend,
-    testManualGrading
+    testManualGrading,
+    updateCategoryScore,
+    updateManualTotalScore,
+    setCurrentManualGradingData
 };

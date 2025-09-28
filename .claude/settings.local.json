@@ -37,7 +37,8 @@
       "Bash(kill:*)",
       "Bash(wmic process where processid=19892 delete:*)",
       "Bash(vercel:*)",
-      "Bash(git stash:*)"
+      "Bash(git stash:*)",
+      "Bash(git fetch:*)"
     ],
     "deny": [],
     "ask": []
