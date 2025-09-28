@@ -916,6 +916,17 @@ function enhanceContentForPDF(content, studentName) {
     const tempDiv = document.createElement('div');
     tempDiv.innerHTML = content.innerHTML;
 
+    // Copy textarea values from original to cloned elements
+    const originalTextareas = content.querySelectorAll('textarea');
+    const clonedTextareas = tempDiv.querySelectorAll('textarea');
+    originalTextareas.forEach((original, index) => {
+        if (clonedTextareas[index]) {
+            clonedTextareas[index].value = original.value;
+            clonedTextareas[index].textContent = original.value;
+            clonedTextareas[index].innerHTML = original.value;
+        }
+    });
+
     // Remove all no-print elements (including color legend)
     tempDiv.querySelectorAll('.no-print').forEach(element => element.remove());
 
