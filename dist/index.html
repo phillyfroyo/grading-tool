@@ -7,14 +7,29 @@
     <link rel="icon" type="image/png" href="/images/LMGM-favicon-DqO4rkQz.png">
 
     <!-- External CSS Files -->
-  <script type="module" crossorigin src="/js/main-BRsXt-fI.js"></script>
-  <link rel="stylesheet" crossorigin href="/css/main-COc1DX2o.css">
+  <script type="module" crossorigin src="/js/main-axjIghj0.js"></script>
+  <link rel="stylesheet" crossorigin href="/css/main-ozGSC1UO.css">
 </head>
 <body>
     <div class="container">
         <!-- App Branding Header -->
         <div class="app-header">
             <img src="/images/LMGM-C0F5uNC7.svg" alt="LMGM - Lean Mean Grading Machine">
+
+            <!-- User Menu -->
+            <div class="user-menu" style="position: absolute; top: 1px; right: 1px;">
+                <div class="user-email" id="userEmail" onclick="toggleUserDropdown()"
+                     style="cursor: pointer; font-size: 14px; color: #666; padding: 8px 12px; background: #f8f9fa; border-radius: 4px; border: 1px solid #dee2e6;">
+                    Loading...
+                </div>
+                <div class="user-dropdown" id="userDropdown"
+                     style="display: none; position: absolute; top: 100%; right: 0; background: white; border: 1px solid #dee2e6; border-radius: 4px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); z-index: 1000; min-width: 150px; margin-top: 4px;">
+                    <button onclick="signOut()"
+                            style="width: 100%; padding: 12px 16px; border: none; background: none; text-align: left; cursor: pointer; color: #dc3545; font-size: 14px;">
+                        Sign Out
+                    </button>
+                </div>
+            </div>
         </div>
 
         <!-- Grading Mode Tabs -->
@@ -33,35 +48,21 @@
         <div class="tab-content" id="gpt-grader-content">
             <form id="gradingForm">
                 <div class="form-group">
-                    <label for="studentName">Student Name:</label>
-                    <input type="text" id="studentName" name="studentName">
-                </div>
-
-                <div class="form-group">
                     <label for="classProfile">Class Profile:</label>
                     <div class="profile-controls">
                         <select id="classProfile" name="classProfile">
                             <option value="">Loading profiles...</option>
                         </select>
-                        <button type="button" id="manageProfilesBtn" class="manage-profiles-btn">
+                        <button type="button" id="manageProfilesBtn" class="manage-profiles-btn" data-action="manage-profiles">
                             Manage Profiles
                         </button>
                     </div>
-                </div>
-
-
-                <div class="form-group" id="temperatureContainer">
-                    <label for="temperature">Grade Temperature: <span id="temperatureValue">0</span></label>
-                    <div class="temperature-control">
-                        <input type="range" id="temperature" name="temperature" min="-5" max="5" value="0"
-                               oninput="updateTemperatureDisplay(this.value)">
-                        <div class="temperature-labels">
-                            <span>Harsh (-5)</span>
-                            <span>Rubric (0)</span>
-                            <span>Merciful (+5)</span>
-                        </div>
+                    <div id="classProfileError" class="error-message" style="display: none; color: #dc3545; font-size: 14px; margin-top: 5px; padding: 5px; background: #f8d7da; border: 1px solid #f5c6cb; border-radius: 4px;">
+                        <!-- Error message will appear here -->
                     </div>
                 </div>
+
+
 
                 <div class="form-group">
                     <label>Student Essays:</label>
@@ -69,7 +70,7 @@
                         <div class="essay-entry" data-essay-index="0">
                             <div class="essay-header">
                                 <label>Essay 1:</label>
-                                <input type="text" class="student-name" placeholder="Student name (optional)">
+                                <input type="text" class="student-name" placeholder="Student name" required>
                                 <button type="button" class="remove-essay-btn" onclick="removeEssay(0)" style="display: none;">Remove</button>
                             </div>
                             <textarea class="student-text" name="studentText" rows="15" required
@@ -100,7 +101,7 @@
                 <form id="manualGradingForm">
                     <div class="form-group">
                         <label for="manualStudentName">Student Name:</label>
-                        <input type="text" id="manualStudentName" name="studentName" placeholder="Enter student name">
+                        <input type="text" id="manualStudentName" name="studentName" placeholder="Enter student name" required>
                     </div>
 
 
@@ -123,16 +124,16 @@
 
     <!-- Modal for Teacher Notes -->
     <div id="teacherNotesModal" class="modal">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h3 class="modal-title">Edit Teacher Notes</h3>
-                <button class="modal-close-btn">×</button>
+        <div class="modal-content" style="width: 700px; max-width: 90vw;">
+            <div class="modal-header" style="cursor: move;">
+                <h3 class="modal-title" style="font-size: 26px;">Edit Teacher Notes</h3>
+                <button class="modal-close-btn" style="width: 42px; height: 42px; font-size: 22px;">×</button>
             </div>
-            <div class="modal-body">
-                <textarea id="teacherNotesText" rows="4" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;" placeholder="Enter teacher notes..."></textarea>
-                <div style="margin-top: 15px; text-align: right;">
-                    <button class="modal-save-btn" style="background: #28a745; color: white; border: none; padding: 8px 16px; border-radius: 4px; cursor: pointer; margin-right: 10px;">Save</button>
-                    <button class="modal-cancel-btn" style="background: #6c757d; color: white; border: none; padding: 8px 16px; border-radius: 4px; cursor: pointer;">Cancel</button>
+            <div class="modal-body" style="padding: 32px;">
+                <textarea id="teacherNotesText" rows="6" style="width: 100%; padding: 12px; border: 2px solid #e9ecef; border-radius: 8px; font-size: 16px; line-height: 1.5;" placeholder="Enter teacher notes..."></textarea>
+                <div style="margin-top: 20px; text-align: right;">
+                    <button class="modal-save-btn" style="background: #28a745; color: white; border: none; padding: 12px 22px; border-radius: 6px; cursor: pointer; margin-right: 10px; font-size: 17px; font-weight: 600;">Save</button>
+                    <button class="modal-cancel-btn" style="background: #6c757d; color: white; border: none; padding: 12px 22px; border-radius: 6px; cursor: pointer; font-size: 17px; font-weight: 600;">Cancel</button>
                 </div>
             </div>
         </div>
@@ -140,22 +141,88 @@
 
     <!-- Modal for Editing Highlights -->
     <div id="editModal" class="modal">
-        <div class="modal-content">
+        <div class="modal-content" style="width: 800px; max-width: 90vw;">
+            <div class="modal-header" style="cursor: move;">
+                <h3 class="modal-title" style="font-size: 28px;">Edit Highlight</h3>
+                <button class="modal-close-btn" style="width: 44px; height: 44px; font-size: 24px;">×</button>
+            </div>
+            <div class="modal-body" style="padding: 36px;">
+                <!-- Display highlighted text -->
+                <div style="margin-bottom: 24px; padding: 16px; background: #f8f9fa; border-radius: 8px; border-left: 4px solid #667eea;">
+                    <label style="font-size: 18px; font-weight: bold; color: #495057; display: block; margin-bottom: 8px;">Highlighted Text:</label>
+                    <div id="highlightedTextDisplay" style="font-size: 18px; color: #212529; line-height: 1.5;">
+                        <!-- Text will be populated here -->
+                    </div>
+                </div>
+
+                <label style="font-size: 18px; font-weight: bold; margin-bottom: 12px; display: block;">Categories:</label>
+                <div id="modalCategoryButtons" style="margin: 16px 0; display: flex; flex-wrap: wrap; gap: 12px;">
+                    <!-- Category buttons will be dynamically populated -->
+                </div>
+
+                <label for="editNotes" style="font-size: 18px; font-weight: bold; margin-top: 24px; margin-bottom: 12px; display: block;">Notes:</label>
+                <textarea id="editNotes" rows="5" style="width: 100%; padding: 12px; border: 2px solid #e9ecef; border-radius: 8px; font-size: 16px; line-height: 1.5;" placeholder="Add notes about this highlight..."></textarea>
+
+                <div style="margin-top: 24px; text-align: right;">
+                    <button class="modal-save-btn" style="background: #28a745; color: white; border: none; padding: 14px 24px; border-radius: 6px; cursor: pointer; margin-right: 12px; font-size: 18px; font-weight: 600;">Save</button>
+                    <button class="modal-remove-btn" style="background: #dc3545; color: white; border: none; padding: 14px 24px; border-radius: 6px; cursor: pointer; margin-right: 12px; font-size: 18px; font-weight: 600;">Remove Highlight</button>
+                    <button class="modal-cancel-btn" style="background: #6c757d; color: white; border: none; padding: 14px 24px; border-radius: 6px; cursor: pointer; font-size: 18px; font-weight: 600;">Cancel</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal for Profile Management -->
+    <div id="profileManagementModal" class="modal">
+        <div class="modal-content" style="max-width: 1500px; max-height: 90vh; overflow-y: auto;">
             <div class="modal-header">
-                <h3 class="modal-title">Edit Highlight</h3>
+                <h3 class="modal-title">Manage Class Profiles</h3>
+                <button class="modal-close-btn" onclick="closeProfileManagementModal()">×</button>
+            </div>
+            <div class="modal-body">
+                <!-- Profile Content Container (centered, limited width) -->
+                <div style="max-width: 1200px; margin: 0 auto; padding: 0 20px;">
+                    <!-- Profile List -->
+                    <div id="profilesList" style="margin-bottom: 20px;">
+                        <p>Loading profiles...</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Error Modal -->
+    <div id="errorModal" class="modal">
+        <div class="modal-content" style="max-width: 500px;">
+            <div class="modal-header">
+                <h3 class="modal-title">Error</h3>
                 <button class="modal-close-btn">×</button>
             </div>
             <div class="modal-body">
-                <label>Categories:</label>
-                <div id="modalCategoryButtons" style="margin: 10px 0; display: flex; flex-wrap: wrap; gap: 8px;">
-                    <!-- Category buttons will be dynamically populated -->
+                <div id="errorMessage" style="margin-bottom: 15px; padding: 10px; background: #f8d7da; border: 1px solid #f5c6cb; border-radius: 4px; color: #721c24;">
+                    <!-- Error message will be inserted here -->
                 </div>
-                <label for="editNotes">Notes:</label>
-                <textarea id="editNotes" rows="3" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;" placeholder="Add notes about this highlight..."></textarea>
-                <div style="margin-top: 15px; text-align: right;">
-                    <button class="modal-save-btn" style="background: #28a745; color: white; border: none; padding: 8px 16px; border-radius: 4px; cursor: pointer; margin-right: 10px;">Save</button>
-                    <button class="modal-remove-btn" style="background: #dc3545; color: white; border: none; padding: 8px 16px; border-radius: 4px; cursor: pointer; margin-right: 10px;">Remove Highlight</button>
-                    <button class="modal-cancel-btn" style="background: #6c757d; color: white; border: none; padding: 8px 16px; border-radius: 4px; cursor: pointer;">Cancel</button>
+                <div class="modal-actions">
+                    <button class="modal-close-btn" style="background: #007bff; color: white; border: none; padding: 8px 16px; border-radius: 4px; cursor: pointer;">OK</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Confirmation Modal -->
+    <div id="confirmationModal" class="modal">
+        <div class="modal-content" style="max-width: 400px;">
+            <div class="modal-header">
+                <h3 class="modal-title">Confirm Action</h3>
+                <button class="modal-close-btn">×</button>
+            </div>
+            <div class="modal-body">
+                <div id="confirmationMessage" style="margin-bottom: 15px; padding: 10px; background: #fff3cd; border: 1px solid #ffeaa7; border-radius: 4px; color: #856404;">
+                    <!-- Confirmation message will be inserted here -->
+                </div>
+                <div class="modal-actions" style="display: flex; gap: 10px; justify-content: flex-end;">
+                    <button id="confirmNo" class="modal-cancel-btn" style="background: #6c757d; color: white; border: none; padding: 8px 16px; border-radius: 4px; cursor: pointer;">No</button>
+                    <button id="confirmYes" class="modal-save-btn" style="background: #007bff; color: white; border: none; padding: 8px 16px; border-radius: 4px; cursor: pointer;">Yes</button>
                 </div>
             </div>
         </div>
@@ -279,90 +346,85 @@
         });
     </script>
 
-    <!-- Core JavaScript Modules -->
-    <script src="/js/core/utils.js?v=11"></script>
-    <script src="/js/core/logger.js?v=11"></script>
-    <script src="/js/core/eventBus.js?v=11"></script>
-    <script src="/js/core/event-delegation.js?v=11"></script>
+    <!-- Core JavaScript Modules (ES6) -->
 
-    <!-- UI Modules -->
-    <script src="/js/ui/tab-management.js?v=11"></script>
-    <script src="/js/ui/modals.js?v=11"></script>
-    <script src="/js/ui/form-handling.js?v=11"></script>
-    <script src="/js/ui/keyboard-shortcuts.js?v=11"></script>
-    <script src="/js/ui/editing-functions.js?v=11"></script>
-    <script src="/js/ui/manual-grading.js?v=11"></script>
-    <script src="/js/ui/ui-interactions-main.js?v=11"></script>
+    <!-- UI Modules (ES6) -->
+    <script src="/js/ui/tab-management.js?v=14"></script>
+    <script src="/js/ui/draggable-modal.js?v=1"></script>
+    <script src="/js/ui/form-handling.js?v=20"></script>
+    <script src="/js/ui/keyboard-shortcuts.js?v=14"></script>
+    <script src="/js/ui/editing-functions.js?v=14"></script>
+    <script src="/js/ui/manual-grading.js?v=14"></script>
+    <script src="/js/ui/ui-interactions-main.js?v=14"></script>
 
     <!-- Essay Modules -->
-    <script src="/js/essay/text-selection.js?v=11"></script>
-    <script src="/js/essay/category-selection.js?v=11"></script>
-    <script src="/js/essay/highlighting.js?v=11"></script>
-    <script src="/js/essay/essay-formatter.js?v=11"></script>
-    <script src="/js/essay/essay-editing-main.js?v=11"></script>
+    <script src="/js/essay/text-selection.js?v=14"></script>
+    <script src="/js/essay/category-selection.js?v=14"></script>
+    <script src="/js/essay/highlighting.js?v=14"></script>
+    <script src="/js/essay/essay-formatter.js?v=14"></script>
+    <script src="/js/essay/essay-editing-main.js?v=14"></script>
 
-    <!-- Grading Modules -->
-    <script src="/js/grading/display-utils.js?v=11"></script>
-    <script src="/js/grading/single-result.js?v=11"></script>
-    <script src="/js/grading/batch-processing.js?v=11"></script>
-    <script src="/js/grading/manual.js?v=11"></script>
-    <script src="/js/grading/grading-display-main.js?v=11"></script>
+    <!-- Grading Modules (ES6) -->
+    <script src="/js/grading/display-utils.js?v=14"></script>
+    <script src="/js/grading/single-result.js?v=14"></script>
+    <script src="/js/grading/batch-processing.js?v=17"></script>
+    <script src="/js/grading/grading-display-main.js?v=14"></script>
 
     <!-- Other Modules -->
-    <script src="/js/profiles.js?v=11"></script>
-    <script src="/js/essay-management.js?v=11"></script>
-    <script src="/js/pdf-export.js?v=11"></script>
-    <script src="/js/main.js?v=11"></script>
+    <script src="/js/profiles.js?v=18"></script>
+    <script src="/js/essay-management.js?v=14"></script>
+    <script src="/js/pdf-export.js?v=14"></script>
 
     <!-- html2pdf library for direct PDF download -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
 
-    <!-- Modern Module System Check -->
+    <!-- Module System Check -->
     <script>
-        // Check if we're running with Vite/modern build system
-        if (import.meta && import.meta.env) {
-            // Modern ES6 module system - main.js will handle initialization
-            console.log('🚀 Running with modern build system');
-        } else {
-            // Legacy system - use inline initialization
-            document.addEventListener('DOMContentLoaded', function() {
-                console.log('🚀 Initializing legacy modular application...');
+        // Use legacy initialization since we're in a hybrid mode
+        document.addEventListener('DOMContentLoaded', function() {
+            console.log('🚀 Initializing hybrid modular application...');
 
-                // Initialize Event Delegation System first
-                if (window.EventDelegation) {
-                    window.EventDelegation.initialize();
-                }
+            // Initialize UI Interactions (includes tab management, modals, forms, etc.)
+            if (window.UIInteractionsModule) {
+                window.UIInteractionsModule.initializeUIInteractions();
+            }
 
-                // Initialize UI Interactions (includes tab management, modals, forms, etc.)
-                if (window.UIInteractionsModule) {
-                    window.UIInteractionsModule.initializeUIInteractions();
-                }
+            // Initialize Grading Display System
+            if (window.GradingDisplayModule) {
+                window.GradingDisplayModule.initializeGradingDisplay();
+            }
 
-                // Initialize Grading Display System
-                if (window.GradingDisplayModule) {
-                    window.GradingDisplayModule.initializeGradingDisplay();
-                }
+            // Set up grading forms
+            if (window.FormHandlingModule) {
+                window.FormHandlingModule.setupMainGrading();
+                window.FormHandlingModule.setupManualGrading();
+            }
 
-                // Initialize Essay Editing (will be called when essays are loaded)
-                // This is handled by individual components as needed
+            // Initialize Profiles Module
+            if (window.ProfilesModule) {
+                window.ProfilesModule.initializeProfiles();
+            }
 
-                console.log('✅ Legacy modular application initialized');
-                console.log('📊 Module status:', {
-                    eventDelegation: !!window.EventDelegation,
-                    ui: !!window.UIInteractionsModule,
-                    grading: !!window.GradingDisplayModule,
-                    essay: !!window.EssayEditingModule,
-                    textSelection: !!window.TextSelectionModule,
-                    highlighting: !!window.HighlightingModule,
-                    categorySelection: !!window.CategorySelectionModule,
-                    batchProcessing: !!window.BatchProcessingModule,
-                    displayUtils: !!window.DisplayUtilsModule,
-                    modalManager: !!window.ModalManager
-                });
+            console.log('✅ Hybrid modular application initialized');
+            console.log('📊 Module status:', {
+                ui: !!window.UIInteractionsModule,
+                grading: !!window.GradingDisplayModule,
+                formHandling: !!window.FormHandlingModule,
+                essay: !!window.EssayEditingModule,
+                textSelection: !!window.TextSelectionModule,
+                highlighting: !!window.HighlightingModule,
+                categorySelection: !!window.CategorySelectionModule,
+                batchProcessing: !!window.BatchProcessingModule,
+                displayUtils: !!window.DisplayUtilsModule,
+                modalManager: !!window.ModalManager,
+                profiles: !!window.ProfilesModule
             });
-        }
+        });
     </script>
 
-    <!-- Modern Entry Point (loaded by Vite) -->
+    <!-- User Menu Script -->
+    <script src="/js/user-menu.js"></script>
+
+    <!-- Modern Entry Point removed - file doesn't exist -->
 </body>
 </html>

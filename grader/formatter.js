@@ -616,7 +616,19 @@ function renderNestedHighlights(text, issues, segmentIndex, editable) {
 
     const issueDesc = issue.message || issue.correction || issue.text;
     const coachingAttr = issue.coaching_only ? 'data-coaching-only="true"' : '';
-    const notes = issue.explanation || issue.notes || issueDesc || '';
+
+    // Enhanced notes: combine explanation with correction suggestion
+    let notes = '';
+    if (issue.explanation) {
+      notes = issue.explanation;
+      if (issue.correction && issue.correction !== issue.text) {
+        notes += ` The final text should be '${issue.correction}'.`;
+      }
+    } else if (issue.notes) {
+      notes = issue.notes;
+    } else {
+      notes = issueDesc || '';
+    }
 
     html = `<mark class="highlight-${issueCategory} highlight nested-highlight"
                  data-type="${escapeHtml(issueCategory)}"
@@ -667,10 +679,18 @@ function renderSingleHighlight(issue, text, segmentIndex, editable) {
   const issueDesc = issue.message || issue.correction || issue.text;
   const coachingAttr = issue.coaching_only ? 'data-coaching-only="true"' : '';
 
-  // Extract notes/explanation from the message
-  // If message contains arrow (→), it's a correction, use full message as notes
-  // Otherwise, use message as notes directly
-  const notes = issue.explanation || issue.notes || issueDesc || '';
+  // Enhanced notes: combine explanation with correction suggestion
+  let notes = '';
+  if (issue.explanation) {
+    notes = issue.explanation;
+    if (issue.correction && issue.correction !== issue.text) {
+      notes += ` The final text should be '${issue.correction}'.`;
+    }
+  } else if (issue.notes) {
+    notes = issue.notes;
+  } else {
+    notes = issueDesc || '';
+  }
 
   return `<mark class="highlight-${issueCategory} highlight"
                data-type="${escapeHtml(issueCategory)}"
