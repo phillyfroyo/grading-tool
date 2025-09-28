@@ -361,61 +361,76 @@ async function handleStreamingBatchGrade(req, res, { essays, prompt, classProfil
         })}\n\n`);
       });
 
-      // Process essays in this batch sequentially (not parallel) to avoid hanging issues
-      const batchResults = [];
-      for (let batchIndex = 0; batchIndex < batch.length; batchIndex++) {
-        const essay = batch[batchIndex];
+      // Process essays in this batch in parallel with improved timeout and debugging
+      const batchPromises = batch.map(async (essay, batchIndex) => {
         const globalIndex = batchStart + batchIndex;
+        const startTime = Date.now();
+
+        console.log(`📝 [BATCH ${currentBatch}] Starting essay ${globalIndex + 1}/${essays.length} for ${essay.studentName} at ${new Date().toISOString()}`);
 
         try {
-          console.log(`📝 Grading essay ${globalIndex + 1}/${essays.length} for ${essay.studentName}...`);
+          // Add timeout wrapper to detect hanging requests
+          const ESSAY_TIMEOUT_MS = 180000; // 3 minutes timeout per essay
+          const gradingPromise = gradeEssayUnified(essay.studentText, prompt, profileData);
 
-          const result = await gradeEssayUnified(essay.studentText, prompt, profileData);
-          console.log(`✅ Essay ${globalIndex + 1} graded successfully`);
+          const timeoutPromise = new Promise((_, reject) => {
+            setTimeout(() => {
+              reject(new Error(`Essay grading timeout after ${ESSAY_TIMEOUT_MS/1000}s for ${essay.studentName}`));
+            }, ESSAY_TIMEOUT_MS);
+          });
+
+          const result = await Promise.race([gradingPromise, timeoutPromise]);
+          const duration = Date.now() - startTime;
+
+          console.log(`✅ [BATCH ${currentBatch}] Essay ${globalIndex + 1} completed for ${essay.studentName} in ${duration}ms`);
 
           // Apply temperature adjustment
           const finalResult = applyTemperatureAdjustment(result, finalTemperature);
           finalResult.studentName = essay.studentName;
 
-          const essayResult = {
+          return {
             index: globalIndex,
             success: true,
             studentName: essay.studentName,
-            result: finalResult
+            result: finalResult,
+            duration: duration
           };
-
-          batchResults.push({ status: 'fulfilled', value: essayResult });
-
-          // Send immediate result via SSE
-          res.write(`data: ${JSON.stringify({
-            type: 'result',
-            index: globalIndex,
-            studentName: essay.studentName,
-            success: true,
-            result: finalResult
-          })}\n\n`);
 
         } catch (error) {
-          console.error(`❌ Error grading essay ${globalIndex + 1} for ${essay.studentName}:`, error);
+          const duration = Date.now() - startTime;
+          console.error(`❌ [BATCH ${currentBatch}] Essay ${globalIndex + 1} failed for ${essay.studentName} after ${duration}ms:`, error.message);
+          console.error(`🔍 [BATCH ${currentBatch}] Error details:`, error);
 
-          const errorResult = {
+          return {
             index: globalIndex,
             success: false,
             studentName: essay.studentName,
-            error: error.message
+            error: error.message,
+            duration: duration
           };
-
-          batchResults.push({ status: 'rejected', reason: error, value: errorResult });
-
-          // Send immediate error via SSE
-          res.write(`data: ${JSON.stringify({
-            type: 'result',
-            index: globalIndex,
-            studentName: essay.studentName,
-            success: false,
-            error: error.message
-          })}\n\n`);
         }
+      });
+
+      console.log(`⏳ [BATCH ${currentBatch}] Waiting for ${batch.length} essays to complete...`);
+      const batchStartTime = Date.now();
+
+      // Wait for all essays in this batch to complete
+      const batchResults = await Promise.allSettled(batchPromises);
+      const batchDuration = Date.now() - batchStartTime;
+
+      console.log(`🏁 [BATCH ${currentBatch}] Batch completed in ${batchDuration}ms`);
+
+      // Log detailed batch completion statistics
+      const successCount = batchResults.filter(r => r.status === 'fulfilled' && r.value.success).length;
+      const failureCount = batchResults.filter(r => r.status === 'fulfilled' && !r.value.success).length;
+      const rejectedCount = batchResults.filter(r => r.status === 'rejected').length;
+
+      console.log(`📊 [BATCH ${currentBatch}] Results: ${successCount} success, ${failureCount} failed, ${rejectedCount} rejected`);
+
+      // Log memory usage for resource monitoring
+      if (typeof process !== 'undefined' && process.memoryUsage) {
+        const memUsage = process.memoryUsage();
+        console.log(`💾 [BATCH ${currentBatch}] Memory: ${Math.round(memUsage.heapUsed / 1024 / 1024)}MB heap, ${Math.round(memUsage.rss / 1024 / 1024)}MB RSS`);
       }
 
       // Extract results and sort them to maintain a consistent order for the delay
