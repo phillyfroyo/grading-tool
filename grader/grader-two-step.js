@@ -21,6 +21,154 @@ const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
 });
 
+// Queue to manage concurrent requests and prevent rate limiting
+let requestQueue = [];
+let isProcessingQueue = false;
+const MAX_CONCURRENT_REQUESTS = 1; // Serialize all requests to prevent rate limiting
+const BASE_DELAY_BETWEEN_REQUESTS = 3000; // Base delay in milliseconds
+
+// Token rate limiting tracking
+let tokenUsageWindow = [];
+const TOKENS_PER_MINUTE_LIMIT = 30000; // OpenAI's TPM limit
+const WINDOW_SIZE_MS = 60000; // 1 minute window
+const SAFETY_BUFFER = 0.8; // Use only 80% of limit for safety
+
+/**
+ * Retry utility with exponential backoff for rate limiting
+ */
+async function retryWithBackoff(fn, maxRetries = 3, baseDelay = 1000) {
+  let lastError;
+
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    try {
+      return await fn();
+    } catch (error) {
+      lastError = error;
+
+      // Check if it's a rate limit error
+      if (error.status === 429 || error.message?.includes('Rate limit') || error.message?.includes('429')) {
+        console.log(`🔄 Rate limit hit on attempt ${attempt + 1}/${maxRetries + 1}`);
+
+        if (attempt < maxRetries) {
+          // Extract retry delay from error message if available
+          let retryDelay = baseDelay * Math.pow(2, attempt); // Exponential backoff
+
+          // Try to parse suggested delay from OpenAI error message
+          const delayMatch = error.message?.match(/try again in ([\d.]+)s/);
+          if (delayMatch) {
+            retryDelay = Math.max(retryDelay, parseFloat(delayMatch[1]) * 1000 + 500); // Add 500ms buffer
+          }
+
+          console.log(`⏳ Waiting ${retryDelay}ms before retry...`);
+          await new Promise(resolve => setTimeout(resolve, retryDelay));
+          continue;
+        }
+      }
+
+      // If it's not a rate limit error or we've exhausted retries, throw the error
+      throw error;
+    }
+  }
+
+  throw lastError;
+}
+
+/**
+ * Track token usage for rate limiting
+ */
+function trackTokenUsage(tokensUsed) {
+  const now = Date.now();
+  tokenUsageWindow.push({ timestamp: now, tokens: tokensUsed });
+
+  // Remove entries older than 1 minute
+  tokenUsageWindow = tokenUsageWindow.filter(entry =>
+    now - entry.timestamp < WINDOW_SIZE_MS
+  );
+}
+
+/**
+ * Calculate current token usage in the past minute
+ */
+function getCurrentTokenUsage() {
+  const now = Date.now();
+  const recentUsage = tokenUsageWindow.filter(entry =>
+    now - entry.timestamp < WINDOW_SIZE_MS
+  );
+  return recentUsage.reduce((total, entry) => total + entry.tokens, 0);
+}
+
+/**
+ * Calculate dynamic delay based on token usage
+ */
+function calculateDynamicDelay(estimatedTokens = 3000) {
+  const currentUsage = getCurrentTokenUsage();
+  const safeLimit = TOKENS_PER_MINUTE_LIMIT * SAFETY_BUFFER;
+  const remainingCapacity = safeLimit - currentUsage;
+
+  console.log(`🔍 Token usage check: ${currentUsage}/${safeLimit} tokens used (${Math.round(currentUsage/safeLimit*100)}%)`);
+
+  if (remainingCapacity < estimatedTokens) {
+    // Need to wait for tokens to become available
+    const excessTokens = estimatedTokens - remainingCapacity;
+    const delayForTokens = Math.ceil((excessTokens / safeLimit) * WINDOW_SIZE_MS);
+    const totalDelay = Math.max(BASE_DELAY_BETWEEN_REQUESTS, delayForTokens);
+
+    console.log(`⚠️ Token capacity low! Need ${estimatedTokens} tokens, only ${remainingCapacity} available. Adding ${totalDelay}ms delay.`);
+    return totalDelay;
+  }
+
+  return BASE_DELAY_BETWEEN_REQUESTS;
+}
+
+/**
+ * Queue-based OpenAI API call to prevent rate limiting
+ */
+async function queuedOpenAICall(apiCall, estimatedTokens = 3000) {
+  return new Promise((resolve, reject) => {
+    requestQueue.push({ apiCall, resolve, reject, estimatedTokens });
+    processQueue();
+  });
+}
+
+async function processQueue() {
+  if (isProcessingQueue || requestQueue.length === 0) return;
+
+  isProcessingQueue = true;
+  console.log(`📋 Queue processing started with ${requestQueue.length} requests`);
+
+  while (requestQueue.length > 0) {
+    const { apiCall, resolve, reject, estimatedTokens } = requestQueue.shift();
+
+    try {
+      console.log(`🚀 Processing queued request (${requestQueue.length} remaining in queue)`);
+      const startTime = Date.now();
+      const result = await retryWithBackoff(apiCall);
+      const duration = Date.now() - startTime;
+
+      // Track actual token usage from the response
+      const actualTokens = result.usage?.total_tokens || estimatedTokens;
+      trackTokenUsage(actualTokens);
+
+      console.log(`✅ Request completed in ${duration}ms (${actualTokens} tokens used)`);
+      resolve(result);
+    } catch (error) {
+      console.error('❌ Queued request failed:', error.message);
+      reject(error);
+    }
+
+    // Calculate dynamic delay based on token usage
+    if (requestQueue.length > 0) {
+      const nextEstimatedTokens = requestQueue[0]?.estimatedTokens || 3000;
+      const delay = calculateDynamicDelay(nextEstimatedTokens);
+      console.log(`⏳ Waiting ${delay}ms before next request (${requestQueue.length} requests remaining)...`);
+      await new Promise(resolve => setTimeout(resolve, delay));
+    }
+  }
+
+  console.log(`✅ Queue processing completed`);
+  isProcessingQueue = false;
+}
+
 export async function gradeEssay(studentText, prompt, classProfileId) {
   console.log('=== STARTING TWO-STEP GRADING PROCESS ===');
   console.log('DEBUG: classProfileId received:', classProfileId);
@@ -127,14 +275,17 @@ async function detectErrors(studentText, classProfile) {
   console.log('Calling GPT for error detection...');
   console.log(`Student text (${studentText.length} chars): "${studentText.substring(0, 100)}..."`);
   
-  const response = await openai.chat.completions.create({
+  // Estimate tokens for error detection (prompt + student text + response)
+  const estimatedTokens = Math.ceil((prompt.length + studentText.length) * 0.75) + 1500; // ~0.75 chars per token + response buffer
+
+  const response = await queuedOpenAICall(() => openai.chat.completions.create({
     model: "gpt-4o",
     messages: [
       { role: "system", content: prompt },
       { role: "user", content: `Analyze this text for errors: "${studentText}"` }
     ],
-    temperature: 0.5, // Higher for aggressive detection
-  });
+    temperature: 0.1, // Lowered to match grading temperature for maximum consistency
+  }), estimatedTokens);
 
   console.log('=== RAW ERROR DETECTION RESPONSE ===');
   let content = response.choices[0].message.content;
@@ -204,14 +355,17 @@ async function gradeBasedOnRubric(studentText, classProfile, cefrLevel, errorDet
   console.log('Calling GPT for rubric-based grading...');
   console.log(`Errors to consider: ${errorDetectionResults.inline_issues.length} issues`);
   
-  const response = await openai.chat.completions.create({
-    model: "gpt-4o", 
+  // Estimate tokens for grading (prompt + student text + errors + response)
+  const gradingEstimatedTokens = Math.ceil((prompt.length + studentText.length) * 0.75) + 1000; // Grading usually shorter response
+
+  const response = await queuedOpenAICall(() => openai.chat.completions.create({
+    model: "gpt-4o",
     messages: [
       { role: "system", content: prompt },
       { role: "user", content: `Grade this essay based on the detected errors and rubric.` }
     ],
-    temperature: 0.2, // Lower for consistent grading
-  });
+    temperature: 0.1, // Lowered further for maximum consistency
+  }), gradingEstimatedTokens);
 
   console.log('=== RAW GRADING RESPONSE ===');
   let content = response.choices[0].message.content;
