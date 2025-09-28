@@ -338,10 +338,10 @@ async function detectErrors(studentText, classProfile) {
     content = content.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
     const result = JSON.parse(content);
 
-    // Post-process to add "Final text should be" to ALL corrections except spelling errors
+    // Post-process to add "Final text should be" to ALL corrections consistently
     if (result.inline_issues) {
       result.inline_issues = result.inline_issues.map(issue => {
-        if (issue.correction && issue.explanation && !issue.explanation.includes('Final text should be') && issue.category !== 'spelling') {
+        if (issue.correction && issue.explanation && !issue.explanation.includes('Final text should be')) {
           issue.explanation = `${issue.explanation}. Final text should be "${issue.correction}".`;
         }
         return issue;
@@ -478,7 +478,7 @@ function patchHomeworkCollocations(text, issues) {
           start: match.index,
           end: match.index + col.wrong.length,
           correction: col.correct,
-          explanation: `Collocation error: "${col.wrong}" should be "${col.correct}".${isMultiWordHighlight(col.wrong) ? ` Final text should be "${col.correct}".` : ''}`
+          explanation: `Collocation error: "${col.wrong}" should be "${col.correct}".`
         });
       }
     }
@@ -553,7 +553,7 @@ function patchModalAndTooUsage(text, issues) {
         start,
         end,
         correction: "to be able to",
-        explanation: `Modal 'can' cannot follow 'to' - use 'be able to' instead. Final text should be "to be able to".`
+        explanation: `Modal 'can' cannot follow 'to' - use 'be able to' instead.`
       });
     }
   }
@@ -569,7 +569,7 @@ function patchModalAndTooUsage(text, issues) {
         start,
         end,
         correction: modal,
-        explanation: `Modal '${modal}' doesn't need 'to' after it.${isMultiWordHighlight(m[0]) ? ` Final text should be "${modal}".` : ''}`
+        explanation: `Modal '${modal}' doesn't need 'to' after it.`
       });
     }
   }
@@ -587,7 +587,7 @@ function patchModalAndTooUsage(text, issues) {
         start: canStart,
         end: canStart + 6,
         correction: "to be able to",
-        explanation: `Modal 'can' cannot follow 'to' - use 'be able to' instead. Final text should be "to be able to".`
+        explanation: `Modal 'can' cannot follow 'to' - use 'be able to' instead.`
       });
     }
 
@@ -599,7 +599,7 @@ function patchModalAndTooUsage(text, issues) {
         start: wholeStart,
         end: wholeEnd,
         correction: m[0].replace(/too/, "very").replace(/to can/, "to be able to"),
-        explanation: `Consider using 'very' or 'so' instead of 'too' when not expressing excess. Final text should be "${m[0].replace(/too/, "very").replace(/to can/, "to be able to")}".`
+        explanation: `Consider using 'very' or 'so' instead of 'too' when not expressing excess.`
       });
     }
   }
@@ -763,7 +763,7 @@ function attemptAtomicSplit(fullText, spanText, spanStart, spanEnd, originalCate
       start: spanStart,
       end: spanStart + keyWord.length,
       correction: originalIssue.correction || keyWord,
-      explanation: originalIssue.explanation || `Word choice issue with "${keyWord}"${isMultiWordHighlight(keyWord) ? `. Final text should be "${originalIssue.correction || keyWord}".` : ''}`,
+      explanation: originalIssue.explanation || `Word choice issue with "${keyWord}"`,
       _split_from_group: true,
       _original_span: spanText,
       _original_category: originalCategory
@@ -780,7 +780,7 @@ function isMultiWordHighlight(text) {
 
 function generateExplanation(category, errorText, correction) {
   const isMultiWord = isMultiWordHighlight(errorText);
-  const finalTextSuffix = isMultiWord ? ` Final text should be "${correction}".` : '';
+  const finalTextSuffix = '';  // Let main post-processing handle this
 
   switch (category) {
     case 'spelling':
@@ -870,7 +870,7 @@ function patchVocabularyUsage(text, issues) {
       wrong: /\bcircle back\s+that\s+we\s+have\b/gi,
       wrongPhrase: "circle back that we have",
       correction: "circling back about what we discussed",
-      explanation: "We don't 'have' circle backs. Use 'circle back about' or 'circle back on' what was discussed. Final text should be \"circling back about what we discussed\"."
+      explanation: "We don't 'have' circle backs. Use 'circle back about' or 'circle back on' what was discussed."
     },
     {
       wrong: /\bdo\s+business\s+with\b/gi,
@@ -890,13 +890,13 @@ function patchVocabularyUsage(text, issues) {
       wrong: /\bdrop\s+all\s+the\s+questions\b/gi,
       wrongPhrase: "drop all the questions",
       correction: "ask all the questions",
-      explanation: "'Drop questions' is unusual - typically we 'ask questions' or 'address questions'. Final text should be \"ask all the questions\"."
+      explanation: "'Drop questions' is unusual - typically we 'ask questions' or 'address questions'."
     },
     {
       wrong: /\bteamwork\s+have\b/gi,
       wrongPhrase: "teamwork have",
       correction: "team has",
-      explanation: "Use 'team' (countable) when referring to people, not 'teamwork' (uncountable concept). Final text should be \"team has\"."
+      explanation: "Use 'team' (countable) when referring to people, not 'teamwork' (uncountable concept)."
     },
     {
       wrong: /\bgive\s+us\s+feedback\b/gi,
@@ -933,7 +933,7 @@ function patchVocabularyUsage(text, issues) {
       wrong: /\bmake\s+homework\b/gi,
       phrase: "make homework",
       correction: "do homework",
-      explanation: "Use 'do homework', not 'make homework'. Final text should be \"do homework\"."
+      explanation: "Use 'do homework', not 'make homework'."
     },
     {
       wrong: /\bmake\s+a\s+mistake\b/gi,
@@ -946,7 +946,7 @@ function patchVocabularyUsage(text, issues) {
       wrong: /\bdo\s+a\s+mistake\b/gi,
       phrase: "do a mistake",
       correction: "make a mistake", 
-      explanation: "Use 'make a mistake', not 'do a mistake'. Final text should be \"make a mistake\"."
+      explanation: "Use 'make a mistake', not 'do a mistake'."
     }
   ];
   
