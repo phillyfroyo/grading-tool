@@ -753,8 +753,13 @@ function createPrintIframe(resultsDiv, studentName) {
  * @returns {Array} Array of highlight data objects
  */
 function processHighlightsForPDF(content) {
-    const highlights = content.querySelectorAll('mark[data-category], mark[data-type]');
-    console.log('🔍 Looking for highlights with mark[data-category], mark[data-type]:', highlights.length);
+    // Get all highlights but exclude those in the color legend
+    const allHighlights = content.querySelectorAll('mark[data-category], mark[data-type]');
+    const highlights = Array.from(allHighlights).filter(mark => {
+        // Exclude marks that are inside the color legend
+        return !mark.closest('.color-legend');
+    });
+    console.log('🔍 Looking for highlights with mark[data-category], mark[data-type]:', allHighlights.length, 'total,', highlights.length, 'after filtering out legend');
 
     // Debug: Check what mark elements exist
     const allMarks = content.querySelectorAll('mark');
