@@ -946,7 +946,7 @@ function enhanceContentForPDF(content, studentName) {
             console.log('✅ Teacher notes passed validation, creating section');
             teacherNotesSection = `
                 <div class="teacher-notes-section" style="margin: 10px 0 !important; padding: 0 !important; background: transparent !important; border: none !important;">
-                    <p style="margin: 10px 0 !important; padding: 0 !important; line-height: 1.6 !important; color: black !important; font-weight: normal !important; background: transparent !important; border: none !important;"><span style="font-weight: normal !important;">${studentName} -</span> ${notesText}</p>
+                    <p style="margin: 10px 0 !important; padding: 0 !important; line-height: 1.6 !important; color: black !important; font-weight: normal !important; background: transparent !important; border: none !important;">${notesText}</p>
                 </div>
             `;
             // Remove the original teacher notes to prevent duplication
