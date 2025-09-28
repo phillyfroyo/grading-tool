@@ -338,10 +338,17 @@ async function detectErrors(studentText, classProfile) {
     content = content.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
     const result = JSON.parse(content);
 
-    // Post-process to add "Final text should be" to ALL corrections consistently
+    // Post-process to add "Final text should be" to corrections (except spelling errors)
     if (result.inline_issues) {
       result.inline_issues = result.inline_issues.map(issue => {
-        if (issue.correction && issue.explanation && !issue.explanation.includes('Final text should be')) {
+        // Check for various forms of "final text should be" messages already present
+        const alreadyHasFinalText = issue.explanation && (
+          issue.explanation.toLowerCase().includes('final text should be') ||
+          issue.explanation.toLowerCase().includes('the final text should be')
+        );
+
+        // Only add final text message for non-spelling errors that don't already have it
+        if (issue.correction && issue.explanation && !alreadyHasFinalText && issue.category !== 'spelling') {
           issue.explanation = `${issue.explanation}. Final text should be "${issue.correction}".`;
         }
         return issue;
