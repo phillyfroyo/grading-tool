@@ -1153,7 +1153,7 @@ function enhanceContentForPDF(content, studentName) {
                 const cleanedComments = afterScore
                     .replace(/✎/g, '')
                     .replace(/Click to edit/gi, '')
-                    .replace(/Click to add notes/gi, '')
+                    .replace(/Click to add notes.*?\.\.\./gi, '')
                     .replace(/Next Steps.*$/i, '')
                     .replace(/^Comments?:\s*/i, '')
                     .replace(/^Notes?:\s*/i, '')
