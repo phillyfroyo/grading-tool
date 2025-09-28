@@ -104,35 +104,9 @@ function getCurrentTokenUsage() {
 }
 
 /**
- * Check if we need a cooling period based on batch processing
- */
-function checkCoolingPeriod() {
-  const now = Date.now();
-
-  // Check if we've processed enough essays to warrant a cooling period
-  if (essayProcessedCount > 0 && essayProcessedCount % ESSAYS_PER_BATCH === 0) {
-    const timeSinceLastCooling = now - lastCoolingPeriod;
-
-    // Only enforce cooling period if we haven't had one recently
-    if (timeSinceLastCooling > COOLING_PERIOD_MS) {
-      console.log(`🧊 COOLING PERIOD: Processed ${essayProcessedCount} essays. Waiting ${COOLING_PERIOD_MS/1000}s before continuing...`);
-      lastCoolingPeriod = now;
-      return COOLING_PERIOD_MS;
-    }
-  }
-
-  return 0;
-}
-
-/**
- * Calculate dynamic delay based on token usage and batch cooling
+ * Calculate dynamic delay based on token usage
  */
 function calculateDynamicDelay(estimatedTokens = 3000) {
-  // First check if we need a batch cooling period
-  const coolingDelay = checkCoolingPeriod();
-  if (coolingDelay > 0) {
-    return coolingDelay;
-  }
 
   const currentUsage = getCurrentTokenUsage();
   const safeLimit = TOKENS_PER_MINUTE_LIMIT * SAFETY_BUFFER;
@@ -194,11 +168,7 @@ async function processQueue() {
       const nextEstimatedTokens = requestQueue[0]?.estimatedTokens || 3000;
       const delay = calculateDynamicDelay(nextEstimatedTokens);
 
-      if (delay >= COOLING_PERIOD_MS) {
-        console.log(`🧊 COOLING PERIOD: ${delay/1000}s wait (${requestQueue.length} requests remaining)`);
-      } else {
-        console.log(`⏳ Standard delay: ${delay}ms before next request (${requestQueue.length} requests remaining)`);
-      }
+      console.log(`⏳ Standard delay: ${delay}ms before next request (${requestQueue.length} requests remaining)`);
 
       await new Promise(resolve => setTimeout(resolve, delay));
     }
@@ -209,6 +179,20 @@ async function processQueue() {
 }
 
 export async function gradeEssay(studentText, prompt, classProfileId) {
+  // Check if we need a cooling period BEFORE processing this essay
+  if (essayProcessedCount > 0 && essayProcessedCount % ESSAYS_PER_BATCH === 0) {
+    const now = Date.now();
+    const timeSinceLastCooling = now - lastCoolingPeriod;
+
+    // Only enforce cooling period if we haven't had one recently
+    if (timeSinceLastCooling > COOLING_PERIOD_MS) {
+      console.log(`🧊 COOLING PERIOD: Completed batch of ${ESSAYS_PER_BATCH} essays. Waiting ${COOLING_PERIOD_MS/1000}s before starting essay #${essayProcessedCount + 1}...`);
+      await new Promise(resolve => setTimeout(resolve, COOLING_PERIOD_MS));
+      lastCoolingPeriod = Date.now();
+      console.log(`✅ Cooling period complete. Resuming processing...`);
+    }
+  }
+
   // Increment essay counter for batch cooling period tracking
   essayProcessedCount++;
 
