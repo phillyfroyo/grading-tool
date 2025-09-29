@@ -950,6 +950,27 @@ function enhanceContentForPDF(content, studentName) {
         }
     });
 
+    // Copy input values from original to cloned elements (for score inputs)
+    const originalInputs = content.querySelectorAll('input[type="number"], input.editable-score');
+    originalInputs.forEach((original) => {
+        // Find matching input in clone by id first, then by class/attributes
+        let clonedInput = null;
+
+        if (original.id) {
+            clonedInput = tempDiv.querySelector(`input#${original.id}`);
+        } else if (original.className) {
+            clonedInput = tempDiv.querySelector(`input.${original.className.split(' ')[0]}`);
+        } else if (original.dataset.category) {
+            clonedInput = tempDiv.querySelector(`input[data-category="${original.dataset.category}"]`);
+        }
+
+        if (clonedInput) {
+            clonedInput.value = original.value;
+            clonedInput.setAttribute('value', original.value);
+            console.log(`🔢 Copied input value for ${original.id || original.className}: "${original.value}"`);
+        }
+    });
+
     // Remove all no-print elements (including color legend)
     tempDiv.querySelectorAll('.no-print').forEach(element => element.remove());
 
@@ -1102,18 +1123,12 @@ function enhanceContentForPDF(content, studentName) {
             'Content & Information': 'content'
         };
         const categoryId = categoryMap[categoryName] || categoryName.toLowerCase();
-        const manualScoreInput = document.getElementById(`score-${categoryId}`);
-
-        // Then check for other input elements in this section
-        const scoreInput = section.querySelector('input.editable-score, input[type="number"]');
+        // Look for score inputs within this section only (no global lookups)
+        const scoreInput = section.querySelector('input.editable-score, input[type="number"]') ||
+                          section.querySelector(`input#score-${categoryId}`);
         const editableStatScore = section.querySelector('.editable-stat-score');
 
-        if (manualScoreInput) {
-            const score = manualScoreInput.value || '0';
-            const max = manualScoreInput.getAttribute('max') || manualScoreInput.dataset.max || '15';
-            scoreText = `${score}/${max}`;
-            console.log(`Found manualScoreInput for ${categoryName}: ${scoreText}`);
-        } else if (scoreInput) {
+        if (scoreInput) {
             const score = scoreInput.value || '0';
             const max = scoreInput.getAttribute('max') || scoreInput.dataset.max || '15';
             scoreText = `${score}/${max}`;
