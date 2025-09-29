@@ -916,14 +916,37 @@ function enhanceContentForPDF(content, studentName) {
     const tempDiv = document.createElement('div');
     tempDiv.innerHTML = content.innerHTML;
 
-    // Copy textarea values from original to cloned elements
+    // Copy textarea values from original to cloned elements by matching data attributes
     const originalTextareas = content.querySelectorAll('textarea');
-    const clonedTextareas = tempDiv.querySelectorAll('textarea');
-    originalTextareas.forEach((original, index) => {
-        if (clonedTextareas[index]) {
-            clonedTextareas[index].value = original.value;
-            clonedTextareas[index].textContent = original.value;
-            clonedTextareas[index].innerHTML = original.value;
+    originalTextareas.forEach((original) => {
+        // Find matching textarea in clone by data-category attribute
+        const category = original.dataset.category;
+        if (category) {
+            const clonedTextarea = tempDiv.querySelector(`textarea[data-category="${category}"]`);
+            if (clonedTextarea) {
+                clonedTextarea.value = original.value;
+                clonedTextarea.textContent = original.value;
+                clonedTextarea.innerHTML = original.value;
+                console.log(`📝 Copied textarea value for category ${category}: "${original.value}"`);
+            }
+        } else {
+            // Fallback: match by class or id if no data-category
+            const className = original.className;
+            const id = original.id;
+            let clonedTextarea = null;
+
+            if (id) {
+                clonedTextarea = tempDiv.querySelector(`textarea#${id}`);
+            } else if (className) {
+                clonedTextarea = tempDiv.querySelector(`textarea.${className.split(' ')[0]}`);
+            }
+
+            if (clonedTextarea) {
+                clonedTextarea.value = original.value;
+                clonedTextarea.textContent = original.value;
+                clonedTextarea.innerHTML = original.value;
+                console.log(`📝 Copied textarea value for ${id || className}: "${original.value}"`);
+            }
         }
     });
 
