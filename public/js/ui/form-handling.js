@@ -30,6 +30,7 @@ async function handleManualGradingSubmission(e) {
 
     const formData = new FormData(e.target);
     const studentName = formData.get('studentName') || 'Student';
+    const studentNickname = formData.get('studentNickname') || '';
     const essayText = formData.get('essayText') || '';
 
     if (!essayText.trim()) {
@@ -51,6 +52,7 @@ async function handleManualGradingSubmission(e) {
             classProfile: 'default-profile', // Use default profile for manual mode
             temperature: 0,
             studentName: studentName,
+            studentNickname: studentNickname,
             isManualMode: true
         };
 
@@ -128,10 +130,13 @@ async function handleGradingFormSubmission(e) {
     textareas.forEach((textarea, index) => {
         if (textarea.value.trim()) {
             const studentNameField = textarea.closest('.essay-entry').querySelector('.student-name');
+            const studentNicknameField = textarea.closest('.essay-entry').querySelector('.student-nickname');
             const individualName = studentNameField ? studentNameField.value.trim() : '';
+            const individualNickname = studentNicknameField ? studentNicknameField.value.trim() : '';
             studentTexts.push({
                 text: textarea.value.trim(),
-                studentName: individualName || `${studentName} ${index + 1}`.trim()
+                studentName: individualName || `${studentName} ${index + 1}`.trim(),
+                studentNickname: individualNickname
             });
         }
     });
@@ -168,6 +173,7 @@ async function handleGradingFormSubmission(e) {
             const gradingData = {
                 studentText: studentTexts[0].text,
                 studentName: studentTexts[0].studentName,
+                studentNickname: studentTexts[0].studentNickname,
                 prompt: prompt,
                 classProfile: classProfile,
                 temperature: temperature,
@@ -178,6 +184,7 @@ async function handleGradingFormSubmission(e) {
             const singleEssayBatchData = {
                 essays: [{
                     studentName: studentTexts[0].studentName,
+                    studentNickname: studentTexts[0].studentNickname,
                     studentText: studentTexts[0].text
                 }]
             };
@@ -258,7 +265,8 @@ async function handleGradingFormSubmission(e) {
             const batchData = {
                 essays: studentTexts.map(essay => ({
                     studentText: essay.text,
-                    studentName: essay.studentName
+                    studentName: essay.studentName,
+                    studentNickname: essay.studentNickname
                 })),
                 prompt: prompt,
                 classProfile: classProfile,

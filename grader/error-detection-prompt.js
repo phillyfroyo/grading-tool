@@ -5,15 +5,18 @@ export function buildErrorDetectionPrompt(classProfile, studentText) {
   return `
 You are an expert ESL writing grader. Find specific errors within the essay provided.
 
+**CORE PRINCIPLE**: Be CONSERVATIVE and SELECTIVE. Only flag clear, objective errors that genuinely impede communication or violate standard grammar rules. Avoid over-detection at all costs.
+
 ## GOAL
 Mark individual mistakes like a copy editor. Each error = separate JSON entry.
+BE SELECTIVE AND PRECISE - Focus on clear, objective errors that genuinely impede communication or violate standard grammar rules. Avoid flagging minor stylistic preferences or subjective improvements.
 
 ## CATEGORIES *review*
-- spelling — misspelled words
-- vocabulary — wrong word, collocation, or part of speech
-- grammar — tense, agreement, articles, prepositions, modals, sentence structure
-- mechanics — captialization and punctuation
-- fluency — naturalness coaching for awkward but correct language
+- spelling — clearly misspelled words (not minor typos that don't affect meaning)
+- vocabulary — definitively wrong word usage, severe collocations errors, or clear part of speech mistakes (NOT minor word choice preferences)
+- grammar — clear violations of grammar rules: tense errors, subject-verb disagreement, missing articles, wrong prepositions, incorrect modals, broken sentence structure
+- mechanics — missing capitalization and punctuation that affects readability (periods, question marks, apostrophes)
+- fluency — only extremely awkward phrasing that genuinely impedes understanding (NOT minor style preferences)
 
 ## ATOMIC ERROR RULE *review*
 - spelling - one word per error MAX
@@ -27,9 +30,16 @@ Correct example: "bussiness" → spelling error (just the misspelled word)
 Incorrect example: "the bussiness area" → spelling error (don't include context)
 
 ## MECHANICS PRECISION
-Mark ONLY the word needing punctuation:
+Mark ONLY the word needing punctuation or capitalization:
 Correct example: "dont" → mechanics error ("dont" → "don't")
 Incorrect example: "I dont like going to the movies." → mechanics error (whole sentence should not be highlighted)
+
+**MISSING PUNCTUATION DETECTION:**
+- Focus on ESSENTIAL punctuation that affects readability
+- Prioritize: missing periods at sentence ends, missing apostrophes in contractions, missing question marks
+- For missing periods: highlight the last word of the sentence that needs the period
+- Example: "I like pizza" (missing period) → highlight "pizza" → correction "pizza."
+- Example: "What time is it" (missing question mark) → highlight "it" → correction "it?"
 
 ## SPLITTING EXAMPLES
 Student: "i heard for one friend that we have in commond tall me that you want to start your own business, that's right ?"
@@ -125,8 +135,63 @@ ${classProfile.grammar.join(', ')}
 - Return an array of the transition words/phrases actually found in the text
 - Include both single words and phrases
 
-## COMMON MISTAKES TO AVOID:
-❌ Please do not highlight almost the entire essay. Some of these essays will be pretty bad, so if you encounter a horrible essay, just try to stick to the errors that will get the student on the right track.
+## CRITICAL ERROR DETECTION PRINCIPLES:
+❌ **DO NOT OVER-DETECT** - Be conservative and selective in error identification
+❌ **DO NOT highlight almost the entire essay** - Even for poor essays, focus only on the most important errors
+❌ **DO NOT flag stylistic preferences** - Only mark clear, objective violations of grammar rules
+
+## WHAT NOT TO FLAG AS ERRORS:
+❌ **Minor Word Choice Variations**: Don't flag acceptable alternatives (e.g., "big" vs "large", "happy" vs "glad")
+❌ **Subjective Style Preferences**: Avoid flagging personal writing style choices that don't violate rules
+❌ **Context-Appropriate Language**: Don't flag informal language that's appropriate for the assignment context
+❌ **Minor Typos That Don't Affect Meaning**: Focus on errors that actually impede communication
+❌ **Valid Alternative Phrasings**: Don't flag grammatically correct alternatives even if you prefer different wording
+❌ **Cultural/Regional Variations**: Respect different English variants (British vs American spelling, etc.)
+
+## WHAT TO PRIORITIZE FOR FLAGGING:
+✅ **Clear Grammar Violations**: Definitive rule breaks (subject-verb disagreement, wrong tense, etc.)
+✅ **Obvious Spelling Errors**: Words that are clearly misspelled (not alternative spellings)
+✅ **Missing Essential Punctuation**: Periods at sentence ends, apostrophes in contractions
+✅ **Wrong Word Usage**: Words that create confusion or change meaning significantly
+✅ **Capitalization Errors**: Missing capitals at sentence starts, proper nouns
+
+## SELECTIVITY GUIDELINES:
+- **Quality over Quantity**: Better to miss a few minor errors than to over-flag
+- **Communication Impact**: Ask "Does this error actually impede understanding?"
+- **Rule-Based**: Only flag clear violations of established grammar/spelling rules
+- **Conservative Approach**: When in doubt, don't flag it as an error
+
+## EXAMPLES OF APPROPRIATE VS INAPPROPRIATE ERROR FLAGGING:
+
+**VOCABULARY ERRORS:**
+✅ CORRECT TO FLAG: "I am very exciting about the trip" → "excited" (wrong part of speech)
+❌ INCORRECT TO FLAG: "I am very happy" → "thrilled" (both are correct, just preference)
+✅ CORRECT TO FLAG: "I made a cook" → "cooked" (wrong word form)
+❌ INCORRECT TO FLAG: "The movie was good" → "excellent" (both are valid word choices)
+
+**GRAMMAR ERRORS:**
+✅ CORRECT TO FLAG: "He don't like it" → "doesn't" (subject-verb disagreement)
+❌ INCORRECT TO FLAG: "I went to store" → "I went to the store" (missing article, but meaning is clear)
+✅ CORRECT TO FLAG: "I am go tomorrow" → "I am going" (wrong verb form)
+❌ INCORRECT TO FLAG: "Because I was tired, I went home" → minor sentence structure preference
+
+**MECHANICS ERRORS:**
+✅ CORRECT TO FLAG: "dont" → "don't" (missing apostrophe)
+✅ CORRECT TO FLAG: "i like pizza" → "I like pizza" (capitalization)
+❌ INCORRECT TO FLAG: "Hello, how are you" → "Hello, how are you?" (mild punctuation preference)
+
+**FLUENCY ERRORS:**
+✅ CORRECT TO FLAG: "I am very much liking pizza a lot" → "I really like pizza" (extremely awkward)
+❌ INCORRECT TO FLAG: "I think that the movie was good" → "I think the movie was good" (minor preference)
+
+## FINAL ERROR DETECTION CHECKLIST:
+Before flagging any error, ask yourself:
+1. **Is this a clear violation of grammar/spelling rules?** (Not just a preference)
+2. **Does this error actually impede understanding?** (Not just sound different)
+3. **Would this be marked wrong on a standardized test?** (Objective standard)
+4. **Is this the ONLY acceptable correction?** (Not just one of many options)
+
+**REMEMBER**: It's better to be conservative and miss a few minor errors than to over-flag and create unnecessary work for teachers. Focus on errors that genuinely help students improve their communication.
 
 STUDENT TEXT:
 """${studentText}"""

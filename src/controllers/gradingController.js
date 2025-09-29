@@ -43,7 +43,7 @@ async function handleLegacyGrade(req, res) {
  * API grade endpoint handler (/api/grade)
  */
 async function handleApiGrade(req, res) {
-  const { studentText, prompt, classProfile, temperature } = req.body;
+  const { studentText, prompt, classProfile, temperature, studentNickname } = req.body;
 
   console.log("\n🔥 API GRADING REQUEST RECEIVED 🔥");
   console.log("Student text length:", studentText?.length || 0, "characters");
@@ -72,9 +72,10 @@ async function handleApiGrade(req, res) {
 
     console.log("✅ Profile found:", profileData.name);
     console.log("🤖 Using UNIFIED grading system (identical local & Vercel)...");
+    console.log("🏷️ Student nickname:", studentNickname || 'none provided');
 
     // Use unified grading system (works identically everywhere)
-    const result = await gradeEssayUnified(studentText, prompt, profileData);
+    const result = await gradeEssayUnified(studentText, prompt, profileData, studentNickname);
     console.log("\n✅ UNIFIED GRADING COMPLETED!");
     console.log("Original score:", result.total?.points + "/" + result.total?.out_of);
 
@@ -172,18 +173,21 @@ async function handleBatchGrade(req, res) {
     for (let i = 0; i < essays.length; i++) {
       const essay = essays[i];
       console.log(`\n📝 Grading essay ${i + 1}/${essays.length} for ${essay.studentName}...`);
+      console.log(`🏷️ Student nickname: ${essay.studentNickname || 'none'}`);
 
       try {
-        const result = await gradeEssayUnified(essay.studentText, prompt, profileData);
+        const result = await gradeEssayUnified(essay.studentText, prompt, profileData, essay.studentNickname);
         console.log(`✅ Essay ${i + 1} graded successfully`);
 
         // Apply temperature adjustment
         const finalResult = applyTemperatureAdjustment(result, finalTemperature);
         finalResult.studentName = essay.studentName;
+        finalResult.studentNickname = essay.studentNickname;
 
         results.push({
           success: true,
           studentName: essay.studentName,
+          studentNickname: essay.studentNickname,
           result: finalResult
         });
       } catch (error) {
@@ -191,6 +195,7 @@ async function handleBatchGrade(req, res) {
         results.push({
           success: false,
           studentName: essay.studentName,
+          studentNickname: essay.studentNickname,
           error: error.message
         });
       }
@@ -305,18 +310,21 @@ async function handleStreamingBatchGrade(req, res, { essays, prompt, classProfil
 
         try {
           console.log(`📝 Grading essay ${globalIndex + 1}/${essays.length} for ${essay.studentName}...`);
+          console.log(`🏷️ Student nickname: ${essay.studentNickname || 'none'}`);
 
-          const result = await gradeEssayUnified(essay.studentText, prompt, profileData);
+          const result = await gradeEssayUnified(essay.studentText, prompt, profileData, essay.studentNickname);
           console.log(`✅ Essay ${globalIndex + 1} graded successfully`);
 
           // Apply temperature adjustment
           const finalResult = applyTemperatureAdjustment(result, finalTemperature);
           finalResult.studentName = essay.studentName;
+          finalResult.studentNickname = essay.studentNickname;
 
           return {
             index: globalIndex,
             success: true,
             studentName: essay.studentName,
+            studentNickname: essay.studentNickname,
             result: finalResult
           };
 
@@ -327,6 +335,7 @@ async function handleStreamingBatchGrade(req, res, { essays, prompt, classProfil
             index: globalIndex,
             success: false,
             studentName: essay.studentName,
+            studentNickname: essay.studentNickname,
             error: error.message
           };
         }
@@ -773,12 +782,13 @@ async function handleBatchGradeStream(req, res) {
           message: `Processing ${essay.studentName}...`
         })}\n\n`);
 
-        const result = await gradeEssayUnified(essay.studentText, prompt, profileData);
+        const result = await gradeEssayUnified(essay.studentText, prompt, profileData, essay.studentNickname);
         console.log(`✅ Essay ${i + 1} graded successfully, streaming result...`);
 
         // Apply temperature adjustment
         const finalResult = applyTemperatureAdjustment(result, finalTemperature);
         finalResult.studentName = essay.studentName;
+        finalResult.studentNickname = essay.studentNickname;
 
         // Send the completed result immediately
         res.write(`data: ${JSON.stringify({
@@ -786,6 +796,7 @@ async function handleBatchGradeStream(req, res) {
           index: i,
           success: true,
           studentName: essay.studentName,
+          studentNickname: essay.studentNickname,
           result: finalResult
         })}\n\n`);
 
@@ -798,6 +809,7 @@ async function handleBatchGradeStream(req, res) {
           index: i,
           success: false,
           studentName: essay.studentName,
+          studentNickname: essay.studentNickname,
           error: error.message
         })}\n\n`);
       }

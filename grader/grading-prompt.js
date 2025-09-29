@@ -1,9 +1,18 @@
 // grader/grading-prompt.js
 // STEP 2: RUBRIC-BASED GRADING
 
-export function buildGradingPrompt(rubric, classProfile, cefrLevel, studentText, errorDetectionResults) {
+export function buildGradingPrompt(rubric, classProfile, cefrLevel, studentText, errorDetectionResults, studentNickname) {
   const levelInfo = rubric.cefr_levels[cefrLevel] || rubric.cefr_levels['C1'];
   const categories = Object.keys(rubric.categories);
+
+  // Determine student reference - use nickname if provided, otherwise use generic terms
+  const studentRef = studentNickname && studentNickname.trim() ? studentNickname.trim() : 'the student';
+  const studentRefCapitalized = studentNickname && studentNickname.trim() ?
+    studentNickname.charAt(0).toUpperCase() + studentNickname.slice(1) : 'The student';
+
+  // Debug logging
+  console.log('🏷️ GRADING PROMPT: Student nickname received:', studentNickname || 'none');
+  console.log('🏷️ GRADING PROMPT: Using student reference:', studentRef);
 
   return `You are an expert ESL writing grader. Grade according to the rubric.
 
@@ -15,9 +24,10 @@ VOCABULARY COUNT: ${errorDetectionResults.vocabulary_count || 0}
 GRAMMAR STRUCTURES: ${errorDetectionResults.grammar_structures_used?.join(', ') || 'none'}
 
 ## GRADING MINDSET
-- Follow the rubric objectively
-- Score based on demonstrated competency
-- Provide accurate assessment
+- Follow the rubric objectively while maintaining a supportive tone
+- Score based on demonstrated competency with growth-oriented feedback
+- Provide accurate assessment that celebrates progress and guides improvement
+- Focus on student effort and potential, not just current deficiencies
 
 CEFR Level: ${cefrLevel} (${levelInfo.name})
 
@@ -64,7 +74,7 @@ ${errorDetectionResults.inline_issues.map(issue =>
 
 ## TWO-PART APPROACH:
 1. SCORING: Apply rubric bands objectively to determine points
-2. FEEDBACK: Write constructive, helpful comments (see guidelines below)
+2. FEEDBACK: Write encouraging, positive, and growth-oriented comments that celebrate effort and guide improvement (see positive guidelines above)
 
 ## IMPORTANT NOTES:
 - **LEAVE ALL rationale FIELDS BLANK** (empty string "")
@@ -72,27 +82,55 @@ ${errorDetectionResults.inline_issues.map(issue =>
 - Only provide overall teacher_notes for general essay feedback
 - Score objectively based on rubric but don't include category-specific comments
 
-## FEEDBACK LANGUAGE EXAMPLES:
+## POSITIVE FEEDBACK LANGUAGE GUIDELINES:
 
-❌ BAD: "Many grammatical errors (15+ and basic ones) and no use of any structure seen in class"
-✅ GOOD: "Focus on improving grammar structures and working on tense consistency"
+**ALWAYS START POSITIVELY:** Begin with encouragement and acknowledge effort
+**BE GROWTH-ORIENTED:** Frame challenges as opportunities for improvement
+**BALANCE FEEDBACK:** Include what the student did well alongside areas to strengthen
+**USE SUPPORTIVE LANGUAGE:** "Let's work on" instead of "You need to fix"
 
-❌ BAD: "Barely meets requirements. Length is 30 words under the target"
-✅ GOOD: "Work on developing your ideas more fully to meet the assignment requirements"
+${studentNickname && studentNickname.trim() ? `
+**PERSONALIZED POSITIVE FEEDBACK** (using student nickname "${studentNickname}"):
 
-❌ BAD: "No valid content points. Essay has nothing to do with the topic"
-✅ GOOD: "Make sure to address the assignment topic and develop relevant ideas"
+❌ HARSH: "Many grammatical errors (15+ and basic ones) and no use of any structure seen in class"
+✅ POSITIVE: "Nice work on your essay, ${studentNickname}! I can see you're putting effort into expressing your ideas. To help you improve even more, let's focus on strengthening your grammar structures and working on tense consistency."
 
-❌ BAD: "Frequent errors that obscure communication"
-✅ GOOD: "Several errors affect clarity. Review basic spelling and grammar rules"
+❌ HARSH: "Barely meets requirements. Length is 30 words under the target"
+✅ POSITIVE: "${studentRefCapitalized}, you have some good ideas here! To make your essay even stronger, try developing these ideas more fully to meet the assignment requirements. I'd love to see more of your thinking."
 
-For higher scores, be encouraging:
-✅ "Good use of grammar structures with minor errors to address"
-✅ "Your vocabulary choices show effort - keep building on this foundation"
+❌ HARSH: "No valid content points. Essay has nothing to do with the topic"
+✅ POSITIVE: "${studentRefCapitalized}, you're working hard on your writing! Let's make sure your excellent effort is focused on addressing the assignment topic directly. I know you have great ideas to share about this subject."
 
-For lower scores, be constructive:
-✅ "This needs significant improvement. Focus first on basic sentence structure"
-✅ "Start by ensuring you address the assignment prompt fully"
+❌ HARSH: "Frequent errors that obscure communication"
+✅ POSITIVE: "${studentRefCapitalized}, I can see you're working to communicate your ideas! Let's polish up some grammar and spelling to help your message shine through even clearer."
+
+**For higher scores, celebrate and guide:**
+✅ "Excellent work, ${studentNickname}! Your grammar structures are really coming along nicely. Just a few small areas to fine-tune and you'll be even stronger."
+✅ "Great job, ${studentNickname}! Your vocabulary choices show real progress. Keep building on this strong foundation - you're doing so well!"
+
+**For lower scores, encourage and support:**
+✅ "${studentRefCapitalized}, I can see you're trying hard, and that effort matters! Let's start by working together on basic sentence structure - you've got this!"
+✅ "${studentRefCapitalized}, you have important things to say! Let's make sure we address the assignment prompt fully so your voice can really be heard."` : `
+
+❌ HARSH: "Many grammatical errors (15+ and basic ones) and no use of any structure seen in class"
+✅ POSITIVE: "Nice work on your essay! I can see you're putting effort into expressing your ideas. To help you improve even more, let's focus on strengthening your grammar structures and working on tense consistency."
+
+❌ HARSH: "Barely meets requirements. Length is 30 words under the target"
+✅ POSITIVE: "You have some good ideas here! To make your essay even stronger, try developing these ideas more fully to meet the assignment requirements. I'd love to see more of your thinking."
+
+❌ HARSH: "No valid content points. Essay has nothing to do with the topic"
+✅ POSITIVE: "You're working hard on your writing! Let's make sure your excellent effort is focused on addressing the assignment topic directly. I know you have great ideas to share about this subject."
+
+❌ HARSH: "Frequent errors that obscure communication"
+✅ POSITIVE: "I can see you're working to communicate your ideas! Let's polish up some grammar and spelling to help your message shine through even clearer."
+
+**For higher scores, celebrate and guide:**
+✅ "Excellent work! Your grammar structures are really coming along nicely. Just a few small areas to fine-tune and you'll be even stronger."
+✅ "Great job! Your vocabulary choices show real progress. Keep building on this strong foundation - you're doing so well!"
+
+**For lower scores, encourage and support:**
+✅ "I can see you're trying hard, and that effort matters! Let's start by working together on basic sentence structure - you've got this!"
+✅ "You have important things to say! Let's make sure we address the assignment prompt fully so your voice can really be heard."`}
 
 ## OUTPUT FORMAT:
 {
@@ -106,7 +144,7 @@ For lower scores, be constructive:
     "content": {"points": X, "out_of": 15, "rationale": ""}
   },
   "total": {"points": X, "out_of": 100},
-  "teacher_notes": "Overall constructive feedback that helps the student understand their performance and how to improve.",
+  "teacher_notes": "${studentNickname && studentNickname.trim() ? `ALWAYS start with something positive and encouraging. Acknowledge ${studentRef}'s effort and hard work. Then provide supportive, growth-oriented feedback that helps ${studentRef} see next steps for improvement. Use encouraging language like 'Let's work on' instead of 'You need to fix.' Make it personal and warm using ${studentRef}'s nickname "${studentNickname}" when appropriate. End with confidence in ${studentRef}'s ability to improve and grow.` : 'ALWAYS start with something positive and encouraging. Acknowledge the student\'s effort and hard work. Then provide supportive, growth-oriented feedback that helps the student see next steps for improvement. Use encouraging language like "Let\'s work on" instead of "You need to fix." End with confidence in the student\'s ability to improve and grow.'}",
   "encouragement_next_steps": [
     "Actionable steps for improvement",
     "Specific areas to focus on",

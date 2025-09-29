@@ -8,9 +8,10 @@ import { gradeEssay } from "../../grader/grader-two-step.js";
  * @param {string} studentText - The student's essay text
  * @param {string} prompt - The assignment prompt
  * @param {Object} profileData - The class profile data
+ * @param {string} studentNickname - Optional student nickname for personalized feedback
  * @returns {Promise<Object>} Grading results
  */
-async function gradeEssayUnified(studentText, prompt, profileData) {
+async function gradeEssayUnified(studentText, prompt, profileData, studentNickname) {
   console.log('=== STARTING UNIFIED TWO-STEP GRADING ===');
   console.log('Profile:', profileData.name);
   console.log('Student text length:', studentText?.length);
@@ -18,7 +19,8 @@ async function gradeEssayUnified(studentText, prompt, profileData) {
   try {
     // Use the improved two-step grader with atomic error highlighting
     console.log('🚀 Using improved grader-two-step.js with atomic error highlighting...');
-    const result = await gradeEssay(studentText, prompt, profileData.id);
+    console.log('🏷️ Student nickname:', studentNickname || 'none provided');
+    const result = await gradeEssay(studentText, prompt, profileData.id, studentNickname);
     console.log('✅ Unified grading completed successfully!');
     return result;
   } catch (error) {

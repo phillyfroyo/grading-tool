@@ -74,19 +74,23 @@ export function formatGradedEssay(studentText, gradingResults, options = {}) {
   console.log(`Number of inline issues: ${(gradingResults.inline_issues || []).length}`);
   
   const { meta, scores, total, inline_issues, teacher_notes, encouragement_next_steps } = gradingResults;
-  
-  // Build formatted text using offset-based pipeline
-  const formattedText = renderWithOffsets(studentText, inline_issues || [], options);
-  
+
+  // Normalize text and fix offsets ONCE to ensure consistency
+  const normalizedText = studentText.normalize('NFC');
+  const correctedIssues = findActualOffsets(normalizedText, inline_issues || []);
+
+  // Build formatted text using corrected issues
+  const formattedText = renderWithOffsets(normalizedText, correctedIssues, options);
+
   // Generate feedback summary with new format
   const feedbackHtml = generateFeedbackSummary(scores, total, meta, teacher_notes, encouragement_next_steps, options);
-  
+
   return {
     formattedText: formattedText,
     feedbackSummary: feedbackHtml,
-    errors: inline_issues || [],
+    errors: correctedIssues, // Use corrected issues, not original
     overallScore: total?.points || 0,
-    segments: options.editable ? buildSegments(studentText.normalize('NFC'), findActualOffsets(studentText.normalize('NFC'), inline_issues || [])) : null
+    segments: options.editable ? buildSegments(normalizedText, correctedIssues) : null
   };
 }
 
@@ -228,25 +232,99 @@ function findActualOffsets(text, issues) {
       return null;
     }
     
-    // Find the actual position of this text
+    // Find the actual position of this text with intelligent word boundary detection
     let bestMatch = null;
-    
-    // Try exact match first
-    let index = text.indexOf(originalText);
-    if (index !== -1) {
-      bestMatch = { start: index, end: index + originalText.length };
-      console.log(`Found exact match at ${index}-${index + originalText.length}`);
-    } else {
-      // Try case-insensitive match
+
+    // Strategy 1: Try exact word boundary match first (for complete words)
+    if (!originalText.includes(' ') && originalText.length > 0) {
+      const escapedText = originalText.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      const wordBoundaryRegex = new RegExp(`\\b${escapedText}\\b`, 'i');
+      const match = text.match(wordBoundaryRegex);
+      if (match) {
+        const index = text.search(wordBoundaryRegex);
+        bestMatch = { start: index, end: index + match[0].length };
+        console.log(`Found complete word boundary match at ${index}-${index + match[0].length}: "${match[0]}"`);
+      }
+    }
+
+    // Strategy 2: If no complete word match, check if this is a partial word that needs expansion
+    if (!bestMatch && !originalText.includes(' ') && originalText.length > 1) {
+      const partialMatches = [];
       const lowerText = text.toLowerCase();
       const lowerOriginal = originalText.toLowerCase();
-      index = lowerText.indexOf(lowerOriginal);
+
+      // Find all occurrences of the partial text
+      let searchIndex = 0;
+      while (true) {
+        const index = lowerText.indexOf(lowerOriginal, searchIndex);
+        if (index === -1) break;
+
+        // Check if this is part of a larger word
+        const charBefore = index > 0 ? text[index - 1] : ' ';
+        const charAfter = index + originalText.length < text.length ? text[index + originalText.length] : ' ';
+
+        if (/\w/.test(charBefore) || /\w/.test(charAfter)) {
+          // This is part of a larger word - find the complete word
+          const wordStart = text.lastIndexOf(' ', index) + 1;
+          const wordEndSpace = text.indexOf(' ', index + originalText.length);
+          const wordEnd = wordEndSpace === -1 ? text.length : wordEndSpace;
+          const completeWord = text.substring(wordStart, wordEnd).replace(/[^\w]/g, '');
+
+          partialMatches.push({
+            start: wordStart,
+            end: wordEnd,
+            completeWord: completeWord,
+            originalIndex: index
+          });
+
+          console.log(`Found "${originalText}" as part of word "${completeWord}" at ${wordStart}-${wordEnd}`);
+        }
+
+        searchIndex = index + 1;
+      }
+
+      // If we found partial matches, choose the most appropriate one
+      if (partialMatches.length > 0) {
+        // Prefer the match where the partial text is at the beginning or end of the word
+        const preferredMatch = partialMatches.find(match => {
+          const wordStart = match.start;
+          const relativeIndex = match.originalIndex - wordStart;
+          const wordLength = match.completeWord.length;
+          const partialLength = originalText.length;
+
+          // Prefer if partial text is at start or end of word
+          return relativeIndex === 0 || relativeIndex + partialLength === wordLength;
+        }) || partialMatches[0]; // Fallback to first match
+
+        bestMatch = {
+          start: preferredMatch.start,
+          end: preferredMatch.end,
+          _expandedFromPartial: true,
+          _originalPartial: originalText,
+          _expandedWord: preferredMatch.completeWord
+        };
+        console.log(`Expanded partial word "${originalText}" to complete word "${preferredMatch.completeWord}" at ${preferredMatch.start}-${preferredMatch.end}`);
+      }
+    }
+
+    // Strategy 3: Fall back to exact string search if no smart matching worked
+    if (!bestMatch) {
+      let index = text.indexOf(originalText);
       if (index !== -1) {
         bestMatch = { start: index, end: index + originalText.length };
-        console.log(`Found case-insensitive match at ${index}-${index + originalText.length}`);
+        console.log(`Found exact string match at ${index}-${index + originalText.length}`);
       } else {
-        console.log(`No match found for "${originalText}"`);
-        return null; // Skip if we can't find it
+        // Try case-insensitive match
+        const lowerText = text.toLowerCase();
+        const lowerOriginal = originalText.toLowerCase();
+        index = lowerText.indexOf(lowerOriginal);
+        if (index !== -1) {
+          bestMatch = { start: index, end: index + originalText.length };
+          console.log(`Found case-insensitive match at ${index}-${index + originalText.length}`);
+        } else {
+          console.log(`No match found for "${originalText}"`);
+          return null; // Skip if we can't find it
+        }
       }
     }
     

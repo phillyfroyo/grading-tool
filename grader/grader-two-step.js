@@ -178,7 +178,7 @@ async function processQueue() {
   isProcessingQueue = false;
 }
 
-export async function gradeEssay(studentText, prompt, classProfileId) {
+export async function gradeEssay(studentText, prompt, classProfileId, studentNickname) {
   // Debug logging for cooling period
   console.log(`🔍 DEBUG: essayProcessedCount=${essayProcessedCount}, essayProcessedCount % ${ESSAYS_PER_BATCH} = ${essayProcessedCount % ESSAYS_PER_BATCH}`);
   console.log(`🔍 DEBUG: Cooling condition check: essayProcessedCount > 0 = ${essayProcessedCount > 0}, essayProcessedCount % ESSAYS_PER_BATCH === 0 = ${essayProcessedCount % ESSAYS_PER_BATCH === 0}`);
@@ -211,6 +211,7 @@ export async function gradeEssay(studentText, prompt, classProfileId) {
   console.log(`📊 Processing essay #${essayProcessedCount} (batch position: ${((essayProcessedCount - 1) % ESSAYS_PER_BATCH) + 1}/${ESSAYS_PER_BATCH})`);
   console.log('DEBUG: classProfileId received:', classProfileId);
   console.log('DEBUG: classProfileId type:', typeof classProfileId);
+  console.log('🏷️ Student nickname received:', studentNickname || 'none provided');
   console.log('FORCING NODEMON RESTART');
   
   // Load class profile from database first, then fall back to file
@@ -259,7 +260,7 @@ export async function gradeEssay(studentText, prompt, classProfileId) {
   
   // STEP 2: RUBRIC-BASED GRADING
   console.log('\n=== STEP 2: GRADING ===');
-  const gradingResults = await gradeBasedOnRubric(studentText, classProfile, cefrLevel, errorDetectionResults);
+  const gradingResults = await gradeBasedOnRubric(studentText, classProfile, cefrLevel, errorDetectionResults, studentNickname);
   
   // STEP 3: COMBINE RESULTS
   console.log('\n=== STEP 3: COMBINING RESULTS ===');
@@ -379,8 +380,8 @@ async function detectErrors(studentText, classProfile) {
   }
 }
 
-async function gradeBasedOnRubric(studentText, classProfile, cefrLevel, errorDetectionResults) {
-  const prompt = buildGradingPrompt(rubric, classProfile, cefrLevel, studentText, errorDetectionResults);
+async function gradeBasedOnRubric(studentText, classProfile, cefrLevel, errorDetectionResults, studentNickname) {
+  const prompt = buildGradingPrompt(rubric, classProfile, cefrLevel, studentText, errorDetectionResults, studentNickname);
 
   console.log('Calling GPT for rubric-based grading...');
   console.log(`Errors to consider: ${errorDetectionResults.inline_issues.length} issues`);
