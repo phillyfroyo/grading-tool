@@ -58,8 +58,8 @@ ${category.bands.map(band => `  ${band.range}: ${band.description}`).join('\n')}
 "${studentText}"
 
 ## DETECTED ERRORS:
-${errorDetectionResults.inline_issues.map(issue => 
-  `- ${issue.category || issue.type}: ${issue.explanation || issue.message || `${issue.text} → ${issue.correction}`}`
+${errorDetectionResults.inline_issues.map(issue =>
+  `- ${issue.category || issue.type}: ${issue.text} → ${issue.correction}`
 ).join('\n')}
 
 ## TWO-PART APPROACH:

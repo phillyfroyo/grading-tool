@@ -338,31 +338,7 @@ async function detectErrors(studentText, classProfile) {
     content = content.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
     const result = JSON.parse(content);
 
-    // Post-process to add category-specific feedback messages
-    if (result.inline_issues) {
-      result.inline_issues = result.inline_issues.map(issue => {
-        // Check for existing final text messages to avoid duplication
-        const alreadyHasFinalText = issue.explanation && (
-          issue.explanation.toLowerCase().includes('final text should be') ||
-          issue.explanation.toLowerCase().includes('the final text should be') ||
-          issue.explanation.toLowerCase().includes('try using')
-        );
-
-        if (issue.correction && issue.explanation && !alreadyHasFinalText) {
-          if (issue.category === 'spelling') {
-            // Spelling errors: No additional message needed
-            // Keep explanation as-is
-          } else if (issue.category === 'vocabulary') {
-            // Vocabulary errors: Add "Try using [suggestion] instead"
-            issue.explanation = `${issue.explanation}. Try using "${issue.correction}" instead.`;
-          } else {
-            // All other errors: Add "Final text should be"
-            issue.explanation = `${issue.explanation}. Final text should be "${issue.correction}".`;
-          }
-        }
-        return issue;
-      });
-    }
+    // For corrected text only approach - no explanation processing needed
     
     // Apply safety net patches
     if (result.inline_issues) {
@@ -493,8 +469,7 @@ function patchHomeworkCollocations(text, issues) {
           text: col.wrong,
           start: match.index,
           end: match.index + col.wrong.length,
-          correction: col.correct,
-          explanation: `Collocation error: "${col.wrong}" should be "${col.correct}".`
+          correction: col.correct
         });
       }
     }
@@ -519,8 +494,7 @@ function patchCommonErrors(text, issues) {
         text: "i",
         start: match.index + 1,
         end: match.index + 2,
-        correction: "I",
-        explanation: "Personal pronoun 'I' must always be capitalized"
+        correction: "I"
       });
     }
   }
@@ -542,8 +516,7 @@ function patchCommonErrors(text, issues) {
           text: error.wrong,
           start: match.index,
           end: match.index + error.wrong.length,
-          correction: error.correct,
-          explanation: `Misspelling: "${error.wrong}" should be "${error.correct}".`
+          correction: error.correct
         });
       }
     }
@@ -568,8 +541,7 @@ function patchModalAndTooUsage(text, issues) {
         text: m[0],
         start,
         end,
-        correction: "to be able to",
-        explanation: `Modal 'can' cannot follow 'to' - use 'be able to' instead.`
+        correction: "to be able to"
       });
     }
   }
@@ -584,8 +556,7 @@ function patchModalAndTooUsage(text, issues) {
         text: m[0],
         start,
         end,
-        correction: modal,
-        explanation: `Modal '${modal}' doesn't need 'to' after it.`
+        correction: modal
       });
     }
   }
@@ -602,8 +573,7 @@ function patchModalAndTooUsage(text, issues) {
         text: "to can",
         start: canStart,
         end: canStart + 6,
-        correction: "to be able to",
-        explanation: `Modal 'can' cannot follow 'to' - use 'be able to' instead.`
+        correction: "to be able to"
       });
     }
 
@@ -614,8 +584,7 @@ function patchModalAndTooUsage(text, issues) {
         text: m[0],
         start: wholeStart,
         end: wholeEnd,
-        correction: m[0].replace(/too/, "very").replace(/to can/, "to be able to"),
-        explanation: `Consider using 'very' or 'so' instead of 'too' when not expressing excess.`
+        correction: m[0].replace(/too/, "very").replace(/to can/, "to be able to")
       });
     }
   }
@@ -755,7 +724,6 @@ function attemptAtomicSplit(fullText, spanText, spanStart, spanEnd, originalCate
         start: errorStart,
         end: errorEnd,
         correction: correction,
-        explanation: generateExplanation(errorPattern.category, errorText, correction),
         _split_from_group: true,
         _original_span: spanText,
         _original_category: originalCategory
@@ -779,7 +747,6 @@ function attemptAtomicSplit(fullText, spanText, spanStart, spanEnd, originalCate
       start: spanStart,
       end: spanStart + keyWord.length,
       correction: originalIssue.correction || keyWord,
-      explanation: originalIssue.explanation || `Word choice issue with "${keyWord}"`,
       _split_from_group: true,
       _original_span: spanText,
       _original_category: originalCategory
@@ -795,19 +762,8 @@ function isMultiWordHighlight(text) {
 }
 
 function generateExplanation(category, errorText, correction) {
-  const isMultiWord = isMultiWordHighlight(errorText);
-  const finalTextSuffix = '';  // Let main post-processing handle this
-
-  switch (category) {
-    case 'spelling':
-      return `Misspelling: "${errorText}" should be "${correction}".`;
-    case 'grammar':
-      return `Grammar error: "${errorText}" should be "${correction}".${finalTextSuffix}`;
-    case 'mechanics':
-      return `Mechanics error: "${errorText}" should be "${correction}".${finalTextSuffix}`;
-    default:
-      return `Error: "${errorText}" should be "${correction}".${finalTextSuffix}`;
-  }
+  // For corrected text only approach - return empty string
+  return '';
 }
 
 // Improve contextual word corrections based on surrounding grammar
@@ -837,10 +793,8 @@ function patchContextualCorrections(text, issues) {
         // Fix specific known patterns
         if (errorText.includes('negosation') && needsVerb) {
           correctedIssue.correction = 'negotiate';
-          correctedIssue.explanation = 'After "to", use the verb form "negotiate" not the noun "negotiation"';
         } else if (errorText.includes('negosation') && needsNoun) {
           correctedIssue.correction = 'negotiation';
-          correctedIssue.explanation = 'As a noun, the correct spelling is "negotiation"';
         }
         
         // Other common verb/noun confusions
@@ -855,7 +809,6 @@ function patchContextualCorrections(text, issues) {
           if (errorText.includes(baseWord.slice(0, -2))) { // Partial match
             if (needsVerb && issue.correction === baseWord) {
               correctedIssue.correction = forms.verb;
-              correctedIssue.explanation = `After "to", use the verb form "${forms.verb}" not the noun "${forms.noun}"`;
             }
           }
         }
@@ -936,8 +889,7 @@ function patchVocabularyUsage(text, issues) {
           text: pattern.wrongPhrase,
           start,
           end,
-          correction: pattern.correction,
-          explanation: pattern.explanation
+          correction: pattern.correction
         });
       }
     }
@@ -979,8 +931,7 @@ function patchVocabularyUsage(text, issues) {
           text: error.phrase,
           start,
           end,
-          correction: error.correction,
-          explanation: error.explanation
+          correction: error.correction
         });
       }
     }
