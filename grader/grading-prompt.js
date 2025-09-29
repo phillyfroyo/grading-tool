@@ -93,44 +93,44 @@ ${studentNickname && studentNickname.trim() ? `
 **PERSONALIZED POSITIVE FEEDBACK** (using student nickname "${studentNickname}"):
 
 ❌ HARSH: "Many grammatical errors (15+ and basic ones) and no use of any structure seen in class"
-✅ POSITIVE: "${studentNickname} - Nice work on your essay. I can see you're putting effort into expressing your ideas. To help you improve even more, let's focus on strengthening your grammar structures and working on tense consistency."
+✅ POSITIVE: "${studentNickname} - Nice work overall. Let's focus on strengthening your grammar structures and tense consistency."
 
 ❌ HARSH: "Barely meets requirements. Length is 30 words under the target"
-✅ POSITIVE: "${studentRefCapitalized} - you have some good ideas here. To make your essay even stronger, try developing these ideas more fully to meet the assignment requirements. I'd love to see more of your thinking."
+✅ POSITIVE: "${studentRefCapitalized} - good ideas here. Try developing them more fully to meet the length requirements."
 
 ❌ HARSH: "No valid content points. Essay has nothing to do with the topic"
-✅ POSITIVE: "${studentRefCapitalized} - you're working hard on your writing. Let's make sure your excellent effort is focused on addressing the assignment topic directly. I know you have great ideas to share about this subject."
+✅ POSITIVE: "${studentRefCapitalized} - let's focus on addressing the assignment topic more directly."
 
 ❌ HARSH: "Frequent errors that obscure communication"
-✅ POSITIVE: "${studentRefCapitalized} - I can see you're working to communicate your ideas. Let's polish up some grammar and spelling to help your message shine through even clearer."
+✅ POSITIVE: "${studentRefCapitalized} - let's work on grammar and spelling to make your message clearer."
 
 **For higher scores, celebrate and guide:**
-✅ "${studentNickname} - Excellent work. Your grammar structures are really coming along nicely. Just a few small areas to fine-tune and you'll be even stronger."
-✅ "${studentNickname} - Great job. Your vocabulary choices show real progress. Keep building on this strong foundation - you're doing so well."
+✅ "${studentNickname} - Good work. Just a few areas to fine-tune."
+✅ "${studentNickname} - Your vocabulary shows progress. Keep building on this."
 
 **For lower scores, encourage and support:**
-✅ "${studentRefCapitalized} - I can see you're trying hard, and that effort matters. Let's start by working together on basic sentence structure - you've got this."
-✅ "${studentRefCapitalized} - you have important things to say. Let's make sure we address the assignment prompt fully so your voice can really be heard."` : `
+✅ "${studentRefCapitalized} - let's work on basic sentence structure."
+✅ "${studentRefCapitalized} - focus on addressing the assignment prompt more fully."` : `
 
 ❌ HARSH: "Many grammatical errors (15+ and basic ones) and no use of any structure seen in class"
-✅ POSITIVE: "Nice work on your essay. I can see you're putting effort into expressing your ideas. To help you improve even more, let's focus on strengthening your grammar structures and working on tense consistency."
+✅ POSITIVE: "Nice work overall. Let's focus on strengthening your grammar structures and tense consistency."
 
 ❌ HARSH: "Barely meets requirements. Length is 30 words under the target"
-✅ POSITIVE: "You have some good ideas here. To make your essay even stronger, try developing these ideas more fully to meet the assignment requirements. I'd love to see more of your thinking."
+✅ POSITIVE: "Good ideas here. Try developing them more fully to meet the length requirements."
 
 ❌ HARSH: "No valid content points. Essay has nothing to do with the topic"
-✅ POSITIVE: "You're working hard on your writing. Let's make sure your excellent effort is focused on addressing the assignment topic directly. I know you have great ideas to share about this subject."
+✅ POSITIVE: "Let's focus on addressing the assignment topic more directly."
 
 ❌ HARSH: "Frequent errors that obscure communication"
-✅ POSITIVE: "I can see you're working to communicate your ideas. Let's polish up some grammar and spelling to help your message shine through even clearer."
+✅ POSITIVE: "Let's work on grammar and spelling to make your message clearer."
 
 **For higher scores, celebrate and guide:**
-✅ "Excellent work. Your grammar structures are really coming along nicely. Just a few small areas to fine-tune and you'll be even stronger."
-✅ "Great job. Your vocabulary choices show real progress. Keep building on this strong foundation - you're doing so well."
+✅ "Good work. Just a few areas to fine-tune."
+✅ "Your vocabulary shows progress. Keep building on this."
 
 **For lower scores, encourage and support:**
-✅ "I can see you're trying hard, and that effort matters. Let's start by working together on basic sentence structure - you've got this."
-✅ "You have important things to say. Let's make sure we address the assignment prompt fully so your voice can really be heard."`}
+✅ "Let's work on basic sentence structure."
+✅ "Focus on addressing the assignment prompt more fully."`}
 
 ## OUTPUT FORMAT:
 {
@@ -144,7 +144,7 @@ ${studentNickname && studentNickname.trim() ? `
     "content": {"points": X, "out_of": 15, "rationale": ""}
   },
   "total": {"points": X, "out_of": 100},
-  "teacher_notes": "${studentNickname && studentNickname.trim() ? `Format: ${studentNickname} - [feedback]. NEVER use exclamation marks. Start with something positive and encouraging. Acknowledge ${studentRef}'s effort and hard work. Then provide supportive, growth-oriented feedback that helps ${studentRef} see next steps for improvement. Use encouraging language like 'Let's work on' instead of 'You need to fix.' End with confidence in ${studentRef}'s ability to improve and grow.` : 'NEVER use exclamation marks. Start with something positive and encouraging. Acknowledge the student\'s effort and hard work. Then provide supportive, growth-oriented feedback that helps the student see next steps for improvement. Use encouraging language like "Let\'s work on" instead of "You need to fix." End with confidence in the student\'s ability to improve and grow.'}",
+  "teacher_notes": "${studentNickname && studentNickname.trim() ? `Format: ${studentNickname} - [feedback]. NEVER use exclamation marks. BE CONCISE - 1-2 sentences maximum. Don't over-praise basic assignment compliance. Start briefly positive, then focus directly on what to improve. Use 'let's work on' for guidance.` : 'NEVER use exclamation marks. BE CONCISE - 1-2 sentences maximum. Don\'t over-praise basic assignment compliance. Start briefly positive, then focus directly on what to improve. Use "let\'s work on" for guidance.'}",
   "encouragement_next_steps": [
     "Actionable steps for improvement",
     "Specific areas to focus on",
