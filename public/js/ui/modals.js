@@ -63,7 +63,7 @@ class ModalManager {
         this.registerModal('confirmation', {
             element: document.getElementById('confirmationModal'),
             handlers: {
-                open: this.openConfirmationModal.bind(this)
+                // No open handler to avoid recursion
                 // No close handler to avoid recursion
             }
         });
@@ -831,7 +831,15 @@ class ModalManager {
             };
         }
 
-        this.openModal('confirmation', config);
+        // Show the modal directly to avoid recursion
+        modal.element.style.display = 'block';
+        this.activeModal = 'confirmation';
+
+        // Add backdrop click handler
+        this.setupBackdropClick(modal.element);
+
+        // Make modal draggable
+        this.makeDraggable(modal.element);
     }
 
     /**
