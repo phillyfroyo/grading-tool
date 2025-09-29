@@ -951,17 +951,19 @@ function enhanceContentForPDF(content, studentName) {
     });
 
     // Copy input values from original to cloned elements (for score inputs)
-    const originalInputs = content.querySelectorAll('input[type="number"], input.editable-score');
+    const originalInputs = content.querySelectorAll('input[type="number"], .editable-score');
     originalInputs.forEach((original) => {
         // Find matching input in clone by id first, then by class/attributes
         let clonedInput = null;
 
+        // Try multiple ways to find the matching cloned input
         if (original.id) {
-            clonedInput = tempDiv.querySelector(`input#${original.id}`);
-        } else if (original.className) {
-            clonedInput = tempDiv.querySelector(`input.${original.className.split(' ')[0]}`);
+            clonedInput = tempDiv.querySelector(`#${original.id}`);
         } else if (original.dataset.category) {
-            clonedInput = tempDiv.querySelector(`input[data-category="${original.dataset.category}"]`);
+            clonedInput = tempDiv.querySelector(`.editable-score[data-category="${original.dataset.category}"]`) ||
+                         tempDiv.querySelector(`input[data-category="${original.dataset.category}"]`);
+        } else if (original.className) {
+            clonedInput = tempDiv.querySelector(`.${original.className.split(' ')[0]}`);
         }
 
         if (clonedInput) {
