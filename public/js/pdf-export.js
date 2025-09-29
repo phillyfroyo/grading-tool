@@ -950,8 +950,19 @@ function enhanceContentForPDF(content, studentName) {
             }
         });
 
-        const notesText = teacherNotesElement.textContent?.replace(/📝\s*Teacher Notes:\s*/i, '').replace(/✎/g, '').trim();
-        console.log('📝 Extracted teacher notes text:', `"${notesText}"`);
+        // Check if notes are in a .teacher-notes-content span (edited notes) or directly in the element (GPT notes)
+        const notesContentSpan = teacherNotesElement.querySelector('.teacher-notes-content');
+        let notesText = '';
+
+        if (notesContentSpan) {
+            // For edited notes, get content from the span
+            notesText = notesContentSpan.textContent?.trim() || '';
+            console.log('📝 Found teacher notes in content span:', `"${notesText}"`);
+        } else {
+            // For GPT notes, get content directly from the element
+            notesText = teacherNotesElement.textContent?.replace(/📝\s*Teacher Notes:\s*/i, '').replace(/✎/g, '').trim();
+            console.log('📝 Found teacher notes in element text:', `"${notesText}"`);
+        }
 
         if (notesText && notesText !== 'No notes provided' && notesText !== 'Manual grading notes') {
             console.log('✅ Teacher notes passed validation, creating section');
