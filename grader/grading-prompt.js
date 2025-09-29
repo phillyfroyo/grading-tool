@@ -145,15 +145,16 @@ ${studentNickname && studentNickname.trim() ? `
   },
   "total": {"points": X, "out_of": 100},
   "teacher_notes": "${studentNickname && studentNickname.trim() ?
-    'Format: ' + studentNickname + ' - [sentence starter] [feedback]. NEVER use exclamation marks. BE CONCISE - 1-2 sentences maximum. ' +
-    'REQUIRED SENTENCE STARTERS (choose based on total score): ' +
-    'Below 50 points: Not horrible, but it needs improvement. ' +
-    '50-59 points: Not too bad overall. ' +
-    '60-69 points: I think you did a good job overall. ' +
-    '70-79 points: I think you did a great job overall. OR Solid work with this essay. ' +
-    '80-89 points: Great job overall. OR Nice work overall. ' +
-    '90+ points: Excellent work overall. OR Outstanding job. ' +
-    'After the starter, add specific feedback using phrases like Let us work on for areas to improve. Do not over-praise basic assignment compliance.' :
+    'MUST START WITH: ' + studentNickname + ' - [then one of the sentence starters below based on score]. ' +
+    'NEVER use exclamation marks. BE CONCISE - 1-2 sentences maximum. ' +
+    'REQUIRED FORMAT based on total score: ' +
+    'Below 50: ' + studentNickname + ' - Not horrible, but it needs improvement. [specific feedback] ' +
+    '50-59: ' + studentNickname + ' - Not too bad overall. [specific feedback] ' +
+    '60-69: ' + studentNickname + ' - I think you did a good job overall. [specific feedback] ' +
+    '70-79: ' + studentNickname + ' - I think you did a great job overall. [specific feedback] OR ' + studentNickname + ' - Solid work with this essay. [specific feedback] ' +
+    '80-89: ' + studentNickname + ' - Great job overall. [specific feedback] OR ' + studentNickname + ' - Nice work overall. [specific feedback] ' +
+    '90+: ' + studentNickname + ' - Excellent work overall. [specific feedback] OR ' + studentNickname + ' - Outstanding job. [specific feedback] ' +
+    'The [specific feedback] should use phrases like Let us work on for areas to improve. Do not over-praise basic assignment compliance.' :
     'NEVER use exclamation marks. BE CONCISE - 1-2 sentences maximum. ' +
     'REQUIRED SENTENCE STARTERS (choose based on total score): ' +
     'Below 50 points: Not horrible, but it needs improvement. ' +
