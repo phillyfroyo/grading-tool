@@ -53,12 +53,22 @@ Student: "that's right ?" has BOTH grammar AND mechanics issues
 ## NEVER GROUP MULTIPLE ERRORS
 Each JSON entry = ONE specific error type with ONE correction
 
-## EXPLANATION GUIDELINES
+## CORRECTION AND EXPLANATION FORMATTING
+- **correction**: MANDATORY - Provide ONLY the corrected text that should replace the highlighted error
+- **explanation**: OPTIONAL but PREFERRED - Explain WHY the error exists
+
+**CORRECTION FIELD RULES:**
+- For correction field, provide ONLY the replacement text (no extra words)
+- Example: If student wrote "response" but meant "respond", correction should be: "respond"
+- Do NOT include phrases like "should be" or "Final text should be" in correction field
+
+**EXPLANATION FIELD GUIDELINES:**
 - Keep explanations concise and specific
-- Do NOT include "Final text should be" or similar phrases in explanations
-- Focus on explaining WHY the error exists, not what the final text should be
-- For spelling errors: Use format "Misspelling - 'word' should be 'correction'"
+- Focus on explaining WHY the error exists
+- For spelling errors: "Misspelling of [word]" or similar brief explanation
 - For grammar errors: Explain the grammar rule being violated
+- For vocabulary: Explain word choice or usage issue
+- Use your discretion - simple errors (like common spelling) may not need explanation
 - For vocabulary errors: Explain why the word choice is wrong
 
 ## OUTPUT FORMAT
@@ -86,7 +96,7 @@ Each JSON entry = ONE specific error type with ONE correction
       "start": 50,
       "end": 57,
       "correction": "receive",
-      "explanation": "Misspelling - 'recieve' should be 'receive'"
+      "explanation": "Common misspelling of 'receive'"
     }
   ],
   "corrected_text_minimal": "Text with only objective errors fixed",
