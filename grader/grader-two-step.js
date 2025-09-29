@@ -337,6 +337,25 @@ async function detectErrors(studentText, classProfile) {
   try {
     // Clean JSON - remove markdown code blocks
     content = content.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
+
+    // Try to extract JSON if response contains explanatory text
+    // Look for the first { and last } to extract just the JSON object
+    const jsonStartIndex = content.indexOf('{');
+    const jsonEndIndex = content.lastIndexOf('}');
+
+    if (jsonStartIndex !== -1 && jsonEndIndex !== -1 && jsonEndIndex > jsonStartIndex) {
+      // Extract just the JSON portion
+      const jsonContent = content.substring(jsonStartIndex, jsonEndIndex + 1);
+      console.log('📋 Extracted JSON from response (removed surrounding text)');
+      content = jsonContent;
+    }
+
+    // Additional cleanup: remove any text before the first {
+    if (content.indexOf('{') > 0) {
+      console.log('⚠️ Found text before JSON, removing it');
+      content = content.substring(content.indexOf('{'));
+    }
+
     const result = JSON.parse(content);
 
     // For corrected text only approach - no explanation processing needed
