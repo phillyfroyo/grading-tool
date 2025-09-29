@@ -90,7 +90,7 @@ function openPrintDialog(resultsDiv, studentName) {
         <html>
         <head>
             <meta charset="utf-8">
-            <title></title>
+            <title>Graded Essay - ${studentName}</title>
             <style>
                 /* Force background colors for printing */
                 * {
@@ -682,7 +682,7 @@ function createPrintIframe(resultsDiv, studentName) {
         <html>
         <head>
             <meta charset="utf-8">
-            <title>Essay Grading Report</title>
+            <title>Graded Essay - ${studentName}</title>
             <style>
                 /* Force background colors for printing */
                 * {
