@@ -1147,18 +1147,12 @@ function enhanceContentForPDF(content, studentName) {
         const feedbackTextarea = section.querySelector('textarea.editable-feedback, textarea');
         console.log(`  Looking for textarea in section for ${categoryName}:`, !!feedbackTextarea);
         if (feedbackTextarea) {
-            // Try to get the current value from the original DOM element (not the cloned one)
+            // Get the textarea value from the cloned element (values were already copied correctly)
             const category = feedbackTextarea.dataset.category || categoryName.toLowerCase();
-            const originalTextarea = document.querySelector(`textarea[data-category="${category}"], textarea.editable-feedback[data-category="${category}"]`);
 
-            let textareaValue = '';
-            if (originalTextarea) {
-                textareaValue = originalTextarea.value || originalTextarea.textContent || '';
-                console.log(`  Found original textarea for ${category}, value: "${originalTextarea.value}"`);
-            } else {
-                textareaValue = feedbackTextarea.value || feedbackTextarea.textContent || feedbackTextarea.innerHTML || '';
-                console.log(`  Using cloned textarea, value: "${feedbackTextarea.value}"`);
-            }
+            // Use the cloned textarea value (which was copied from the correct original)
+            let textareaValue = feedbackTextarea.value || feedbackTextarea.textContent || feedbackTextarea.innerHTML || '';
+            console.log(`  Using cloned textarea for ${category}, value: "${feedbackTextarea.value}"`);
 
             console.log(`  Textarea found, value: "${feedbackTextarea.value}"`);
             console.log(`  Textarea textContent: "${feedbackTextarea.textContent}"`);
