@@ -619,7 +619,11 @@ function renderNestedHighlights(text, issues, segmentIndex, editable) {
 
     // Enhanced notes: combine explanation with correction suggestion
     let notes = '';
-    if (issue.explanation) {
+    if (issue.correction && issue.explanation) {
+      notes = `${issue.correction} - ${issue.explanation}`;
+    } else if (issue.correction) {
+      notes = issue.correction;
+    } else if (issue.explanation) {
       notes = issue.explanation;
     } else if (issue.notes) {
       notes = issue.notes;
@@ -678,7 +682,11 @@ function renderSingleHighlight(issue, text, segmentIndex, editable) {
 
   // Enhanced notes: combine explanation with correction suggestion
   let notes = '';
-  if (issue.explanation) {
+  if (issue.correction && issue.explanation) {
+    notes = `${issue.correction} - ${issue.explanation}`;
+  } else if (issue.correction) {
+    notes = issue.correction;
+  } else if (issue.explanation) {
     notes = issue.explanation;
   } else if (issue.notes) {
     notes = issue.notes;

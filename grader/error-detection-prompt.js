@@ -54,22 +54,21 @@ Student: "that's right ?" has BOTH grammar AND mechanics issues
 Each JSON entry = ONE specific error type with ONE correction
 
 ## CORRECTION AND EXPLANATION FORMATTING
-- **correction**: MANDATORY - Provide ONLY the corrected text that should replace the highlighted error
-- **explanation**: OPTIONAL but PREFERRED - Explain WHY the error exists
+- **correction**: MANDATORY - ALWAYS REQUIRED - Provide ONLY the corrected text that should replace the highlighted error
+- **explanation**: OPTIONAL - Provide only when educational value is high (not for simple spelling)
 
-**CORRECTION FIELD RULES:**
+**CRITICAL: EVERY ERROR MUST HAVE A CORRECTION FIELD**
+- The correction field is NEVER optional - it must be present for EVERY error
 - For correction field, provide ONLY the replacement text (no extra words)
 - Example: If student wrote "response" but meant "respond", correction should be: "respond"
 - Do NOT include phrases like "should be" or "Final text should be" in correction field
 
-**EXPLANATION FIELD GUIDELINES:**
-- Keep explanations concise and specific
-- Focus on explaining WHY the error exists
-- For spelling errors: "Misspelling of [word]" or similar brief explanation
-- For grammar errors: Explain the grammar rule being violated
-- For vocabulary: Explain word choice or usage issue
-- Use your discretion - simple errors (like common spelling) may not need explanation
-- For vocabulary errors: Explain why the word choice is wrong
+**EXPLANATION FIELD GUIDELINES (OPTIONAL):**
+- Only add explanation when it adds educational value
+- Skip explanation for simple/obvious errors (common misspellings like "teh" → "the")
+- Include explanation for complex grammar rules or confusing vocabulary choices
+- Keep explanations very brief (5-10 words max)
+- Focus on the "why" not the "what"
 
 ## OUTPUT FORMAT
 {
@@ -80,7 +79,7 @@ Each JSON entry = ONE specific error type with ONE correction
       "start": 26,
       "end": 29,
       "correction": "so",
-      "explanation": "Wrong word choice - 'too' implies excess, use 'so' for emphasis"
+      "explanation": "'too' implies excess"
     },
     {
       "category": "grammar",
@@ -95,8 +94,7 @@ Each JSON entry = ONE specific error type with ONE correction
       "text": "recieve",
       "start": 50,
       "end": 57,
-      "correction": "receive",
-      "explanation": "Common misspelling of 'receive'"
+      "correction": "receive"
     }
   ],
   "corrected_text_minimal": "Text with only objective errors fixed",
