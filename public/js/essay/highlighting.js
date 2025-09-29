@@ -201,9 +201,11 @@ function showHighlightEditModal(element, currentCategories) {
     const modal = document.getElementById('editModal');
     const modalCategoryButtons = document.getElementById('modalCategoryButtons');
     const notesTextarea = document.getElementById('editNotes');
+    const correctionTextarea = document.getElementById('editCorrection');
+    const explanationTextarea = document.getElementById('editExplanation');
     const highlightedTextDisplay = document.getElementById('highlightedTextDisplay');
 
-    if (!modal || !modalCategoryButtons || !notesTextarea) {
+    if (!modal || !modalCategoryButtons || !notesTextarea || !correctionTextarea || !explanationTextarea) {
         console.error('Edit modal elements not found');
         return;
     }
@@ -298,8 +300,15 @@ function showHighlightEditModal(element, currentCategories) {
         });
     });
 
-    // Set notes from element data or empty
+    // Parse existing notes to extract correction and explanation
     const currentNotes = element.dataset.notes || '';
+    const parsedNotes = parseNotesFormat(currentNotes);
+
+    // Set values in the new fields
+    correctionTextarea.value = parsedNotes.correction;
+    explanationTextarea.value = parsedNotes.explanation;
+
+    // For backward compatibility, also set the hidden notes field
     notesTextarea.value = currentNotes;
 
     // SIMPLIFIED APPROACH: Modal is display-only, category selection triggers immediate auto-save
@@ -328,10 +337,21 @@ function showHighlightEditModal(element, currentCategories) {
                 // Save categories to element
                 element.dataset.category = selectedCategories.join(',');
 
-                // Save notes to element
+                // Save notes to element (combine correction and explanation)
+                const correctionTextarea = document.getElementById('editCorrection');
+                const explanationTextarea = document.getElementById('editExplanation');
                 const notesTextarea = document.getElementById('editNotes');
+
+                const correction = correctionTextarea ? correctionTextarea.value.trim() : '';
+                const explanation = explanationTextarea ? explanationTextarea.value.trim() : '';
+
+                // Format notes in the new structure
+                const formattedNotes = formatNotesForStorage(correction, explanation);
+                element.dataset.notes = formattedNotes;
+
+                // Update backward compatibility field
                 if (notesTextarea) {
-                    element.dataset.notes = notesTextarea.value;
+                    notesTextarea.value = formattedNotes;
                 }
 
                 // Update tooltip
@@ -664,6 +684,68 @@ function getElementTextPosition(element) {
 }
 
 // Export functions for module usage
+/**
+ * Parse notes from old format to extract correction and explanation
+ * @param {string} notes - Notes string to parse
+ * @returns {Object} Object with correction and explanation
+ */
+function parseNotesFormat(notes) {
+    if (!notes) {
+        return { correction: '', explanation: '' };
+    }
+
+    // Try to parse new format first (Correction: ... \n Explanation: ...)
+    const correctionMatch = notes.match(/(?:^|\n)\s*Correction:\s*(.+?)(?=\s*\n\s*Explanation:|$)/is);
+    const explanationMatch = notes.match(/(?:^|\n)\s*Explanation:\s*(.+?)$/is);
+
+    if (correctionMatch || explanationMatch) {
+        return {
+            correction: correctionMatch ? correctionMatch[1].trim() : '',
+            explanation: explanationMatch ? explanationMatch[1].trim() : ''
+        };
+    }
+
+    // Try to parse GPT format (e.g., "Incorrect verb form - 'response' should be 'respond'. Final text should be "doesn't want to respond".")
+    const finalTextMatch = notes.match(/final text should be ["'](.+?)["']/i);
+    if (finalTextMatch) {
+        const correction = finalTextMatch[1];
+        const explanation = notes.replace(/\.\s*final text should be ["'].+?["']\./i, '').trim();
+        return { correction, explanation };
+    }
+
+    // Try to extract arrow format (e.g., "response→respond")
+    const arrowMatch = notes.match(/(.+?)→(.+)/);
+    if (arrowMatch) {
+        return {
+            correction: arrowMatch[2].trim(),
+            explanation: notes.replace(/(.+?)→(.+)/, '').trim() || `Change "${arrowMatch[1].trim()}" to "${arrowMatch[2].trim()}"`
+        };
+    }
+
+    // Fallback: treat entire notes as explanation if no clear correction pattern
+    return { correction: '', explanation: notes };
+}
+
+/**
+ * Format correction and explanation for storage
+ * @param {string} correction - Correction text
+ * @param {string} explanation - Explanation text
+ * @returns {string} Formatted notes string
+ */
+function formatNotesForStorage(correction, explanation) {
+    const parts = [];
+
+    if (correction) {
+        parts.push(`Correction: ${correction}`);
+    }
+
+    if (explanation) {
+        parts.push(`Explanation: ${explanation}`);
+    }
+
+    return parts.join('\n');
+}
+
 window.HighlightingModule = {
     applyHighlight,
     applyBatchHighlight,

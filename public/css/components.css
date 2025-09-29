@@ -363,15 +363,15 @@
     box-shadow: 0 4px 16px rgba(0,0,0,0.2);
 }
 
-/* Modal textarea */
-#editNotes {
+/* Modal textareas */
+#editNotes, #editCorrection, #editExplanation {
     border: 2px solid #e9ecef;
     border-radius: 8px;
     transition: border-color 0.2s ease;
     resize: vertical;
 }
 
-#editNotes:focus {
+#editNotes:focus, #editCorrection:focus, #editExplanation:focus {
     border-color: #667eea;
     outline: none;
     box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);

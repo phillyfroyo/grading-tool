@@ -873,24 +873,26 @@ function createHighlightsLegend(highlightsData) {
         // Create the entry text with improved formatting
         let entryText = `<span class="highlight-number-text">${highlight.number}.</span> You wrote "${highlight.text}" - ${categoryText}`;
 
-        // Add correction ONLY if meaningful notes exist (exclude "no notes" message)
+        // Parse notes to extract correction and explanation separately
         let correctionText = '';
         if (highlight.notes &&
             highlight.notes.trim() &&
             highlight.notes.trim() !== '' &&
             !highlight.notes.includes('**no notes have been entered**')) {
 
-            if (!highlight.notes.includes('→')) {
-                correctionText = `<div class="correction-text"><strong>Correction:</strong> ${highlight.notes}</div>`;
-            } else {
-                // Extract correction from arrow format (e.g., "wekend→weekend")
-                const parts = highlight.notes.split('→');
-                if (parts.length === 2 && parts[1].trim()) {
-                    correctionText = `<div class="correction-text"><strong>Correction:</strong> ${parts[1].trim()}</div>`;
-                }
+            const parsedNotes = parseNotesFormatPDF(highlight.notes);
+
+            // Add correction if present
+            if (parsedNotes.correction) {
+                correctionText += `<div class="correction-text"><strong>Correction:</strong> ${parsedNotes.correction}</div>`;
+            }
+
+            // Add explanation if present
+            if (parsedNotes.explanation) {
+                correctionText += `<div class="correction-text"><strong>Explanation:</strong> ${parsedNotes.explanation}</div>`;
             }
         }
-        // If no meaningful notes, correctionText remains empty - NO correction line will appear
+        // If no meaningful notes, correctionText remains empty - NO correction/explanation lines will appear
 
         legendHTML += `
             <div class="highlight-entry ${cssClass}">
@@ -2365,6 +2367,48 @@ window.downloadIndividualEssay = function(index) {
         alert('Error: Essay data not found. Please try again.');
     }
 };
+
+/**
+ * Parse notes from old format to extract correction and explanation (PDF version)
+ * @param {string} notes - Notes string to parse
+ * @returns {Object} Object with correction and explanation
+ */
+function parseNotesFormatPDF(notes) {
+    if (!notes) {
+        return { correction: '', explanation: '' };
+    }
+
+    // Try to parse new format first (Correction: ... \n Explanation: ...)
+    const correctionMatch = notes.match(/(?:^|\n)\s*Correction:\s*(.+?)(?=\s*\n\s*Explanation:|$)/is);
+    const explanationMatch = notes.match(/(?:^|\n)\s*Explanation:\s*(.+?)$/is);
+
+    if (correctionMatch || explanationMatch) {
+        return {
+            correction: correctionMatch ? correctionMatch[1].trim() : '',
+            explanation: explanationMatch ? explanationMatch[1].trim() : ''
+        };
+    }
+
+    // Try to parse GPT format (e.g., "Incorrect verb form - 'response' should be 'respond'. Final text should be "doesn't want to respond".")
+    const finalTextMatch = notes.match(/final text should be ["'](.+?)["']/i);
+    if (finalTextMatch) {
+        const correction = finalTextMatch[1];
+        const explanation = notes.replace(/\.\s*final text should be ["'].+?["']\./i, '').trim();
+        return { correction, explanation };
+    }
+
+    // Try to extract arrow format (e.g., "response→respond")
+    const arrowMatch = notes.match(/(.+?)→(.+)/);
+    if (arrowMatch) {
+        return {
+            correction: arrowMatch[2].trim(),
+            explanation: notes.replace(/(.+?)→(.+)/, '').trim() || `Change "${arrowMatch[1].trim()}" to "${arrowMatch[2].trim()}"`
+        };
+    }
+
+    // Fallback: treat entire notes as explanation if no clear correction pattern
+    return { correction: '', explanation: notes };
+}
 
 // Log successful loading
 console.log('✅ PDF Export Module loaded successfully', {
