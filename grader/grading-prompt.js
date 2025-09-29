@@ -144,7 +144,27 @@ ${studentNickname && studentNickname.trim() ? `
     "content": {"points": X, "out_of": 15, "rationale": ""}
   },
   "total": {"points": X, "out_of": 100},
-  "teacher_notes": "${studentNickname && studentNickname.trim() ? `Format: ${studentNickname} - [feedback]. NEVER use exclamation marks. BE CONCISE - 1-2 sentences maximum. Don't over-praise basic assignment compliance. Start briefly positive, then focus directly on what to improve. Use 'let's work on' for guidance.` : 'NEVER use exclamation marks. BE CONCISE - 1-2 sentences maximum. Don\'t over-praise basic assignment compliance. Start briefly positive, then focus directly on what to improve. Use "let\'s work on" for guidance.'}",
+  "teacher_notes": "${studentNickname && studentNickname.trim() ? `Format: ${studentNickname} - [sentence starter] [feedback]. NEVER use exclamation marks. BE CONCISE - 1-2 sentences maximum.
+
+REQUIRED SENTENCE STARTERS (choose based on total score):
+- Below 50 points: "Not horrible, but it needs improvement."
+- 50-59 points: "Not too bad overall."
+- 60-69 points: "I think you did a good job overall."
+- 70-79 points: "I think you did a great job overall." OR "Solid work with this essay."
+- 80-89 points: "Great job overall." OR "Nice work overall."
+- 90+ points: "Excellent work overall." OR "Outstanding job."
+
+After the starter, add specific feedback using 'Let's work on' for areas to improve. Don't over-praise basic assignment compliance.` : 'NEVER use exclamation marks. BE CONCISE - 1-2 sentences maximum.
+
+REQUIRED SENTENCE STARTERS (choose based on total score):
+- Below 50 points: "Not horrible, but it needs improvement."
+- 50-59 points: "Not too bad overall."
+- 60-69 points: "I think you did a good job overall."
+- 70-79 points: "I think you did a great job overall." OR "Solid work with this essay."
+- 80-89 points: "Great job overall." OR "Nice work overall."
+- 90+ points: "Excellent work overall." OR "Outstanding job."
+
+After the starter, add specific feedback using "Let\'s work on" for areas to improve. Don\'t over-praise basic assignment compliance.'}",
   "encouragement_next_steps": [
     "Actionable steps for improvement",
     "Specific areas to focus on",

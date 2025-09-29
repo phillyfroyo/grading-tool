@@ -60,6 +60,30 @@ Student: "that's right ?" has BOTH grammar AND mechanics issues
 - "that's right ?" → grammar ("is that right?")
 - "right ?" → mechanics ("right?")
 
+## SPECIFIC ERROR PATTERNS TO DETECT
+**DUPLICATE WORDS**: Always flag duplicate articles/words
+- "a a" → mechanics ("a")
+- "the the" → mechanics ("the")
+- "to to" → mechanics ("to")
+
+**MISSING SUBJECTS**: Detect when subject is missing before verb
+- "will affect" (if missing subject) → grammar ("it will affect")
+- "is important" (if missing "it") → grammar ("it is important")
+
+**PARTIAL/INCOMPLETE WORDS**: Flag incomplete words separately
+- "mus" (standalone) → spelling/vocabulary ("must")
+- "doit" → spelling ("do it") - note this is two words merged
+
+**REDUNDANT PHRASES**: Detect unnecessary repetition
+- "to make ... to make" → flag second "to make" for deletion
+
+**WRONG PUNCTUATION AT SENTENCE END**:
+- "doit ," → spelling ("do it.") - wrong comma should be period
+- Sentence ending with comma instead of period → mechanics
+
+**CONTEXT-AWARE CORRECTIONS**: When multiple corrections are valid, provide alternatives
+- "should have" → "should be able" OR "should get" (depending on context)
+
 ## NEVER GROUP MULTIPLE ERRORS
 Each JSON entry = ONE specific error type with ONE correction
 
