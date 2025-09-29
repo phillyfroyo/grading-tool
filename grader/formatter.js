@@ -619,14 +619,15 @@ function renderNestedHighlights(text, issues, segmentIndex, editable) {
 
     // Enhanced notes: combine explanation with correction suggestion
     let notes = '';
-    if (issue.correction && issue.explanation) {
-      notes = `${issue.correction} - ${issue.explanation}`;
-    } else if (issue.correction) {
-      notes = issue.correction;
-    } else if (issue.explanation) {
-      notes = issue.explanation;
-    } else if (issue.notes) {
+    if (issue.notes) {
+      // Use pre-formatted notes from backend
       notes = issue.notes;
+    } else if (issue.correction && issue.explanation) {
+      notes = `Correction: ${issue.correction}\nExplanation: ${issue.explanation}`;
+    } else if (issue.correction) {
+      notes = `Correction: ${issue.correction}`;
+    } else if (issue.explanation) {
+      notes = `Explanation: ${issue.explanation}`;
     } else {
       notes = issueDesc || '';
     }
@@ -682,14 +683,15 @@ function renderSingleHighlight(issue, text, segmentIndex, editable) {
 
   // Enhanced notes: combine explanation with correction suggestion
   let notes = '';
-  if (issue.correction && issue.explanation) {
-    notes = `${issue.correction} - ${issue.explanation}`;
-  } else if (issue.correction) {
-    notes = issue.correction;
-  } else if (issue.explanation) {
-    notes = issue.explanation;
-  } else if (issue.notes) {
+  if (issue.notes) {
+    // Use pre-formatted notes from backend
     notes = issue.notes;
+  } else if (issue.correction && issue.explanation) {
+    notes = `Correction: ${issue.correction}\nExplanation: ${issue.explanation}`;
+  } else if (issue.correction) {
+    notes = `Correction: ${issue.correction}`;
+  } else if (issue.explanation) {
+    notes = `Explanation: ${issue.explanation}`;
   } else {
     notes = issueDesc || '';
   }

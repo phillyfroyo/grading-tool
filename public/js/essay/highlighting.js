@@ -722,8 +722,8 @@ function parseNotesFormat(notes) {
         };
     }
 
-    // Fallback: treat entire notes as explanation if no clear correction pattern
-    return { correction: '', explanation: notes };
+    // Fallback: treat entire notes as correction (since correction is mandatory)
+    return { correction: notes, explanation: '' };
 }
 
 /**
