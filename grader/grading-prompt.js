@@ -147,15 +147,17 @@ ${studentNickname && studentNickname.trim() ? `
   "teacher_notes": "${studentNickname && studentNickname.trim() ?
     'MUST START WITH: ' + studentNickname + ' - [then one of the sentence starters below based on score]. ' +
     'NEVER use exclamation marks. BE CONCISE - 1-2 sentences maximum. ' +
+    'MUST END WITH: See detailed notes below the color-coded essay. ' +
     'REQUIRED FORMAT based on total score: ' +
-    'Below 50: ' + studentNickname + ' - Not horrible, but it needs improvement. [specific feedback] ' +
-    '50-59: ' + studentNickname + ' - Not too bad overall. [specific feedback] ' +
-    '60-69: ' + studentNickname + ' - I think you did a good job overall. [specific feedback] ' +
-    '70-79: ' + studentNickname + ' - I think you did a great job overall. [specific feedback] OR ' + studentNickname + ' - Solid work with this essay. [specific feedback] ' +
-    '80-89: ' + studentNickname + ' - Great job overall. [specific feedback] OR ' + studentNickname + ' - Nice work overall. [specific feedback] ' +
-    '90+: ' + studentNickname + ' - Excellent work overall. [specific feedback] OR ' + studentNickname + ' - Outstanding job. [specific feedback] ' +
-    'The [specific feedback] should use phrases like Let us work on for areas to improve. Do not over-praise basic assignment compliance.' :
+    'Below 50: ' + studentNickname + ' - Not horrible, but it needs improvement. [specific feedback] See detailed notes below the color-coded essay. ' +
+    '50-59: ' + studentNickname + ' - Not too bad overall. [specific feedback] See detailed notes below the color-coded essay. ' +
+    '60-69: ' + studentNickname + ' - I think you did a good job overall. [specific feedback] See detailed notes below the color-coded essay. ' +
+    '70-79: ' + studentNickname + ' - I think you did a great job overall. [specific feedback] See detailed notes below the color-coded essay. OR ' + studentNickname + ' - Solid work with this essay. [specific feedback] See detailed notes below the color-coded essay. ' +
+    '80-89: ' + studentNickname + ' - Great job overall. [specific feedback] See detailed notes below the color-coded essay. OR ' + studentNickname + ' - Nice work overall. [specific feedback] See detailed notes below the color-coded essay. ' +
+    '90+: ' + studentNickname + ' - Excellent work overall. [specific feedback] See detailed notes below the color-coded essay. OR ' + studentNickname + ' - Outstanding job. [specific feedback] See detailed notes below the color-coded essay. ' +
+    'The [specific feedback] should use phrases like Let us work on for areas to improve. Do not over-praise basic assignment compliance. ALWAYS end with: See detailed notes below the color-coded essay.' :
     'NEVER use exclamation marks. BE CONCISE - 1-2 sentences maximum. ' +
+    'MUST END WITH: See detailed notes below the color-coded essay. ' +
     'REQUIRED SENTENCE STARTERS (choose based on total score): ' +
     'Below 50 points: Not horrible, but it needs improvement. ' +
     '50-59 points: Not too bad overall. ' +
@@ -163,7 +165,7 @@ ${studentNickname && studentNickname.trim() ? `
     '70-79 points: I think you did a great job overall. OR Solid work with this essay. ' +
     '80-89 points: Great job overall. OR Nice work overall. ' +
     '90+ points: Excellent work overall. OR Outstanding job. ' +
-    'After the starter, add specific feedback using phrases like Let us work on for areas to improve. Do not over-praise basic assignment compliance.'}",
+    'After the starter, add specific feedback using phrases like Let us work on for areas to improve. Do not over-praise basic assignment compliance. ALWAYS end with: See detailed notes below the color-coded essay.'}",
   "encouragement_next_steps": [
     "Actionable steps for improvement",
     "Specific areas to focus on",
