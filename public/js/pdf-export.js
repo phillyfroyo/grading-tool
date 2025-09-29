@@ -982,10 +982,27 @@ function enhanceContentForPDF(content, studentName) {
         resultsHeading.remove();
     }
 
-    // Extract and process teacher notes
+    // Extract and process teacher notes - ENHANCED WITH MULTIPLE FALLBACKS
     let teacherNotesSection = '';
-    const teacherNotesElement = tempDiv.querySelector('.teacher-notes');
+
+    // Try multiple selectors to find teacher notes
+    const teacherNotesElement = tempDiv.querySelector('.teacher-notes') ||
+                               tempDiv.querySelector('[class*="teacher-notes"]') ||
+                               tempDiv.querySelector('[data-section="teacher-notes"]');
+
     console.log('🔍 Looking for teacher notes element:', !!teacherNotesElement);
+
+    // Also check the original content (not just the clone) for saved data
+    const originalTeacherNotes = content.querySelector('.teacher-notes');
+    const savedNotesFromDataset = originalTeacherNotes?.dataset?.teacherNotes;
+    console.log('📊 Saved notes from dataset:', savedNotesFromDataset);
+
+    // Check window.currentGradingData as another fallback
+    const globalTeacherNotes = window.currentGradingData?.teacher_notes;
+    console.log('🌐 Global teacher notes:', globalTeacherNotes);
+
+    let notesText = '';
+
     if (teacherNotesElement) {
         console.log('📝 Found teacher notes element:', teacherNotesElement.innerHTML);
         // Remove pencil icons and edit indicators
@@ -998,7 +1015,6 @@ function enhanceContentForPDF(content, studentName) {
 
         // Check if notes are in a .teacher-notes-content span (edited notes) or directly in the element (GPT notes)
         const notesContentSpan = teacherNotesElement.querySelector('.teacher-notes-content');
-        let notesText = '';
 
         if (notesContentSpan) {
             // For edited notes, get content from the span
@@ -1009,17 +1025,33 @@ function enhanceContentForPDF(content, studentName) {
             notesText = teacherNotesElement.textContent?.replace(/📝\s*Teacher Notes:\s*/i, '').replace(/✎/g, '').trim();
             console.log('📝 Found teacher notes in element text:', `"${notesText}"`);
         }
+    }
 
-        if (notesText && notesText !== 'No notes provided' && notesText !== 'Manual grading notes') {
-            console.log('✅ Teacher notes passed validation, creating section');
-            teacherNotesSection = `
-                <div class="teacher-notes-section" style="margin: 10px 0 !important; padding: 0 !important; background: transparent !important; border: none !important;">
-                    <p style="margin: 10px 0 !important; padding: 0 !important; line-height: 1.6 !important; color: black !important; font-weight: normal !important; background: transparent !important; border: none !important;">${notesText}</p>
-                </div>
-            `;
-            // Remove the original teacher notes to prevent duplication
+    // Fallback to dataset if no notes found
+    if ((!notesText || notesText === 'No notes provided') && savedNotesFromDataset) {
+        notesText = savedNotesFromDataset;
+        console.log('📂 Using saved notes from dataset:', notesText);
+    }
+
+    // Fallback to global data if still no notes
+    if ((!notesText || notesText === 'No notes provided') && globalTeacherNotes) {
+        notesText = globalTeacherNotes;
+        console.log('🌍 Using global teacher notes:', notesText);
+    }
+
+    if (notesText && notesText !== 'No notes provided' && notesText !== 'Manual grading notes') {
+        console.log('✅ Teacher notes passed validation, creating section');
+        teacherNotesSection = `
+            <div class="teacher-notes-section" style="margin: 10px 0 !important; padding: 0 !important; background: transparent !important; border: none !important;">
+                <p style="margin: 10px 0 !important; padding: 0 !important; line-height: 1.6 !important; color: black !important; font-weight: normal !important; background: transparent !important; border: none !important;">${notesText}</p>
+            </div>
+        `;
+        // Remove the original teacher notes element if it exists to prevent duplication
+        if (teacherNotesElement) {
             teacherNotesElement.remove();
         }
+    } else {
+        console.log('⚠️ No valid teacher notes found after checking all sources');
     }
 
     // Simplify overall score to plain text with Grade: prefix and no color

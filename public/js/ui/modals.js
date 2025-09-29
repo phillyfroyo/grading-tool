@@ -555,6 +555,13 @@ class ModalManager {
                     console.log('✅ Updated currentGradingData.teacher_notes');
                 }
 
+                // Also store in the actual DOM element's dataset for persistence
+                const actualTeacherNotesElement = document.querySelector('.teacher-notes');
+                if (actualTeacherNotesElement) {
+                    actualTeacherNotesElement.dataset.teacherNotes = notesText;
+                    console.log('✅ Saved notes to DOM element dataset for persistence');
+                }
+
                 eventBus.emit('teacher-notes:saved', {
                     element: targetElement,
                     notes: notesText
