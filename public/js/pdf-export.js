@@ -908,10 +908,12 @@ function createHighlightsLegend(highlightsData) {
 
 /**
  * Enhance content for better PDF formatting
- * @param {HTMLElement} content - Content element to enhance
+ * @param {HTMLElement} content - Content element to enhance (clone)
+ * @param {string} studentName - Student name
+ * @param {HTMLElement} originalContent - Original content element for data extraction
  * @returns {string} Enhanced HTML content
  */
-function enhanceContentForPDF(content, studentName) {
+function enhanceContentForPDF(content, studentName, originalContent = null) {
     // Create a working copy in DOM for safer manipulation
     const tempDiv = document.createElement('div');
     tempDiv.innerHTML = content.innerHTML;
@@ -993,7 +995,9 @@ function enhanceContentForPDF(content, studentName) {
     console.log('🔍 Looking for teacher notes element:', !!teacherNotesElement);
 
     // Also check the original content (not just the clone) for saved data
-    const originalTeacherNotes = content.querySelector('.teacher-notes');
+    // Use originalContent if provided, otherwise fall back to content
+    const sourceForOriginal = originalContent || content;
+    const originalTeacherNotes = sourceForOriginal.querySelector('.teacher-notes');
     const savedNotesFromDataset = originalTeacherNotes?.dataset?.teacherNotes;
     console.log('📊 Saved notes from dataset:', savedNotesFromDataset);
 
@@ -1677,7 +1681,8 @@ function createPrintContent(resultsDiv, studentName) {
     });
 
     // Process and enhance the content for better PDF formatting
-    const enhancedContent = enhanceContentForPDF(clone, studentName);
+    // Pass both the clone and the original resultsDiv for proper teacher notes extraction
+    const enhancedContent = enhanceContentForPDF(clone, studentName, resultsDiv);
 
     // Create the print-friendly content (removed headers as requested)
     return `
