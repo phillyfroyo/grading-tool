@@ -87,33 +87,15 @@ Student: "that's right ?" has BOTH grammar AND mechanics issues
 ## NEVER GROUP MULTIPLE ERRORS
 Each JSON entry = ONE specific error type with ONE correction
 
-## CORRECTION AND EXPLANATION FORMATTING
+## CORRECTION FORMATTING
 - **correction**: MANDATORY - ALWAYS REQUIRED - Provide ONLY the corrected text that should replace the highlighted error
-- **explanation**: OPTIONAL - Provide only when educational value is high (not for simple spelling)
 
 **CRITICAL: EVERY ERROR MUST HAVE A CORRECTION FIELD**
 - The correction field is NEVER optional - it must be present for EVERY error
 - For correction field, provide ONLY the replacement text (no extra words)
 - Example: If student wrote "response" but meant "respond", correction should be: "respond"
 - Do NOT include phrases like "should be" or "Final text should be" in correction field
-
-**EXPLANATION FIELD GUIDELINES (OPTIONAL - Use Sparingly):**
-- **CRITICAL: Leave explanation EMPTY for 90% of errors**
-- **ONLY provide explanation if the error involves a complex grammar rule that needs clarification**
-- **NEVER provide explanation for:**
-  - Spelling errors (ALWAYS omit explanation)
-  - Capitalization/mechanics errors (ALWAYS omit explanation)
-  - Simple word substitutions (ALWAYS omit explanation)
-  - Any case where the correction itself is self-explanatory
-
-- **Provide explanation ONLY for:**
-  - Complex grammar patterns (e.g., "this problems" → needs explanation about demonstratives with plurals)
-  - Confusing modal/auxiliary verb usage (e.g., "to can" → needs explanation about infinitives)
-  - Non-obvious subject-verb agreement issues
-
-- **If in doubt, DO NOT provide an explanation**
-- Keep explanations VERY brief (3-7 words max)
-- Explanation should teach a rule, not repeat the correction
+- Do NOT include any explanations or additional text in the correction field
 
 ## OUTPUT FORMAT
 {
@@ -124,7 +106,6 @@ Each JSON entry = ONE specific error type with ONE correction
       "start": 0,
       "end": 2,
       "correction": "is"
-      // NO explanation - capitalization is obvious
     },
     {
       "category": "spelling",
@@ -132,25 +113,20 @@ Each JSON entry = ONE specific error type with ONE correction
       "start": 10,
       "end": 24,
       "correction": "responsibility"
-      // NO explanation - spelling correction is self-explanatory
     },
     {
       "category": "grammar",
       "text": "this problems",
       "start": 30,
       "end": 43,
-      "correction": "these problems",
-      "explanation": "Use 'these' for plural nouns"
-      // YES explanation - this teaches a grammar rule
+      "correction": "these problems"
     },
     {
       "category": "grammar",
       "text": "to can",
       "start": 50,
       "end": 56,
-      "correction": "to be able to",
-      "explanation": "Modal 'can' cannot follow 'to'"
-      // YES explanation - this is non-obvious grammar
+      "correction": "to be able to"
     }
   ],
   "corrected_text_minimal": "Text with only objective errors fixed",
@@ -253,8 +229,11 @@ Before flagging any error, ask yourself:
 
 **REMEMBER**: It's better to be conservative and miss a few minor errors than to over-flag and create unnecessary work for teachers. Focus on errors that genuinely help students improve their communication.
 
-## ⚠️ FINAL REMINDER BEFORE YOU START:
-**EXPLANATIONS**: Leave the explanation field EMPTY (or omit it) for 90% of errors. Only include explanation for complex grammar rules. NEVER include explanation for spelling, capitalization, or simple word substitutions.
+## ⚠️ CRITICAL - READ THIS:
+**DO NOT INCLUDE AN "explanation" FIELD IN YOUR OUTPUT**
+- Only return: category, text, start, end, correction
+- Do NOT add any explanation field
+- The correction field should contain ONLY the corrected text, nothing more
 
 STUDENT TEXT:
 """${studentText}"""
