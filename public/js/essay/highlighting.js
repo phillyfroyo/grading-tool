@@ -33,13 +33,16 @@ function applyHighlight(range, text, category) {
         mark.dataset.category = category;
         mark.dataset.originalText = text;
         mark.style.cursor = 'pointer';
-        // Set tooltip based on notes availability
-        const notes = mark.dataset.notes?.trim() || mark.dataset.message?.trim();
-        if (notes) {
-            mark.title = notes;
+        // Build tooltip showing both correction and explanation
+        const correction = mark.dataset.correction || mark.dataset.message || '';
+        const explanation = mark.dataset.explanation || '';
+        let tooltip = `Correction: ${correction || 'None'}`;
+        if (explanation) {
+            tooltip += `\nExplanation: ${explanation}`;
         } else {
-            mark.title = "**no notes have been entered**";
+            tooltip += `\nExplanation: None`;
         }
+        mark.title = tooltip;
 
         // Add unique ID for modal reference
         mark.id = `highlight-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
@@ -94,13 +97,16 @@ function applyBatchHighlight(range, text, category, essayIndex) {
         mark.dataset.originalText = text;
         mark.dataset.essayIndex = essayIndex;
         mark.style.cursor = 'pointer';
-        // Set tooltip based on notes availability
-        const notes = mark.dataset.notes?.trim() || mark.dataset.message?.trim();
-        if (notes) {
-            mark.title = notes;
+        // Build tooltip showing both correction and explanation
+        const correction = mark.dataset.correction || mark.dataset.message || '';
+        const explanation = mark.dataset.explanation || '';
+        let tooltip = `Correction: ${correction || 'None'}`;
+        if (explanation) {
+            tooltip += `\nExplanation: ${explanation}`;
         } else {
-            mark.title = "**no notes have been entered**";
+            tooltip += `\nExplanation: None`;
         }
+        mark.title = tooltip;
 
         // Add unique ID for modal reference
         mark.id = `highlight-${essayIndex}-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
@@ -345,13 +351,16 @@ function showHighlightEditModal(element, currentCategories) {
                     element.dataset.notes = explanationTextarea.value || correctionTextarea.value; // backwards compatibility
                 }
 
-                // Update tooltip to show explanation (or correction if no explanation)
-                const tooltip = element.dataset.explanation?.trim() || element.dataset.correction?.trim();
-                if (tooltip) {
-                    element.title = tooltip;
+                // Build tooltip showing both correction and explanation
+                const correction = element.dataset.correction || '';
+                const explanation = element.dataset.explanation || '';
+                let tooltip = `Correction: ${correction || 'None'}`;
+                if (explanation) {
+                    tooltip += `\nExplanation: ${explanation}`;
                 } else {
-                    element.title = "**no notes have been entered**";
+                    tooltip += `\nExplanation: None`;
                 }
+                element.title = tooltip;
 
                 // Update visual styling
                 if (window.HighlightingModule) {
@@ -587,18 +596,16 @@ function ensureHighlightClickHandlers(container = document) {
             });
             highlight.dataset.hasClickListener = 'true';
             highlight.style.cursor = 'pointer';
-            // Set tooltip to show notes/message instead of generic text
-            const savedNotes = highlight.dataset.notes?.trim();
-            const messageData = highlight.dataset.message?.trim();
-
-            if (savedNotes) {
-                highlight.title = savedNotes;
-            } else if (messageData) {
-                highlight.title = messageData;
+            // Build tooltip showing both correction and explanation
+            const correction = highlight.dataset.correction || highlight.dataset.message || '';
+            const explanation = highlight.dataset.explanation || '';
+            let tooltip = `Correction: ${correction || 'None'}`;
+            if (explanation) {
+                tooltip += `\nExplanation: ${explanation}`;
             } else {
-                // No notes available
-                highlight.title = "**no notes have been entered**";
+                tooltip += `\nExplanation: None`;
             }
+            highlight.title = tooltip;
             console.log(`✅ Added click handler to highlight ${index}`);
         }
     });
