@@ -25,18 +25,20 @@ const openai = new OpenAI({
 let requestQueue = [];
 let isProcessingQueue = false;
 const MAX_CONCURRENT_REQUESTS = 1; // Serialize all requests to prevent rate limiting
-const BASE_DELAY_BETWEEN_REQUESTS = 3000; // Base delay in milliseconds
+const BASE_DELAY_BETWEEN_REQUESTS = 1000; // Reduced to 1 second - token limiting handles the rest
 
 // Token rate limiting tracking
 let tokenUsageWindow = [];
-const TOKENS_PER_MINUTE_LIMIT = 30000; // OpenAI's TPM limit
+// Set a reasonable limit for batch processing - most paid OpenAI accounts have 150k-500k TPM
+// If you're on a higher tier, increase this. If you hit rate limits, decrease it.
+const TOKENS_PER_MINUTE_LIMIT = 150000; // Conservative limit for paid tier (adjust based on your actual limit)
 const WINDOW_SIZE_MS = 60000; // 1 minute window
-const SAFETY_BUFFER = 0.8; // Use only 80% of limit for safety
+const SAFETY_BUFFER = 0.9; // Use 90% of limit for safety (increased from 80% for batch processing)
 
-// Batch processing tracking for cooling periods
+// Batch processing tracking for cooling periods - DISABLED for now
 let essayProcessedCount = 0;
-const ESSAYS_PER_BATCH = 6; // Process 6 essays before cooling period
-const COOLING_PERIOD_MS = 90000; // 1.5 minutes cooling period
+const ESSAYS_PER_BATCH = 999; // Effectively disabled - process all essays without cooling
+const COOLING_PERIOD_MS = 0; // No cooling period needed with proper rate limiting
 let lastCoolingPeriod = 0;
 
 /**
