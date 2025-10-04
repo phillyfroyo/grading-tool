@@ -695,7 +695,18 @@ function renderNestedHighlights(text, issues, segmentIndex, editable) {
     const issueDesc = issue.message || issue.correction || issue.text;
     const coachingAttr = issue.coaching_only ? 'data-coaching-only="true"' : '';
 
-    // Enhanced notes: combine explanation with correction suggestion
+    // Build tooltip showing both correction and explanation
+    const correction = issue.correction || issueDesc || '';
+    const explanation = issue.explanation || '';
+    let tooltip = '';
+    tooltip += `Correction: ${correction || 'None'}`;
+    if (explanation) {
+      tooltip += `\nExplanation: ${explanation}`;
+    } else {
+      tooltip += `\nExplanation: None`;
+    }
+
+    // Keep old notes for backwards compatibility
     let notes = '';
     if (issue.explanation) {
       notes = issue.explanation;
@@ -708,8 +719,8 @@ function renderNestedHighlights(text, issues, segmentIndex, editable) {
     html = `<mark class="highlight-${issueCategory} highlight nested-highlight"
                  data-type="${escapeHtml(issueCategory)}"
                  data-category="${escapeHtml(issueCategory)}"
-                 data-correction="${escapeHtml(issue.correction || issueDesc)}"
-                 data-explanation="${escapeHtml(issue.explanation || '')}"
+                 data-correction="${escapeHtml(correction)}"
+                 data-explanation="${escapeHtml(explanation)}"
                  data-message="${escapeHtml(issueDesc)}"
                  data-notes="${escapeHtml(notes)}"
                  data-original-text="${escapeHtml(text)}"
@@ -717,7 +728,7 @@ function renderNestedHighlights(text, issues, segmentIndex, editable) {
                  ${coachingAttr}
                  ${editableAttrs}
                  style="${styleProps}; cursor: pointer;"
-                 title="${escapeHtml(notes)}">
+                 title="${escapeHtml(tooltip)}">
               ${html}
             </mark>`;
   }
@@ -756,7 +767,18 @@ function renderSingleHighlight(issue, text, segmentIndex, editable) {
   const issueDesc = issue.message || issue.correction || issue.text;
   const coachingAttr = issue.coaching_only ? 'data-coaching-only="true"' : '';
 
-  // Enhanced notes: combine explanation with correction suggestion
+  // Build tooltip showing both correction and explanation
+  const correction = issue.correction || issueDesc || '';
+  const explanation = issue.explanation || '';
+  let tooltip = '';
+  tooltip += `Correction: ${correction || 'None'}`;
+  if (explanation) {
+    tooltip += `\nExplanation: ${explanation}`;
+  } else {
+    tooltip += `\nExplanation: None`;
+  }
+
+  // Keep old notes for backwards compatibility
   let notes = '';
   if (issue.explanation) {
     notes = issue.explanation;
@@ -769,15 +791,15 @@ function renderSingleHighlight(issue, text, segmentIndex, editable) {
   return `<mark class="highlight-${issueCategory} highlight"
                data-type="${escapeHtml(issueCategory)}"
                data-category="${escapeHtml(issueCategory)}"
-               data-correction="${escapeHtml(issue.correction || issueDesc)}"
-               data-explanation="${escapeHtml(issue.explanation || '')}"
+               data-correction="${escapeHtml(correction)}"
+               data-explanation="${escapeHtml(explanation)}"
                data-message="${escapeHtml(issueDesc)}"
                data-notes="${escapeHtml(notes)}"
                data-original-text="${escapeHtml(text)}"
                ${coachingAttr}
                ${editableAttrs}
                style="${styleProps}; cursor: pointer;"
-               title="${escapeHtml(notes)}">
+               title="${escapeHtml(tooltip)}">
             ${escapeHtmlWithFormatting(text)}
           </mark>`;
 }
