@@ -744,6 +744,7 @@ function attemptAtomicSplit(fullText, spanText, spanStart, spanEnd, originalCate
         start: errorStart,
         end: errorEnd,
         correction: correction,
+        explanation: originalIssue.explanation || '', // Preserve explanation from original
         _split_from_group: true,
         _original_span: spanText,
         _original_category: originalCategory
@@ -767,6 +768,7 @@ function attemptAtomicSplit(fullText, spanText, spanStart, spanEnd, originalCate
       start: spanStart,
       end: spanStart + keyWord.length,
       correction: originalIssue.correction || keyWord,
+      explanation: originalIssue.explanation || '', // Preserve explanation from original
       _split_from_group: true,
       _original_span: spanText,
       _original_category: originalCategory
