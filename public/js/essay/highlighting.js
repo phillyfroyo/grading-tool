@@ -200,10 +200,11 @@ function showHighlightEditModal(element, currentCategories) {
     // Use the new modal manager
     const modal = document.getElementById('editModal');
     const modalCategoryButtons = document.getElementById('modalCategoryButtons');
-    const notesTextarea = document.getElementById('editNotes');
+    const correctionTextarea = document.getElementById('editCorrection');
+    const explanationTextarea = document.getElementById('editExplanation');
     const highlightedTextDisplay = document.getElementById('highlightedTextDisplay');
 
-    if (!modal || !modalCategoryButtons || !notesTextarea) {
+    if (!modal || !modalCategoryButtons || !correctionTextarea) {
         console.error('Edit modal elements not found');
         return;
     }
@@ -298,9 +299,13 @@ function showHighlightEditModal(element, currentCategories) {
         });
     });
 
-    // Set notes from element data or empty
-    const currentNotes = element.dataset.notes || '';
-    notesTextarea.value = currentNotes;
+    // Set correction and explanation from element data or empty
+    const currentCorrection = element.dataset.correction || element.dataset.message || '';
+    const currentExplanation = element.dataset.explanation || element.dataset.notes || '';
+    correctionTextarea.value = currentCorrection;
+    if (explanationTextarea) {
+        explanationTextarea.value = currentExplanation;
+    }
 
     // SIMPLIFIED APPROACH: Modal is display-only, category selection triggers immediate auto-save
     // Add handlers for all modal buttons - one-time setup to prevent duplicates
@@ -328,16 +333,22 @@ function showHighlightEditModal(element, currentCategories) {
                 // Save categories to element
                 element.dataset.category = selectedCategories.join(',');
 
-                // Save notes to element
-                const notesTextarea = document.getElementById('editNotes');
-                if (notesTextarea) {
-                    element.dataset.notes = notesTextarea.value;
+                // Save correction and explanation to element
+                const correctionTextarea = document.getElementById('editCorrection');
+                const explanationTextarea = document.getElementById('editExplanation');
+                if (correctionTextarea) {
+                    element.dataset.correction = correctionTextarea.value;
+                    element.dataset.message = correctionTextarea.value; // backwards compatibility
+                }
+                if (explanationTextarea) {
+                    element.dataset.explanation = explanationTextarea.value;
+                    element.dataset.notes = explanationTextarea.value || correctionTextarea.value; // backwards compatibility
                 }
 
-                // Update tooltip
-                const notes = element.dataset.notes?.trim();
-                if (notes) {
-                    element.title = notes;
+                // Update tooltip to show explanation (or correction if no explanation)
+                const tooltip = element.dataset.explanation?.trim() || element.dataset.correction?.trim();
+                if (tooltip) {
+                    element.title = tooltip;
                 } else {
                     element.title = "**no notes have been entered**";
                 }

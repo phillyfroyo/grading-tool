@@ -588,17 +588,26 @@ class ModalManager {
         if (!modal) return;
 
         const categorySelect = document.getElementById('editCategory');
-        const notesTextArea = document.getElementById('editNotes');
+        const correctionTextArea = document.getElementById('editCorrection');
+        const explanationTextArea = document.getElementById('editExplanation');
 
         if (categorySelect) {
             categorySelect.value = category || element.dataset.category || 'grammar';
         }
-        if (notesTextArea) {
-            notesTextArea.value = notes || element.dataset.notes || '';
+
+        // Handle both old 'notes' field and new 'correction/explanation' fields
+        const correction = element.dataset.correction || element.dataset.message || notes || '';
+        const explanation = element.dataset.explanation || element.dataset.notes || '';
+
+        if (correctionTextArea) {
+            correctionTextArea.value = correction;
+        }
+        if (explanationTextArea) {
+            explanationTextArea.value = explanation;
         }
 
         modal.element.dataset.editingElement = element.id;
-        this.openModal('editHighlight', { targetElement: element, category, notes });
+        this.openModal('editHighlight', { targetElement: element, category, correction, explanation });
     }
 
     /**
@@ -641,10 +650,14 @@ class ModalManager {
             }
         });
 
-        // Clear notes textarea
-        const notesTextArea = document.getElementById('editNotes');
-        if (notesTextArea) {
-            notesTextArea.value = '';
+        // Clear correction and explanation textareas
+        const correctionTextArea = document.getElementById('editCorrection');
+        const explanationTextArea = document.getElementById('editExplanation');
+        if (correctionTextArea) {
+            correctionTextArea.value = '';
+        }
+        if (explanationTextArea) {
+            explanationTextArea.value = '';
         }
 
         // Hide the modal directly without calling handlers to avoid recursion
@@ -671,14 +684,16 @@ class ModalManager {
     saveEditModal() {
         const modal = this.modals.get('editHighlight');
         const modalElement = document.getElementById('editModal');
-        const notesTextArea = document.getElementById('editNotes');
+        const correctionTextArea = document.getElementById('editCorrection');
+        const explanationTextArea = document.getElementById('editExplanation');
 
         // Get selected categories from modal data
         const selectedCategories = modalElement?.dataset?.selectedCategories || '';
         const categories = selectedCategories ? selectedCategories.split(',').filter(c => c.trim()) : [];
-        const notes = notesTextArea?.value || '';
+        const correction = correctionTextArea?.value || '';
+        const explanation = explanationTextArea?.value || '';
 
-        logger.debug('Saving highlight edit:', { categories, notes });
+        logger.debug('Saving highlight edit:', { categories, correction, explanation });
 
         const elementId = modal?.element.dataset?.editingElement;
         if (elementId) {
@@ -686,7 +701,12 @@ class ModalManager {
             if (element) {
                 // Store multiple categories
                 element.dataset.category = categories.join(',');
-                element.dataset.notes = notes;
+                element.dataset.correction = correction;
+                element.dataset.explanation = explanation;
+
+                // Also set message and notes for backwards compatibility
+                element.dataset.message = correction;
+                element.dataset.notes = explanation || correction;
 
                 // Update visual styling (use first category as primary)
                 const primaryCategory = categories[0] || 'grammar';
@@ -697,7 +717,8 @@ class ModalManager {
                 eventBus.emit('highlight:updated', {
                     element,
                     categories,
-                    notes
+                    correction,
+                    explanation
                 });
 
                 logger.debug('Updated highlight element:', element);
