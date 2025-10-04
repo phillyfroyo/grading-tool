@@ -797,7 +797,9 @@ function processHighlightsForPDF(content) {
     highlights.forEach(mark => {
         // Get highlight information
         const categories = (mark.dataset.category || mark.dataset.type || 'highlight').split(',').map(c => c.trim());
-        const notes = mark.dataset.notes || mark.dataset.message || mark.title || '';
+        const correction = mark.dataset.correction || mark.dataset.message || '';
+        const explanation = mark.dataset.explanation || '';
+        const notes = mark.dataset.notes || mark.dataset.message || mark.title || ''; // backwards compatibility
         const originalText = mark.dataset.originalText || mark.textContent || '';
 
         // Only process highlights that have notes/explanations for numbering
@@ -810,7 +812,9 @@ function processHighlightsForPDF(content) {
                 number: highlightNumber,
                 text: originalText.trim(),
                 categories: categories,
-                notes: notes.trim()
+                correction: correction.trim(),
+                explanation: explanation.trim(),
+                notes: notes.trim() // backwards compatibility
             });
 
             highlightNumber++;
@@ -873,30 +877,28 @@ function createHighlightsLegend(highlightsData) {
         // Create the entry text with improved formatting
         let entryText = `<span class="highlight-number-text">${highlight.number}.</span> You wrote "${highlight.text}" - ${categoryText}`;
 
-        // Add correction ONLY if meaningful notes exist (exclude "no notes" message)
-        let correctionText = '';
-        if (highlight.notes &&
-            highlight.notes.trim() &&
-            highlight.notes.trim() !== '' &&
-            !highlight.notes.includes('**no notes have been entered**')) {
+        // Add correction and explanation if they exist
+        let feedbackHTML = '';
 
-            if (!highlight.notes.includes('→')) {
-                correctionText = `<div class="correction-text"><strong>Correction:</strong> ${highlight.notes}</div>`;
-            } else {
-                // Extract correction from arrow format (e.g., "wekend→weekend")
-                const parts = highlight.notes.split('→');
-                if (parts.length === 2 && parts[1].trim()) {
-                    correctionText = `<div class="correction-text"><strong>Correction:</strong> ${parts[1].trim()}</div>`;
-                }
-            }
+        // Add correction if it exists and is meaningful
+        if (highlight.correction &&
+            highlight.correction.trim() &&
+            !highlight.correction.includes('**no notes have been entered**')) {
+            feedbackHTML += `<div class="correction-text"><strong>Correction:</strong> ${highlight.correction}</div>`;
         }
-        // If no meaningful notes, correctionText remains empty - NO correction line will appear
+
+        // Add explanation if it exists and is meaningful
+        if (highlight.explanation &&
+            highlight.explanation.trim() &&
+            !highlight.explanation.includes('**no notes have been entered**')) {
+            feedbackHTML += `<div class="correction-text"><strong>Explanation:</strong> ${highlight.explanation}</div>`;
+        }
 
         legendHTML += `
             <div class="highlight-entry ${cssClass}">
                 <div style="line-height: 1.6; font-size: 14px;">
                     ${entryText}
-                    ${correctionText}
+                    ${feedbackHTML}
                 </div>
             </div>
         `;

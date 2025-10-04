@@ -97,38 +97,56 @@ Each JSON entry = ONE specific error type with ONE correction
 - Example: If student wrote "response" but meant "respond", correction should be: "respond"
 - Do NOT include phrases like "should be" or "Final text should be" in correction field
 
-**EXPLANATION FIELD GUIDELINES (OPTIONAL):**
-- Only add explanation when it adds educational value
-- Skip explanation for simple/obvious errors (common misspellings like "teh" → "the")
-- Include explanation for complex grammar rules or confusing vocabulary choices
+**EXPLANATION FIELD GUIDELINES (OPTIONAL - Use Sparingly):**
+- **ONLY provide explanation if it is DIFFERENT from the correction AND adds educational value**
+- **DO NOT repeat the correction in the explanation field**
+- Skip explanation for:
+  - Simple spelling errors (e.g., "responsability" → "responsibility" - no explanation needed)
+  - Capitalization errors (e.g., "Is" → "is" - no explanation needed)
+  - Obvious corrections where the fix is self-explanatory
+- Include explanation ONLY for:
+  - Complex grammar rules (e.g., "this problems" → correction: "these problems", explanation: "Use 'these' for plural nouns")
+  - Confusing vocabulary/word choice that needs context
+  - Non-obvious grammar patterns that would benefit from a brief reason
 - Keep explanations very brief (5-10 words max)
-- Focus on the "why" not the "what"
+- Focus on the "why" not repeating the "what"
 
 ## OUTPUT FORMAT
 {
   "inline_issues": [
     {
-      "category": "vocabulary",
-      "text": "too",
-      "start": 26,
-      "end": 29,
-      "correction": "so",
-      "explanation": "'too' implies excess"
+      "category": "mechanics",
+      "text": "Is",
+      "start": 0,
+      "end": 2,
+      "correction": "is"
+      // NO explanation - capitalization is obvious
+    },
+    {
+      "category": "spelling",
+      "text": "responsability",
+      "start": 10,
+      "end": 24,
+      "correction": "responsibility"
+      // NO explanation - spelling correction is self-explanatory
+    },
+    {
+      "category": "grammar",
+      "text": "this problems",
+      "start": 30,
+      "end": 43,
+      "correction": "these problems",
+      "explanation": "Use 'these' for plural nouns"
+      // YES explanation - this teaches a grammar rule
     },
     {
       "category": "grammar",
       "text": "to can",
-      "start": 36,
-      "end": 42,
+      "start": 50,
+      "end": 56,
       "correction": "to be able to",
       "explanation": "Modal 'can' cannot follow 'to'"
-    },
-    {
-      "category": "spelling",
-      "text": "recieve",
-      "start": 50,
-      "end": 57,
-      "correction": "receive"
+      // YES explanation - this is non-obvious grammar
     }
   ],
   "corrected_text_minimal": "Text with only objective errors fixed",

@@ -323,7 +323,7 @@ async function detectErrors(studentText, classProfile) {
       { role: "system", content: prompt },
       { role: "user", content: `Analyze this text for errors: "${studentText}"` }
     ],
-    temperature: 0.1, // Lowered to match grading temperature for maximum consistency
+    temperature: 0.3, // Increased slightly for better explanation creativity while maintaining accuracy
   }), estimatedTokens);
 
   console.log('=== RAW ERROR DETECTION RESPONSE ===');
