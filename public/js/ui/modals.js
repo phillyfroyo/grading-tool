@@ -597,7 +597,7 @@ class ModalManager {
 
         // Handle both old 'notes' field and new 'correction/explanation' fields
         const correction = element.dataset.correction || element.dataset.message || notes || '';
-        const explanation = element.dataset.explanation || element.dataset.notes || '';
+        const explanation = element.dataset.explanation || ''; // Don't fall back to notes - that contains correction
 
         if (correctionTextArea) {
             correctionTextArea.value = correction;

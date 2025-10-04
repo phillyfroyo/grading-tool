@@ -301,7 +301,7 @@ function showHighlightEditModal(element, currentCategories) {
 
     // Set correction and explanation from element data or empty
     const currentCorrection = element.dataset.correction || element.dataset.message || '';
-    const currentExplanation = element.dataset.explanation || element.dataset.notes || '';
+    const currentExplanation = element.dataset.explanation || ''; // Don't fall back to notes - that contains correction
     correctionTextarea.value = currentCorrection;
     if (explanationTextarea) {
         explanationTextarea.value = currentExplanation;
