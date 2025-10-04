@@ -87,15 +87,22 @@ Student: "that's right ?" has BOTH grammar AND mechanics issues
 ## NEVER GROUP MULTIPLE ERRORS
 Each JSON entry = ONE specific error type with ONE correction
 
-## CORRECTION FORMATTING
-- **correction**: MANDATORY - ALWAYS REQUIRED - Provide ONLY the corrected text that should replace the highlighted error
+## CORRECTION AND EXPLANATION FORMATTING
 
-**CRITICAL: EVERY ERROR MUST HAVE A CORRECTION FIELD**
-- The correction field is NEVER optional - it must be present for EVERY error
-- For correction field, provide ONLY the replacement text (no extra words)
+**CORRECTION (Required):**
+- Every error MUST have a correction field
+- Provide ONLY the corrected text that should replace the highlighted error
 - Example: If student wrote "response" but meant "respond", correction should be: "respond"
-- Do NOT include phrases like "should be" or "Final text should be" in correction field
-- Do NOT include any explanations or additional text in the correction field
+- Do NOT include phrases like "should be" or explanations in the correction field
+
+**EXPLANATION (Optional):**
+- Use your judgment to provide explanations when they would genuinely help the student learn
+- Consider adding an explanation when:
+  - The error involves a grammar rule that might not be obvious
+  - The word choice is confusing or counterintuitive
+  - Understanding the "why" would prevent future similar errors
+- Keep explanations brief and focused (3-10 words)
+- Omit explanation when the correction is self-explanatory
 
 ## OUTPUT FORMAT
 {
@@ -119,14 +126,16 @@ Each JSON entry = ONE specific error type with ONE correction
       "text": "this problems",
       "start": 30,
       "end": 43,
-      "correction": "these problems"
+      "correction": "these problems",
+      "explanation": "Use 'these' for plural nouns"
     },
     {
       "category": "grammar",
       "text": "to can",
       "start": 50,
       "end": 56,
-      "correction": "to be able to"
+      "correction": "to be able to",
+      "explanation": "Modals can't follow 'to'"
     }
   ],
   "corrected_text_minimal": "Text with only objective errors fixed",
@@ -228,12 +237,6 @@ Before flagging any error, ask yourself:
 4. **Is this the ONLY acceptable correction?** (Not just one of many options)
 
 **REMEMBER**: It's better to be conservative and miss a few minor errors than to over-flag and create unnecessary work for teachers. Focus on errors that genuinely help students improve their communication.
-
-## ⚠️ CRITICAL - READ THIS:
-**DO NOT INCLUDE AN "explanation" FIELD IN YOUR OUTPUT**
-- Only return: category, text, start, end, correction
-- Do NOT add any explanation field
-- The correction field should contain ONLY the corrected text, nothing more
 
 STUDENT TEXT:
 """${studentText}"""
