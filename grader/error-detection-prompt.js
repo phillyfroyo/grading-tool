@@ -98,18 +98,22 @@ Each JSON entry = ONE specific error type with ONE correction
 - Do NOT include phrases like "should be" or "Final text should be" in correction field
 
 **EXPLANATION FIELD GUIDELINES (OPTIONAL - Use Sparingly):**
-- **ONLY provide explanation if it is DIFFERENT from the correction AND adds educational value**
-- **DO NOT repeat the correction in the explanation field**
-- Skip explanation for:
-  - Simple spelling errors (e.g., "responsability" → "responsibility" - no explanation needed)
-  - Capitalization errors (e.g., "Is" → "is" - no explanation needed)
-  - Obvious corrections where the fix is self-explanatory
-- Include explanation ONLY for:
-  - Complex grammar rules (e.g., "this problems" → correction: "these problems", explanation: "Use 'these' for plural nouns")
-  - Confusing vocabulary/word choice that needs context
-  - Non-obvious grammar patterns that would benefit from a brief reason
-- Keep explanations very brief (5-10 words max)
-- Focus on the "why" not repeating the "what"
+- **CRITICAL: Leave explanation EMPTY for 90% of errors**
+- **ONLY provide explanation if the error involves a complex grammar rule that needs clarification**
+- **NEVER provide explanation for:**
+  - Spelling errors (ALWAYS omit explanation)
+  - Capitalization/mechanics errors (ALWAYS omit explanation)
+  - Simple word substitutions (ALWAYS omit explanation)
+  - Any case where the correction itself is self-explanatory
+
+- **Provide explanation ONLY for:**
+  - Complex grammar patterns (e.g., "this problems" → needs explanation about demonstratives with plurals)
+  - Confusing modal/auxiliary verb usage (e.g., "to can" → needs explanation about infinitives)
+  - Non-obvious subject-verb agreement issues
+
+- **If in doubt, DO NOT provide an explanation**
+- Keep explanations VERY brief (3-7 words max)
+- Explanation should teach a rule, not repeat the correction
 
 ## OUTPUT FORMAT
 {
@@ -248,6 +252,9 @@ Before flagging any error, ask yourself:
 4. **Is this the ONLY acceptable correction?** (Not just one of many options)
 
 **REMEMBER**: It's better to be conservative and miss a few minor errors than to over-flag and create unnecessary work for teachers. Focus on errors that genuinely help students improve their communication.
+
+## ⚠️ FINAL REMINDER BEFORE YOU START:
+**EXPLANATIONS**: Leave the explanation field EMPTY (or omit it) for 90% of errors. Only include explanation for complex grammar rules. NEVER include explanation for spelling, capitalization, or simple word substitutions.
 
 STUDENT TEXT:
 """${studentText}"""
