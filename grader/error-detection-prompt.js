@@ -87,10 +87,22 @@ Student: "that's right ?" has BOTH grammar AND mechanics issues
 ## NEVER GROUP MULTIPLE ERRORS
 Each JSON entry = ONE specific error type with ONE correction
 
-## CORRECTION GUIDELINES
-- Provide ONLY the corrected text that should replace the highlighted error
-- Do NOT include any explanations or reasoning
-- Focus on the exact replacement text only
+## CORRECTION AND EXPLANATION FORMATTING
+- **correction**: MANDATORY - ALWAYS REQUIRED - Provide ONLY the corrected text that should replace the highlighted error
+- **explanation**: OPTIONAL - Provide only when educational value is high (not for simple spelling)
+
+**CRITICAL: EVERY ERROR MUST HAVE A CORRECTION FIELD**
+- The correction field is NEVER optional - it must be present for EVERY error
+- For correction field, provide ONLY the replacement text (no extra words)
+- Example: If student wrote "response" but meant "respond", correction should be: "respond"
+- Do NOT include phrases like "should be" or "Final text should be" in correction field
+
+**EXPLANATION FIELD GUIDELINES (OPTIONAL):**
+- Only add explanation when it adds educational value
+- Skip explanation for simple/obvious errors (common misspellings like "teh" → "the")
+- Include explanation for complex grammar rules or confusing vocabulary choices
+- Keep explanations very brief (5-10 words max)
+- Focus on the "why" not the "what"
 
 ## OUTPUT FORMAT
 {
@@ -100,14 +112,16 @@ Each JSON entry = ONE specific error type with ONE correction
       "text": "too",
       "start": 26,
       "end": 29,
-      "correction": "so"
+      "correction": "so",
+      "explanation": "'too' implies excess"
     },
     {
       "category": "grammar",
       "text": "to can",
       "start": 36,
       "end": 42,
-      "correction": "to be able to"
+      "correction": "to be able to",
+      "explanation": "Modal 'can' cannot follow 'to'"
     },
     {
       "category": "spelling",
