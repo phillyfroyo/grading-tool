@@ -882,15 +882,18 @@ function createHighlightsLegend(highlightsData) {
 
         // Add correction if it exists and is meaningful
         if (highlight.correction &&
-            highlight.correction.trim() &&
+            highlight.correction.trim() !== '' &&
             !highlight.correction.includes('**no notes have been entered**')) {
             feedbackHTML += `<div class="correction-text"><strong>Correction:</strong> ${highlight.correction}</div>`;
         }
 
-        // Add explanation if it exists and is meaningful
-        if (highlight.explanation &&
-            highlight.explanation.trim() &&
-            !highlight.explanation.includes('**no notes have been entered**')) {
+        // Add explanation if it exists and is meaningful (must be non-empty and different from correction)
+        const hasExplanation = highlight.explanation &&
+            highlight.explanation.trim() !== '' &&
+            highlight.explanation !== highlight.correction &&
+            !highlight.explanation.includes('**no notes have been entered**');
+
+        if (hasExplanation) {
             feedbackHTML += `<div class="correction-text"><strong>Explanation:</strong> ${highlight.explanation}</div>`;
         }
 
