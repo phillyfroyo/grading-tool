@@ -1116,6 +1116,14 @@ function enhanceContentForPDF(content, studentName, originalContent = null) {
     tempDiv.querySelectorAll('.category-btn, #clearSelectionBtn, [id^="clearSelectionBtn-"]').forEach(el => el.remove());
     tempDiv.querySelectorAll('#selectionStatus, [id^="selectionStatus-"]').forEach(el => el.remove());
 
+    // Remove stats grid (Word Count, Class Vocabulary, Grammar)
+    tempDiv.querySelectorAll('.editable-stat').forEach(el => el.remove());
+    tempDiv.querySelectorAll('div').forEach(el => {
+        if (el.style.display === 'grid' && el.textContent.includes('Grammar')) {
+            el.remove();
+        }
+    });
+
     // Remove ALL formatting from score sections and category breakdowns
     // First, remove score-box and inner-box elements completely
     tempDiv.querySelectorAll('.score-box, .inner-box').forEach(box => {
