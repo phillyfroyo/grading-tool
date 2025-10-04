@@ -236,8 +236,10 @@ async function handleBatchGrade(req, res) {
  */
 async function handleStreamingBatchGrade(req, res, { essays, prompt, classProfile, temperature }) {
   try {
+    const startTime = Date.now();
     console.log("\n🌊 STARTING STREAMING BATCH GRADING WITH PARALLEL BATCHES 🌊");
     console.log(`📊 Processing ${essays.length} essays in batches of 3`);
+    console.log(`⏰ Start time: ${new Date(startTime).toISOString()}`);
 
     // Set up Server-Sent Events headers
     res.writeHead(200, {
@@ -366,18 +368,23 @@ async function handleStreamingBatchGrade(req, res, { essays, prompt, classProfil
         console.log(`📤 Streamed result for ${result.studentName} (index: ${result.index})`);
       }
 
+      const elapsedSeconds = ((Date.now() - startTime) / 1000).toFixed(1);
       console.log(`✅ Batch ${currentBatch}/${totalBatches} completed - ${batchResults.length} essays processed`);
+      console.log(`⏱️ Elapsed time: ${elapsedSeconds}s`);
       currentBatch++;
     }
 
     // Send completion status
+    const totalElapsedSeconds = ((Date.now() - startTime) / 1000).toFixed(1);
     res.write(`data: ${JSON.stringify({
       type: 'complete',
-      message: `All ${essays.length} essays processed in ${totalBatches} batches`
+      message: `All ${essays.length} essays processed in ${totalBatches} batches`,
+      totalTimeSeconds: totalElapsedSeconds
     })}\n\n`);
 
     res.end();
     console.log(`\n✅ STREAMING BATCH GRADING COMPLETED! ${essays.length} essays in ${totalBatches} batches`);
+    console.log(`⏱️ Total time: ${totalElapsedSeconds}s (${(totalElapsedSeconds / 60).toFixed(1)} minutes)`);
 
   } catch (error) {
     console.error("\n❌ STREAMING BATCH GRADING ERROR:", error);

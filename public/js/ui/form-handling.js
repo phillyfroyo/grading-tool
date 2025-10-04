@@ -494,6 +494,10 @@ async function streamBatchGradingSimple(batchData) {
 
                     case 'complete':
                         console.log('🎉 Streaming complete');
+                        if (data.totalTimeSeconds) {
+                            console.log(`⏱️ Server reported total time: ${data.totalTimeSeconds}s`);
+                        }
+                        clearInterval(timeoutChecker); // Clear timeout checker on successful completion
 
                         // Create final batch result object
                         const finalBatchResult = {
@@ -567,7 +571,23 @@ async function streamBatchGrading(batchData) {
             // Now connect to the streaming endpoint with the session ID
             const eventSource = new EventSource(`/api/grade-batch-stream/${sessionId}`);
 
+            // Add timeout detection - if we don't receive ANY message for 90 seconds, assume timeout
+            let lastMessageTime = Date.now();
+            const TIMEOUT_MS = 90000; // 90 seconds
+
+            const timeoutChecker = setInterval(() => {
+                const timeSinceLastMessage = Date.now() - lastMessageTime;
+                if (timeSinceLastMessage > TIMEOUT_MS) {
+                    console.error(`⏱️ TIMEOUT DETECTED: No message received for ${(timeSinceLastMessage / 1000).toFixed(1)}s`);
+                    console.error('🔴 This indicates the Vercel serverless function likely timed out');
+                    clearInterval(timeoutChecker);
+                    eventSource.close();
+                    reject(new Error(`Server timeout - no response for ${(timeSinceLastMessage / 1000).toFixed(1)} seconds. This usually indicates the Vercel function execution limit was reached.`));
+                }
+            }, 10000); // Check every 10 seconds
+
         eventSource.onmessage = function(event) {
+            lastMessageTime = Date.now(); // Reset timeout timer
             try {
                 const data = JSON.parse(event.data);
                 console.log('📨 Received streaming message:', data);
@@ -617,6 +637,10 @@ async function streamBatchGrading(batchData) {
 
                     case 'complete':
                         console.log('🎉 Streaming complete');
+                        if (data.totalTimeSeconds) {
+                            console.log(`⏱️ Server reported total time: ${data.totalTimeSeconds}s`);
+                        }
+                        clearInterval(timeoutChecker); // Clear timeout checker on successful completion
 
                         // Create final batch result object
                         const finalBatchResult = {
