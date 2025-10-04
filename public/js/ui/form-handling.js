@@ -380,11 +380,72 @@ function updateManualScore(category, score) {
 
 /**
  * Stream batch grading using Server-Sent Events via query parameter
+ * SUPPORTS CHUNKING: Automatically processes large batches in chunks of 6 essays to stay under Vercel timeout
  * @param {Object} batchData - The batch data to process
  */
 async function streamBatchGradingSimple(batchData) {
     console.log('🎯 STARTING SIMPLE STREAMING BATCH GRADING');
 
+    const CHUNK_SIZE = 6; // Process 6 essays per chunk to stay under ~4min Vercel timeout
+    const totalEssays = batchData.essays.length;
+
+    // If batch is small enough, process normally
+    if (totalEssays <= CHUNK_SIZE) {
+        console.log(`📊 Processing ${totalEssays} essays in single chunk`);
+        return processSingleChunk(batchData, 0);
+    }
+
+    // Large batch - split into chunks and process sequentially
+    console.log(`📊 Large batch detected: ${totalEssays} essays`);
+    console.log(`📦 Will process in ${Math.ceil(totalEssays / CHUNK_SIZE)} chunks of ${CHUNK_SIZE} essays`);
+
+    let allResults = [];
+    let processedCount = 0;
+
+    while (processedCount < totalEssays) {
+        const chunkStart = processedCount;
+        const chunkEnd = Math.min(chunkStart + CHUNK_SIZE, totalEssays);
+        const chunkEssays = batchData.essays.slice(chunkStart, chunkEnd);
+
+        console.log(`\n🔄 Processing chunk: essays ${chunkStart + 1}-${chunkEnd} of ${totalEssays}`);
+
+        const chunkData = {
+            ...batchData,
+            essays: chunkEssays
+        };
+
+        try {
+            const chunkResult = await processSingleChunk(chunkData, chunkStart);
+
+            // Merge results, adjusting indices to match global position
+            if (chunkResult.results) {
+                allResults = allResults.concat(chunkResult.results);
+            }
+
+            processedCount = chunkEnd;
+            console.log(`✅ Chunk complete. Total progress: ${processedCount}/${totalEssays} essays`);
+
+        } catch (error) {
+            console.error(`❌ Chunk ${chunkStart + 1}-${chunkEnd} failed:`, error);
+            throw new Error(`Failed to process essays ${chunkStart + 1}-${chunkEnd}: ${error.message}`);
+        }
+    }
+
+    console.log(`\n🎉 ALL CHUNKS COMPLETE: ${totalEssays} essays processed successfully`);
+
+    return {
+        success: true,
+        results: allResults,
+        totalEssays: totalEssays
+    };
+}
+
+/**
+ * Process a single chunk of essays (internal helper)
+ * @param {Object} chunkData - Data for this chunk
+ * @param {number} globalOffset - Starting index in the global essay list
+ */
+async function processSingleChunk(chunkData, globalOffset) {
     return new Promise((resolve, reject) => {
         let processedResults = [];
 
@@ -394,7 +455,7 @@ async function streamBatchGradingSimple(batchData) {
             headers: {
                 'Content-Type': 'application/json'
             },
-            body: JSON.stringify(batchData)
+            body: JSON.stringify(chunkData)
         }).then(response => {
             if (!response.ok) {
                 throw new Error(`HTTP error! status: ${response.status}`);
@@ -451,29 +512,37 @@ async function streamBatchGradingSimple(batchData) {
                     break;
 
                 case 'processing':
+                    const globalIndex = data.index + globalOffset;
                     const progressMsg = data.batch
-                        ? `🔄 Processing essay ${data.index + 1} (Batch ${data.batch}/${data.totalBatches})`
-                        : `🔄 Processing essay ${data.index + 1}`;
+                        ? `🔄 Processing essay ${globalIndex + 1} (Batch ${data.batch}/${data.totalBatches})`
+                        : `🔄 Processing essay ${globalIndex + 1}`;
                     console.log(progressMsg);
                     break;
 
                 case 'result':
-                        console.log(`✅ Received result for essay ${data.index}`);
+                        const globalResultIndex = data.index + globalOffset;
+                        console.log(`✅ Received result for essay ${globalResultIndex + 1}`);
 
-                        // Store the result first
-                        processedResults[data.index] = data;
+                        // Adjust data index to global position
+                        const adjustedData = {
+                            ...data,
+                            index: globalResultIndex
+                        };
 
-                        // Store essay data for expansion
-                        if (data.success && batchData.essays[data.index]) {
-                            window[`essayData_${data.index}`] = {
+                        // Store the result first (use local index for chunk array)
+                        processedResults[data.index] = adjustedData;
+
+                        // Store essay data for expansion (use GLOBAL index for window storage)
+                        if (data.success && chunkData.essays[data.index]) {
+                            window[`essayData_${globalResultIndex}`] = {
                                 essay: {
                                     success: true,
                                     result: data.result,
-                                    studentName: data.studentName || batchData.essays[data.index].studentName
+                                    studentName: data.studentName || chunkData.essays[data.index].studentName
                                 },
                                 originalData: {
-                                    ...batchData.essays[data.index],
-                                    index: data.index
+                                    ...chunkData.essays[data.index],
+                                    index: globalResultIndex
                                 }
                             };
                         }
@@ -484,7 +553,7 @@ async function streamBatchGradingSimple(batchData) {
                             window.batchQueueProcessor = null;
                         }
 
-                        window.batchResultQueue.push(data);
+                        window.batchResultQueue.push(adjustedData);
 
                         // Start processing queue if not already running
                         if (!window.batchQueueProcessor) {
@@ -493,40 +562,34 @@ async function streamBatchGradingSimple(batchData) {
                         break;
 
                     case 'complete':
-                        console.log('🎉 Streaming complete');
+                        console.log('🎉 Chunk streaming complete');
                         if (data.totalTimeSeconds) {
-                            console.log(`⏱️ Server reported total time: ${data.totalTimeSeconds}s`);
+                            console.log(`⏱️ Chunk processing time: ${data.totalTimeSeconds}s`);
                         }
-                        clearInterval(timeoutChecker); // Clear timeout checker on successful completion
 
-                        // Create final batch result object
-                        const finalBatchResult = {
+                        // Create chunk result object
+                        const chunkResult = {
                             success: true,
-                            totalEssays: batchData.essays.length,
+                            totalEssays: chunkData.essays.length,
                             results: processedResults.filter(r => r !== undefined).map(r => ({
                                 success: r.success,
                                 error: r.error,
                                 result: r.result,
-                                studentName: r.studentName
+                                studentName: r.studentName,
+                                index: r.index
                             }))
                         };
 
-                        // Only rebuild UI if essays weren't already pre-loaded
-                        const alreadyLoaded = document.querySelector('.formatted-essay-content[data-essay-index="0"]');
-                        if (!alreadyLoaded && window.BatchProcessingModule) {
-                            console.log('🔄 UI not pre-loaded, rebuilding with batch results...');
-                            window.BatchProcessingModule.displayBatchResults(finalBatchResult, batchData);
-                        } else {
-                            console.log('✅ Essays already pre-loaded and interactive, skipping UI rebuild');
-                        }
-
-                        resolve(finalBatchResult);
+                        // For chunks, we DON'T rebuild UI - that's handled by the parent function
+                        // Just resolve with the chunk results
+                        resolve(chunkResult);
                         break;
 
                     case 'error':
                         console.error('❌ Streaming error:', data.error);
-                        if (window.BatchProcessingModule && data.index !== undefined) {
-                            window.BatchProcessingModule.updateEssayStatus(data.index, false, data.error);
+                        const globalErrorIndex = data.index !== undefined ? data.index + globalOffset : undefined;
+                        if (window.BatchProcessingModule && globalErrorIndex !== undefined) {
+                            window.BatchProcessingModule.updateEssayStatus(globalErrorIndex, false, data.error);
                         }
                         break;
 
@@ -799,6 +862,7 @@ window.FormHandlingModule = {
     setupFormValidation,
     streamBatchGrading,
     streamBatchGradingSimple,
+    processSingleChunk,
     fallbackToBatchProcessing,
     processBatchResultQueue
 };
