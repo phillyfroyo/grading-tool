@@ -802,6 +802,15 @@ function processHighlightsForPDF(content) {
         const notes = mark.dataset.notes || mark.dataset.message || mark.title || ''; // backwards compatibility
         const originalText = mark.dataset.originalText || mark.textContent || '';
 
+        // Debug logging for PDF data extraction
+        console.log('📋 PDF Debug - Mark data:', {
+            text: originalText,
+            correction: correction,
+            explanation: explanation,
+            'dataset.correction': mark.dataset.correction,
+            'dataset.explanation': mark.dataset.explanation
+        });
+
         // Only process highlights that have notes/explanations for numbering
         if (notes && notes.trim() && !notes.toLowerCase().includes('click to edit')) {
             // Add number to the highlight
@@ -880,11 +889,21 @@ function createHighlightsLegend(highlightsData) {
         // Add correction and explanation if they exist
         let feedbackHTML = '';
 
+        console.log('📋 PDF Feedback Generation:', {
+            number: highlight.number,
+            text: highlight.text,
+            correction: highlight.correction,
+            explanation: highlight.explanation,
+            'correction exists': !!highlight.correction,
+            'explanation exists': !!highlight.explanation
+        });
+
         // Add correction if it exists and is meaningful
         if (highlight.correction &&
             highlight.correction.trim() !== '' &&
             !highlight.correction.includes('**no notes have been entered**')) {
             feedbackHTML += `<div class="correction-text"><strong>Correction:</strong> ${highlight.correction}</div>`;
+            console.log('✅ Added correction to PDF');
         }
 
         // Add explanation if it exists and is meaningful (must be non-empty and different from correction)
@@ -895,7 +914,10 @@ function createHighlightsLegend(highlightsData) {
 
         if (hasExplanation) {
             feedbackHTML += `<div class="correction-text"><strong>Explanation:</strong> ${highlight.explanation}</div>`;
+            console.log('✅ Added explanation to PDF');
         }
+
+        console.log('📋 Final feedbackHTML:', feedbackHTML);
 
         legendHTML += `
             <div class="highlight-entry ${cssClass}">
