@@ -78,6 +78,21 @@ Student Essay → Step 1: Error Detection (temp 0.5) → Safety Patches
 
 ## 🔥 High Priority UI/UX Improvements
 
+### Error Message Visibility
+- [ ] **Make validation errors visible regardless of scroll position**
+  - Currently: Error message appears at top when no class profile selected, but user may not see it if scrolled down
+  - Solution options:
+    - Auto-scroll to top when validation error occurs
+    - Use toast/modal notification that appears at current viewport position
+    - Sticky error banner that stays visible while scrolling
+
+### Bulk Essay Entry
+- [ ] **Add "Add Multiple Essays" button**
+  - Currently: Must click "Add Another Essay" 30 times for large batches
+  - Add input field: "How many essays to add?" with number input
+  - One-click adds multiple essay text areas at once
+  - Improves workflow for large batch grading
+
 ### Compact Batch Results UI
 - [ ] **Compact the UI of the grader after results come in** - Show only student names initially
   - Clicking on a student name expands to show full grading details for that student only
