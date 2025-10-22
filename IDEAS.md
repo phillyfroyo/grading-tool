@@ -35,12 +35,19 @@ This file contains ideas for future development that haven't been implemented ye
 
 ### **⚠️ Current Issues to Address:**
 
-**1. Highlights Problems:**
+**1. Grading Inconsistency (HIGH PRIORITY):**
+- Same essay can receive up to 22% different scores on repeated grading
+- **Root cause**: Word count, transitions, class vocab, and class grammar stats are miscounted
+- **Solution**: Move these 4 metrics to Step 2 (grading prompt with temp 0.2 instead of Step 1 with temp 0.5)
+- Currently these stats are calculated in error detection (higher temp) causing variance
+- Moving to lower temperature grading step should provide consistent counting
+
+**2. Highlights Problems:**
 - GPT often highlights entire sentences instead of specific words
 - Offset positions frequently incorrect (requires post-processing fixes)
 - Categories sometimes misclassified (grammar vs fluency confusion)
 
-**2. Teacher Feedback Issues:**
+**3. Teacher Feedback Issues:**
 - Sometimes too generic or repetitive
 - May not align well with actual errors found
 - Positive feedback requirement not always natural
