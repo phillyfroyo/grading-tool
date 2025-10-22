@@ -23,9 +23,9 @@ const openai = new OpenAI({
 
 // Queue to manage concurrent requests and prevent rate limiting
 let requestQueue = [];
-let isProcessingQueue = false;
-const MAX_CONCURRENT_REQUESTS = 1; // Serialize all requests to prevent rate limiting
-const BASE_DELAY_BETWEEN_REQUESTS = 1000; // Reduced to 1 second - token limiting handles the rest
+let activeRequests = 0; // Track number of currently processing requests
+const MAX_CONCURRENT_REQUESTS = 3; // Allow 3 concurrent requests for parallel processing
+const BASE_DELAY_BETWEEN_REQUESTS = 1000; // 1 second base delay between requests
 
 // Token rate limiting tracking
 let tokenUsageWindow = [];
@@ -140,44 +140,54 @@ async function queuedOpenAICall(apiCall, estimatedTokens = 3000) {
 }
 
 async function processQueue() {
-  if (isProcessingQueue || requestQueue.length === 0) return;
-
-  isProcessingQueue = true;
-  console.log(`📋 Queue processing started with ${requestQueue.length} requests`);
-
-  while (requestQueue.length > 0) {
+  // Process requests while we have capacity and items in queue
+  while (requestQueue.length > 0 && activeRequests < MAX_CONCURRENT_REQUESTS) {
     const { apiCall, resolve, reject, estimatedTokens } = requestQueue.shift();
 
-    try {
-      console.log(`🚀 Processing queued request (${requestQueue.length} remaining in queue)`);
-      const startTime = Date.now();
-      const result = await retryWithBackoff(apiCall);
-      const duration = Date.now() - startTime;
+    // Increment active request counter
+    activeRequests++;
+    console.log(`📋 Starting request (${activeRequests}/${MAX_CONCURRENT_REQUESTS} active, ${requestQueue.length} queued)`);
 
-      // Track actual token usage from the response
-      const actualTokens = result.usage?.total_tokens || estimatedTokens;
-      trackTokenUsage(actualTokens);
+    // Process request asynchronously (don't await - allows concurrent processing)
+    (async () => {
+      try {
+        // Check token capacity before proceeding
+        const currentUsage = getCurrentTokenUsage();
+        const safeLimit = TOKENS_PER_MINUTE_LIMIT * SAFETY_BUFFER;
+        const remainingCapacity = safeLimit - currentUsage;
 
-      console.log(`✅ Request completed in ${duration}ms (${actualTokens} tokens used)`);
-      resolve(result);
-    } catch (error) {
-      console.error('❌ Queued request failed:', error.message);
-      reject(error);
-    }
+        if (remainingCapacity < estimatedTokens) {
+          const delayNeeded = calculateDynamicDelay(estimatedTokens);
+          console.log(`⏳ Waiting ${delayNeeded}ms for token capacity before processing...`);
+          await new Promise(r => setTimeout(r, delayNeeded));
+        }
 
-    // Calculate dynamic delay based on token usage and batch cooling
-    if (requestQueue.length > 0) {
-      const nextEstimatedTokens = requestQueue[0]?.estimatedTokens || 3000;
-      const delay = calculateDynamicDelay(nextEstimatedTokens);
+        console.log(`🚀 Processing request (${activeRequests} active)`);
+        const startTime = Date.now();
+        const result = await retryWithBackoff(apiCall);
+        const duration = Date.now() - startTime;
 
-      console.log(`⏳ Standard delay: ${delay}ms before next request (${requestQueue.length} requests remaining)`);
+        // Track actual token usage from the response
+        const actualTokens = result.usage?.total_tokens || estimatedTokens;
+        trackTokenUsage(actualTokens);
 
-      await new Promise(resolve => setTimeout(resolve, delay));
-    }
+        console.log(`✅ Request completed in ${duration}ms (${actualTokens} tokens used, ${activeRequests - 1} active after completion)`);
+        resolve(result);
+      } catch (error) {
+        console.error('❌ Queued request failed:', error.message);
+        reject(error);
+      } finally {
+        // Decrement active counter and try to process more from queue
+        activeRequests--;
+
+        // Add small delay between starting requests to avoid burst
+        await new Promise(r => setTimeout(r, BASE_DELAY_BETWEEN_REQUESTS));
+
+        // Try to process next item in queue
+        processQueue();
+      }
+    })();
   }
-
-  console.log(`✅ Queue processing completed`);
-  isProcessingQueue = false;
 }
 
 export async function gradeEssay(studentText, prompt, classProfileId, studentNickname) {
