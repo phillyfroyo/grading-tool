@@ -819,7 +819,7 @@ window.FormHandlingModule = {
     setupFormValidation,
     streamBatchGrading,
     streamBatchGradingSimple,
-    processSingleChunk,
+    processAllEssays,
     fallbackToBatchProcessing,
     processBatchResultQueue
 };
