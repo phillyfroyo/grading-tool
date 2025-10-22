@@ -504,7 +504,7 @@ async function processSingleChunk(chunkData, globalOffset) {
                         resolve({
                             success: true,
                             results: processedResults,
-                            totalEssays: batchData.essays.length
+                            totalEssays: chunkData.essays.length
                         });
                         return;
                     }
