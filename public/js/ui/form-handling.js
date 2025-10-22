@@ -379,90 +379,24 @@ function updateManualScore(category, score) {
 }
 
 /**
- * Stream batch grading using Server-Sent Events via query parameter
- * SUPPORTS CHUNKING: Automatically processes large batches in chunks to manage load
+ * Stream batch grading using Server-Sent Events
  * Server-Sent Events bypass Vercel's 10s timeout, allowing longer processing times
+ * Backend processes essays in batches of 3 concurrently for optimal performance
  * @param {Object} batchData - The batch data to process
  */
 async function streamBatchGradingSimple(batchData) {
-    console.log('🎯 STARTING SIMPLE STREAMING BATCH GRADING');
+    console.log('🎯 STARTING STREAMING BATCH GRADING');
+    console.log(`📊 Processing ${batchData.essays.length} essays`);
 
-    const CHUNK_SIZE = 10; // Process 10 essays per chunk (~6 minutes per chunk)
-    const totalEssays = batchData.essays.length;
-
-    // If batch is small enough, process normally
-    if (totalEssays <= CHUNK_SIZE) {
-        console.log(`📊 Processing ${totalEssays} essays in single chunk`);
-        return processSingleChunk(batchData, 0);
-    }
-
-    // Large batch - split into chunks and process sequentially
-    console.log(`📊 Large batch detected: ${totalEssays} essays`);
-    console.log(`📦 Will process in ${Math.ceil(totalEssays / CHUNK_SIZE)} chunks of ${CHUNK_SIZE} essays`);
-
-    let allResults = [];
-    let processedCount = 0;
-
-    while (processedCount < totalEssays) {
-        const chunkStart = processedCount;
-        const chunkEnd = Math.min(chunkStart + CHUNK_SIZE, totalEssays);
-        const chunkEssays = batchData.essays.slice(chunkStart, chunkEnd);
-
-        console.log(`\n🔄 Processing chunk: essays ${chunkStart + 1}-${chunkEnd} of ${totalEssays}`);
-
-        const chunkData = {
-            ...batchData,
-            essays: chunkEssays
-        };
-
-        try {
-            const chunkResult = await processSingleChunk(chunkData, chunkStart);
-
-            // Merge results, adjusting indices to match global position
-            if (chunkResult.results) {
-                allResults = allResults.concat(chunkResult.results);
-            }
-
-            processedCount = chunkEnd;
-            console.log(`✅ Chunk complete. Total progress: ${processedCount}/${totalEssays} essays`);
-
-        } catch (error) {
-            console.error(`❌ Chunk ${chunkStart + 1}-${chunkEnd} failed:`, error);
-            console.error('📊 Error details:', {
-                chunkSize: chunkEssays.length,
-                errorMessage: error.message,
-                isTimeout: error.message.includes('timeout'),
-                suggestion: error.message.includes('timeout')
-                    ? 'Try grading 1-2 essays at a time, or upgrade to Vercel Pro for 300-second timeout'
-                    : 'Check console for detailed error logs'
-            });
-
-            // Mark failed essays in UI
-            for (let i = chunkStart; i < chunkEnd; i++) {
-                if (window.BatchProcessingModule) {
-                    window.BatchProcessingModule.updateEssayStatus(i, false, error.message.includes('timeout') ? 'Timeout - too many essays' : 'Grading failed');
-                }
-            }
-
-            throw new Error(`Failed to process essays ${chunkStart + 1}-${chunkEnd}: ${error.message}`);
-        }
-    }
-
-    console.log(`\n🎉 ALL CHUNKS COMPLETE: ${totalEssays} essays processed successfully`);
-
-    return {
-        success: true,
-        results: allResults,
-        totalEssays: totalEssays
-    };
+    // Process all essays in a single request - backend handles batching
+    return processAllEssays(batchData);
 }
 
 /**
- * Process a single chunk of essays (internal helper)
- * @param {Object} chunkData - Data for this chunk
- * @param {number} globalOffset - Starting index in the global essay list
+ * Process all essays via Server-Sent Events
+ * @param {Object} batchData - The batch data to process
  */
-async function processSingleChunk(chunkData, globalOffset) {
+async function processAllEssays(batchData) {
     return new Promise((resolve, reject) => {
         let processedResults = [];
         let timeoutId;
@@ -472,9 +406,8 @@ async function processSingleChunk(chunkData, globalOffset) {
         // Set up timeout detection - mainly for detecting stalled connections
         timeoutId = setTimeout(() => {
             console.error('⏱️ TIMEOUT: Request exceeded 5 minutes');
-            console.error('📊 Chunk details:', {
-                essayCount: chunkData.essays.length,
-                globalOffset,
+            console.error('📊 Batch details:', {
+                essayCount: batchData.essays.length,
                 processedSoFar: processedResults.length
             });
             reject(new Error('Request timeout - connection may have stalled. Please try again.'));
@@ -486,7 +419,7 @@ async function processSingleChunk(chunkData, globalOffset) {
             headers: {
                 'Content-Type': 'application/json'
             },
-            body: JSON.stringify(chunkData)
+            body: JSON.stringify(batchData)
         }).then(response => {
             if (!response.ok) {
                 clearTimeout(timeoutId);
@@ -505,7 +438,7 @@ async function processSingleChunk(chunkData, globalOffset) {
                         resolve({
                             success: true,
                             results: processedResults,
-                            totalEssays: chunkData.essays.length
+                            totalEssays: batchData.essays.length
                         });
                         return;
                     }
@@ -546,48 +479,40 @@ async function processSingleChunk(chunkData, globalOffset) {
                     break;
 
                 case 'processing':
-                    const globalIndex = data.index + globalOffset;
                     const progressMsg = data.batch
-                        ? `🔄 Processing essay ${globalIndex + 1} (Batch ${data.batch}/${data.totalBatches})`
-                        : `🔄 Processing essay ${globalIndex + 1}`;
+                        ? `🔄 Processing essay ${data.index + 1} (Batch ${data.batch}/${data.totalBatches})`
+                        : `🔄 Processing essay ${data.index + 1}`;
                     console.log(progressMsg);
                     break;
 
                 case 'result':
-                        const globalResultIndex = data.index + globalOffset;
-                        console.log(`✅ Received result for essay ${globalResultIndex + 1}`);
+                        console.log(`✅ Received result for essay ${data.index + 1}`);
 
-                        // Adjust data index to global position
-                        const adjustedData = {
-                            ...data,
-                            index: globalResultIndex
-                        };
+                        // Store the result
+                        processedResults[data.index] = data;
 
-                        // Store the result first (use local index for chunk array)
-                        processedResults[data.index] = adjustedData;
-
-                        // Store essay data for expansion (use GLOBAL index for window storage)
-                        if (data.success && chunkData.essays[data.index]) {
-                            window[`essayData_${globalResultIndex}`] = {
+                        // Store essay data for expansion
+                        if (data.success && batchData.essays[data.index]) {
+                            window[`essayData_${data.index}`] = {
                                 essay: {
                                     success: true,
                                     result: data.result,
-                                    studentName: data.studentName || chunkData.essays[data.index].studentName
+                                    studentName: data.studentName || batchData.essays[data.index].studentName
                                 },
                                 originalData: {
-                                    ...chunkData.essays[data.index],
-                                    index: globalResultIndex
+                                    ...batchData.essays[data.index],
+                                    index: data.index
                                 }
                             };
                         }
 
-                        // Queue this result for staggered display (3-second delay between each)
+                        // Queue this result for staggered display
                         if (!window.batchResultQueue) {
                             window.batchResultQueue = [];
                             window.batchQueueProcessor = null;
                         }
 
-                        window.batchResultQueue.push(adjustedData);
+                        window.batchResultQueue.push(data);
 
                         // Start processing queue if not already running
                         if (!window.batchQueueProcessor) {
@@ -597,15 +522,15 @@ async function processSingleChunk(chunkData, globalOffset) {
 
                     case 'complete':
                         clearTimeout(timeoutId);
-                        console.log('🎉 Chunk streaming complete');
+                        console.log('🎉 Batch streaming complete');
                         if (data.totalTimeSeconds) {
-                            console.log(`⏱️ Chunk processing time: ${data.totalTimeSeconds}s`);
+                            console.log(`⏱️ Total processing time: ${data.totalTimeSeconds}s`);
                         }
 
-                        // Create chunk result object
-                        const chunkResult = {
+                        // Create result object
+                        const batchResult = {
                             success: true,
-                            totalEssays: chunkData.essays.length,
+                            totalEssays: batchData.essays.length,
                             results: processedResults.filter(r => r !== undefined).map(r => ({
                                 success: r.success,
                                 error: r.error,
@@ -615,16 +540,13 @@ async function processSingleChunk(chunkData, globalOffset) {
                             }))
                         };
 
-                        // For chunks, we DON'T rebuild UI - that's handled by the parent function
-                        // Just resolve with the chunk results
-                        resolve(chunkResult);
+                        resolve(batchResult);
                         break;
 
                     case 'error':
                         console.error('❌ Streaming error:', data.error);
-                        const globalErrorIndex = data.index !== undefined ? data.index + globalOffset : undefined;
-                        if (window.BatchProcessingModule && globalErrorIndex !== undefined) {
-                            window.BatchProcessingModule.updateEssayStatus(globalErrorIndex, false, data.error);
+                        if (window.BatchProcessingModule && data.index !== undefined) {
+                            window.BatchProcessingModule.updateEssayStatus(data.index, false, data.error);
                         }
                         break;
 
