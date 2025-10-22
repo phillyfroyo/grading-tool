@@ -380,13 +380,14 @@ function updateManualScore(category, score) {
 
 /**
  * Stream batch grading using Server-Sent Events via query parameter
- * SUPPORTS CHUNKING: Automatically processes large batches in chunks of 6 essays to stay under Vercel timeout
+ * SUPPORTS CHUNKING: Automatically processes large batches in chunks of 3 essays to stay under Vercel free tier 10-second timeout
+ * Each essay takes ~3 seconds to grade, so 3 essays = ~9 seconds (within 10s limit)
  * @param {Object} batchData - The batch data to process
  */
 async function streamBatchGradingSimple(batchData) {
     console.log('🎯 STARTING SIMPLE STREAMING BATCH GRADING');
 
-    const CHUNK_SIZE = 6; // Process 6 essays per chunk to stay under ~4min Vercel timeout
+    const CHUNK_SIZE = 3; // Process 3 essays per chunk to stay under 10-second Vercel free tier timeout
     const totalEssays = batchData.essays.length;
 
     // If batch is small enough, process normally
@@ -427,6 +428,22 @@ async function streamBatchGradingSimple(batchData) {
 
         } catch (error) {
             console.error(`❌ Chunk ${chunkStart + 1}-${chunkEnd} failed:`, error);
+            console.error('📊 Error details:', {
+                chunkSize: chunkEssays.length,
+                errorMessage: error.message,
+                isTimeout: error.message.includes('timeout'),
+                suggestion: error.message.includes('timeout')
+                    ? 'Try grading 1-2 essays at a time, or upgrade to Vercel Pro for 300-second timeout'
+                    : 'Check console for detailed error logs'
+            });
+
+            // Mark failed essays in UI
+            for (let i = chunkStart; i < chunkEnd; i++) {
+                if (window.BatchProcessingModule) {
+                    window.BatchProcessingModule.updateEssayStatus(i, false, error.message.includes('timeout') ? 'Timeout - too many essays' : 'Grading failed');
+                }
+            }
+
             throw new Error(`Failed to process essays ${chunkStart + 1}-${chunkEnd}: ${error.message}`);
         }
     }
@@ -448,6 +465,19 @@ async function streamBatchGradingSimple(batchData) {
 async function processSingleChunk(chunkData, globalOffset) {
     return new Promise((resolve, reject) => {
         let processedResults = [];
+        let timeoutId;
+        const TIMEOUT_MS = 9000; // 9 seconds - give 1 second buffer before Vercel's 10s limit
+
+        // Set up timeout detection
+        timeoutId = setTimeout(() => {
+            console.error('⏱️ TIMEOUT: Request exceeded 9 seconds (Vercel limit is 10s)');
+            console.error('📊 Chunk details:', {
+                essayCount: chunkData.essays.length,
+                globalOffset,
+                processedSoFar: processedResults.length
+            });
+            reject(new Error('Request timeout - Vercel free tier has 10-second limit. Try grading fewer essays at once (3-4 max), or upgrade to Vercel Pro for longer timeouts.'));
+        }, TIMEOUT_MS);
 
         // Use direct fetch with streaming instead of EventSource
         fetch('/api/grade-batch?stream=true', {
@@ -458,6 +488,7 @@ async function processSingleChunk(chunkData, globalOffset) {
             body: JSON.stringify(chunkData)
         }).then(response => {
             if (!response.ok) {
+                clearTimeout(timeoutId);
                 throw new Error(`HTTP error! status: ${response.status}`);
             }
 
@@ -468,6 +499,7 @@ async function processSingleChunk(chunkData, globalOffset) {
             function readStream() {
                 return reader.read().then(({ done, value }) => {
                     if (done) {
+                        clearTimeout(timeoutId);
                         console.log('✅ Streaming completed');
                         resolve({
                             success: true,
@@ -499,6 +531,7 @@ async function processSingleChunk(chunkData, globalOffset) {
 
             return readStream();
         }).catch(error => {
+            clearTimeout(timeoutId);
             console.error('Streaming error:', error);
             reject(error);
         });
@@ -562,6 +595,7 @@ async function processSingleChunk(chunkData, globalOffset) {
                         break;
 
                     case 'complete':
+                        clearTimeout(timeoutId);
                         console.log('🎉 Chunk streaming complete');
                         if (data.totalTimeSeconds) {
                             console.log(`⏱️ Chunk processing time: ${data.totalTimeSeconds}s`);
