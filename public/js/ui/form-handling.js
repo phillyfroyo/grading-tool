@@ -380,14 +380,14 @@ function updateManualScore(category, score) {
 
 /**
  * Stream batch grading using Server-Sent Events via query parameter
- * SUPPORTS CHUNKING: Automatically processes large batches in chunks of 3 essays to stay under Vercel free tier 10-second timeout
- * Each essay takes ~3 seconds to grade, so 3 essays = ~9 seconds (within 10s limit)
+ * SUPPORTS CHUNKING: Automatically processes large batches in chunks to manage load
+ * Server-Sent Events bypass Vercel's 10s timeout, allowing longer processing times
  * @param {Object} batchData - The batch data to process
  */
 async function streamBatchGradingSimple(batchData) {
     console.log('🎯 STARTING SIMPLE STREAMING BATCH GRADING');
 
-    const CHUNK_SIZE = 3; // Process 3 essays per chunk to stay under 10-second Vercel free tier timeout
+    const CHUNK_SIZE = 10; // Process 10 essays per chunk (~6 minutes per chunk)
     const totalEssays = batchData.essays.length;
 
     // If batch is small enough, process normally
@@ -466,17 +466,18 @@ async function processSingleChunk(chunkData, globalOffset) {
     return new Promise((resolve, reject) => {
         let processedResults = [];
         let timeoutId;
-        const TIMEOUT_MS = 9000; // 9 seconds - give 1 second buffer before Vercel's 10s limit
+        const TIMEOUT_MS = 300000; // 5 minutes - allow server to complete processing
+        // Note: Server-Sent Events (SSE) bypass Vercel's normal 10s timeout for serverless functions
 
-        // Set up timeout detection
+        // Set up timeout detection - mainly for detecting stalled connections
         timeoutId = setTimeout(() => {
-            console.error('⏱️ TIMEOUT: Request exceeded 9 seconds (Vercel limit is 10s)');
+            console.error('⏱️ TIMEOUT: Request exceeded 5 minutes');
             console.error('📊 Chunk details:', {
                 essayCount: chunkData.essays.length,
                 globalOffset,
                 processedSoFar: processedResults.length
             });
-            reject(new Error('Request timeout - Vercel free tier has 10-second limit. Try grading fewer essays at once (3-4 max), or upgrade to Vercel Pro for longer timeouts.'));
+            reject(new Error('Request timeout - connection may have stalled. Please try again.'));
         }, TIMEOUT_MS);
 
         // Use direct fetch with streaming instead of EventSource
