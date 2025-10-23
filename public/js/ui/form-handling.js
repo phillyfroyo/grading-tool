@@ -400,12 +400,12 @@ async function processAllEssays(batchData) {
     return new Promise((resolve, reject) => {
         let processedResults = [];
         let timeoutId;
-        const TIMEOUT_MS = 300000; // 5 minutes - allow server to complete processing
+        const TIMEOUT_MS = 1200000; // 20 minutes - allow server to complete large batches
         // Note: Server-Sent Events (SSE) bypass Vercel's normal 10s timeout for serverless functions
 
         // Set up timeout detection - mainly for detecting stalled connections
         timeoutId = setTimeout(() => {
-            console.error('⏱️ TIMEOUT: Request exceeded 5 minutes');
+            console.error('⏱️ TIMEOUT: Request exceeded 20 minutes');
             console.error('📊 Batch details:', {
                 essayCount: batchData.essays.length,
                 processedSoFar: processedResults.length
