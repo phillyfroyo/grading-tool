@@ -24,16 +24,16 @@ const openai = new OpenAI({
 // Queue to manage concurrent requests and prevent rate limiting
 let requestQueue = [];
 let activeRequests = 0; // Track number of currently processing requests
-const MAX_CONCURRENT_REQUESTS = 10; // Allow 10 concurrent requests to match chunk size for maximum parallelization
+const MAX_CONCURRENT_REQUESTS = 3; // Limited by 30k TPM (each essay ~10k tokens = 3 max concurrent)
 const BASE_DELAY_BETWEEN_REQUESTS = 1000; // 1 second base delay between requests
 
 // Token rate limiting tracking
 let tokenUsageWindow = [];
-// Set a reasonable limit for batch processing - most paid OpenAI accounts have 150k-500k TPM
-// If you're on a higher tier, increase this. If you hit rate limits, decrease it.
-const TOKENS_PER_MINUTE_LIMIT = 150000; // Conservative limit for paid tier (adjust based on your actual limit)
+// Set based on your actual OpenAI account limit (check https://platform.openai.com/account/rate-limits)
+// Current account: 30,000 TPM for gpt-4o
+const TOKENS_PER_MINUTE_LIMIT = 30000; // Actual limit for this account (was incorrectly set to 150k)
 const WINDOW_SIZE_MS = 60000; // 1 minute window
-const SAFETY_BUFFER = 0.9; // Use 90% of limit for safety (increased from 80% for batch processing)
+const SAFETY_BUFFER = 0.85; // Use 85% of limit for safety to account for estimation errors
 
 // Batch processing tracking for cooling periods - DISABLED for now
 let essayProcessedCount = 0;
