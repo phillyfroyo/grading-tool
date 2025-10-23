@@ -238,7 +238,7 @@ async function handleStreamingBatchGrade(req, res, { essays, prompt, classProfil
   try {
     const startTime = Date.now();
     console.log("\n🌊 STARTING STREAMING BATCH GRADING WITH PARALLEL BATCHES 🌊");
-    console.log(`📊 Processing ${essays.length} essays in batches of 3`);
+    console.log(`📊 Processing ${essays.length} essays in batches of 10`);
     console.log(`⏰ Start time: ${new Date(startTime).toISOString()}`);
 
     // Set up Server-Sent Events headers
@@ -282,8 +282,8 @@ async function handleStreamingBatchGrade(req, res, { essays, prompt, classProfil
       message: 'Starting parallel batch grading...'
     })}\n\n`);
 
-    // Process essays in parallel batches of 3 for optimal performance
-    const BATCH_SIZE = 3;
+    // Process essays in parallel batches of 10 for optimal performance
+    const BATCH_SIZE = 10;
     let currentBatch = 1;
     const totalBatches = Math.ceil(essays.length / BATCH_SIZE);
 
