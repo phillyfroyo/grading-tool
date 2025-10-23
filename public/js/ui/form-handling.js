@@ -380,23 +380,90 @@ function updateManualScore(category, score) {
 
 /**
  * Stream batch grading using Server-Sent Events
- * Server-Sent Events bypass Vercel's 10s timeout, allowing longer processing times
- * Backend processes essays in batches of 3 concurrently for optimal performance
+ * CHUNKING: Splits large batches into chunks to avoid SSE connection timeouts
+ * Vercel appears to have ~5 minute SSE connection limit, so we chunk to stay under
  * @param {Object} batchData - The batch data to process
  */
 async function streamBatchGradingSimple(batchData) {
     console.log('🎯 STARTING STREAMING BATCH GRADING');
-    console.log(`📊 Processing ${batchData.essays.length} essays`);
+    console.log(`📊 Total essays to grade: ${batchData.essays.length}`);
 
-    // Process all essays in a single request - backend handles batching
-    return processAllEssays(batchData);
+    const CHUNK_SIZE = 10; // 10 essays = ~3-4 min per chunk, stays under Vercel SSE limits
+    const totalEssays = batchData.essays.length;
+
+    // If batch is small enough, process in single request
+    if (totalEssays <= CHUNK_SIZE) {
+        console.log(`📊 Processing ${totalEssays} essays in single request`);
+        return processEssayChunk(batchData, 0);
+    }
+
+    // Large batch - split into chunks and process sequentially
+    console.log(`📦 Large batch detected: splitting into ${Math.ceil(totalEssays / CHUNK_SIZE)} chunks of ${CHUNK_SIZE} essays`);
+
+    let allResults = [];
+    let processedCount = 0;
+
+    while (processedCount < totalEssays) {
+        const chunkStart = processedCount;
+        const chunkEnd = Math.min(chunkStart + CHUNK_SIZE, totalEssays);
+        const chunkEssays = batchData.essays.slice(chunkStart, chunkEnd);
+
+        console.log(`\n🔄 Processing chunk ${Math.floor(chunkStart / CHUNK_SIZE) + 1}/${Math.ceil(totalEssays / CHUNK_SIZE)}: essays ${chunkStart + 1}-${chunkEnd} of ${totalEssays}`);
+
+        const chunkData = {
+            ...batchData,
+            essays: chunkEssays
+        };
+
+        try {
+            const chunkResult = await processEssayChunk(chunkData, chunkStart);
+
+            // Merge results
+            if (chunkResult.results) {
+                allResults = allResults.concat(chunkResult.results);
+            }
+
+            processedCount = chunkEnd;
+            console.log(`✅ Chunk complete. Progress: ${processedCount}/${totalEssays} essays (${Math.round(processedCount/totalEssays*100)}%)`);
+
+        } catch (error) {
+            console.error(`❌ CHUNK FAILED: Essays ${chunkStart + 1}-${chunkEnd}`, {
+                chunkSize: chunkEssays.length,
+                errorMessage: error.message,
+                errorStack: error.stack,
+                essaysProcessedSoFar: processedCount,
+                totalEssays: totalEssays,
+                percentComplete: Math.round(processedCount/totalEssays*100)
+            });
+
+            // Mark failed essays in UI
+            for (let i = chunkStart; i < chunkEnd; i++) {
+                if (window.BatchProcessingModule) {
+                    window.BatchProcessingModule.updateEssayStatus(i, false, `Chunk failed: ${error.message}`);
+                }
+            }
+
+            // Continue with next chunk instead of failing entire batch
+            console.warn(`⚠️ Skipping failed chunk, continuing with remaining essays...`);
+            processedCount = chunkEnd;
+        }
+    }
+
+    console.log(`\n🎉 ALL CHUNKS COMPLETE: ${totalEssays} essays processed`);
+
+    return {
+        success: true,
+        results: allResults,
+        totalEssays: totalEssays
+    };
 }
 
 /**
- * Process all essays via Server-Sent Events
- * @param {Object} batchData - The batch data to process
+ * Process a chunk of essays via Server-Sent Events
+ * @param {Object} chunkData - The chunk data to process
+ * @param {number} globalOffset - Starting index in the global essay list
  */
-async function processAllEssays(batchData) {
+async function processEssayChunk(chunkData, globalOffset) {
     return new Promise((resolve, reject) => {
         let processedResults = [];
         let timeoutId;
@@ -405,13 +472,21 @@ async function processAllEssays(batchData) {
 
         // Set up timeout detection - mainly for detecting stalled connections
         timeoutId = setTimeout(() => {
-            console.error('⏱️ TIMEOUT: Request exceeded 20 minutes');
-            console.error('📊 Batch details:', {
-                essayCount: batchData.essays.length,
-                processedSoFar: processedResults.length
+            console.error('⏱️ SSE TIMEOUT: Request exceeded 20 minutes', {
+                chunkSize: chunkData.essays.length,
+                globalOffset,
+                processedSoFar: processedResults.length,
+                missingCount: chunkData.essays.length - processedResults.length,
+                timestamp: new Date().toISOString()
             });
-            reject(new Error('Request timeout - connection may have stalled. Please try again.'));
+            reject(new Error(`SSE timeout after 20 minutes. Processed ${processedResults.length}/${chunkData.essays.length} essays.`));
         }, TIMEOUT_MS);
+
+        console.log(`📡 Initiating SSE connection for chunk...`, {
+            chunkSize: chunkData.essays.length,
+            globalOffset,
+            startTime: new Date().toISOString()
+        });
 
         // Use direct fetch with streaming instead of EventSource
         fetch('/api/grade-batch?stream=true', {
@@ -419,12 +494,19 @@ async function processAllEssays(batchData) {
             headers: {
                 'Content-Type': 'application/json'
             },
-            body: JSON.stringify(batchData)
+            body: JSON.stringify(chunkData)
         }).then(response => {
             if (!response.ok) {
                 clearTimeout(timeoutId);
-                throw new Error(`HTTP error! status: ${response.status}`);
+                console.error(`❌ HTTP ERROR: Status ${response.status}`, {
+                    statusText: response.statusText,
+                    chunkSize: chunkData.essays.length,
+                    globalOffset
+                });
+                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
             }
+
+            console.log('✅ SSE connection established successfully');
 
             const reader = response.body.getReader();
             const decoder = new TextDecoder();
@@ -434,11 +516,15 @@ async function processAllEssays(batchData) {
                 return reader.read().then(({ done, value }) => {
                     if (done) {
                         clearTimeout(timeoutId);
-                        console.log('✅ Streaming completed');
+                        console.log('✅ SSE stream completed', {
+                            resultsReceived: processedResults.length,
+                            expectedCount: chunkData.essays.length,
+                            allReceived: processedResults.length === chunkData.essays.length
+                        });
                         resolve({
                             success: true,
                             results: processedResults,
-                            totalEssays: batchData.essays.length
+                            totalEssays: chunkData.essays.length
                         });
                         return;
                     }
@@ -466,7 +552,14 @@ async function processAllEssays(batchData) {
             return readStream();
         }).catch(error => {
             clearTimeout(timeoutId);
-            console.error('Streaming error:', error);
+            console.error('❌ SSE FETCH ERROR:', {
+                errorMessage: error.message,
+                errorStack: error.stack,
+                chunkSize: chunkData.essays.length,
+                globalOffset,
+                processedSoFar: processedResults.length,
+                timestamp: new Date().toISOString()
+            });
             reject(error);
         });
 
@@ -479,29 +572,42 @@ async function processAllEssays(batchData) {
                     break;
 
                 case 'processing':
+                    const globalIndex = data.index + globalOffset;
                     const progressMsg = data.batch
-                        ? `🔄 Processing essay ${data.index + 1} (Batch ${data.batch}/${data.totalBatches})`
-                        : `🔄 Processing essay ${data.index + 1}`;
+                        ? `🔄 Processing essay ${globalIndex + 1} (Backend batch ${data.batch}/${data.totalBatches})`
+                        : `🔄 Processing essay ${globalIndex + 1}`;
                     console.log(progressMsg);
                     break;
 
                 case 'result':
-                        console.log(`✅ Received result for essay ${data.index + 1}`);
+                        const globalResultIndex = data.index + globalOffset;
+                        console.log(`✅ Received result for essay ${globalResultIndex + 1}`, {
+                            localIndex: data.index,
+                            globalIndex: globalResultIndex,
+                            success: data.success,
+                            studentName: data.studentName
+                        });
 
-                        // Store the result
-                        processedResults[data.index] = data;
+                        // Adjust data index to global position
+                        const adjustedData = {
+                            ...data,
+                            index: globalResultIndex
+                        };
 
-                        // Store essay data for expansion
-                        if (data.success && batchData.essays[data.index]) {
-                            window[`essayData_${data.index}`] = {
+                        // Store the result (use local index for chunk array)
+                        processedResults[data.index] = adjustedData;
+
+                        // Store essay data for expansion (use GLOBAL index)
+                        if (data.success && chunkData.essays[data.index]) {
+                            window[`essayData_${globalResultIndex}`] = {
                                 essay: {
                                     success: true,
                                     result: data.result,
-                                    studentName: data.studentName || batchData.essays[data.index].studentName
+                                    studentName: data.studentName || chunkData.essays[data.index].studentName
                                 },
                                 originalData: {
-                                    ...batchData.essays[data.index],
-                                    index: data.index
+                                    ...chunkData.essays[data.index],
+                                    index: globalResultIndex
                                 }
                             };
                         }
@@ -512,7 +618,7 @@ async function processAllEssays(batchData) {
                             window.batchQueueProcessor = null;
                         }
 
-                        window.batchResultQueue.push(data);
+                        window.batchResultQueue.push(adjustedData);
 
                         // Start processing queue if not already running
                         if (!window.batchQueueProcessor) {
@@ -522,15 +628,17 @@ async function processAllEssays(batchData) {
 
                     case 'complete':
                         clearTimeout(timeoutId);
-                        console.log('🎉 Batch streaming complete');
-                        if (data.totalTimeSeconds) {
-                            console.log(`⏱️ Total processing time: ${data.totalTimeSeconds}s`);
-                        }
+                        console.log('🎉 Chunk streaming complete', {
+                            processingTime: data.totalTimeSeconds ? `${data.totalTimeSeconds}s` : 'unknown',
+                            chunkSize: chunkData.essays.length,
+                            resultsReceived: processedResults.filter(r => r !== undefined).length,
+                            globalOffset
+                        });
 
                         // Create result object
-                        const batchResult = {
+                        const chunkResult = {
                             success: true,
-                            totalEssays: batchData.essays.length,
+                            totalEssays: chunkData.essays.length,
                             results: processedResults.filter(r => r !== undefined).map(r => ({
                                 success: r.success,
                                 error: r.error,
@@ -540,13 +648,20 @@ async function processAllEssays(batchData) {
                             }))
                         };
 
-                        resolve(batchResult);
+                        resolve(chunkResult);
                         break;
 
                     case 'error':
-                        console.error('❌ Streaming error:', data.error);
-                        if (window.BatchProcessingModule && data.index !== undefined) {
-                            window.BatchProcessingModule.updateEssayStatus(data.index, false, data.error);
+                        const globalErrorIndex = data.index !== undefined ? data.index + globalOffset : undefined;
+                        console.error('❌ Backend streaming error:', {
+                            error: data.error,
+                            localIndex: data.index,
+                            globalIndex: globalErrorIndex,
+                            chunkSize: chunkData.essays.length,
+                            globalOffset
+                        });
+                        if (window.BatchProcessingModule && globalErrorIndex !== undefined) {
+                            window.BatchProcessingModule.updateEssayStatus(globalErrorIndex, false, data.error);
                         }
                         break;
 
@@ -819,7 +934,7 @@ window.FormHandlingModule = {
     setupFormValidation,
     streamBatchGrading,
     streamBatchGradingSimple,
-    processAllEssays,
+    processEssayChunk,
     fallbackToBatchProcessing,
     processBatchResultQueue
 };
