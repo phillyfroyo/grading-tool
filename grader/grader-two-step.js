@@ -24,7 +24,7 @@ const openai = new OpenAI({
 // Queue to manage concurrent requests and prevent rate limiting
 let requestQueue = [];
 let activeRequests = 0; // Track number of currently processing requests
-const MAX_CONCURRENT_REQUESTS = 3; // Allow 3 concurrent requests for parallel processing
+const MAX_CONCURRENT_REQUESTS = 10; // Allow 10 concurrent requests to match chunk size for maximum parallelization
 const BASE_DELAY_BETWEEN_REQUESTS = 1000; // 1 second base delay between requests
 
 // Token rate limiting tracking
