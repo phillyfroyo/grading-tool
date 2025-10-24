@@ -169,8 +169,8 @@ mark[data-type] {
 /* ===== ZOOM FOR BETTER READABILITY ===== */
 /* Global zoom for more comfortable viewing */
 .container {
-    zoom: 1.0; /* Normal size - 100% */
-    transform: scale(1.0); /* Fallback for browsers that don't support zoom */
+    zoom: 0.75; /* Default 75% for better readability */
+    transform: scale(0.75); /* Fallback for browsers that don't support zoom */
     transform-origin: top center;
 }
 
