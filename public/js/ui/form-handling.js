@@ -379,14 +379,114 @@ function updateManualScore(category, score) {
 }
 
 /**
- * Stream batch grading using Server-Sent Events via query parameter
+ * Stream batch grading using Server-Sent Events
+ * CHUNKING: Splits large batches into chunks to avoid SSE connection timeouts
+ * Vercel appears to have ~5 minute SSE connection limit, so we chunk to stay under
  * @param {Object} batchData - The batch data to process
  */
 async function streamBatchGradingSimple(batchData) {
-    console.log('🎯 STARTING SIMPLE STREAMING BATCH GRADING');
+    console.log('🎯 STARTING STREAMING BATCH GRADING');
+    console.log(`📊 Total essays to grade: ${batchData.essays.length}`);
 
+    const CHUNK_SIZE = 6; // 6 essays = 1 batch of 6, matches backend BATCH_SIZE for parallel processing
+    const totalEssays = batchData.essays.length;
+
+    // If batch is small enough, process in single request
+    if (totalEssays <= CHUNK_SIZE) {
+        console.log(`📊 Processing ${totalEssays} essays in single request`);
+        return processEssayChunk(batchData, 0);
+    }
+
+    // Large batch - split into chunks and process sequentially
+    console.log(`📦 Large batch detected: splitting into ${Math.ceil(totalEssays / CHUNK_SIZE)} chunks of ${CHUNK_SIZE} essays`);
+
+    let allResults = [];
+    let processedCount = 0;
+
+    while (processedCount < totalEssays) {
+        const chunkStart = processedCount;
+        const chunkEnd = Math.min(chunkStart + CHUNK_SIZE, totalEssays);
+        const chunkEssays = batchData.essays.slice(chunkStart, chunkEnd);
+
+        console.log(`\n🔄 Processing chunk ${Math.floor(chunkStart / CHUNK_SIZE) + 1}/${Math.ceil(totalEssays / CHUNK_SIZE)}: essays ${chunkStart + 1}-${chunkEnd} of ${totalEssays}`);
+
+        const chunkData = {
+            ...batchData,
+            essays: chunkEssays
+        };
+
+        try {
+            const chunkResult = await processEssayChunk(chunkData, chunkStart);
+
+            // Merge results
+            if (chunkResult.results) {
+                allResults = allResults.concat(chunkResult.results);
+            }
+
+            processedCount = chunkEnd;
+            console.log(`✅ Chunk complete. Progress: ${processedCount}/${totalEssays} essays (${Math.round(processedCount/totalEssays*100)}%)`);
+
+        } catch (error) {
+            console.error(`❌ CHUNK FAILED: Essays ${chunkStart + 1}-${chunkEnd}`, {
+                chunkSize: chunkEssays.length,
+                errorMessage: error.message,
+                errorStack: error.stack,
+                essaysProcessedSoFar: processedCount,
+                totalEssays: totalEssays,
+                percentComplete: Math.round(processedCount/totalEssays*100)
+            });
+
+            // Mark failed essays in UI
+            for (let i = chunkStart; i < chunkEnd; i++) {
+                if (window.BatchProcessingModule) {
+                    window.BatchProcessingModule.updateEssayStatus(i, false, `Chunk failed: ${error.message}`);
+                }
+            }
+
+            // Continue with next chunk instead of failing entire batch
+            console.warn(`⚠️ Skipping failed chunk, continuing with remaining essays...`);
+            processedCount = chunkEnd;
+        }
+    }
+
+    console.log(`\n🎉 ALL CHUNKS COMPLETE: ${totalEssays} essays processed`);
+
+    return {
+        success: true,
+        results: allResults,
+        totalEssays: totalEssays
+    };
+}
+
+/**
+ * Process a chunk of essays via Server-Sent Events
+ * @param {Object} chunkData - The chunk data to process
+ * @param {number} globalOffset - Starting index in the global essay list
+ */
+async function processEssayChunk(chunkData, globalOffset) {
     return new Promise((resolve, reject) => {
         let processedResults = [];
+        let timeoutId;
+        const TIMEOUT_MS = 1200000; // 20 minutes - allow server to complete large batches
+        // Note: Server-Sent Events (SSE) bypass Vercel's normal 10s timeout for serverless functions
+
+        // Set up timeout detection - mainly for detecting stalled connections
+        timeoutId = setTimeout(() => {
+            console.error('⏱️ SSE TIMEOUT: Request exceeded 20 minutes', {
+                chunkSize: chunkData.essays.length,
+                globalOffset,
+                processedSoFar: processedResults.length,
+                missingCount: chunkData.essays.length - processedResults.length,
+                timestamp: new Date().toISOString()
+            });
+            reject(new Error(`SSE timeout after 20 minutes. Processed ${processedResults.length}/${chunkData.essays.length} essays.`));
+        }, TIMEOUT_MS);
+
+        console.log(`📡 Initiating SSE connection for chunk...`, {
+            chunkSize: chunkData.essays.length,
+            globalOffset,
+            startTime: new Date().toISOString()
+        });
 
         // Use direct fetch with streaming instead of EventSource
         fetch('/api/grade-batch?stream=true', {
@@ -394,11 +494,19 @@ async function streamBatchGradingSimple(batchData) {
             headers: {
                 'Content-Type': 'application/json'
             },
-            body: JSON.stringify(batchData)
+            body: JSON.stringify(chunkData)
         }).then(response => {
             if (!response.ok) {
-                throw new Error(`HTTP error! status: ${response.status}`);
+                clearTimeout(timeoutId);
+                console.error(`❌ HTTP ERROR: Status ${response.status}`, {
+                    statusText: response.statusText,
+                    chunkSize: chunkData.essays.length,
+                    globalOffset
+                });
+                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
             }
+
+            console.log('✅ SSE connection established successfully');
 
             const reader = response.body.getReader();
             const decoder = new TextDecoder();
@@ -407,11 +515,16 @@ async function streamBatchGradingSimple(batchData) {
             function readStream() {
                 return reader.read().then(({ done, value }) => {
                     if (done) {
-                        console.log('✅ Streaming completed');
+                        clearTimeout(timeoutId);
+                        console.log('✅ SSE stream completed', {
+                            resultsReceived: processedResults.length,
+                            expectedCount: chunkData.essays.length,
+                            allReceived: processedResults.length === chunkData.essays.length
+                        });
                         resolve({
                             success: true,
                             results: processedResults,
-                            totalEssays: batchData.essays.length
+                            totalEssays: chunkData.essays.length
                         });
                         return;
                     }
@@ -438,7 +551,15 @@ async function streamBatchGradingSimple(batchData) {
 
             return readStream();
         }).catch(error => {
-            console.error('Streaming error:', error);
+            clearTimeout(timeoutId);
+            console.error('❌ SSE FETCH ERROR:', {
+                errorMessage: error.message,
+                errorStack: error.stack,
+                chunkSize: chunkData.essays.length,
+                globalOffset,
+                processedSoFar: processedResults.length,
+                timestamp: new Date().toISOString()
+            });
             reject(error);
         });
 
@@ -451,40 +572,53 @@ async function streamBatchGradingSimple(batchData) {
                     break;
 
                 case 'processing':
+                    const globalIndex = data.index + globalOffset;
                     const progressMsg = data.batch
-                        ? `🔄 Processing essay ${data.index + 1} (Batch ${data.batch}/${data.totalBatches})`
-                        : `🔄 Processing essay ${data.index + 1}`;
+                        ? `🔄 Processing essay ${globalIndex + 1} (Backend batch ${data.batch}/${data.totalBatches})`
+                        : `🔄 Processing essay ${globalIndex + 1}`;
                     console.log(progressMsg);
                     break;
 
                 case 'result':
-                        console.log(`✅ Received result for essay ${data.index}`);
+                        const globalResultIndex = data.index + globalOffset;
+                        console.log(`✅ Received result for essay ${globalResultIndex + 1}`, {
+                            localIndex: data.index,
+                            globalIndex: globalResultIndex,
+                            success: data.success,
+                            studentName: data.studentName
+                        });
 
-                        // Store the result first
-                        processedResults[data.index] = data;
+                        // Adjust data index to global position
+                        const adjustedData = {
+                            ...data,
+                            index: globalResultIndex
+                        };
 
-                        // Store essay data for expansion
-                        if (data.success && batchData.essays[data.index]) {
-                            window[`essayData_${data.index}`] = {
+                        // Store the result (use local index for chunk array)
+                        processedResults[data.index] = adjustedData;
+
+                        // Store essay data for expansion (use GLOBAL index)
+                        if (data.success && chunkData.essays[data.index]) {
+                            window[`essayData_${globalResultIndex}`] = {
                                 essay: {
                                     success: true,
                                     result: data.result,
-                                    studentName: data.studentName || batchData.essays[data.index].studentName
+                                    studentName: data.studentName || chunkData.essays[data.index].studentName
                                 },
                                 originalData: {
-                                    ...batchData.essays[data.index],
-                                    index: data.index
+                                    ...chunkData.essays[data.index],
+                                    index: globalResultIndex
                                 }
                             };
                         }
 
-                        // Queue this result for staggered display (3-second delay between each)
+                        // Queue this result for staggered display
                         if (!window.batchResultQueue) {
                             window.batchResultQueue = [];
                             window.batchQueueProcessor = null;
                         }
 
-                        window.batchResultQueue.push(data);
+                        window.batchResultQueue.push(adjustedData);
 
                         // Start processing queue if not already running
                         if (!window.batchQueueProcessor) {
@@ -493,36 +627,41 @@ async function streamBatchGradingSimple(batchData) {
                         break;
 
                     case 'complete':
-                        console.log('🎉 Streaming complete');
+                        clearTimeout(timeoutId);
+                        console.log('🎉 Chunk streaming complete', {
+                            processingTime: data.totalTimeSeconds ? `${data.totalTimeSeconds}s` : 'unknown',
+                            chunkSize: chunkData.essays.length,
+                            resultsReceived: processedResults.filter(r => r !== undefined).length,
+                            globalOffset
+                        });
 
-                        // Create final batch result object
-                        const finalBatchResult = {
+                        // Create result object
+                        const chunkResult = {
                             success: true,
-                            totalEssays: batchData.essays.length,
+                            totalEssays: chunkData.essays.length,
                             results: processedResults.filter(r => r !== undefined).map(r => ({
                                 success: r.success,
                                 error: r.error,
                                 result: r.result,
-                                studentName: r.studentName
+                                studentName: r.studentName,
+                                index: r.index
                             }))
                         };
 
-                        // Only rebuild UI if essays weren't already pre-loaded
-                        const alreadyLoaded = document.querySelector('.formatted-essay-content[data-essay-index="0"]');
-                        if (!alreadyLoaded && window.BatchProcessingModule) {
-                            console.log('🔄 UI not pre-loaded, rebuilding with batch results...');
-                            window.BatchProcessingModule.displayBatchResults(finalBatchResult, batchData);
-                        } else {
-                            console.log('✅ Essays already pre-loaded and interactive, skipping UI rebuild');
-                        }
-
-                        resolve(finalBatchResult);
+                        resolve(chunkResult);
                         break;
 
                     case 'error':
-                        console.error('❌ Streaming error:', data.error);
-                        if (window.BatchProcessingModule && data.index !== undefined) {
-                            window.BatchProcessingModule.updateEssayStatus(data.index, false, data.error);
+                        const globalErrorIndex = data.index !== undefined ? data.index + globalOffset : undefined;
+                        console.error('❌ Backend streaming error:', {
+                            error: data.error,
+                            localIndex: data.index,
+                            globalIndex: globalErrorIndex,
+                            chunkSize: chunkData.essays.length,
+                            globalOffset
+                        });
+                        if (window.BatchProcessingModule && globalErrorIndex !== undefined) {
+                            window.BatchProcessingModule.updateEssayStatus(globalErrorIndex, false, data.error);
                         }
                         break;
 
@@ -567,7 +706,23 @@ async function streamBatchGrading(batchData) {
             // Now connect to the streaming endpoint with the session ID
             const eventSource = new EventSource(`/api/grade-batch-stream/${sessionId}`);
 
+            // Add timeout detection - if we don't receive ANY message for 90 seconds, assume timeout
+            let lastMessageTime = Date.now();
+            const TIMEOUT_MS = 90000; // 90 seconds
+
+            const timeoutChecker = setInterval(() => {
+                const timeSinceLastMessage = Date.now() - lastMessageTime;
+                if (timeSinceLastMessage > TIMEOUT_MS) {
+                    console.error(`⏱️ TIMEOUT DETECTED: No message received for ${(timeSinceLastMessage / 1000).toFixed(1)}s`);
+                    console.error('🔴 This indicates the Vercel serverless function likely timed out');
+                    clearInterval(timeoutChecker);
+                    eventSource.close();
+                    reject(new Error(`Server timeout - no response for ${(timeSinceLastMessage / 1000).toFixed(1)} seconds. This usually indicates the Vercel function execution limit was reached.`));
+                }
+            }, 10000); // Check every 10 seconds
+
         eventSource.onmessage = function(event) {
+            lastMessageTime = Date.now(); // Reset timeout timer
             try {
                 const data = JSON.parse(event.data);
                 console.log('📨 Received streaming message:', data);
@@ -617,6 +772,10 @@ async function streamBatchGrading(batchData) {
 
                     case 'complete':
                         console.log('🎉 Streaming complete');
+                        if (data.totalTimeSeconds) {
+                            console.log(`⏱️ Server reported total time: ${data.totalTimeSeconds}s`);
+                        }
+                        clearInterval(timeoutChecker); // Clear timeout checker on successful completion
 
                         // Create final batch result object
                         const finalBatchResult = {
@@ -775,6 +934,7 @@ window.FormHandlingModule = {
     setupFormValidation,
     streamBatchGrading,
     streamBatchGradingSimple,
+    processEssayChunk,
     fallbackToBatchProcessing,
     processBatchResultQueue
 };
