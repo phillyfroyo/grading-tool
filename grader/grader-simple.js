@@ -60,9 +60,22 @@ function convertToSystemFormat(simpleErrors, studentText) {
 }
 
 /**
+ * Count word count algorithmically (100% consistent)
+ */
+function countWords(text) {
+  // Split by whitespace and filter out empty strings
+  return text.split(/\s+/).filter(word => word.length > 0).length;
+}
+
+/**
  * Count metrics separately (deterministic, low temperature)
+ * Word count is now algorithmic for perfect consistency
  */
 async function countMetrics(classProfile, studentText) {
+  // Calculate word count algorithmically (100% accurate)
+  const wordCount = countWords(studentText);
+  console.log(`📊 Algorithmic word count: ${wordCount}`);
+
   const prompt = `Count the following metrics in this essay. Be precise and deterministic.
 
 CLASS VOCABULARY (${classProfile.vocabulary.length} items):
@@ -73,7 +86,6 @@ ${classProfile.grammar.join(', ')}
 
 Return JSON:
 {
-  "word_count": <number>,
   "paragraph_count": <number>,
   "sentence_count": <number>,
   "class_vocabulary_used": ["word1", "word2"],
@@ -94,11 +106,21 @@ STUDENT TEXT:
       response_format: { type: "json_object" }
     });
 
-    return JSON.parse(response.choices[0].message.content);
+    const gptMetrics = JSON.parse(response.choices[0].message.content);
+
+    // Combine algorithmic word count with GPT metrics
+    return {
+      word_count: wordCount,
+      paragraph_count: gptMetrics.paragraph_count,
+      sentence_count: gptMetrics.sentence_count,
+      class_vocabulary_used: gptMetrics.class_vocabulary_used,
+      grammar_structures_used: gptMetrics.grammar_structures_used,
+      transition_words_found: gptMetrics.transition_words_found
+    };
   } catch (error) {
     console.error("❌ Error counting metrics:", error.message);
     return {
-      word_count: 0,
+      word_count: wordCount, // Still use algorithmic count on error
       paragraph_count: 0,
       sentence_count: 0,
       class_vocabulary_used: [],
