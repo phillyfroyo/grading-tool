@@ -169,6 +169,15 @@ export async function gradeEssaySimple(studentText, classProfile, progressCallba
     const metrics = await countMetrics(classProfile, studentText);
     console.log(`✅ Metrics: ${metrics.word_count} words, ${metrics.transition_words_found.length} transitions`);
 
+    // Combine metrics into errorDetection for grading prompt compatibility
+    const errorDetectionResults = {
+      ...errorDetection,
+      vocabulary_count: metrics.word_count,
+      class_vocabulary_used: metrics.class_vocabulary_used,
+      grammar_structures_used: metrics.grammar_structures_used,
+      transition_words_found: metrics.transition_words_found
+    };
+
     // STEP 3: Grade with rubric
     if (progressCallback) {
       progressCallback({
@@ -179,11 +188,12 @@ export async function gradeEssaySimple(studentText, classProfile, progressCallba
     }
 
     const gradingPrompt = buildGradingPrompt(
+      rubric,
       classProfile,
+      classProfile.cefrLevel,
       studentText,
-      errorDetection,
-      metrics.word_count,
-      rubric
+      errorDetectionResults,
+      null // studentNickname - will be passed from wrapper
     );
 
     const gradingResponse = await openai.chat.completions.create({
@@ -194,19 +204,20 @@ export async function gradeEssaySimple(studentText, classProfile, progressCallba
     });
 
     const gradingResult = JSON.parse(gradingResponse.choices[0].message.content);
-    console.log(`✅ Final score: ${gradingResult.score}/100`);
+    console.log(`✅ Final score: ${gradingResult.total?.points || gradingResult.score}/100`);
 
-    // Combine results
+    // Combine results in the same format as grader-two-step.js
     const finalResult = {
-      ...errorDetection,
-      ...gradingResult,
-      vocabulary_count: metrics.word_count,
-      class_vocabulary_used: metrics.class_vocabulary_used,
-      grammar_structures_used: metrics.grammar_structures_used,
-      transition_words_found: metrics.transition_words_found,
-      word_count: metrics.word_count,
-      paragraph_count: metrics.paragraph_count,
-      sentence_count: metrics.sentence_count
+      ...gradingResult, // Contains scores, total, teacher_notes, etc.
+      inline_issues: errorDetection.inline_issues,
+      corrected_text_minimal: errorDetection.corrected_text_minimal,
+      meta: {
+        word_count: metrics.word_count,
+        vocabulary_count: metrics.word_count,
+        class_vocabulary_used: metrics.class_vocabulary_used,
+        grammar_structures_used: metrics.grammar_structures_used,
+        transition_words_found: metrics.transition_words_found
+      }
     };
 
     if (progressCallback) {
@@ -283,6 +294,20 @@ export async function gradeEssay(studentText, prompt, classProfileId, studentNic
   const cefrLevel = classProfile.cefrLevel;
   console.log(`CEFR Level: ${cefrLevel}, Class Profile: ${classProfile.name}`);
 
-  // Call the simplified grading function
-  return gradeEssaySimple(studentText, classProfile, null);
+  // Build classProfile object with vocabulary and grammar arrays
+  const profileForGrading = {
+    ...classProfile,
+    vocabulary: classProfile.vocabulary || [],
+    grammar: classProfile.grammar || []
+  };
+
+  // Call the simplified grading function with studentNickname
+  const result = await gradeEssaySimple(studentText, profileForGrading, null);
+
+  // Store studentNickname in result for later use
+  if (studentNickname) {
+    result.studentNickname = studentNickname;
+  }
+
+  return result;
 }
