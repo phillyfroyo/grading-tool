@@ -1,7 +1,7 @@
 // Grading service
 // Contains the unified grading logic for both local and Vercel environments
 
-import { gradeEssay } from "../../grader/grader-hybrid.js";
+import { gradeEssay } from "../../grader/grader-simple.js";
 
 /**
  * Unified grading function that works identically in local and Vercel environments
@@ -12,19 +12,19 @@ import { gradeEssay } from "../../grader/grader-hybrid.js";
  * @returns {Promise<Object>} Grading results
  */
 async function gradeEssayUnified(studentText, prompt, profileData, studentNickname) {
-  console.log('=== STARTING UNIFIED HYBRID 4-STEP GRADING ===');
+  console.log('=== STARTING SIMPLIFIED 3-STEP GRADING ===');
   console.log('Profile:', profileData.name);
   console.log('Student text length:', studentText?.length);
 
   try {
-    // Use the improved two-step grader with atomic error highlighting
-    console.log('🚀 Using hybrid 4-step grader: Conservative + Thorough detection → Reconciliation → Metrics → Grading...');
+    // Use the simplified 3-step grader (mimics ChatGPT's natural performance)
+    console.log('🚀 Using simplified 3-step grader: Error Detection → Metrics → Grading...');
     console.log('🏷️ Student nickname:', studentNickname || 'none provided');
     const result = await gradeEssay(studentText, prompt, profileData.id, studentNickname);
-    console.log('✅ Unified grading completed successfully!');
+    console.log('✅ Simplified grading completed successfully!');
     return result;
   } catch (error) {
-    console.error('❌ Error in unified grading:', error);
+    console.error('❌ Error in simplified grading:', error);
     throw error;
   }
 }
@@ -37,9 +37,9 @@ async function gradeEssayUnified(studentText, prompt, profileData, studentNickna
  * @returns {Promise<Object>} Grading results
  */
 async function gradeLegacy(studentText, prompt, classProfile) {
-  console.log("\n⚡ STARTING TWO-STEP GRADING PROCESS...");
+  console.log("\n⚡ STARTING SIMPLIFIED 3-STEP GRADING PROCESS...");
   const result = await gradeEssay(studentText, prompt, classProfile);
-  console.log("\n✅ GRADING COMPLETED SUCCESSFULLY!");
+  console.log("\n✅ SIMPLIFIED GRADING COMPLETED SUCCESSFULLY!");
   return result;
 }
 
