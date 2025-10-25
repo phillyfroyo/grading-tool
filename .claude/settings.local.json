@@ -40,7 +40,13 @@
       "Bash(git stash:*)",
       "Bash(git fetch:*)",
       "Bash(git merge-base:*)",
-      "Bash(xargs git log --oneline -1)"
+      "Bash(xargs git log --oneline -1)",
+      "Read(//c/Users/phili/Dev/my-aprenova/**)",
+      "Bash(gh pr create --title \"Test: 30+ essay batch processing\" --body \"$(cat <<''EOF''\n## Summary\nTesting auto-deploy functionality for the 30-essays branch.\n\nThis PR includes:\n- Automatic chunking for 30+ essay batches\n- Token rate limiting fixes\n- Vercel maxDuration configuration\n\n**Note:** This is a test PR to verify Vercel preview deployments are working.\nEOF\n)\")",
+      "Bash(git log --all --format=\"%H %ai %d\")",
+      "Bash(git for-each-ref --sort=committerdate --format='%(refname:short) %(committerdate:short)' refs/remotes/origin/)",
+      "Bash(rm:*)",
+      "Bash(git restore:*)"
     ],
     "deny": [],
     "ask": []

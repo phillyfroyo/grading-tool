@@ -1,7 +1,7 @@
 // Grading service
 // Contains the unified grading logic for both local and Vercel environments
 
-import { gradeEssay } from "../../grader/grader-two-step.js";
+import { gradeEssay } from "../../grader/grader-hybrid.js";
 
 /**
  * Unified grading function that works identically in local and Vercel environments
@@ -12,13 +12,13 @@ import { gradeEssay } from "../../grader/grader-two-step.js";
  * @returns {Promise<Object>} Grading results
  */
 async function gradeEssayUnified(studentText, prompt, profileData, studentNickname) {
-  console.log('=== STARTING UNIFIED TWO-STEP GRADING ===');
+  console.log('=== STARTING UNIFIED HYBRID 4-STEP GRADING ===');
   console.log('Profile:', profileData.name);
   console.log('Student text length:', studentText?.length);
 
   try {
     // Use the improved two-step grader with atomic error highlighting
-    console.log('🚀 Using improved grader-two-step.js with atomic error highlighting...');
+    console.log('🚀 Using hybrid 4-step grader: Conservative + Thorough detection → Reconciliation → Metrics → Grading...');
     console.log('🏷️ Student nickname:', studentNickname || 'none provided');
     const result = await gradeEssay(studentText, prompt, profileData.id, studentNickname);
     console.log('✅ Unified grading completed successfully!');
