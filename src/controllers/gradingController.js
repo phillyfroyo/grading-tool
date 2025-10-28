@@ -282,8 +282,8 @@ async function handleStreamingBatchGrade(req, res, { essays, prompt, classProfil
       message: 'Starting parallel batch grading...'
     })}\n\n`);
 
-    // Process essays in parallel batches of 4 (3 API calls per essay with 30k TPM = ~4 essays max)
-    const BATCH_SIZE = 4;
+    // Process essays in parallel batches of 3 (3 API calls per essay with 30k TPM limit)
+    const BATCH_SIZE = 3;
     let currentBatch = 1;
     const totalBatches = Math.ceil(essays.length / BATCH_SIZE);
 

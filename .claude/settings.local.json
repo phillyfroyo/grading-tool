@@ -46,7 +46,8 @@
       "Bash(git log --all --format=\"%H %ai %d\")",
       "Bash(git for-each-ref --sort=committerdate --format='%(refname:short) %(committerdate:short)' refs/remotes/origin/)",
       "Bash(rm:*)",
-      "Bash(git restore:*)"
+      "Bash(git restore:*)",
+      "Bash(git rm:*)"
     ],
     "deny": [],
     "ask": []
