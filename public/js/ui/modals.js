@@ -3,10 +3,10 @@
  * Handles all modal dialogs and their interactions
  */
 
-import eventBus from '../core/eventBus.js';
-import { createLogger } from '../core/logger.js';
-
-const logger = createLogger('UI:Modals');
+// Use global eventBus and logger (loaded via regular scripts)
+const eventBus = window.eventBus || { on: () => {}, emit: () => {} };
+const logger = window.LoggingModule ? window.LoggingModule.createLogger('UI:Modals') : 
+               { info: console.log, warn: console.warn, error: console.error };
 
 class ModalManager {
     constructor() {
@@ -936,11 +936,10 @@ class ModalManager {
     }
 }
 
-// Create and export the modal manager instance
+// Create and initialize the modal manager instance
 const modalManager = new ModalManager();
 
-// Export for ES6 modules
-export default modalManager;
+// Initialize the modal manager when DOM is ready
 
 // Initialize modal manager when DOM is ready
 if (typeof window !== 'undefined') {
