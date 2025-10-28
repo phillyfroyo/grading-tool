@@ -209,9 +209,10 @@ function displayManualGradingResultsBasic(result) {
                 ${result.totalScore}/${result.totalMax} (${result.percentage}%)
             </div>
 
-            <div class="teacher-notes editable-section" style="background: #e8f5e8; padding: 15px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #4CAF50; cursor: pointer; border: 2px solid transparent;" onclick="editTeacherNotes(this)" title="Click to edit teacher notes">
-                <strong>📝 Teacher Notes:</strong> <span class="teacher-notes-content">${result.overallFeedback || 'Manual grading notes'}</span> <span class="edit-indicator">✎</span>
-            </div>
+            ${result.overallFeedback && result.overallFeedback.trim() && result.overallFeedback !== 'Manual grading notes' ? `
+            <div class="teacher-notes editable-section" style="background: #e8f5e8; padding: 15px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #4CAF50; cursor: pointer; border: 2px solid transparent;" onclick="editTeacherNotes(this)" title="Click to edit teacher notes" data-teacher-notes="${result.overallFeedback}">
+                <span class="teacher-notes-content">${result.overallFeedback}</span> <span class="edit-indicator">✎</span>
+            </div>` : ''}
 
             <div class="category-breakdown">
                 <h3>Category Breakdown:</h3>

@@ -526,27 +526,32 @@ class ModalManager {
             console.log('🎯 Target element found:', !!targetElement, targetElementId);
 
             if (targetElement) {
-                // Save to dataset for manual grading compatibility
-                targetElement.dataset.teacherNotes = notesText;
-                console.log('✅ Notes saved to element dataset');
+                // If notes are empty or just default text, hide the entire teacher notes section
+                if (!notesText.trim() || notesText === 'No notes provided' || notesText === 'Manual grading notes') {
+                    // Hide the teacher notes section entirely
+                    targetElement.style.display = 'none';
+                    targetElement.dataset.teacherNotes = '';
+                    console.log('❌ Hiding teacher notes section - no valid notes');
+                } else {
+                    // Show the teacher notes section if it was hidden
+                    targetElement.style.display = '';
+                    
+                    // Save to dataset for manual grading compatibility
+                    targetElement.dataset.teacherNotes = notesText;
+                    console.log('✅ Notes saved to element dataset');
 
-                // Update the displayed content
-                const contentElement = targetElement.querySelector('.teacher-notes-content');
-                if (contentElement) {
-                    contentElement.textContent = notesText.trim() || 'No notes provided';
-                    console.log('✅ Updated displayed teacher notes content');
-                }
+                    // Update the displayed content
+                    const contentElement = targetElement.querySelector('.teacher-notes-content');
+                    if (contentElement) {
+                        contentElement.textContent = notesText.trim();
+                        console.log('✅ Updated displayed teacher notes content');
+                    }
 
-                // Update visual indicator
-                if (notesText.trim()) {
+                    // Update visual indicator for edited notes
                     targetElement.style.backgroundColor = '#fff3cd';
                     targetElement.title = 'Teacher notes: ' + notesText.substring(0, 100) +
                                          (notesText.length > 100 ? '...' : '');
                     console.log('🟡 Applied yellow background and title');
-                } else {
-                    targetElement.style.backgroundColor = '';
-                    targetElement.title = '';
-                    console.log('🔄 Cleared background and title');
                 }
 
                 // Update the stored grading data if it exists (for GPT-generated grades)

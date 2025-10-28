@@ -1036,53 +1036,84 @@ function enhanceContentForPDF(content, studentName, originalContent = null) {
 
     if (teacherNotesElement) {
         console.log('📝 Found teacher notes element:', teacherNotesElement.innerHTML);
-        // Remove pencil icons and edit indicators
-        teacherNotesElement.querySelectorAll('.edit-indicator').forEach(el => el.remove());
-        teacherNotesElement.querySelectorAll('span').forEach(el => {
-            if (el.textContent.includes('✎')) {
-                el.remove();
-            }
-        });
-
-        // Check if notes are in a .teacher-notes-content span (edited notes) or directly in the element (GPT notes)
+        
+        // First, try to get notes from .teacher-notes-content span (this is what contains the actual notes)
         const notesContentSpan = teacherNotesElement.querySelector('.teacher-notes-content');
-
+        
         if (notesContentSpan) {
-            // For edited notes, get content from the span
+            // Get the actual teacher notes content
             notesText = notesContentSpan.textContent?.trim() || '';
             console.log('📝 Found teacher notes in content span:', `"${notesText}"`);
         } else {
-            // For GPT notes, get content directly from the element
-            notesText = teacherNotesElement.textContent?.replace(/📝\s*Teacher Notes:\s*/i, '').replace(/✎/g, '').trim();
+            // Fallback: get content directly from element, but clean it properly
+            // Clone the element to avoid modifying the original
+            const tempElement = teacherNotesElement.cloneNode(true);
+            
+            // Remove all edit indicators and icons first
+            tempElement.querySelectorAll('.edit-indicator').forEach(el => el.remove());
+            tempElement.querySelectorAll('span').forEach(el => {
+                if (el.textContent.includes('✎')) {
+                    el.remove();
+                }
+            });
+            
+            // Get the text and remove the "📝 Teacher Notes:" prefix
+            notesText = tempElement.textContent
+                ?.replace(/📝\s*Teacher Notes:\s*/i, '')
+                ?.replace(/✎/g, '')
+                ?.trim() || '';
             console.log('📝 Found teacher notes in element text:', `"${notesText}"`);
         }
     }
 
-    // Fallback to dataset if no notes found
-    if ((!notesText || notesText === 'No notes provided') && savedNotesFromDataset) {
+    // Fallback to dataset if no notes found or if we only have "No notes provided"
+    if ((!notesText || notesText === 'No notes provided') && savedNotesFromDataset && savedNotesFromDataset !== 'No notes provided') {
         notesText = savedNotesFromDataset;
         console.log('📂 Using saved notes from dataset:', notesText);
     }
 
-    // Fallback to global data if still no notes
-    if ((!notesText || notesText === 'No notes provided') && globalTeacherNotes) {
+    // Fallback to global data if still no notes or only default text
+    if ((!notesText || notesText === 'No notes provided') && globalTeacherNotes && globalTeacherNotes !== 'No notes provided') {
         notesText = globalTeacherNotes;
         console.log('🌍 Using global teacher notes:', notesText);
     }
 
-    if (notesText && notesText !== 'No notes provided' && notesText !== 'Manual grading notes') {
-        console.log('✅ Teacher notes passed validation, creating section');
+    // Clean up the notes text - ensure it doesn't have the "📝 Teacher Notes:" prefix
+    if (notesText) {
+        notesText = notesText
+            .replace(/^📝\s*Teacher Notes:\s*/i, '')
+            .replace(/^Teacher Notes:\s*/i, '')
+            .replace(/^📝\s*/i, '')  // Remove just the emoji if it's there
+            .trim();
+    }
+
+    // Check if after cleaning, we only have default/empty text
+    const isEmptyOrDefault = !notesText || 
+                            notesText === 'No notes provided' || 
+                            notesText === 'Manual grading notes' ||
+                            notesText === '' ||
+                            notesText.match(/^(📝\s*)?(Teacher Notes:?\s*)?$/i);
+
+    // Only create the section if we have actual, valid teacher notes
+    if (!isEmptyOrDefault) {
+        
+        console.log('✅ Teacher notes passed validation, creating section with text:', `"${notesText}"`);
+        
+        // Ensure the teacher notes maintain the student nickname prefix if present
         teacherNotesSection = `
             <div class="teacher-notes-section" style="margin: 10px 0 !important; padding: 0 !important; background: transparent !important; border: none !important;">
                 <p style="margin: 10px 0 !important; padding: 0 !important; line-height: 1.6 !important; color: black !important; font-weight: normal !important; background: transparent !important; border: none !important;">${notesText}</p>
             </div>
         `;
+        
         // Remove the original teacher notes element if it exists to prevent duplication
         if (teacherNotesElement) {
             teacherNotesElement.remove();
         }
     } else {
-        console.log('⚠️ No valid teacher notes found after checking all sources');
+        console.log('⚠️ No valid teacher notes found after checking all sources, or notes were empty/default');
+        // Make sure we don't show an empty section
+        teacherNotesSection = '';
     }
 
     // Simplify overall score to plain text with Grade: prefix and no color
