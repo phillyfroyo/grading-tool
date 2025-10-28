@@ -8,20 +8,59 @@
  * @param {HTMLElement} element - Element to edit
  */
 function editTeacherNotes(element) {
-    if (window.ModalManagementModule) {
+    console.log('📝 editTeacherNotes called, element:', element);
+    console.log('🔍 ModalManagementModule available:', !!window.ModalManagementModule);
+    console.log('🔍 openTeacherNotesModal function available:', !!window.openTeacherNotesModal);
+    
+    // Try multiple ways to open the modal
+    if (window.ModalManagementModule && window.ModalManagementModule.openTeacherNotesModal) {
+        console.log('✅ Using ModalManagementModule');
         window.ModalManagementModule.openTeacherNotesModal(element);
+    } else if (window.openTeacherNotesModal) {
+        console.log('✅ Using global openTeacherNotesModal function');
+        window.openTeacherNotesModal(element);
     } else {
-        // Fallback to prompt
+        console.log('⚠️ No modal system available, using fallback prompt');
+        // Fallback to prompt with enhanced UI update
         const currentNotes = element.dataset.teacherNotes || '';
-        const newNotes = prompt('Edit teacher notes:', currentNotes);
+        const contentElement = element.querySelector('.teacher-notes-content');
+        
+        // Get the current displayed text if no dataset value
+        let displayedText = currentNotes;
+        if ((!displayedText || displayedText === 'Click to add teacher notes') && contentElement) {
+            displayedText = contentElement.textContent?.trim() || '';
+            if (displayedText === 'Click to add teacher notes') {
+                displayedText = '';
+            }
+        }
+        
+        const newNotes = prompt('Edit teacher notes:', displayedText);
         if (newNotes !== null) {
-            element.dataset.teacherNotes = newNotes;
+            // Update the dataset
+            element.dataset.teacherNotes = newNotes.trim();
+            
+            // Update the displayed content
+            if (contentElement) {
+                if (newNotes.trim()) {
+                    contentElement.textContent = newNotes.trim();
+                } else {
+                    contentElement.textContent = 'Click to add teacher notes';
+                }
+            }
+            
+            // Update visual indicators
             if (newNotes.trim()) {
                 element.style.backgroundColor = '#fff3cd';
                 element.title = 'Teacher notes: ' + newNotes.substring(0, 100) + (newNotes.length > 100 ? '...' : '');
             } else {
                 element.style.backgroundColor = '';
-                element.title = '';
+                element.title = 'Click to edit teacher notes';
+            }
+            
+            // Update global data for PDF export
+            if (window.currentGradingData) {
+                window.currentGradingData.teacher_notes = newNotes.trim();
+                console.log('✅ Updated currentGradingData.teacher_notes via fallback');
             }
         }
     }
