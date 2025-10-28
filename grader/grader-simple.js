@@ -163,7 +163,7 @@ async function detectErrors(classProfile, studentText) {
 /**
  * Main grading function
  */
-export async function gradeEssaySimple(studentText, classProfile, progressCallback = null) {
+export async function gradeEssaySimple(studentText, classProfile, progressCallback = null, studentNickname = null) {
   console.log("\n🚀 Starting SIMPLIFIED grading process...");
 
   try {
@@ -215,7 +215,7 @@ export async function gradeEssaySimple(studentText, classProfile, progressCallba
       classProfile.cefrLevel,
       studentText,
       errorDetectionResults,
-      null // studentNickname - will be passed from wrapper
+      studentNickname // Pass the studentNickname parameter
     );
 
     const gradingResponse = await openai.chat.completions.create({
@@ -324,7 +324,7 @@ export async function gradeEssay(studentText, prompt, classProfileId, studentNic
   };
 
   // Call the simplified grading function with studentNickname
-  const result = await gradeEssaySimple(studentText, profileForGrading, null);
+  const result = await gradeEssaySimple(studentText, profileForGrading, null, studentNickname);
 
   // Store studentNickname in result for later use
   if (studentNickname) {

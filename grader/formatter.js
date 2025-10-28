@@ -815,11 +815,11 @@ function generateFeedbackSummary(scores, total, meta, teacherNotes, encouragemen
         ${total?.points || 0}/${total?.out_of || 100}
       </div>
       
-      ${teacherNotes && teacherNotes.trim() && teacherNotes !== 'No notes provided' && teacherNotes !== 'Manual grading notes' ? `
-      <div class="teacher-notes editable-section" style="background: #e8f5e8; padding: 15px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #4CAF50; cursor: pointer; border: 2px solid transparent;" onclick="editTeacherNotes(this)" title="Click to edit teacher notes" data-teacher-notes="${escapeHtml(teacherNotes)}">
-        <span class="teacher-notes-content">${escapeHtml(teacherNotes)}</span>
+      <div class="teacher-notes editable-section" style="background: #e8f5e8; padding: 15px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #4CAF50; cursor: pointer; border: 2px solid transparent;" onclick="editTeacherNotes(this)" title="Click to edit teacher notes" data-teacher-notes="${escapeHtml(teacherNotes || '')}">
+        <strong class="teacher-notes-label">📝 Teacher Notes:</strong> 
+        <span class="teacher-notes-content">${escapeHtml(teacherNotes || 'Click to add teacher notes')}</span>
         <span class="edit-indicator" style="font-size: 10px; margin-left: 5px; color: #666;">✎</span>
-      </div>` : ''}
+      </div>
       
       <div class="stats-row" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; margin: 20px 0;">
         <div class="editable-stat" style="padding: 10px; background: #e3f2fd; border-radius: 4px; text-align: center; cursor: pointer; border: 2px solid transparent;" onclick="editStat(this, 'word_count')" title="Click to edit">

@@ -526,37 +526,46 @@ class ModalManager {
             console.log('🎯 Target element found:', !!targetElement, targetElementId);
 
             if (targetElement) {
-                // If notes are empty or just default text, hide the entire teacher notes section
-                if (!notesText.trim() || notesText === 'No notes provided' || notesText === 'Manual grading notes') {
-                    // Hide the teacher notes section entirely
-                    targetElement.style.display = 'none';
-                    targetElement.dataset.teacherNotes = '';
-                    console.log('❌ Hiding teacher notes section - no valid notes');
-                } else {
-                    // Show the teacher notes section if it was hidden
-                    targetElement.style.display = '';
-                    
-                    // Save to dataset for manual grading compatibility
-                    targetElement.dataset.teacherNotes = notesText;
-                    console.log('✅ Notes saved to element dataset');
+                // Always save to dataset and update content, but change display based on content
+                targetElement.dataset.teacherNotes = notesText.trim();
+                console.log('✅ Notes saved to element dataset');
 
-                    // Update the displayed content
-                    const contentElement = targetElement.querySelector('.teacher-notes-content');
-                    if (contentElement) {
+                // Update the displayed content
+                const contentElement = targetElement.querySelector('.teacher-notes-content');
+                if (contentElement) {
+                    if (!notesText.trim()) {
+                        // Show placeholder text when empty
+                        contentElement.textContent = 'Click to add teacher notes';
+                        console.log('✅ Updated to show placeholder text');
+                    } else {
+                        // Show actual notes content
                         contentElement.textContent = notesText.trim();
                         console.log('✅ Updated displayed teacher notes content');
                     }
+                }
 
-                    // Update visual indicator for edited notes
+                // Update visual indicator based on content
+                if (!notesText.trim()) {
+                    // Reset to original appearance when empty
+                    targetElement.style.backgroundColor = '';
+                    targetElement.title = 'Click to edit teacher notes';
+                    console.log('🔄 Reset to original appearance - empty notes');
+                } else {
+                    // Apply yellow background for edited notes
                     targetElement.style.backgroundColor = '#fff3cd';
                     targetElement.title = 'Teacher notes: ' + notesText.substring(0, 100) +
                                          (notesText.length > 100 ? '...' : '');
                     console.log('🟡 Applied yellow background and title');
                 }
 
-                // Update the stored grading data if it exists (for GPT-generated grades)
-                if (typeof window !== 'undefined' && window.currentGradingData) {
-                    window.currentGradingData.teacher_notes = notesText;
+                // Always keep the teacher notes section visible
+                targetElement.style.display = '';
+                console.log('✅ Teacher notes section kept visible');
+            }
+
+            // Update the stored grading data if it exists (for GPT-generated grades)
+            if (typeof window !== 'undefined' && window.currentGradingData) {
+                window.currentGradingData.teacher_notes = notesText.trim();
                     console.log('✅ Updated currentGradingData.teacher_notes');
                 }
 

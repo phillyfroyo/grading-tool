@@ -1041,15 +1041,19 @@ function enhanceContentForPDF(content, studentName, originalContent = null) {
         const notesContentSpan = teacherNotesElement.querySelector('.teacher-notes-content');
         
         if (notesContentSpan) {
-            // Get the actual teacher notes content
+            // Get the actual teacher notes content, excluding default placeholder text
             notesText = notesContentSpan.textContent?.trim() || '';
+            if (notesText === 'Click to add teacher notes') {
+                notesText = ''; // Don't include placeholder text
+            }
             console.log('📝 Found teacher notes in content span:', `"${notesText}"`);
         } else {
             // Fallback: get content directly from element, but clean it properly
             // Clone the element to avoid modifying the original
             const tempElement = teacherNotesElement.cloneNode(true);
             
-            // Remove all edit indicators and icons first
+            // Remove label, edit indicators and icons
+            tempElement.querySelectorAll('.teacher-notes-label').forEach(el => el.remove());
             tempElement.querySelectorAll('.edit-indicator').forEach(el => el.remove());
             tempElement.querySelectorAll('span').forEach(el => {
                 if (el.textContent.includes('✎')) {
@@ -1057,9 +1061,10 @@ function enhanceContentForPDF(content, studentName, originalContent = null) {
                 }
             });
             
-            // Get the text and remove the "📝 Teacher Notes:" prefix
+            // Get the text and remove the "📝 Teacher Notes:" prefix and other unwanted text
             notesText = tempElement.textContent
                 ?.replace(/📝\s*Teacher Notes:\s*/i, '')
+                ?.replace(/Click to add teacher notes/i, '')
                 ?.replace(/✎/g, '')
                 ?.trim() || '';
             console.log('📝 Found teacher notes in element text:', `"${notesText}"`);
@@ -1091,8 +1096,9 @@ function enhanceContentForPDF(content, studentName, originalContent = null) {
     const isEmptyOrDefault = !notesText || 
                             notesText === 'No notes provided' || 
                             notesText === 'Manual grading notes' ||
+                            notesText === 'Click to add teacher notes' ||
                             notesText === '' ||
-                            notesText.match(/^(📝\s*)?(Teacher Notes:?\s*)?$/i);
+                            notesText.match(/^(📝\s*)?(Teacher Notes:?\s*)?(Click to add teacher notes)?$/i);
 
     // Only create the section if we have actual, valid teacher notes
     if (!isEmptyOrDefault) {
