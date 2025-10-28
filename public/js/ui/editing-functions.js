@@ -20,50 +20,177 @@ function editTeacherNotes(element) {
         console.log('✅ Using global openTeacherNotesModal function');
         window.openTeacherNotesModal(element);
     } else {
-        console.log('⚠️ No modal system available, using fallback prompt');
-        // Fallback to prompt with enhanced UI update
-        const currentNotes = element.dataset.teacherNotes || '';
-        const contentElement = element.querySelector('.teacher-notes-content');
-        
-        // Get the current displayed text if no dataset value
-        let displayedText = currentNotes;
-        if ((!displayedText || displayedText === 'Click to add teacher notes') && contentElement) {
-            displayedText = contentElement.textContent?.trim() || '';
-            if (displayedText === 'Click to add teacher notes') {
-                displayedText = '';
-            }
-        }
-        
-        const newNotes = prompt('Edit teacher notes:', displayedText);
-        if (newNotes !== null) {
-            // Update the dataset
-            element.dataset.teacherNotes = newNotes.trim();
-            
-            // Update the displayed content
-            if (contentElement) {
-                if (newNotes.trim()) {
-                    contentElement.textContent = newNotes.trim();
-                } else {
-                    contentElement.textContent = 'Click to add teacher notes';
-                }
-            }
-            
-            // Update visual indicators
-            if (newNotes.trim()) {
-                element.style.backgroundColor = '#fff3cd';
-                element.title = 'Teacher notes: ' + newNotes.substring(0, 100) + (newNotes.length > 100 ? '...' : '');
-            } else {
-                element.style.backgroundColor = '';
-                element.title = 'Click to edit teacher notes';
-            }
-            
-            // Update global data for PDF export
-            if (window.currentGradingData) {
-                window.currentGradingData.teacher_notes = newNotes.trim();
-                console.log('✅ Updated currentGradingData.teacher_notes via fallback');
-            }
+        console.log('⚠️ No modal system available, using enhanced inline editor');
+        // Use enhanced inline editor that takes up the full section
+        createTeacherNotesInlineEditor(element);
+    }
+}
+
+/**
+ * Create a full-section inline editor for teacher notes
+ * @param {HTMLElement} element - Teacher notes section element
+ */
+function createTeacherNotesInlineEditor(element) {
+    // Prevent multiple editors
+    if (element.querySelector('.teacher-notes-editor')) {
+        return;
+    }
+    
+    const contentElement = element.querySelector('.teacher-notes-content');
+    const currentNotes = element.dataset.teacherNotes || '';
+    
+    // Get the current displayed text
+    let displayedText = currentNotes;
+    if ((!displayedText || displayedText === 'Click to add teacher notes') && contentElement) {
+        displayedText = contentElement.textContent?.trim() || '';
+        if (displayedText === 'Click to add teacher notes') {
+            displayedText = '';
         }
     }
+    
+    // Hide the label and content temporarily
+    const label = element.querySelector('.teacher-notes-label');
+    const editIndicator = element.querySelector('.edit-indicator');
+    if (label) label.style.display = 'none';
+    if (contentElement) contentElement.style.display = 'none';
+    if (editIndicator) editIndicator.style.display = 'none';
+    
+    // Create a textarea that fills the entire section
+    const textarea = document.createElement('textarea');
+    textarea.className = 'teacher-notes-editor';
+    textarea.value = displayedText;
+    textarea.placeholder = 'Enter teacher notes...';
+    
+    // Style the textarea to fill the section
+    textarea.style.cssText = `
+        width: 100%;
+        height: 80px;
+        min-height: 60px;
+        border: 2px solid #007bff;
+        border-radius: 4px;
+        padding: 8px;
+        font-family: inherit;
+        font-size: 14px;
+        line-height: 1.4;
+        resize: vertical;
+        background: #fff;
+        margin: 0;
+        box-sizing: border-box;
+    `;
+    
+    // Create action buttons
+    const buttonContainer = document.createElement('div');
+    buttonContainer.style.cssText = `
+        margin-top: 8px;
+        display: flex;
+        gap: 8px;
+        justify-content: flex-end;
+    `;
+    
+    const saveButton = document.createElement('button');
+    saveButton.textContent = 'Save';
+    saveButton.style.cssText = `
+        background: #28a745;
+        color: white;
+        border: none;
+        padding: 6px 12px;
+        border-radius: 4px;
+        cursor: pointer;
+        font-size: 12px;
+    `;
+    
+    const cancelButton = document.createElement('button');
+    cancelButton.textContent = 'Cancel';
+    cancelButton.style.cssText = `
+        background: #6c757d;
+        color: white;
+        border: none;
+        padding: 6px 12px;
+        border-radius: 4px;
+        cursor: pointer;
+        font-size: 12px;
+    `;
+    
+    buttonContainer.appendChild(saveButton);
+    buttonContainer.appendChild(cancelButton);
+    
+    // Add textarea and buttons to the element
+    element.appendChild(textarea);
+    element.appendChild(buttonContainer);
+    
+    // Focus the textarea and select all text
+    textarea.focus();
+    textarea.select();
+    
+    // Save function
+    const saveChanges = () => {
+        const newNotes = textarea.value.trim();
+        
+        // Update the dataset
+        element.dataset.teacherNotes = newNotes;
+        
+        // Update the displayed content
+        if (contentElement) {
+            if (newNotes) {
+                contentElement.textContent = newNotes;
+            } else {
+                contentElement.textContent = 'Click to add teacher notes';
+            }
+        }
+        
+        // Update visual indicators
+        if (newNotes) {
+            element.style.backgroundColor = '#fff3cd';
+            element.title = 'Teacher notes: ' + newNotes.substring(0, 100) + (newNotes.length > 100 ? '...' : '');
+        } else {
+            element.style.backgroundColor = '';
+            element.title = 'Click to edit teacher notes';
+        }
+        
+        // Update global data for PDF export
+        if (window.currentGradingData) {
+            window.currentGradingData.teacher_notes = newNotes;
+            console.log('✅ Updated currentGradingData.teacher_notes via inline editor');
+        }
+        
+        cleanup();
+    };
+    
+    // Cancel function
+    const cancelChanges = () => {
+        cleanup();
+    };
+    
+    // Cleanup function
+    const cleanup = () => {
+        // Remove editor elements
+        if (textarea.parentNode) textarea.parentNode.removeChild(textarea);
+        if (buttonContainer.parentNode) buttonContainer.parentNode.removeChild(buttonContainer);
+        
+        // Restore original elements
+        if (label) label.style.display = '';
+        if (contentElement) contentElement.style.display = '';
+        if (editIndicator) editIndicator.style.display = '';
+    };
+    
+    // Event listeners
+    saveButton.addEventListener('click', saveChanges);
+    cancelButton.addEventListener('click', cancelChanges);
+    
+    // Save on Ctrl+Enter, cancel on Escape
+    textarea.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape') {
+            cancelChanges();
+        } else if (e.key === 'Enter' && e.ctrlKey) {
+            saveChanges();
+        }
+    });
+    
+    // Auto-resize textarea as user types
+    textarea.addEventListener('input', () => {
+        textarea.style.height = 'auto';
+        textarea.style.height = Math.max(60, textarea.scrollHeight) + 'px';
+    });
 }
 
 /**
