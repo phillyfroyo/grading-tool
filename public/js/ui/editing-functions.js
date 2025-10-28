@@ -12,18 +12,121 @@ function editTeacherNotes(element) {
     console.log('🔍 ModalManagementModule available:', !!window.ModalManagementModule);
     console.log('🔍 openTeacherNotesModal function available:', !!window.openTeacherNotesModal);
     
-    // Try multiple ways to open the modal
-    if (window.ModalManagementModule && window.ModalManagementModule.openTeacherNotesModal) {
+    // FORCE modal system to work - try all possible ways
+    
+    // Method 1: Try ModalManagementModule
+    if (window.ModalManagementModule && typeof window.ModalManagementModule.openTeacherNotesModal === 'function') {
         console.log('✅ Using ModalManagementModule');
-        window.ModalManagementModule.openTeacherNotesModal(element);
-    } else if (window.openTeacherNotesModal) {
-        console.log('✅ Using global openTeacherNotesModal function');
-        window.openTeacherNotesModal(element);
-    } else {
-        console.log('⚠️ No modal system available, using enhanced inline editor');
-        // Use enhanced inline editor that takes up the full section
-        createTeacherNotesInlineEditor(element);
+        try {
+            window.ModalManagementModule.openTeacherNotesModal(element);
+            return;
+        } catch (error) {
+            console.error('ModalManagementModule failed:', error);
+        }
     }
+    
+    // Method 2: Try global function
+    if (typeof window.openTeacherNotesModal === 'function') {
+        console.log('✅ Using global openTeacherNotesModal function');
+        try {
+            window.openTeacherNotesModal(element);
+            return;
+        } catch (error) {
+            console.error('Global openTeacherNotesModal failed:', error);
+        }
+    }
+    
+    // Method 3: Try to manually create and show modal
+    const modal = document.getElementById('teacherNotesModal');
+    const textArea = document.getElementById('teacherNotesText');
+    
+    if (modal && textArea) {
+        console.log('✅ Using manual modal approach');
+        try {
+            // Get current notes
+            const currentNotes = element.dataset.teacherNotes || '';
+            const contentElement = element.querySelector('.teacher-notes-content');
+            let displayedText = currentNotes;
+            
+            if ((!displayedText || displayedText === 'Click to add teacher notes') && contentElement) {
+                displayedText = contentElement.textContent?.trim() || '';
+                if (displayedText === 'Click to add teacher notes') {
+                    displayedText = '';
+                }
+            }
+            
+            // Set up modal
+            textArea.value = displayedText;
+            modal.dataset.targetElement = element.id || ('teacher-notes-' + Date.now());
+            if (!element.id) {
+                element.id = modal.dataset.targetElement;
+            }
+            
+            // Show modal
+            modal.style.display = 'block';
+            textArea.focus();
+            textArea.select();
+            
+            // Make sure save function works
+            if (!window.saveTeacherNotes) {
+                window.saveTeacherNotes = () => {
+                    const targetElementId = modal.dataset.targetElement;
+                    const notesText = textArea.value || '';
+                    
+                    if (targetElementId) {
+                        const targetElement = document.getElementById(targetElementId);
+                        if (targetElement) {
+                            // Update dataset
+                            targetElement.dataset.teacherNotes = notesText.trim();
+                            
+                            // Update displayed content
+                            const contentElement = targetElement.querySelector('.teacher-notes-content');
+                            if (contentElement) {
+                                if (notesText.trim()) {
+                                    contentElement.textContent = notesText.trim();
+                                } else {
+                                    contentElement.textContent = 'Click to add teacher notes';
+                                }
+                            }
+                            
+                            // Update visual indicators
+                            if (notesText.trim()) {
+                                targetElement.style.backgroundColor = '#fff3cd';
+                                targetElement.title = 'Teacher notes: ' + notesText.substring(0, 100) + (notesText.length > 100 ? '...' : '');
+                            } else {
+                                targetElement.style.backgroundColor = '';
+                                targetElement.title = 'Click to edit teacher notes';
+                            }
+                            
+                            // Update global data
+                            if (window.currentGradingData) {
+                                window.currentGradingData.teacher_notes = notesText.trim();
+                            }
+                        }
+                    }
+                    
+                    // Close modal
+                    modal.style.display = 'none';
+                };
+            }
+            
+            // Make sure close function works
+            if (!window.closeTeacherNotesModal) {
+                window.closeTeacherNotesModal = () => {
+                    modal.style.display = 'none';
+                };
+            }
+            
+            console.log('✅ Modal opened manually');
+            return;
+        } catch (error) {
+            console.error('Manual modal failed:', error);
+        }
+    }
+    
+    // Fallback: Enhanced inline editor
+    console.log('⚠️ All modal methods failed, using enhanced inline editor');
+    createTeacherNotesInlineEditor(element);
 }
 
 /**
