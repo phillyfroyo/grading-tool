@@ -166,6 +166,14 @@ mark[data-type] {
     color: unset;
 }
 
+/* ===== ZOOM FOR BETTER READABILITY ===== */
+/* Global zoom for more comfortable viewing */
+.container {
+    zoom: 0.75; /* 75% zoom for better readability */
+    transform: scale(0.75); /* Fallback for browsers that don't support zoom */
+    transform-origin: top center;
+}
+
 /* ===== SCORE INPUT ARROWS - LARGER AND MORE CLICKABLE ===== */
 /* Hide default arrows since we have our own large clickable areas */
 .editable-score::-webkit-outer-spin-button,
