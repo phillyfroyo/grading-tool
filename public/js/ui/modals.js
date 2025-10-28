@@ -561,26 +561,25 @@ class ModalManager {
                 // Always keep the teacher notes section visible
                 targetElement.style.display = '';
                 console.log('✅ Teacher notes section kept visible');
-            }
 
             // Update the stored grading data if it exists (for GPT-generated grades)
             if (typeof window !== 'undefined' && window.currentGradingData) {
                 window.currentGradingData.teacher_notes = notesText.trim();
-                    console.log('✅ Updated currentGradingData.teacher_notes');
-                }
+                console.log('✅ Updated currentGradingData.teacher_notes');
+            }
 
-                // Also store in the actual DOM element's dataset for persistence
-                const actualTeacherNotesElement = document.querySelector('.teacher-notes');
-                if (actualTeacherNotesElement) {
-                    actualTeacherNotesElement.dataset.teacherNotes = notesText;
-                    console.log('✅ Saved notes to DOM element dataset for persistence');
-                }
+            // Also store in the actual DOM element's dataset for persistence
+            const actualTeacherNotesElement = document.querySelector('.teacher-notes');
+            if (actualTeacherNotesElement) {
+                actualTeacherNotesElement.dataset.teacherNotes = notesText;
+                console.log('✅ Saved notes to DOM element dataset for persistence');
+            }
 
-                eventBus.emit('teacher-notes:saved', {
-                    element: targetElement,
-                    notes: notesText
-                });
-                console.log('📡 Emitted teacher-notes:saved event');
+            eventBus.emit('teacher-notes:saved', {
+                element: targetElement,
+                notes: notesText
+            });
+            console.log('📡 Emitted teacher-notes:saved event');
             } else {
                 console.error('❌ Target element not found:', targetElementId);
             }
