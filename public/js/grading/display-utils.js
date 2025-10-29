@@ -644,11 +644,23 @@ function createHighlightsLegendHTML(highlightsData) {
                 hasCorrection = true;
             }
 
+            console.log(`🔍 Explanation check for highlight ${highlight.number}:`, {
+                explanation: explanation,
+                correction: correction,
+                'explanation.trim() !== ""': explanation.trim() !== '',
+                'explanation !== correction': explanation !== correction,
+                '!explanation.includes("**no notes have been entered**")': !explanation.includes('**no notes have been entered**'),
+                'Will show explanation?': explanation.trim() !== '' && explanation !== correction && !explanation.includes('**no notes have been entered**')
+            });
+
             if (explanation.trim() !== '' &&
                 explanation !== correction &&
                 !explanation.includes('**no notes have been entered**')) {
+                console.log(`✅ Adding explanation to HTML for highlight ${highlight.number}`);
                 feedbackHTML += `<div style="margin-top: 8px; font-style: italic; color: #555; padding-left: 20px;"><strong>Explanation:</strong> ${safeExplanation}</div>`;
                 hasExplanation = true;
+            } else {
+                console.log(`❌ Skipping explanation for highlight ${highlight.number}`);
             }
 
             // If no correction or explanation, show placeholder
