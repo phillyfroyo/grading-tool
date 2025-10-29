@@ -6,10 +6,10 @@
 // Track processing status for queue management
 let processingQueue = {
     currentlyProcessing: 0,
-    maxConcurrent: 3,
+    maxConcurrent: 2,
     totalEssays: 0,
     completedEssays: [],
-    nextInQueue: 3
+    nextInQueue: 2
 };
 
 /**
