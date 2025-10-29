@@ -17,13 +17,12 @@ Focus on clear errors that violate English rules. Don't flag stylistic preferenc
 - grammar
 - vocabulary
 - mechanics
-- delete word(s)
+- delete (for unnecessary words that should be removed)
 - fluency
 
 **Explanation Guidelines:**
 - Don't provide explanations for spelling errors
 - Only explain when it genuinely helps prevent future errors
-- Many corrections are self-explanatory and will not require explanation notes
 - When explaining, use simple words ESL learners understand
 
 **Important:**
