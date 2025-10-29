@@ -1014,9 +1014,9 @@ function enhanceContentForPDF(content, studentName, originalContent = null) {
     // Add spacing and border to color legend for PDF
     const colorLegend = tempDiv.querySelector('.color-legend');
     if (colorLegend) {
-        colorLegend.style.marginTop = '25px';
-        colorLegend.style.paddingTop = '15px';
-        colorLegend.style.borderTop = '1px solid #999';
+        // Get existing styles and append new ones with !important
+        const existingStyles = colorLegend.getAttribute('style') || '';
+        colorLegend.setAttribute('style', existingStyles + ' margin-top: 25px !important; padding-top: 15px !important; border-top: 1px solid #999 !important;');
     }
 
     // Remove "Grading Results for [student name]" heading
