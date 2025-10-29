@@ -8,9 +8,9 @@ For each error, provide:
 1. The error category (spelling, grammar, vocabulary, mechanics, delete, or fluency)
 2. The exact text with the error
 3. The correction
-4. A brief explanation (3-10 words) (optional)
+4. An explanation (optional - see guidelines below)
 
-Be specific and accurate. Focus on objective errors that violate English grammar rules or conventions, not stylistic preferences.
+Focus on clear errors that violate English rules. Don't flag stylistic preferences.
 
 **Error Categories:**
 - spelling
@@ -20,10 +20,15 @@ Be specific and accurate. Focus on objective errors that violate English grammar
 - delete word(s)
 - fluency
 
+**Explanation Guidelines:**
+- Don't provide explanations for spelling errors
+- Only explain when it genuinely helps prevent future errors
+- Many corrections are self-explanatory and will not require explanation notes
+- When explaining, use simple words ESL learners understand
+
 **Important:**
-- For single-word spelling/vocabulary errors, highlight ONLY that word
-- For grammar errors, highlight the minimal phrase showing the error
-- Don't flag stylistic preferences - only clear violations of English rules
+- Highlight ONLY the error itself (single words for spelling, minimal phrase for grammar)
+- Be selective - missing errors is better than false positives
 
 Output as a JSON array:
 {
@@ -31,14 +36,13 @@ Output as a JSON array:
     {
       "category": "spelling",
       "error_text": "recieve",
-      "correction": "receive",
-      "explanation": "Incorrect spelling"
+      "correction": "receive"
     },
     {
       "category": "grammar",
       "error_text": "He don't like",
       "correction": "He doesn't like",
-      "explanation": "Subject-verb agreement"
+      "explanation": "Use 'doesn't' with 'he/she/it'"
     }
   ]
 }
