@@ -478,11 +478,7 @@ function populateHighlightsContent(contentId) {
 
     highlights.forEach((mark, index) => {
         try {
-            // Skip highlights that are excluded from PDF
-            if (mark.dataset.excludeFromPdf === 'true') {
-                console.log(`⏭️ Skipping highlight ${index + 1} - excluded from PDF`);
-                return;
-            }
+            // Note: We no longer skip excluded highlights - we show them with strikethrough
 
             // Ensure highlight has an ID (for old highlights that don't have one)
             if (!mark.id || mark.id.trim() === '') {
@@ -518,7 +514,8 @@ function populateHighlightsContent(contentId) {
                 correction: correction.trim(),
                 explanation: explanation.trim(),
                 notes: notes.trim(),
-                elementId: mark.id  // Store element ID for exclude functionality
+                elementId: mark.id,  // Store element ID for exclude functionality
+                isExcluded: mark.dataset.excludeFromPdf === 'true'  // Track excluded state
             };
 
             console.log(`📦 Highlight ${index + 1} data object:`, highlightData);
@@ -537,8 +534,8 @@ function populateHighlightsContent(contentId) {
         const generatedHTML = createHighlightsLegendHTML(highlightsData);
         contentInner.innerHTML = generatedHTML;
 
-        // Setup exclude from PDF button listeners
-        setupExcludeFromPDFListeners(contentInner);
+        // Setup toggle PDF button listeners
+        setupTogglePDFListeners(contentInner);
     }
 
     contentInner.dataset.populated = 'true';
@@ -674,8 +671,16 @@ function createHighlightsLegendHTML(highlightsData) {
 
             console.log(`📝 Creating button for highlight ${highlight.number}:`, {
                 elementId: highlight.elementId,
-                hasElementId: !!highlight.elementId
+                hasElementId: !!highlight.elementId,
+                isExcluded: highlight.isExcluded
             });
+
+            // Determine button appearance based on excluded state
+            const isExcluded = highlight.isExcluded;
+            const buttonBg = isExcluded ? '#28a745' : '#dc3545';
+            const buttonHoverBg = isExcluded ? '#218838' : '#c82333';
+            const buttonText = isExcluded ? 'Add to PDF export' : 'Remove from PDF export';
+            const entryStyle = isExcluded ? 'text-decoration: line-through; opacity: 0.6;' : '';
 
             const highlightHTML = `
                 <div style="
@@ -685,19 +690,21 @@ function createHighlightsLegendHTML(highlightsData) {
                     border-radius: 6px;
                     border-left: 4px solid ${borderColor};
                     position: relative;
+                    ${entryStyle}
                 ">
                     <div style="line-height: 1.6; font-size: 14px;">
                         ${entryText}
                         ${feedbackHTML}
                     </div>
                     <button
-                        class="exclude-from-pdf-btn"
+                        class="toggle-pdf-btn"
                         data-element-id="${highlight.elementId || ''}"
+                        data-excluded="${isExcluded}"
                         style="
                             position: absolute;
                             top: 10px;
                             right: 10px;
-                            background: #dc3545;
+                            background: ${buttonBg};
                             color: white;
                             border: none;
                             padding: 6px 12px;
@@ -707,10 +714,10 @@ function createHighlightsLegendHTML(highlightsData) {
                             font-weight: 600;
                             transition: background 0.2s;
                         "
-                        onmouseover="this.style.background='#c82333'"
-                        onmouseout="this.style.background='#dc3545'"
+                        onmouseover="this.style.background='${buttonHoverBg}'"
+                        onmouseout="this.style.background='${buttonBg}'"
                     >
-                        Remove from PDF export
+                        ${buttonText}
                     </button>
                 </div>
             `;
@@ -776,63 +783,82 @@ function refreshHighlightsSection(contentId) {
 }
 
 /**
- * Setup exclude from PDF button listeners for highlights
- * @param {HTMLElement} container - Container element with exclude buttons
+ * Setup toggle PDF button listeners for highlights
+ * @param {HTMLElement} container - Container element with toggle buttons
  */
-function setupExcludeFromPDFListeners(container) {
-    console.log('🔧 setupExcludeFromPDFListeners called with container:', container);
-    const excludeButtons = container.querySelectorAll('.exclude-from-pdf-btn');
-    console.log(`🔍 Found ${excludeButtons.length} exclude buttons`);
+function setupTogglePDFListeners(container) {
+    console.log('🔧 setupTogglePDFListeners called with container:', container);
+    const toggleButtons = container.querySelectorAll('.toggle-pdf-btn');
+    console.log(`🔍 Found ${toggleButtons.length} toggle buttons`);
 
-    excludeButtons.forEach((button, index) => {
+    toggleButtons.forEach((button, index) => {
         console.log(`🎯 Setting up listener for button ${index + 1}:`, {
             elementId: button.dataset.elementId,
+            isExcluded: button.dataset.excluded,
             button: button
         });
 
         button.addEventListener('click', function(event) {
             console.log('🖱️ BUTTON CLICKED!', event);
             const elementId = this.dataset.elementId;
+            const isCurrentlyExcluded = this.dataset.excluded === 'true';
             console.log('📋 Element ID from button:', elementId);
+            console.log('📋 Currently excluded:', isCurrentlyExcluded);
 
             if (!elementId) {
-                console.error('No element ID found for exclude button');
+                console.error('No element ID found for toggle button');
                 return;
             }
-
-            // Confirm exclusion
-            console.log('📢 Showing confirmation dialog...');
-            if (!confirm('Remove this highlight from the PDF export? The highlight will remain in the color-coded essay.')) {
-                console.log('❌ User cancelled');
-                return;
-            }
-            console.log('✅ User confirmed');
 
             // Find the highlight element in the essay
             const highlightElement = document.getElementById(elementId);
-            if (highlightElement) {
-                console.log(`📄 Excluding from PDF: ${elementId}`);
-
-                // Mark element as excluded from PDF
-                highlightElement.dataset.excludeFromPdf = 'true';
-
-                console.log(`✅ Highlight excluded from PDF export`);
-
-                // Refresh the highlights section to update the list
-                // Determine which section to refresh based on the container ID
-                const contentInner = this.closest('[id$="-inner"]');
-                if (contentInner) {
-                    const contentId = contentInner.id.replace('-inner', '');
-                    refreshHighlightsSection(contentId);
-                }
-            } else {
+            if (!highlightElement) {
                 console.error(`Highlight element not found: ${elementId}`);
                 alert('Error: Could not find the highlight.');
+                return;
             }
+
+            // Toggle the excluded state
+            const newExcludedState = !isCurrentlyExcluded;
+            highlightElement.dataset.excludeFromPdf = newExcludedState ? 'true' : 'false';
+
+            console.log(`${newExcludedState ? '📄 Excluded' : '✅ Included'} from PDF: ${elementId}`);
+
+            // Update button appearance
+            this.dataset.excluded = newExcludedState;
+            if (newExcludedState) {
+                // Excluded state - green "Add" button
+                this.style.background = '#28a745';
+                this.style.setProperty('--hover-bg', '#218838');
+                this.textContent = 'Add to PDF export';
+                this.onmouseover = function() { this.style.background = '#218838'; };
+                this.onmouseout = function() { this.style.background = '#28a745'; };
+            } else {
+                // Included state - red "Remove" button
+                this.style.background = '#dc3545';
+                this.style.setProperty('--hover-bg', '#c82333');
+                this.textContent = 'Remove from PDF export';
+                this.onmouseover = function() { this.style.background = '#c82333'; };
+                this.onmouseout = function() { this.style.background = '#dc3545'; };
+            }
+
+            // Update entry styling (strikethrough)
+            const entryDiv = this.closest('div[style*="margin: 20px 0"]');
+            if (entryDiv) {
+                if (newExcludedState) {
+                    entryDiv.style.textDecoration = 'line-through';
+                    entryDiv.style.opacity = '0.6';
+                } else {
+                    entryDiv.style.textDecoration = 'none';
+                    entryDiv.style.opacity = '1';
+                }
+            }
+
+            console.log(`✅ Toggled highlight PDF inclusion`);
         });
     });
 
-    console.log(`✅ Setup ${excludeButtons.length} exclude from PDF button listeners`);
+    console.log(`✅ Setup ${toggleButtons.length} toggle PDF button listeners`);
 }
 
 /**
