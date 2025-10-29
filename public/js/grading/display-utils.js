@@ -177,7 +177,7 @@ function createStudentRowHTML(essay, index, statusIcon) {
             " onmouseover="this.style.backgroundColor='#f8f9fa'"
                onmouseout="this.style.backgroundColor='#ffffff'">
                 <div style="display: flex; align-items: center; gap: 12px;">
-                    <span id="grade-details-arrow-${index}" style="font-size: 18px; transition: transform 0.3s; display: inline-block;">▼</span>
+                    <span id="grade-details-${index}-arrow" style="font-size: 18px; transition: transform 0.3s; display: inline-block;">▼</span>
                     <span style="font-weight: 600; font-size: 18px;">Grade Details</span>
                 </div>
             </div>
@@ -204,7 +204,7 @@ function createStudentRowHTML(essay, index, statusIcon) {
             " onmouseover="this.style.backgroundColor='#f8f9fa'"
                onmouseout="this.style.backgroundColor='#ffffff'">
                 <div style="display: flex; align-items: center; gap: 12px;">
-                    <span id="highlights-tab-arrow-${index}" style="font-size: 18px; transition: transform 0.3s; display: inline-block;">▼</span>
+                    <span id="highlights-tab-${index}-arrow" style="font-size: 18px; transition: transform 0.3s; display: inline-block;">▼</span>
                     <span style="font-weight: 600; font-size: 18px;">Manage Highlights and Corrections</span>
                 </div>
             </div>
