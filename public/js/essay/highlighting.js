@@ -47,6 +47,13 @@ function applyHighlight(range, text, category) {
         // Add unique ID for modal reference
         mark.id = `highlight-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
 
+        // Check if "remove all from PDF" checkbox is checked and auto-exclude if so
+        const removeAllCheckbox = document.getElementById('highlights-content-remove-all');
+        if (removeAllCheckbox && removeAllCheckbox.checked) {
+            mark.dataset.excludeFromPdf = 'true';
+            console.log('🚫 Auto-excluding new highlight from PDF (checkbox is checked)');
+        }
+
         // Apply visual styling
         updateHighlightVisualStyling(mark, category);
 
@@ -110,6 +117,13 @@ function applyBatchHighlight(range, text, category, essayIndex) {
 
         // Add unique ID for modal reference
         mark.id = `highlight-${essayIndex}-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+
+        // Check if "remove all from PDF" checkbox is checked and auto-exclude if so
+        const removeAllCheckbox = document.getElementById(`highlights-tab-${essayIndex}-remove-all`);
+        if (removeAllCheckbox && removeAllCheckbox.checked) {
+            mark.dataset.excludeFromPdf = 'true';
+            console.log(`🚫 Auto-excluding new highlight from PDF for essay ${essayIndex} (checkbox is checked)`);
+        }
 
         // Apply visual styling
         updateHighlightVisualStyling(mark, category);
