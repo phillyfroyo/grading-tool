@@ -872,13 +872,11 @@ function generateFeedbackSummary(scores, total, meta, teacherNotes, encouragemen
             <strong style="color: ${categoryInfo.color}; font-size: 1.1em; white-space: nowrap; padding-top: 8px;">
               ${categoryInfo.name}
             </strong>
-            <div style="flex: 1; background: white; padding: 10px; border-radius: 4px;">
-              <textarea class="editable-feedback"
-                        data-category="${category}"
-                        placeholder="Click to add notes (optional)..."
-                        rows="1"
-                        style="width: 100%; min-height: 32px; border: 1px solid #ddd; border-radius: 3px; padding: 8px; resize: vertical; font-family: inherit; line-height: 1.4; overflow-y: hidden;">${escapeHtml(details.rationale || '')}</textarea>
-            </div>
+            <textarea class="editable-feedback"
+                      data-category="${category}"
+                      placeholder="Click to add notes (optional)..."
+                      rows="1"
+                      style="flex: 1; min-height: 32px; border: 1px solid #ddd; border-radius: 3px; padding: 8px; resize: vertical; font-family: inherit; line-height: 1.4; overflow-y: hidden; background: white;">${escapeHtml(details.rationale || '')}</textarea>
             <div style="display: flex; align-items: center; gap: 5px; position: relative; white-space: nowrap;">
               <div class="score-input-container" style="position: relative;">
                 <input type="number"
