@@ -87,11 +87,6 @@ function toggleTab(tabId, index) {
     const isGradeDetails = tabId.includes('grade-details');
     const isHighlightsTab = tabId.includes('highlights-tab');
 
-    // Get the other tab
-    const otherTabId = isGradeDetails ? `highlights-tab-${index}` : `grade-details-${index}`;
-    const otherTab = document.getElementById(otherTabId);
-    const otherArrow = document.getElementById(`${otherTabId}-arrow`);
-
     // Check if currently closed
     const isCurrentlyClosed = tab.style.maxHeight === '0px' || tab.style.maxHeight === '' || tab.style.maxHeight === '0';
 
@@ -104,12 +99,6 @@ function toggleTab(tabId, index) {
 
     if (isCurrentlyClosed) {
         console.log('📂 Opening tab...');
-
-        // Close the other tab first
-        if (otherTab) {
-            otherTab.style.maxHeight = '0px';
-            if (otherArrow) otherArrow.style.transform = 'rotate(0deg)';
-        }
 
         // Load content first
         if (isGradeDetails) {

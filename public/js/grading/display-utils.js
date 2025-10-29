@@ -136,8 +136,8 @@ function createStudentRowHTML(essay, index, statusIcon) {
 
     return `
         <div class="student-row" style="border: 2px solid #ddd; margin: 16px 0; border-radius: 8px; overflow: hidden;">
-            <!-- Student Name Header (non-clickable) -->
-            <div class="student-header-static" style="
+            <!-- Student Name Header (clickable to expand grade details) -->
+            <div class="student-header-clickable" onclick="toggleTab('grade-details-${index}', ${index})" style="
                 padding: 24px 30px;
                 background: ${backgroundColor};
                 display: flex;
@@ -147,8 +147,13 @@ function createStudentRowHTML(essay, index, statusIcon) {
                 font-weight: 500;
                 min-height: 60px;
                 border-bottom: 1px solid #ddd;
-            ">
+                cursor: pointer;
+                transition: background-color 0.2s;
+                user-select: none;
+            " onmouseover="this.style.backgroundColor='${essay.success ? '#e9ecef' : '#ffe5e5'}'"
+               onmouseout="this.style.backgroundColor='${backgroundColor}'">
                 <div style="display: flex; align-items: center; gap: 15px; flex: 1; min-width: 0;">
+                    <span id="grade-details-${index}-arrow" style="font-size: 18px; transition: transform 0.3s; display: inline-block;">▼</span>
                     <span style="font-size: 28px;">${statusIcon}</span>
                     <span style="font-weight: 600; color: ${textColor}; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: 24px;">${essay.studentName}</span>
                     ${!essay.success ? '<span style="color: #721c24; font-size: 20px; white-space: nowrap; font-weight: 500;">(Failed)</span>' : ''}
@@ -158,29 +163,12 @@ function createStudentRowHTML(essay, index, statusIcon) {
                         <input type="checkbox" class="mark-complete-checkbox" data-student-index="${index}" style="margin: 0; transform: scale(2);">
                         <span style="font-size: 20px; color: #666; white-space: nowrap; font-weight: 600;">Mark Complete</span>
                     </label>
-                    ${essay.success ? `<button onclick="downloadIndividualEssay(${index})" style="background: #007bff; color: white; border: none; padding: 16px 24px; border-radius: 8px; font-size: 18px; cursor: pointer; white-space: nowrap; font-weight: 600;">Download</button>` : ''}
+                    ${essay.success ? `<button onclick="event.stopPropagation(); downloadIndividualEssay(${index})" style="background: #007bff; color: white; border: none; padding: 16px 24px; border-radius: 8px; font-size: 18px; cursor: pointer; white-space: nowrap; font-weight: 600;">Download</button>` : ''}
                 </div>
             </div>
 
             ${essay.success ? `
-            <!-- Tab 1: Grade Details -->
-            <div class="tab-header" onclick="toggleTab('grade-details-${index}', ${index})" style="
-                padding: 15px 30px;
-                background: #ffffff;
-                cursor: pointer;
-                display: flex;
-                align-items: center;
-                justify-content: space-between;
-                border-bottom: 1px solid #ddd;
-                user-select: none;
-                transition: background-color 0.2s;
-            " onmouseover="this.style.backgroundColor='#f8f9fa'"
-               onmouseout="this.style.backgroundColor='#ffffff'">
-                <div style="display: flex; align-items: center; gap: 12px;">
-                    <span id="grade-details-${index}-arrow" style="font-size: 18px; transition: transform 0.3s; display: inline-block;">▼</span>
-                    <span style="font-weight: 600; font-size: 18px;">Grade Details</span>
-                </div>
-            </div>
+            <!-- Grade Details Content (directly under student name) -->
             <div id="grade-details-${index}" class="tab-content" style="
                 max-height: 0;
                 overflow: hidden;
@@ -190,7 +178,7 @@ function createStudentRowHTML(essay, index, statusIcon) {
                 <div id="batch-essay-${index}" style="padding: 15px;">Loading formatted result...</div>
             </div>
 
-            <!-- Tab 2: Highlights Management -->
+            <!-- Highlights Management Tab -->
             <div class="tab-header" onclick="toggleTab('highlights-tab-${index}', ${index})" style="
                 padding: 15px 30px;
                 background: #ffffff;
@@ -205,7 +193,7 @@ function createStudentRowHTML(essay, index, statusIcon) {
                onmouseout="this.style.backgroundColor='#ffffff'">
                 <div style="display: flex; align-items: center; gap: 12px;">
                     <span id="highlights-tab-${index}-arrow" style="font-size: 18px; transition: transform 0.3s; display: inline-block;">▼</span>
-                    <span style="font-weight: 600; font-size: 18px;">Manage Highlights and Corrections</span>
+                    <span style="font-weight: 600; font-size: 18px;">Manage 'Highlights and Corrections' as seen on the exported PDF</span>
                 </div>
             </div>
             <div id="highlights-tab-${index}" class="tab-content" style="
