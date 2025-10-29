@@ -81,7 +81,7 @@ function createBatchEssayHTML(formatted, index) {
         </div>
 
         <div style="margin-top: 30px; text-align: center;">
-            <button onclick="downloadIndividualEssay(${index})" style="background: #007bff; color: white; border: none; padding: 32px 48px; border-radius: 12px; font-size: 36px; cursor: pointer; font-weight: 600; box-shadow: 0 4px 6px rgba(0,0,0,0.1); transition: all 0.2s;" onmouseover="this.style.background='#0056b3'; this.style.transform='scale(1.05)'" onmouseout="this.style.background='#007bff'; this.style.transform='scale(1)'">Export to PDF</button>
+            <button onclick="downloadIndividualEssay(${index})" style="background: #007bff; color: white; border: none; padding: 20px 36px; border-radius: 8px; font-size: 24px; cursor: pointer; font-weight: 600; box-shadow: 0 2px 4px rgba(0,0,0,0.1); transition: all 0.2s;" onmouseover="this.style.background='#0056b3'; this.style.transform='translateY(-2px)'; this.style.boxShadow='0 4px 8px rgba(0,0,0,0.15)'" onmouseout="this.style.background='#007bff'; this.style.transform='translateY(0)'; this.style.boxShadow='0 2px 4px rgba(0,0,0,0.1)'">Export to PDF</button>
         </div>
     `;
 }
@@ -183,24 +183,37 @@ function createStudentRowHTML(essay, index, statusIcon) {
             </div>
 
             <!-- Highlights Management Tab -->
-            <div class="tab-header" onclick="toggleTab('highlights-tab-${index}', ${index})" style="
-                padding: 15px 30px;
+            <div class="tab-header" style="
                 background: #ffffff;
-                cursor: pointer;
-                display: flex;
-                align-items: center;
-                justify-content: space-between;
                 border-bottom: 1px solid #ddd;
                 user-select: none;
-                transition: background-color 0.2s;
-            " onmouseover="this.style.backgroundColor='#f8f9fa'"
-               onmouseout="this.style.backgroundColor='#ffffff'">
-                <div style="display: flex; flex-direction: column; gap: 8px; flex: 1;">
-                    <div style="display: flex; align-items: center; gap: 12px;">
+            ">
+                <div style="display: flex; flex-direction: column; flex: 1;">
+                    <!-- Upper section: Title and arrow (clickable for toggle) -->
+                    <div onclick="toggleTab('highlights-tab-${index}', ${index})" style="
+                        padding: 15px 30px;
+                        cursor: pointer;
+                        display: flex;
+                        align-items: center;
+                        gap: 12px;
+                        transition: background-color 0.2s;
+                    " onmouseover="this.style.backgroundColor='#f8f9fa'"
+                       onmouseout="this.style.backgroundColor='#ffffff'">
                         <span id="highlights-tab-${index}-arrow" style="font-size: 18px; transition: transform 0.3s; display: inline-block;">▼</span>
                         <span style="font-weight: 600; font-size: 18px;">Manage 'Highlights and Corrections' as seen on the exported PDF</span>
                     </div>
-                    <label style="display: flex; align-items: center; gap: 8px; margin-left: 30px; font-size: 14px; cursor: pointer;" onclick="event.stopPropagation();">
+                    <!-- Lower section: Checkbox (independent hover) -->
+                    <label style="
+                        display: flex;
+                        align-items: center;
+                        gap: 8px;
+                        padding: 8px 30px 15px 60px;
+                        font-size: 14px;
+                        cursor: pointer;
+                        transition: background-color 0.2s;
+                    " onclick="event.stopPropagation();"
+                       onmouseover="this.style.backgroundColor='#f8f9fa'"
+                       onmouseout="this.style.backgroundColor='#ffffff'">
                         <input type="checkbox" id="highlights-tab-${index}-remove-all" class="remove-all-checkbox" data-content-id="highlights-tab-content-${index}" style="cursor: pointer; width: 16px; height: 16px;">
                         <span style="color: #666;">Remove all from PDF</span>
                     </label>
