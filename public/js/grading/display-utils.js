@@ -346,9 +346,24 @@ function createHighlightsUISection(essayIndex = '') {
                     user-select: none;
                 "
             >
-                <h3 style="margin: 0; font-size: 18px; font-weight: 600;">
-                    Manage 'Highlights and Corrections' as seen on the exported PDF
-                </h3>
+                <div style="display: flex; flex-direction: column; gap: 8px;">
+                    <h3 style="margin: 0; font-size: 18px; font-weight: 600;">
+                        Manage 'Highlights and Corrections' as seen on the exported PDF
+                    </h3>
+                    <label
+                        style="display: flex; align-items: center; gap: 8px; font-size: 14px; cursor: pointer;"
+                        onclick="event.stopPropagation();"
+                    >
+                        <input
+                            type="checkbox"
+                            id="${contentId}-remove-all"
+                            class="remove-all-checkbox"
+                            data-content-id="${contentId}"
+                            style="cursor: pointer; width: 16px; height: 16px;"
+                        />
+                        <span style="color: #666;">Remove all from PDF</span>
+                    </label>
+                </div>
                 <span id="${contentId}-arrow" style="font-size: 20px; transition: transform 0.3s;">▼</span>
             </div>
             <div
@@ -536,6 +551,9 @@ function populateHighlightsContent(contentId) {
 
         // Setup toggle PDF button listeners
         setupTogglePDFListeners(contentInner);
+
+        // Setup remove-all checkbox listener
+        setupRemoveAllCheckbox(contentId);
     }
 
     contentInner.dataset.populated = 'true';
@@ -783,6 +801,89 @@ function refreshHighlightsSection(contentId) {
 }
 
 /**
+ * Setup remove-all checkbox listener
+ * @param {string} contentId - ID of the content div
+ */
+function setupRemoveAllCheckbox(contentId) {
+    const checkbox = document.getElementById(`${contentId}-remove-all`);
+    if (!checkbox) {
+        console.warn(`Remove-all checkbox not found for ${contentId}`);
+        return;
+    }
+
+    console.log('🔧 Setting up remove-all checkbox for:', contentId);
+
+    checkbox.addEventListener('change', function() {
+        const isChecked = this.checked;
+        console.log(`📋 Remove-all checkbox ${isChecked ? 'CHECKED' : 'UNCHECKED'}`);
+
+        // Find the content container
+        const contentInner = document.getElementById(`${contentId}-inner`);
+        if (!contentInner) {
+            console.error('Content inner not found');
+            return;
+        }
+
+        // Find all toggle buttons
+        const toggleButtons = contentInner.querySelectorAll('.toggle-pdf-btn');
+        console.log(`🔍 Found ${toggleButtons.length} toggle buttons to update`);
+
+        toggleButtons.forEach(button => {
+            const elementId = button.dataset.elementId;
+            const highlightElement = document.getElementById(elementId);
+
+            if (!highlightElement) {
+                console.warn(`Highlight element not found: ${elementId}`);
+                return;
+            }
+
+            // Set excluded state
+            highlightElement.dataset.excludeFromPdf = isChecked ? 'true' : 'false';
+            button.dataset.excluded = isChecked;
+
+            // Update button appearance
+            if (isChecked) {
+                // Excluded state - green "Add" button
+                button.style.background = '#28a745';
+                button.textContent = 'Add to PDF export';
+                button.onmouseover = function() { this.style.background = '#218838'; };
+                button.onmouseout = function() { this.style.background = '#28a745'; };
+            } else {
+                // Included state - red "Remove" button
+                button.style.background = '#dc3545';
+                button.textContent = 'Remove from PDF export';
+                button.onmouseover = function() { this.style.background = '#c82333'; };
+                button.onmouseout = function() { this.style.background = '#dc3545'; };
+            }
+
+            // Update entry styling
+            const entryDiv = button.closest('div[style*="margin: 20px 0"]');
+            if (entryDiv) {
+                if (isChecked) {
+                    entryDiv.style.textDecoration = 'line-through';
+                    entryDiv.style.opacity = '0.6';
+                } else {
+                    entryDiv.style.textDecoration = 'none';
+                    entryDiv.style.opacity = '1';
+                }
+            }
+        });
+
+        console.log(`✅ Updated all highlights - ${isChecked ? 'excluded' : 'included'} from PDF`);
+    });
+
+    // Set initial checkbox state based on current highlights
+    const contentInner = document.getElementById(`${contentId}-inner`);
+    if (contentInner) {
+        const toggleButtons = contentInner.querySelectorAll('.toggle-pdf-btn');
+        if (toggleButtons.length > 0) {
+            const allExcluded = Array.from(toggleButtons).every(btn => btn.dataset.excluded === 'true');
+            checkbox.checked = allExcluded;
+        }
+    }
+}
+
+/**
  * Setup toggle PDF button listeners for highlights
  * @param {HTMLElement} container - Container element with toggle buttons
  */
@@ -855,10 +956,34 @@ function setupTogglePDFListeners(container) {
             }
 
             console.log(`✅ Toggled highlight PDF inclusion`);
+
+            // Update the remove-all checkbox state
+            updateRemoveAllCheckboxState(container);
         });
     });
 
     console.log(`✅ Setup ${toggleButtons.length} toggle PDF button listeners`);
+}
+
+/**
+ * Update the remove-all checkbox state based on current toggle button states
+ * @param {HTMLElement} container - Container element with toggle buttons
+ */
+function updateRemoveAllCheckboxState(container) {
+    // Find the content ID from the container
+    const contentInner = container.closest('[id$="-inner"]');
+    if (!contentInner) return;
+
+    const contentId = contentInner.id.replace('-inner', '');
+    const checkbox = document.getElementById(`${contentId}-remove-all`);
+    if (!checkbox) return;
+
+    // Check if all toggle buttons are in excluded state
+    const toggleButtons = container.querySelectorAll('.toggle-pdf-btn');
+    const allExcluded = Array.from(toggleButtons).every(btn => btn.dataset.excluded === 'true');
+
+    // Update checkbox without triggering the change event
+    checkbox.checked = allExcluded;
 }
 
 /**
