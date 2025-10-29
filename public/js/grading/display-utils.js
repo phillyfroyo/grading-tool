@@ -665,6 +665,11 @@ function createHighlightsLegendHTML(highlightsData) {
                 feedbackHTML += `<div style="margin-top: 8px; font-style: italic; color: #999; padding-left: 20px;"><em>Click the highlighted text to add correction and explanation</em></div>`;
             }
 
+            console.log(`📝 Creating button for highlight ${highlight.number}:`, {
+                elementId: highlight.elementId,
+                hasElementId: !!highlight.elementId
+            });
+
             const highlightHTML = `
                 <div style="
                     margin: 20px 0;
@@ -680,7 +685,7 @@ function createHighlightsLegendHTML(highlightsData) {
                     </div>
                     <button
                         class="exclude-from-pdf-btn"
-                        data-element-id="${highlight.elementId}"
+                        data-element-id="${highlight.elementId || ''}"
                         style="
                             position: absolute;
                             top: 10px;
@@ -768,11 +773,20 @@ function refreshHighlightsSection(contentId) {
  * @param {HTMLElement} container - Container element with exclude buttons
  */
 function setupExcludeFromPDFListeners(container) {
+    console.log('🔧 setupExcludeFromPDFListeners called with container:', container);
     const excludeButtons = container.querySelectorAll('.exclude-from-pdf-btn');
+    console.log(`🔍 Found ${excludeButtons.length} exclude buttons`);
 
-    excludeButtons.forEach(button => {
-        button.addEventListener('click', function() {
+    excludeButtons.forEach((button, index) => {
+        console.log(`🎯 Setting up listener for button ${index + 1}:`, {
+            elementId: button.dataset.elementId,
+            button: button
+        });
+
+        button.addEventListener('click', function(event) {
+            console.log('🖱️ BUTTON CLICKED!', event);
             const elementId = this.dataset.elementId;
+            console.log('📋 Element ID from button:', elementId);
 
             if (!elementId) {
                 console.error('No element ID found for exclude button');
@@ -780,9 +794,12 @@ function setupExcludeFromPDFListeners(container) {
             }
 
             // Confirm exclusion
+            console.log('📢 Showing confirmation dialog...');
             if (!confirm('Remove this highlight from the PDF export? The highlight will remain in the color-coded essay.')) {
+                console.log('❌ User cancelled');
                 return;
             }
+            console.log('✅ User confirmed');
 
             // Find the highlight element in the essay
             const highlightElement = document.getElementById(elementId);
