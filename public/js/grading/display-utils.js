@@ -191,9 +191,15 @@ function createStudentRowHTML(essay, index, statusIcon) {
                 transition: background-color 0.2s;
             " onmouseover="this.style.backgroundColor='#f8f9fa'"
                onmouseout="this.style.backgroundColor='#ffffff'">
-                <div style="display: flex; align-items: center; gap: 12px;">
-                    <span id="highlights-tab-${index}-arrow" style="font-size: 18px; transition: transform 0.3s; display: inline-block;">▼</span>
-                    <span style="font-weight: 600; font-size: 18px;">Manage 'Highlights and Corrections' as seen on the exported PDF</span>
+                <div style="display: flex; flex-direction: column; gap: 8px; flex: 1;">
+                    <div style="display: flex; align-items: center; gap: 12px;">
+                        <span id="highlights-tab-${index}-arrow" style="font-size: 18px; transition: transform 0.3s; display: inline-block;">▼</span>
+                        <span style="font-weight: 600; font-size: 18px;">Manage 'Highlights and Corrections' as seen on the exported PDF</span>
+                    </div>
+                    <label style="display: flex; align-items: center; gap: 8px; margin-left: 30px; font-size: 14px; cursor: pointer;" onclick="event.stopPropagation();">
+                        <input type="checkbox" id="highlights-tab-${index}-remove-all" class="remove-all-checkbox" data-content-id="highlights-tab-content-${index}" style="cursor: pointer; width: 16px; height: 16px;">
+                        <span style="color: #666;">Remove all from PDF</span>
+                    </label>
                 </div>
             </div>
             <div id="highlights-tab-${index}" class="tab-content" style="
@@ -420,7 +426,9 @@ window.DisplayUtilsModule = {
     createSuccessHTML,
     createWarningHTML,
     createInfoHTML,
-    formatColoredScore
+    formatColoredScore,
+    createHighlightsLegendHTML,
+    setupTogglePDFListeners
 };
 
 /**

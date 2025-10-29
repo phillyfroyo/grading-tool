@@ -150,24 +150,145 @@ function loadHighlightsTab(index) {
     if (contentDiv.dataset.loaded === 'true') return;
 
     // Get essay container to extract highlights
-    const essayContainer = document.getElementById(`batch-essay-${index}`);
+    const essayContainer = document.querySelector(`.formatted-essay-content[data-essay-index="${index}"]`);
     if (!essayContainer) {
-        contentDiv.innerHTML = '<p style="color: #999;">Essay content not loaded yet.</p>';
+        contentDiv.innerHTML = '<p style="color: #999;">Essay content not loaded yet. Please expand the grade details first.</p>';
         return;
     }
 
-    // Generate highlights UI
-    if (window.DisplayUtilsModule && window.DisplayUtilsModule.createHighlightsUISection) {
-        const highlightsHTML = window.DisplayUtilsModule.createHighlightsUISection(index);
-        contentDiv.innerHTML = highlightsHTML;
-        contentDiv.dataset.loaded = 'true';
+    // Extract highlights directly - use broader selector to find ALL highlights
+    const highlights = essayContainer.querySelectorAll('mark[data-category], mark[data-type], span[data-category], span[data-type]');
 
-        // Setup event listeners for the highlights section
-        if (window.DisplayUtilsModule.setupHighlightChangeListeners) {
-            window.DisplayUtilsModule.setupHighlightChangeListeners();
+    if (highlights.length === 0) {
+        contentDiv.innerHTML = '<p style="color: #999;">No highlights found in the essay.</p>';
+        contentDiv.dataset.loaded = 'true';
+        return;
+    }
+
+    // Build highlights data
+    const highlightsData = [];
+    let highlightNumber = 1;
+
+    highlights.forEach((mark, markIndex) => {
+        try {
+            // Ensure highlight has an ID
+            if (!mark.id || mark.id.trim() === '') {
+                mark.id = `highlight-${index}-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+            }
+
+            const categories = (mark.dataset.category || mark.dataset.type || 'highlight').split(',').map(c => c.trim());
+            const correction = mark.dataset.correction || mark.dataset.message || '';
+            const explanation = mark.dataset.explanation || '';
+            const notes = mark.dataset.notes || mark.title || '';
+            const originalText = mark.dataset.originalText || mark.textContent || '';
+
+            // Validate we have text
+            if (!originalText || originalText.trim() === '') {
+                return;
+            }
+
+            highlightsData.push({
+                number: highlightNumber,
+                text: originalText.trim(),
+                categories: categories,
+                correction: correction.trim(),
+                explanation: explanation.trim(),
+                notes: notes.trim(),
+                elementId: mark.id,
+                isExcluded: mark.dataset.excludeFromPdf === 'true'
+            });
+
+            highlightNumber++;
+        } catch (error) {
+            console.error(`Error processing highlight ${markIndex + 1}:`, error);
         }
+    });
+
+    // Generate HTML directly without nested wrapper
+    if (highlightsData.length === 0) {
+        contentDiv.innerHTML = '<p style="color: #999;">No highlights with text found.</p>';
     } else {
-        contentDiv.innerHTML = '<p style="color: #999;">Highlights module not available.</p>';
+        // Add intro text
+        let html = `
+            <p style="margin-bottom: 20px; font-style: italic; color: #666;">
+                The following numbered highlights correspond to corrections and feedback in the essay above.
+            </p>
+        `;
+
+        // Use the existing createHighlightsLegendHTML function from DisplayUtilsModule
+        if (window.DisplayUtilsModule && window.DisplayUtilsModule.createHighlightsLegendHTML) {
+            html += window.DisplayUtilsModule.createHighlightsLegendHTML(highlightsData);
+        }
+
+        contentDiv.innerHTML = html;
+
+        // Setup toggle PDF button listeners
+        if (window.DisplayUtilsModule && window.DisplayUtilsModule.setupTogglePDFListeners) {
+            window.DisplayUtilsModule.setupTogglePDFListeners(contentDiv);
+        }
+
+        // Setup remove-all checkbox listener
+        const checkbox = document.getElementById(`highlights-tab-${index}-remove-all`);
+        if (checkbox) {
+            setupRemoveAllCheckboxForTab(checkbox, contentDiv);
+        }
+    }
+
+    contentDiv.dataset.loaded = 'true';
+}
+
+/**
+ * Setup remove-all checkbox for a highlights tab
+ * @param {HTMLElement} checkbox - The checkbox element
+ * @param {HTMLElement} contentDiv - The content container
+ */
+function setupRemoveAllCheckboxForTab(checkbox, contentDiv) {
+    checkbox.addEventListener('change', function() {
+        const isChecked = this.checked;
+        const toggleButtons = contentDiv.querySelectorAll('.toggle-pdf-btn');
+
+        toggleButtons.forEach(button => {
+            const elementId = button.dataset.elementId;
+            const highlightElement = document.getElementById(elementId);
+
+            if (!highlightElement) return;
+
+            // Set excluded state
+            highlightElement.dataset.excludeFromPdf = isChecked ? 'true' : 'false';
+            button.dataset.excluded = isChecked;
+
+            // Update button appearance
+            if (isChecked) {
+                button.style.background = '#28a745';
+                button.textContent = 'Add to PDF export';
+                button.onmouseover = function() { this.style.background = '#218838'; };
+                button.onmouseout = function() { this.style.background = '#28a745'; };
+            } else {
+                button.style.background = '#dc3545';
+                button.textContent = 'Remove from PDF export';
+                button.onmouseover = function() { this.style.background = '#c82333'; };
+                button.onmouseout = function() { this.style.background = '#dc3545'; };
+            }
+
+            // Update entry styling
+            const entryDiv = button.closest('div[style*="margin: 20px 0"]');
+            if (entryDiv) {
+                if (isChecked) {
+                    entryDiv.style.textDecoration = 'line-through';
+                    entryDiv.style.opacity = '0.6';
+                } else {
+                    entryDiv.style.textDecoration = 'none';
+                    entryDiv.style.opacity = '1';
+                }
+            }
+        });
+    });
+
+    // Set initial checkbox state
+    const toggleButtons = contentDiv.querySelectorAll('.toggle-pdf-btn');
+    if (toggleButtons.length > 0) {
+        const allExcluded = Array.from(toggleButtons).every(btn => btn.dataset.excluded === 'true');
+        checkbox.checked = allExcluded;
     }
 }
 
