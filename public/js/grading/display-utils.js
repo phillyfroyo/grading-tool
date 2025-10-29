@@ -79,15 +79,6 @@ function createBatchEssayHTML(formatted, index) {
             <!-- Color Legend -->
             ${createColorLegend()}
         </div>
-
-        <!-- Highlights and Corrections Section -->
-        ${createHighlightsUISection(index)}
-
-        <div style="margin-top: 25px; text-align: center;">
-            <button onclick="downloadIndividualEssay(${index})" style="background: #007bff; color: white; border: none; padding: 20px 32px; border-radius: 8px; font-size: 20px; cursor: pointer; font-weight: 600;">
-                Download PDF
-            </button>
-        </div>
     `;
 }
 
@@ -141,50 +132,93 @@ function createColorLegend() {
  */
 function createStudentRowHTML(essay, index, statusIcon) {
     const backgroundColor = essay.success ? '#f8f9fa' : '#fff5f5';
-    const hoverColor = essay.success ? '#e9ecef' : '#fed7d7';
     const textColor = essay.success ? '#333' : '#721c24';
 
     return `
         <div class="student-row" style="border: 2px solid #ddd; margin: 16px 0; border-radius: 8px; overflow: hidden;">
-            <div class="student-header" onclick="toggleStudentDetails(${index})" style="
+            <!-- Student Name Header (non-clickable) -->
+            <div class="student-header-static" style="
                 padding: 24px 30px;
                 background: ${backgroundColor};
-                cursor: pointer;
                 display: flex;
                 align-items: center;
                 justify-content: space-between;
-                transition: background-color 0.2s;
                 font-size: 22px;
                 font-weight: 500;
                 min-height: 60px;
-                user-select: none;
-            " onmouseover="this.style.backgroundColor='${hoverColor}'"
-               onmouseout="this.style.backgroundColor='${backgroundColor}'">
+                border-bottom: 1px solid #ddd;
+            ">
                 <div style="display: flex; align-items: center; gap: 15px; flex: 1; min-width: 0;">
-                    <span id="student-arrow-${index}" style="font-size: 20px; transition: transform 0.3s; display: inline-block;">▼</span>
                     <span style="font-size: 28px;">${statusIcon}</span>
                     <span style="font-weight: 600; color: ${textColor}; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: 24px;">${essay.studentName}</span>
                     ${!essay.success ? '<span style="color: #721c24; font-size: 20px; white-space: nowrap; font-weight: 500;">(Failed)</span>' : ''}
                 </div>
                 <div style="display: flex; align-items: center; gap: 20px; flex-shrink: 0;">
-                    <label style="display: flex; align-items: center; gap: 10px; margin: 0; cursor: pointer; pointer-events: auto;" onclick="event.stopPropagation();">
+                    <label style="display: flex; align-items: center; gap: 10px; margin: 0; cursor: pointer;" onclick="event.stopPropagation();">
                         <input type="checkbox" class="mark-complete-checkbox" data-student-index="${index}" style="margin: 0; transform: scale(2);">
                         <span style="font-size: 20px; color: #666; white-space: nowrap; font-weight: 600;">Mark Complete</span>
                     </label>
-                    ${essay.success ? `<button onclick="event.stopPropagation(); downloadIndividualEssay(${index})" style="background: #007bff; color: white; border: none; padding: 16px 24px; border-radius: 8px; font-size: 18px; cursor: pointer; white-space: nowrap; pointer-events: auto; font-weight: 600;">Download</button>` : ''}
+                    ${essay.success ? `<button onclick="downloadIndividualEssay(${index})" style="background: #007bff; color: white; border: none; padding: 16px 24px; border-radius: 8px; font-size: 18px; cursor: pointer; white-space: nowrap; font-weight: 600;">Download</button>` : ''}
                 </div>
             </div>
-            <div id="student-details-${index}" class="student-details" style="
+
+            ${essay.success ? `
+            <!-- Tab 1: Grade Details -->
+            <div class="tab-header" onclick="toggleTab('grade-details-${index}', ${index})" style="
+                padding: 15px 30px;
+                background: #ffffff;
+                cursor: pointer;
+                display: flex;
+                align-items: center;
+                justify-content: space-between;
+                border-bottom: 1px solid #ddd;
+                user-select: none;
+                transition: background-color 0.2s;
+            " onmouseover="this.style.backgroundColor='#f8f9fa'"
+               onmouseout="this.style.backgroundColor='#ffffff'">
+                <div style="display: flex; align-items: center; gap: 12px;">
+                    <span id="grade-details-arrow-${index}" style="font-size: 18px; transition: transform 0.3s; display: inline-block;">▼</span>
+                    <span style="font-weight: 600; font-size: 18px;">Grade Details</span>
+                </div>
+            </div>
+            <div id="grade-details-${index}" class="tab-content" style="
                 max-height: 0;
                 overflow: hidden;
-                border-top: 1px solid #ddd;
                 transition: max-height 0.3s ease-out;
+                background: white;
             ">
-                ${essay.success ?
-                    `<div id="batch-essay-${index}" style="padding: 15px;">Loading formatted result...</div>` :
-                    `<div style="padding: 15px; color: #721c24;">Error: ${essay.error}</div>`
-                }
+                <div id="batch-essay-${index}" style="padding: 15px;">Loading formatted result...</div>
             </div>
+
+            <!-- Tab 2: Highlights Management -->
+            <div class="tab-header" onclick="toggleTab('highlights-tab-${index}', ${index})" style="
+                padding: 15px 30px;
+                background: #ffffff;
+                cursor: pointer;
+                display: flex;
+                align-items: center;
+                justify-content: space-between;
+                border-bottom: 1px solid #ddd;
+                user-select: none;
+                transition: background-color 0.2s;
+            " onmouseover="this.style.backgroundColor='#f8f9fa'"
+               onmouseout="this.style.backgroundColor='#ffffff'">
+                <div style="display: flex; align-items: center; gap: 12px;">
+                    <span id="highlights-tab-arrow-${index}" style="font-size: 18px; transition: transform 0.3s; display: inline-block;">▼</span>
+                    <span style="font-weight: 600; font-size: 18px;">Manage Highlights and Corrections</span>
+                </div>
+            </div>
+            <div id="highlights-tab-${index}" class="tab-content" style="
+                max-height: 0;
+                overflow: hidden;
+                transition: max-height 0.3s ease-out;
+                background: white;
+            ">
+                <div id="highlights-tab-content-${index}" style="padding: 20px;">Loading highlights...</div>
+            </div>
+            ` : `
+            <div style="padding: 15px; color: #721c24;">Error: ${essay.error}</div>
+            `}
         </div>
     `;
 }

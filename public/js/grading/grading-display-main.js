@@ -61,6 +61,91 @@ function toggleStudentDetails(index) {
 }
 
 /**
+ * Toggle tab (Grade Details or Highlights)
+ * @param {string} tabId - ID of the tab to toggle
+ * @param {number} index - Student index
+ */
+function toggleTab(tabId, index) {
+    const tab = document.getElementById(tabId);
+    const arrow = document.getElementById(`${tabId}-arrow`);
+
+    if (!tab) return;
+
+    // Determine which tab this is
+    const isGradeDetails = tabId.includes('grade-details');
+    const isHighlightsTab = tabId.includes('highlights-tab');
+
+    // Get the other tab
+    const otherTabId = isGradeDetails ? `highlights-tab-${index}` : `grade-details-${index}`;
+    const otherTab = document.getElementById(otherTabId);
+    const otherArrow = document.getElementById(`${otherTabId}-arrow`);
+
+    // Check if currently closed
+    const isCurrentlyClosed = tab.style.maxHeight === '0px' || tab.style.maxHeight === '' || tab.style.maxHeight === '0';
+
+    if (isCurrentlyClosed) {
+        // Close the other tab first
+        if (otherTab) {
+            otherTab.style.maxHeight = '0px';
+            if (otherArrow) otherArrow.style.transform = 'rotate(0deg)';
+        }
+
+        // Open this tab
+        tab.style.maxHeight = tab.scrollHeight + 2000 + 'px';
+        if (arrow) arrow.style.transform = 'rotate(180deg)';
+
+        // Load content if needed
+        if (isGradeDetails) {
+            loadEssayDetails(index);
+        } else if (isHighlightsTab) {
+            loadHighlightsTab(index);
+        }
+
+        // Adjust height after content loads
+        setTimeout(() => {
+            tab.style.maxHeight = tab.scrollHeight + 2000 + 'px';
+        }, 350);
+    } else {
+        // Close this tab
+        tab.style.maxHeight = '0px';
+        if (arrow) arrow.style.transform = 'rotate(0deg)';
+    }
+}
+
+/**
+ * Load highlights tab content
+ * @param {number} index - Essay index
+ */
+function loadHighlightsTab(index) {
+    const contentDiv = document.getElementById(`highlights-tab-content-${index}`);
+    if (!contentDiv) return;
+
+    // Check if already loaded
+    if (contentDiv.dataset.loaded === 'true') return;
+
+    // Get essay container to extract highlights
+    const essayContainer = document.getElementById(`batch-essay-${index}`);
+    if (!essayContainer) {
+        contentDiv.innerHTML = '<p style="color: #999;">Essay content not loaded yet.</p>';
+        return;
+    }
+
+    // Generate highlights UI
+    if (window.DisplayUtilsModule && window.DisplayUtilsModule.createHighlightsUISection) {
+        const highlightsHTML = window.DisplayUtilsModule.createHighlightsUISection(index);
+        contentDiv.innerHTML = highlightsHTML;
+        contentDiv.dataset.loaded = 'true';
+
+        // Setup event listeners for the highlights section
+        if (window.DisplayUtilsModule.setupHighlightChangeListeners) {
+            window.DisplayUtilsModule.setupHighlightChangeListeners();
+        }
+    } else {
+        contentDiv.innerHTML = '<p style="color: #999;">Highlights module not available.</p>';
+    }
+}
+
+/**
  * Load essay details for batch result expansion
  * @param {number} index - Essay index
  */
