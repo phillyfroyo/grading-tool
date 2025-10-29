@@ -79,6 +79,10 @@ function createBatchEssayHTML(formatted, index) {
             <!-- Color Legend -->
             ${createColorLegend()}
         </div>
+
+        <div style="margin-top: 20px;">
+            <button onclick="downloadIndividualEssay(${index})" style="background: #007bff; color: white; border: none; padding: 16px 24px; border-radius: 8px; font-size: 18px; cursor: pointer; font-weight: 600;">Export to PDF</button>
+        </div>
     `;
 }
 

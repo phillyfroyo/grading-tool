@@ -208,16 +208,11 @@ function loadHighlightsTab(index) {
     if (highlightsData.length === 0) {
         contentDiv.innerHTML = '<p style="color: #999;">No highlights with text found.</p>';
     } else {
-        // Add intro text
-        let html = `
-            <p style="margin-bottom: 20px; font-style: italic; color: #666;">
-                The following numbered highlights correspond to corrections and feedback in the essay above.
-            </p>
-        `;
-
         // Use the existing createHighlightsLegendHTML function from DisplayUtilsModule
+        // (it includes the intro text)
+        let html = '';
         if (window.DisplayUtilsModule && window.DisplayUtilsModule.createHighlightsLegendHTML) {
-            html += window.DisplayUtilsModule.createHighlightsLegendHTML(highlightsData);
+            html = window.DisplayUtilsModule.createHighlightsLegendHTML(highlightsData);
         }
 
         contentDiv.innerHTML = html;
