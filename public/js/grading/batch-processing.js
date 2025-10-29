@@ -284,6 +284,7 @@ function displayBatchResults(batchResult, originalData) {
  */
 function toggleStudentDetails(index) {
     const detailsDiv = document.getElementById(`student-details-${index}`);
+    const arrow = document.getElementById(`student-arrow-${index}`);
 
     if (!detailsDiv) return;
 
@@ -291,12 +292,21 @@ function toggleStudentDetails(index) {
     const isCurrentlyClosed = detailsDiv.style.maxHeight === '0px' || detailsDiv.style.maxHeight === '' || detailsDiv.style.maxHeight === '0';
 
     if (isCurrentlyClosed) {
-        // Open the dropdown
-        detailsDiv.style.maxHeight = '5000px'; // Large enough for any essay content
+        // Open the dropdown with smooth animation
+        detailsDiv.style.maxHeight = detailsDiv.scrollHeight + 'px';
+        if (arrow) arrow.style.transform = 'rotate(180deg)';
         loadEssayDetails(index);
+
+        // After content loads, adjust height if needed
+        setTimeout(() => {
+            if (detailsDiv.scrollHeight > parseInt(detailsDiv.style.maxHeight)) {
+                detailsDiv.style.maxHeight = detailsDiv.scrollHeight + 'px';
+            }
+        }, 100);
     } else {
         // Close the dropdown
         detailsDiv.style.maxHeight = '0px';
+        if (arrow) arrow.style.transform = 'rotate(0deg)';
     }
 }
 
@@ -512,6 +522,12 @@ function loadEssayDetails(index) {
                         console.log('🔧 Setting up batch editable elements for essay', index);
                         window.SingleResultModule.setupBatchEditableElements(essay.result, originalData, index);
                     }
+
+                    // Adjust height after all content is loaded
+                    const detailsDiv = document.getElementById(`student-details-${index}`);
+                    if (detailsDiv && detailsDiv.style.maxHeight !== '0px') {
+                        detailsDiv.style.maxHeight = detailsDiv.scrollHeight + 'px';
+                    }
                 }, 200); // Slightly longer delay to ensure DOM is ready
             } else {
                 const errorHTML = window.DisplayUtilsModule ?
@@ -719,6 +735,49 @@ function createBatchEssayHTMLFallback(formatted, index) {
             </div>
         </div>
     `;
+}
+
+/**
+ * Adjust student detail height after content changes
+ * @param {number} index - Student index
+ */
+function adjustStudentDetailHeight(index) {
+    const detailsDiv = document.getElementById(`student-details-${index}`);
+    if (detailsDiv && detailsDiv.style.maxHeight !== '0px' && detailsDiv.style.maxHeight !== '') {
+        // Only adjust if currently expanded
+        setTimeout(() => {
+            detailsDiv.style.maxHeight = detailsDiv.scrollHeight + 'px';
+        }, 50);
+    }
+}
+
+/**
+ * Setup event listeners for highlight changes in batch processing
+ */
+function setupBatchHighlightListeners() {
+    if (!window.eventBus) return;
+
+    // Listen for highlight updates and removals
+    window.eventBus.on('highlight:updated', () => {
+        // Check all student details and adjust heights
+        for (let i = 0; i < 50; i++) {
+            adjustStudentDetailHeight(i);
+        }
+    });
+
+    window.eventBus.on('highlight:removed', () => {
+        // Check all student details and adjust heights
+        for (let i = 0; i < 50; i++) {
+            adjustStudentDetailHeight(i);
+        }
+    });
+}
+
+// Setup event listeners when module loads
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', setupBatchHighlightListeners);
+} else {
+    setupBatchHighlightListeners();
 }
 
 // Export functions for module usage

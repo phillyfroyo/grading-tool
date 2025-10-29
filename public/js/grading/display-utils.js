@@ -31,6 +31,10 @@ function createSingleEssayHTML(studentName, formatted) {
             <!-- Color Legend -->
             ${createColorLegend()}
         </div>
+
+        <!-- Highlights and Corrections Section -->
+        ${createHighlightsUISection()}
+
         <div style="margin-top: 20px;">
             <button data-action="export-pdf">Export to PDF</button>
         </div>
@@ -75,6 +79,10 @@ function createBatchEssayHTML(formatted, index) {
             <!-- Color Legend -->
             ${createColorLegend()}
         </div>
+
+        <!-- Highlights and Corrections Section -->
+        ${createHighlightsUISection(index)}
+
         <div style="margin-top: 25px; text-align: center;">
             <button onclick="downloadIndividualEssay(${index})" style="background: #007bff; color: white; border: none; padding: 20px 32px; border-radius: 8px; font-size: 20px; cursor: pointer; font-weight: 600;">
                 Download PDF
@@ -149,9 +157,11 @@ function createStudentRowHTML(essay, index, statusIcon) {
                 font-size: 22px;
                 font-weight: 500;
                 min-height: 60px;
+                user-select: none;
             " onmouseover="this.style.backgroundColor='${hoverColor}'"
                onmouseout="this.style.backgroundColor='${backgroundColor}'">
                 <div style="display: flex; align-items: center; gap: 15px; flex: 1; min-width: 0;">
+                    <span id="student-arrow-${index}" style="font-size: 20px; transition: transform 0.3s; display: inline-block;">▼</span>
                     <span style="font-size: 28px;">${statusIcon}</span>
                     <span style="font-weight: 600; color: ${textColor}; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: 24px;">${essay.studentName}</span>
                     ${!essay.success ? '<span style="color: #721c24; font-size: 20px; white-space: nowrap; font-weight: 500;">(Failed)</span>' : ''}
@@ -168,7 +178,7 @@ function createStudentRowHTML(essay, index, statusIcon) {
                 max-height: 0;
                 overflow: hidden;
                 border-top: 1px solid #ddd;
-                transition: max-height 0.3s ease-in-out;
+                transition: max-height 0.3s ease-out;
             ">
                 ${essay.success ?
                     `<div id="batch-essay-${index}" style="padding: 15px;">Loading formatted result...</div>` :
@@ -312,12 +322,60 @@ function formatColoredScore(score, maxScore) {
     return `<span style="color: ${color}; font-weight: bold;">${score}/${maxScore} (${percentage}%)</span>`;
 }
 
+/**
+ * Create collapsible highlights and corrections section for UI
+ * @param {number|string} essayIndex - Optional essay index for batch processing
+ * @returns {string} HTML string for highlights section
+ */
+function createHighlightsUISection(essayIndex = '') {
+    const containerId = essayIndex !== '' ? `highlights-section-${essayIndex}` : 'highlights-section';
+    const contentId = essayIndex !== '' ? `highlights-content-${essayIndex}` : 'highlights-content';
+
+    return `
+        <div style="margin: 20px 0; border: 1px solid #ddd; border-radius: 8px; overflow: hidden;">
+            <div
+                onclick="toggleHighlightsSection('${contentId}')"
+                style="
+                    background: #f8f9fa;
+                    padding: 15px 20px;
+                    cursor: pointer;
+                    display: flex;
+                    justify-content: space-between;
+                    align-items: center;
+                    border-bottom: 1px solid #ddd;
+                    user-select: none;
+                "
+            >
+                <h3 style="margin: 0; font-size: 18px; font-weight: 600;">
+                    Manage 'Highlights and Corrections' as seen on the exported PDF
+                </h3>
+                <span id="${contentId}-arrow" style="font-size: 20px; transition: transform 0.3s;">▼</span>
+            </div>
+            <div
+                id="${contentId}"
+                style="
+                    max-height: 0;
+                    overflow: hidden;
+                    transition: max-height 0.3s ease-out;
+                    background: white;
+                "
+            >
+                <div id="${contentId}-inner" style="padding: 20px;">
+                    <!-- Content will be populated dynamically -->
+                    <p style="color: #666; font-style: italic;">Loading highlights...</p>
+                </div>
+            </div>
+        </div>
+    `;
+}
+
 // Export functions for module usage
 window.DisplayUtilsModule = {
     createSingleEssayHTML,
     createBatchEssayHTML,
     createCategoryButtons,
     createColorLegend,
+    createHighlightsUISection,
     createStudentRowHTML,
     createBatchResultsHTML,
     createLoadingSpinner,
@@ -327,3 +385,405 @@ window.DisplayUtilsModule = {
     createInfoHTML,
     formatColoredScore
 };
+
+/**
+ * Toggle the highlights and corrections section
+ * @param {string} contentId - ID of the content div to toggle
+ */
+function toggleHighlightsSection(contentId) {
+    const content = document.getElementById(contentId);
+    const arrow = document.getElementById(`${contentId}-arrow`);
+
+    if (!content || !arrow) return;
+
+    if (content.style.maxHeight === '0px' || content.style.maxHeight === '') {
+        // Expand
+        arrow.style.transform = 'rotate(180deg)';
+
+        // First, populate content (if not already done)
+        populateHighlightsContent(contentId);
+
+        // Then set maxHeight after content is populated
+        // Use setTimeout to ensure DOM has fully rendered
+        setTimeout(() => {
+            content.style.maxHeight = content.scrollHeight + 'px';
+        }, 100);
+    } else {
+        // Collapse
+        content.style.maxHeight = '0px';
+        arrow.style.transform = 'rotate(0deg)';
+    }
+}
+
+/**
+ * Populate the highlights section with actual content
+ * @param {string} contentId - ID of the content div
+ */
+function populateHighlightsContent(contentId) {
+    const contentInner = document.getElementById(`${contentId}-inner`);
+    if (!contentInner) return;
+
+    // Check if already populated
+    if (contentInner.dataset.populated === 'true') return;
+
+    // Extract essay index from contentId if present
+    const match = contentId.match(/highlights-content-(\d+)/);
+    const essayIndex = match ? match[1] : null;
+
+    // Find the essay container
+    const essayContainer = essayIndex !== null
+        ? document.querySelector(`.formatted-essay-content[data-essay-index="${essayIndex}"]`)
+        : document.querySelector('.formatted-essay-content');
+
+    if (!essayContainer) {
+        contentInner.innerHTML = '<p style="color: #999;">No highlights found.</p>';
+        return;
+    }
+
+    // Extract highlights - use broader selector to find ALL highlights
+    const highlights = essayContainer.querySelectorAll('mark[data-category], mark[data-type], span[data-category], span[data-type]');
+
+    console.log('🔍 Looking for highlights in container:', essayContainer);
+    console.log('🔍 Found highlights:', highlights.length);
+
+    if (highlights.length === 0) {
+        contentInner.innerHTML = '<p style="color: #999;">No highlights found in the essay.</p>';
+        contentInner.dataset.populated = 'true';
+        return;
+    }
+
+    // Build highlights data
+    const highlightsData = [];
+    let highlightNumber = 1;
+
+    console.log('📋 Building highlights data from', highlights.length, 'highlight elements...');
+
+    highlights.forEach((mark, index) => {
+        try {
+            console.log(`📝 Processing highlight ${index + 1}, element:`, mark);
+            console.log(`📝 Element tagName:`, mark.tagName);
+            console.log(`📝 Element dataset:`, mark.dataset);
+
+            const categories = (mark.dataset.category || mark.dataset.type || 'highlight').split(',').map(c => c.trim());
+            const correction = mark.dataset.correction || mark.dataset.message || '';
+            const explanation = mark.dataset.explanation || '';
+            const notes = mark.dataset.notes || mark.title || '';
+            const originalText = mark.dataset.originalText || mark.textContent || '';
+
+            console.log(`📝 Highlight ${index + 1} extracted data:`, {
+                text: originalText ? (originalText.substring(0, 50) + (originalText.length > 50 ? '...' : '')) : '[empty]',
+                textLength: originalText.length,
+                correction: correction ? (correction.substring(0, 30) + '...') : '[none]',
+                explanation: explanation ? (explanation.substring(0, 30) + '...') : '[none]',
+                notes: notes ? (notes.substring(0, 30) + '...') : '[none]',
+                categories: categories,
+                categoriesType: Array.isArray(categories) ? 'array' : typeof categories
+            });
+
+            // Validate we have at least some text
+            if (!originalText || originalText.trim() === '') {
+                console.warn(`⚠️ Highlight ${index + 1} has no text, skipping`);
+                return;
+            }
+
+            // Include ALL highlights - we'll show them all, even without corrections yet
+            // Users can see what will appear in the PDF and what still needs corrections
+            const highlightData = {
+                number: highlightNumber,
+                text: originalText.trim(),
+                categories: categories,
+                correction: correction.trim(),
+                explanation: explanation.trim(),
+                notes: notes.trim()
+            };
+
+            console.log(`✅ Adding highlight ${highlightNumber} to data array:`, highlightData);
+            highlightsData.push(highlightData);
+
+            highlightNumber++;
+        } catch (error) {
+            console.error(`❌ Error processing highlight ${index + 1}:`, error);
+        }
+    });
+
+    console.log('📋 Finished building highlights data. Total:', highlightsData.length);
+
+    // Generate HTML
+    if (highlightsData.length === 0) {
+        contentInner.innerHTML = '<p style="color: #999;">No highlights with corrections or explanations found.</p>';
+        console.log('📄 Set innerHTML to "no highlights" message');
+    } else {
+        const generatedHTML = createHighlightsLegendHTML(highlightsData);
+        console.log('📄 About to set innerHTML, HTML length:', generatedHTML.length);
+        console.log('📄 Target element:', contentInner);
+        console.log('📄 Target element ID:', contentInner.id);
+
+        contentInner.innerHTML = generatedHTML;
+
+        console.log('📄 innerHTML set! Verifying...');
+        console.log('📄 contentInner.innerHTML length after setting:', contentInner.innerHTML.length);
+        console.log('📄 contentInner.children.length:', contentInner.children.length);
+        console.log('📄 contentInner first child:', contentInner.children[0]);
+
+        // Check visibility
+        const computedStyle = window.getComputedStyle(contentInner);
+        console.log('📄 Element visibility:', {
+            display: computedStyle.display,
+            visibility: computedStyle.visibility,
+            opacity: computedStyle.opacity,
+            height: computedStyle.height,
+            overflow: computedStyle.overflow
+        });
+
+        // Check parent visibility
+        const parent = contentInner.parentElement;
+        if (parent) {
+            const parentStyle = window.getComputedStyle(parent);
+            console.log('📄 Parent element:', parent);
+            console.log('📄 Parent visibility:', {
+                display: parentStyle.display,
+                maxHeight: parentStyle.maxHeight,
+                overflow: parentStyle.overflow,
+                height: parentStyle.height
+            });
+        }
+    }
+
+    contentInner.dataset.populated = 'true';
+    console.log('📄 Marked as populated');
+
+    // Recalculate parent's maxHeight to accommodate the new content
+    // Use setTimeout to ensure DOM has finished rendering
+    setTimeout(() => {
+        const content = contentInner.parentElement;
+        if (content && content.style.maxHeight && content.style.maxHeight !== '0px') {
+            console.log('📏 Recalculating parent maxHeight...');
+            console.log('📏 Old maxHeight:', content.style.maxHeight);
+            console.log('📏 New scrollHeight:', content.scrollHeight);
+            content.style.maxHeight = content.scrollHeight + 'px';
+            console.log('📏 Updated maxHeight to:', content.style.maxHeight);
+        }
+    }, 50);
+}
+
+/**
+ * Create highlights legend HTML (similar to PDF version)
+ * @param {Array} highlightsData - Array of highlight objects
+ * @returns {string} HTML string
+ */
+function createHighlightsLegendHTML(highlightsData) {
+    console.log('🎨 Creating highlights legend HTML for', highlightsData.length, 'highlights');
+    console.log('🎨 highlightsData:', highlightsData);
+
+    if (!highlightsData.length) {
+        console.log('⚠️ No highlights data, returning empty string');
+        return '';
+    }
+
+    let html = `
+        <p style="margin-bottom: 20px; font-style: italic; color: #666;">
+            The following numbered highlights correspond to corrections and feedback in the essay above.
+        </p>
+    `;
+
+    console.log('🎨 Starting forEach loop...');
+
+    try {
+        highlightsData.forEach((highlight, idx) => {
+            console.log(`🎨 Processing highlight ${idx + 1}/${highlightsData.length}:`, highlight);
+
+            // Validate highlight object
+            if (!highlight) {
+                console.error(`❌ Highlight ${idx + 1} is null or undefined`);
+                return;
+            }
+
+            if (!highlight.categories || !Array.isArray(highlight.categories)) {
+                console.error(`❌ Highlight ${idx + 1} has invalid categories:`, highlight.categories);
+                return;
+            }
+
+            // Format categories
+            const categoryNames = highlight.categories.map(cat => {
+                const catLower = (cat || '').toString().toLowerCase();
+                return catLower.charAt(0).toUpperCase() + catLower.slice(1);
+            });
+
+            console.log(`🎨 Category names for highlight ${idx + 1}:`, categoryNames);
+
+            let categoryText = '';
+            if (categoryNames.length === 1) {
+                categoryText = categoryNames[0];
+            } else if (categoryNames.length === 2) {
+                categoryText = categoryNames.join(' & ') + ' Error';
+            } else if (categoryNames.length > 2) {
+                const lastCategory = categoryNames.pop();
+                categoryText = categoryNames.join(', ') + ', & ' + lastCategory + ' Error';
+            }
+
+            // Determine CSS class for color coding
+            const primaryCategory = (highlight.categories[0] || '').toString().toLowerCase();
+            const borderColor = {
+                'grammar': '#FF8C00',
+                'vocabulary': '#00A36C',
+                'spelling': '#DC143C',
+                'mechanics': '#D3D3D3',
+                'fluency': '#87CEEB',
+                'delete': '#000000'
+            }[primaryCategory] || '#667eea';
+
+            // Entry text - escape HTML entities to prevent breaking
+            const safeText = (highlight.text || '').toString()
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#039;');
+
+            let entryText = `<span style="font-weight: bold; margin-right: 8px;">${highlight.number}.</span> You wrote "${safeText}" - ${categoryText}`;
+
+            // Add correction and explanation
+            let feedbackHTML = '';
+            let hasCorrection = false;
+            let hasExplanation = false;
+
+            const correction = (highlight.correction || '').toString();
+            const explanation = (highlight.explanation || '').toString();
+
+            // Escape HTML in correction and explanation to prevent breaking
+            const safeCorrection = correction
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#039;');
+
+            const safeExplanation = explanation
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#039;');
+
+            if (correction.trim() !== '' && !correction.includes('**no notes have been entered**')) {
+                feedbackHTML += `<div style="margin-top: 8px; font-style: italic; color: #555; padding-left: 20px;"><strong>Correction:</strong> ${safeCorrection}</div>`;
+                hasCorrection = true;
+            }
+
+            if (explanation.trim() !== '' &&
+                explanation !== correction &&
+                !explanation.includes('**no notes have been entered**')) {
+                feedbackHTML += `<div style="margin-top: 8px; font-style: italic; color: #555; padding-left: 20px;"><strong>Explanation:</strong> ${safeExplanation}</div>`;
+                hasExplanation = true;
+            }
+
+            // If no correction or explanation, show placeholder
+            if (!hasCorrection && !hasExplanation) {
+                feedbackHTML += `<div style="margin-top: 8px; font-style: italic; color: #999; padding-left: 20px;"><em>Click the highlighted text to add correction and explanation</em></div>`;
+            }
+
+            const highlightHTML = `
+                <div style="
+                    margin: 20px 0;
+                    padding: 15px;
+                    background: #f8f9fa;
+                    border-radius: 6px;
+                    border-left: 4px solid ${borderColor};
+                ">
+                    <div style="line-height: 1.6; font-size: 14px;">
+                        ${entryText}
+                        ${feedbackHTML}
+                    </div>
+                </div>
+            `;
+
+            console.log(`✅ Generated HTML for highlight ${idx + 1}, length:`, highlightHTML.length);
+            html += highlightHTML;
+        });
+    } catch (error) {
+        console.error('❌ Error in createHighlightsLegendHTML forEach:', error);
+        html += `<p style="color: red;">Error generating highlights: ${error.message}</p>`;
+    }
+
+    console.log('🎨 Final HTML length:', html.length);
+    console.log('🎨 Final HTML preview:', html.substring(0, 500) + '...');
+
+    return html;
+}
+
+/**
+ * Refresh highlights section content
+ * @param {string} contentId - ID of the content div to refresh
+ */
+function refreshHighlightsSection(contentId) {
+    const content = document.getElementById(contentId);
+    const contentInner = document.getElementById(`${contentId}-inner`);
+    if (!contentInner) return;
+
+    // Only refresh if the section is expanded (has been populated)
+    const isExpanded = content && (content.style.maxHeight !== '0px' && content.style.maxHeight !== '');
+
+    if (isExpanded) {
+        // Reset populated flag to force refresh
+        contentInner.dataset.populated = 'false';
+
+        // Repopulate the content
+        populateHighlightsContent(contentId);
+
+        // Re-adjust height after content changes
+        setTimeout(() => {
+            if (content) {
+                content.style.maxHeight = content.scrollHeight + 'px';
+            }
+        }, 50);
+    }
+}
+
+/**
+ * Setup event listeners for highlight changes
+ */
+function setupHighlightChangeListeners() {
+    if (!window.eventBus) return;
+
+    // Listen for highlight updates (when user saves edits)
+    window.eventBus.on('highlight:updated', (data) => {
+        console.log('📝 Highlight updated, refreshing sections...');
+
+        // Refresh all highlights sections (both single and batch)
+        refreshHighlightsSection('highlights-content');
+
+        // Also refresh batch essay highlights sections (check for multiple)
+        for (let i = 0; i < 50; i++) {
+            const contentId = `highlights-content-${i}`;
+            if (document.getElementById(contentId)) {
+                refreshHighlightsSection(contentId);
+            }
+        }
+    });
+
+    // Listen for highlight removals
+    window.eventBus.on('highlight:removed', (data) => {
+        console.log('🗑️ Highlight removed, refreshing sections...');
+
+        // Refresh all highlights sections
+        refreshHighlightsSection('highlights-content');
+
+        // Also refresh batch essay highlights sections
+        for (let i = 0; i < 50; i++) {
+            const contentId = `highlights-content-${i}`;
+            if (document.getElementById(contentId)) {
+                refreshHighlightsSection(contentId);
+            }
+        }
+    });
+}
+
+// Setup event listeners when module loads
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', setupHighlightChangeListeners);
+} else {
+    setupHighlightChangeListeners();
+}
+
+// Make toggle function globally available
+window.toggleHighlightsSection = toggleHighlightsSection;

@@ -496,6 +496,11 @@ function removeHighlight(element) {
 
         // Normalize the parent to merge adjacent text nodes
         parent.normalize();
+
+        // Emit event for highlight removal
+        if (window.eventBus) {
+            window.eventBus.emit('highlight:removed', { element, text });
+        }
     }
 }
 
