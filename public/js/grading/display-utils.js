@@ -860,9 +860,74 @@ function setupRemoveAllCheckbox(contentId) {
 
     console.log('🔧 Setting up remove-all checkbox for:', contentId);
 
+    // Restore checkbox state from localStorage FIRST
+    const savedState = localStorage.getItem(`removeAllFromPDF_${contentId}`);
+    if (savedState !== null) {
+        const isChecked = savedState === 'true';
+        checkbox.checked = isChecked;
+        console.log(`📥 Restored checkbox state from localStorage: ${isChecked}`);
+
+        // Apply saved state to all highlights immediately
+        const contentInner = document.getElementById(`${contentId}-inner`);
+        if (contentInner) {
+            const toggleButtons = contentInner.querySelectorAll('.toggle-pdf-btn');
+            console.log(`🔍 Applying saved state to ${toggleButtons.length} toggle buttons`);
+
+            toggleButtons.forEach(button => {
+                const elementId = button.dataset.elementId;
+                const highlightElement = document.getElementById(elementId);
+
+                if (highlightElement) {
+                    // Set excluded state based on saved checkbox state
+                    highlightElement.dataset.excludeFromPdf = isChecked ? 'true' : 'false';
+                    button.dataset.excluded = isChecked;
+
+                    // Update button appearance
+                    if (isChecked) {
+                        button.style.background = '#28a745';
+                        button.textContent = 'Add to PDF export';
+                        button.onmouseover = function() { this.style.background = '#218838'; };
+                        button.onmouseout = function() { this.style.background = '#28a745'; };
+                    } else {
+                        button.style.background = '#dc3545';
+                        button.textContent = 'Remove from PDF export';
+                        button.onmouseover = function() { this.style.background = '#c82333'; };
+                        button.onmouseout = function() { this.style.background = '#dc3545'; };
+                    }
+
+                    // Update entry styling
+                    const entryDiv = button.closest('div[style*="margin: 20px 0"]');
+                    if (entryDiv) {
+                        if (isChecked) {
+                            entryDiv.style.textDecoration = 'line-through';
+                            entryDiv.style.opacity = '0.6';
+                        } else {
+                            entryDiv.style.textDecoration = 'none';
+                            entryDiv.style.opacity = '1';
+                        }
+                    }
+                }
+            });
+        }
+    } else {
+        // No saved state - check current highlights to set initial state
+        const contentInner = document.getElementById(`${contentId}-inner`);
+        if (contentInner) {
+            const toggleButtons = contentInner.querySelectorAll('.toggle-pdf-btn');
+            if (toggleButtons.length > 0) {
+                const allExcluded = Array.from(toggleButtons).every(btn => btn.dataset.excluded === 'true');
+                checkbox.checked = allExcluded;
+            }
+        }
+    }
+
     checkbox.addEventListener('change', function() {
         const isChecked = this.checked;
         console.log(`📋 Remove-all checkbox ${isChecked ? 'CHECKED' : 'UNCHECKED'}`);
+
+        // Save state to localStorage
+        localStorage.setItem(`removeAllFromPDF_${contentId}`, isChecked.toString());
+        console.log(`💾 Saved checkbox state to localStorage: ${isChecked}`);
 
         // Find the content container
         const contentInner = document.getElementById(`${contentId}-inner`);
@@ -918,16 +983,6 @@ function setupRemoveAllCheckbox(contentId) {
 
         console.log(`✅ Updated all highlights - ${isChecked ? 'excluded' : 'included'} from PDF`);
     });
-
-    // Set initial checkbox state based on current highlights
-    const contentInner = document.getElementById(`${contentId}-inner`);
-    if (contentInner) {
-        const toggleButtons = contentInner.querySelectorAll('.toggle-pdf-btn');
-        if (toggleButtons.length > 0) {
-            const allExcluded = Array.from(toggleButtons).every(btn => btn.dataset.excluded === 'true');
-            checkbox.checked = allExcluded;
-        }
-    }
 }
 
 /**
