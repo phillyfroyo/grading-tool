@@ -1008,7 +1008,7 @@ function enhanceContentForPDF(content, studentName, originalContent = null) {
         }
     });
 
-    // Remove all no-print elements (including color legend)
+    // Remove all no-print elements
     tempDiv.querySelectorAll('.no-print').forEach(element => element.remove());
 
     // Remove "Grading Results for [student name]" heading
