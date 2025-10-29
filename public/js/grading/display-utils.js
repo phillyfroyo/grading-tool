@@ -407,11 +407,35 @@ function toggleHighlightsSection(contentId) {
         // Use setTimeout to ensure DOM has fully rendered
         setTimeout(() => {
             content.style.maxHeight = content.scrollHeight + 'px';
+
+            // CRITICAL: Also expand parent student-details div if in batch mode
+            // The highlights section is nested inside student-details, which also has maxHeight
+            const match = contentId.match(/highlights-content-(\d+)/);
+            if (match) {
+                const essayIndex = match[1];
+                const studentDetails = document.getElementById(`student-details-${essayIndex}`);
+                if (studentDetails && studentDetails.style.maxHeight !== '0px') {
+                    console.log('🔧 Expanding parent student-details to accommodate highlights');
+                    studentDetails.style.maxHeight = studentDetails.scrollHeight + 'px';
+                }
+            }
         }, 100);
     } else {
         // Collapse
         content.style.maxHeight = '0px';
         arrow.style.transform = 'rotate(0deg)';
+
+        // Also recalculate parent student-details height
+        const match = contentId.match(/highlights-content-(\d+)/);
+        if (match) {
+            const essayIndex = match[1];
+            const studentDetails = document.getElementById(`student-details-${essayIndex}`);
+            if (studentDetails && studentDetails.style.maxHeight !== '0px') {
+                setTimeout(() => {
+                    studentDetails.style.maxHeight = studentDetails.scrollHeight + 'px';
+                }, 50);
+            }
+        }
     }
 }
 
@@ -562,6 +586,17 @@ function populateHighlightsContent(contentId) {
             console.log('📏 New scrollHeight:', content.scrollHeight);
             content.style.maxHeight = content.scrollHeight + 'px';
             console.log('📏 Updated maxHeight to:', content.style.maxHeight);
+
+            // CRITICAL: Also expand parent student-details div if in batch mode
+            const match = contentId.match(/highlights-content-(\d+)/);
+            if (match) {
+                const essayIndex = match[1];
+                const studentDetails = document.getElementById(`student-details-${essayIndex}`);
+                if (studentDetails && studentDetails.style.maxHeight !== '0px') {
+                    console.log('📏 Also expanding parent student-details');
+                    studentDetails.style.maxHeight = studentDetails.scrollHeight + 'px';
+                }
+            }
         }
     }, 50);
 }
@@ -734,6 +769,16 @@ function refreshHighlightsSection(contentId) {
         setTimeout(() => {
             if (content) {
                 content.style.maxHeight = content.scrollHeight + 'px';
+
+                // Also expand parent student-details div if in batch mode
+                const match = contentId.match(/highlights-content-(\d+)/);
+                if (match) {
+                    const essayIndex = match[1];
+                    const studentDetails = document.getElementById(`student-details-${essayIndex}`);
+                    if (studentDetails && studentDetails.style.maxHeight !== '0px') {
+                        studentDetails.style.maxHeight = studentDetails.scrollHeight + 'px';
+                    }
+                }
             }
         }, 50);
     }
