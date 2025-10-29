@@ -293,6 +293,83 @@ function setupRemoveAllCheckboxForTab(checkbox, contentDiv) {
 }
 
 /**
+ * Refresh a specific highlights tab
+ * @param {number} index - Essay index
+ */
+function refreshHighlightsTab(index) {
+    const contentDiv = document.getElementById(`highlights-tab-content-${index}`);
+    const tab = document.getElementById(`highlights-tab-${index}`);
+
+    if (!contentDiv) {
+        console.log(`refreshHighlightsTab: contentDiv not found for index ${index}`);
+        return;
+    }
+
+    // Check if the tab is currently expanded
+    const isExpanded = tab && (tab.style.maxHeight !== '0px' && tab.style.maxHeight !== '');
+
+    console.log(`refreshHighlightsTab: index ${index}, isExpanded: ${isExpanded}`);
+
+    // Reset the loaded flag to force reload
+    contentDiv.dataset.loaded = 'false';
+
+    if (isExpanded) {
+        console.log(`Refreshing expanded highlights tab: ${index}`);
+        // Reload the content
+        loadHighlightsTab(index);
+
+        // Re-adjust tab height after content changes
+        setTimeout(() => {
+            if (tab) {
+                tab.style.maxHeight = Math.max(tab.scrollHeight + 100, 2000) + 'px';
+            }
+        }, 100);
+    } else {
+        console.log(`Tab ${index} is collapsed, will refresh when opened`);
+    }
+}
+
+/**
+ * Setup event listeners for highlight changes
+ */
+function setupHighlightChangeListeners() {
+    if (!window.eventBus) {
+        console.warn('EventBus not available for highlight change listeners');
+        return;
+    }
+
+    console.log('Setting up highlight change listeners for tabs');
+
+    // Listen for highlight updates (when user saves edits)
+    window.eventBus.on('highlight:updated', (data) => {
+        console.log('Received highlight:updated event', data);
+
+        // Refresh all highlights tabs (check for multiple essays)
+        for (let i = 0; i < 50; i++) {
+            const contentDiv = document.getElementById(`highlights-tab-content-${i}`);
+            if (contentDiv) {
+                refreshHighlightsTab(i);
+            }
+        }
+    });
+
+    // Listen for highlight removals
+    window.eventBus.on('highlight:removed', (data) => {
+        console.log('Received highlight:removed event', data);
+
+        // Refresh all highlights tabs
+        for (let i = 0; i < 50; i++) {
+            const contentDiv = document.getElementById(`highlights-tab-content-${i}`);
+            if (contentDiv) {
+                refreshHighlightsTab(i);
+            }
+        }
+    });
+
+    console.log('Highlight change listeners registered for tabs');
+}
+
+/**
  * Load essay details for batch result expansion
  * @param {number} index - Essay index
  */
@@ -565,5 +642,14 @@ window.GradingDisplayModule = {
     clearResults,
     initializeGradingDisplay,
     cleanupGradingDisplay,
-    getGradingDisplayStatus
+    getGradingDisplayStatus,
+    refreshHighlightsTab,
+    setupHighlightChangeListeners
 };
+
+// Setup event listeners when module loads
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', setupHighlightChangeListeners);
+} else {
+    setupHighlightChangeListeners();
+}
