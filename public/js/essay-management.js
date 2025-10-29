@@ -8,38 +8,44 @@ let essayCount = 1;
 
 /**
  * Add another essay input to the form
+ * @param {number} count - Number of essays to add (default: 1)
  */
-function addAnotherEssay() {
+function addAnotherEssay(count = 1) {
     const container = document.getElementById('essaysContainer');
     if (!container) return;
 
-    const newIndex = essayCount;
+    // Ensure count is a positive integer
+    count = Math.max(1, Math.min(50, parseInt(count) || 1));
 
-    const essayDiv = document.createElement('div');
-    essayDiv.className = 'essay-entry';
-    essayDiv.setAttribute('data-essay-index', newIndex);
-    essayDiv.style.marginTop = '20px';
-    essayDiv.style.borderTop = '1px solid #ddd';
-    essayDiv.style.paddingTop = '15px';
+    for (let i = 0; i < count; i++) {
+        const newIndex = essayCount;
 
-    essayDiv.innerHTML = `
-        <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 8px;">
-            <label style="margin: 0; font-weight: 500;">Essay ${newIndex + 1}:</label>
-            <input type="text" class="student-name" placeholder="Student name" required
-                   style="padding: 15px; border: 2px solid #ddd; border-radius: 8px; width: 300px; font-size: 22px; height: 60px; box-sizing: border-box;">
-            <input type="text" class="student-nickname" placeholder="Nickname (optional)"
-                   style="padding: 15px; border: 2px solid #ddd; border-radius: 8px; width: 200px; font-size: 22px; height: 60px; box-sizing: border-box;">
-            <button type="button" class="remove-essay-btn" onclick="removeEssay(${newIndex})"
-                    style="background: #dc3545; color: white; border: none; padding: 5px 10px; border-radius: 4px; cursor: pointer;">
-                Remove
-            </button>
-        </div>
-        <textarea class="student-text" name="studentText" rows="15" required
-                  placeholder="Paste the student's essay here..."></textarea>
-    `;
+        const essayDiv = document.createElement('div');
+        essayDiv.className = 'essay-entry';
+        essayDiv.setAttribute('data-essay-index', newIndex);
+        essayDiv.style.marginTop = '20px';
+        essayDiv.style.borderTop = '1px solid #ddd';
+        essayDiv.style.paddingTop = '15px';
 
-    container.appendChild(essayDiv);
-    essayCount++;
+        essayDiv.innerHTML = `
+            <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 8px;">
+                <label style="margin: 0; font-weight: 500;">Essay ${newIndex + 1}:</label>
+                <input type="text" class="student-name" placeholder="Student name" required
+                       style="padding: 15px; border: 2px solid #ddd; border-radius: 8px; width: 300px; font-size: 22px; height: 60px; box-sizing: border-box;">
+                <input type="text" class="student-nickname" placeholder="Nickname (optional)"
+                       style="padding: 15px; border: 2px solid #ddd; border-radius: 8px; width: 200px; font-size: 22px; height: 60px; box-sizing: border-box;">
+                <button type="button" class="remove-essay-btn" onclick="removeEssay(${newIndex})"
+                        style="background: #dc3545; color: white; border: none; padding: 5px 10px; border-radius: 4px; cursor: pointer;">
+                    Remove
+                </button>
+            </div>
+            <textarea class="student-text" name="studentText" rows="15" required
+                      placeholder="Paste the student's essay here..."></textarea>
+        `;
+
+        container.appendChild(essayDiv);
+        essayCount++;
+    }
 
     // Show remove buttons for all essays when there's more than one
     updateRemoveButtons();
@@ -209,10 +215,53 @@ function setupEssayManagement() {
     // Initialize remove buttons visibility
     updateRemoveButtons();
 
-    // Add event listener for adding essays
+    // Add event listener for adding essays with count
     const addEssayBtn = document.getElementById('addEssayBtn');
-    if (addEssayBtn) {
-        addEssayBtn.addEventListener('click', addAnotherEssay);
+    const essayCountInput = document.getElementById('essayCountInput');
+
+    if (addEssayBtn && essayCountInput) {
+        addEssayBtn.addEventListener('click', () => {
+            const count = parseInt(essayCountInput.value) || 1;
+            addAnotherEssay(count);
+        });
+    }
+
+    // Add listeners for arrow click areas
+    document.querySelectorAll('.essay-counter-arrow').forEach(arrow => {
+        arrow.addEventListener('click', function(e) {
+            e.stopPropagation();
+            e.preventDefault();
+
+            const input = document.getElementById(this.dataset.target);
+            if (input) {
+                const currentValue = parseInt(input.value) || 1;
+                const max = parseInt(input.max) || 50;
+                const min = parseInt(input.min) || 1;
+
+                let newValue;
+                if (this.classList.contains('arrow-up-area')) {
+                    newValue = Math.min(currentValue + 1, max);
+                } else if (this.classList.contains('arrow-down-area')) {
+                    newValue = Math.max(currentValue - 1, min);
+                }
+
+                if (newValue !== currentValue) {
+                    input.value = newValue;
+                }
+            }
+        });
+    });
+
+    // Validate input on change
+    if (essayCountInput) {
+        essayCountInput.addEventListener('input', () => {
+            let value = parseInt(essayCountInput.value);
+            if (isNaN(value) || value < 1) {
+                essayCountInput.value = 1;
+            } else if (value > 50) {
+                essayCountInput.value = 50;
+            }
+        });
     }
 }
 

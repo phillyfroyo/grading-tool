@@ -709,6 +709,47 @@ input[type="number"].editable-score {
     background: #c82333;
 }
 
+/* ===== ESSAY COUNTER CONTROLS ===== */
+/* Hide default number input arrows since we have our own */
+#essayCountInput::-webkit-outer-spin-button,
+#essayCountInput::-webkit-inner-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+}
+
+#essayCountInput[type=number] {
+    -moz-appearance: textfield;
+}
+
+/* Visual feedback for clickable arrow areas */
+.essay-counter-arrow.arrow-up-area:hover,
+.essay-counter-arrow.arrow-down-area:hover {
+    background: rgba(0, 123, 255, 0.1) !important;
+}
+
+/* Show arrow symbols on hover */
+.essay-count-container:hover .essay-counter-arrow.arrow-up-area::after {
+    content: '▲';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    font-size: 10px;
+    color: #666;
+    pointer-events: none;
+}
+
+.essay-count-container:hover .essay-counter-arrow.arrow-down-area::after {
+    content: '▼';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    font-size: 10px;
+    color: #666;
+    pointer-events: none;
+}
+
 /* ===== RESPONSIVE DESIGN ===== */
 @media (max-width: 768px) {
     .scoring-rubric {

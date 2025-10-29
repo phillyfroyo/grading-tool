@@ -51,8 +51,11 @@ ${category.bands.map(band => `  ${band.range}: ${band.description}`).join('\n')}
 - Layout: out_of = 15
 - Content: out_of = 15
 
+## ASSIGNMENT PROMPT:
+${classProfile.prompt || 'No specific prompt provided'}
+
 ## REQUIREMENTS:
-- Word count: ${rubric.layout_rules.target_word_count_min}-${rubric.layout_rules.target_word_count_max}
+- Word count: **See assignment prompt above for specific word count requirement**
 - Transition words: ${rubric.layout_rules.transition_words_min} minimum
 - Class vocabulary: ${classProfile.vocabulary.join(', ')}
 - Grammar structures: ${classProfile.grammar.join(', ')}
