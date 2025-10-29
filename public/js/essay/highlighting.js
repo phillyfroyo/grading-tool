@@ -342,14 +342,33 @@ function showHighlightEditModal(element, currentCategories) {
                 // Save correction and explanation to element
                 const correctionTextarea = document.getElementById('editCorrection');
                 const explanationTextarea = document.getElementById('editExplanation');
+
+                console.log('🔍 Save Debug - Textarea Elements:', {
+                    correctionTextarea: correctionTextarea,
+                    correctionValue: correctionTextarea?.value,
+                    correctionValueLength: correctionTextarea?.value?.length,
+                    explanationTextarea: explanationTextarea,
+                    explanationValue: explanationTextarea?.value,
+                    explanationValueLength: explanationTextarea?.value?.length
+                });
+
                 if (correctionTextarea) {
                     element.dataset.correction = correctionTextarea.value;
                     element.dataset.message = correctionTextarea.value; // backwards compatibility
+                    console.log('💾 Saved correction:', correctionTextarea.value);
                 }
                 if (explanationTextarea) {
                     element.dataset.explanation = explanationTextarea.value;
                     element.dataset.notes = explanationTextarea.value || correctionTextarea.value; // backwards compatibility
+                    console.log('💾 Saved explanation:', explanationTextarea.value);
                 }
+
+                console.log('📦 Final dataset values:', {
+                    correction: element.dataset.correction,
+                    explanation: element.dataset.explanation,
+                    message: element.dataset.message,
+                    notes: element.dataset.notes
+                });
 
                 // Build tooltip showing both correction and explanation
                 const correction = element.dataset.correction || '';
