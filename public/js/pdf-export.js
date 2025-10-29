@@ -1011,6 +1011,14 @@ function enhanceContentForPDF(content, studentName, originalContent = null) {
     // Remove all no-print elements
     tempDiv.querySelectorAll('.no-print').forEach(element => element.remove());
 
+    // Add spacing and border to color legend for PDF
+    const colorLegend = tempDiv.querySelector('.color-legend');
+    if (colorLegend) {
+        colorLegend.style.marginTop = '25px';
+        colorLegend.style.paddingTop = '15px';
+        colorLegend.style.borderTop = '1px solid #999';
+    }
+
     // Remove "Grading Results for [student name]" heading
     const resultsHeading = tempDiv.querySelector('h2');
     if (resultsHeading && resultsHeading.textContent.includes('Grading Results for')) {
