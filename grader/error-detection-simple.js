@@ -10,15 +10,13 @@ For each error, provide:
 3. The correction
 4. An explanation (optional - see guidelines below)
 
-Focus on clear errors that violate English rules. Don't flag stylistic preferences.
-
 **Error Categories:**
-- spelling
-- grammar
-- vocabulary
-- mechanics
-- delete (for unnecessary words that should be removed)
-- fluency
+- spelling - misspelled words
+- grammar - verb tenses, subject-verb agreement, articles
+- vocabulary - wrong word choice
+- mechanics - punctuation, capitalization, apostrophes only
+- delete - unnecessary words
+- fluency - awkward phrasing, unnatural English
 
 **Explanation Guidelines:**
 - Don't provide explanations for spelling errors
@@ -27,7 +25,9 @@ Focus on clear errors that violate English rules. Don't flag stylistic preferenc
 
 **Important:**
 - Highlight ONLY the error itself (single words for spelling, minimal phrase for grammar)
-- Be selective - missing errors is better than false positives
+- Favor atomic edits. Mark as few words as possible for each error. If only one word needs to change, mark only that one word.
+- Be selective - missing errors is better than false positives. Don't flag stylistic preferences.
+- For run-on sentences: mark the 2 words surrounding where the period should go rather than the entire run-on sentence (mechanics error).
 
 Output as a JSON array:
 {

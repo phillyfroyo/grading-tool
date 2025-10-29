@@ -93,7 +93,15 @@ Return JSON:
   "transition_words_found": ["however", "moreover"]
 }
 
-Count exact matches (case-insensitive). For vocabulary, also count words with common prefixes (un-, re-, dis-, pre-, mis-) and suffixes (-able, -ive, -ness, -ment, -tion).
+Count exact matches (case-insensitive). For vocabulary, also count:
+- Prefixes/suffixes (un-, re-, dis-, -able, -ive, -ness, -ment, -tion)
+- Verb conjugations (negotiate → negotiating, negotiated, negotiates)
+- Plural forms (responsibility → responsibilities, business → businesses)
+- Different parts of speech (important → importantly, negotiate → negotiation)
+- Comparative/superlative (big → bigger, biggest)
+- Possessive forms (company's, companies')
+- British vs American spelling (organise/organize, colour/color)
+- Misspelled versions that are recognizable
 
 STUDENT TEXT:
 """${studentText}"""`;
