@@ -407,7 +407,7 @@ function toggleHighlightsSection(contentId) {
         // This is simpler and more reliable than trying to calculate scrollHeight during transitions
         content.style.maxHeight = '10000px';
 
-        // CRITICAL: Expand parent student-details AFTER the highlights section transition completes
+        // Expand parent student-details after the highlights section transition completes
         // CSS transition is 0.3s (300ms), so wait for it to finish
         setTimeout(() => {
             const match = contentId.match(/highlights-content-(\d+)/);
@@ -415,12 +415,7 @@ function toggleHighlightsSection(contentId) {
                 const essayIndex = match[1];
                 const studentDetails = document.getElementById(`student-details-${essayIndex}`);
                 if (studentDetails && studentDetails.style.maxHeight !== '0px') {
-                    console.log('🔧 Expanding parent student-details to accommodate highlights');
-                    console.log('🔧 student-details old maxHeight:', studentDetails.style.maxHeight);
-                    console.log('🔧 student-details new scrollHeight:', studentDetails.scrollHeight);
-                    // Use large fixed value for reliability
                     studentDetails.style.maxHeight = studentDetails.scrollHeight + 2000 + 'px';
-                    console.log('🔧 student-details updated maxHeight:', studentDetails.style.maxHeight);
                 }
             }
         }, 350);
@@ -471,9 +466,6 @@ function populateHighlightsContent(contentId) {
     // Extract highlights - use broader selector to find ALL highlights
     const highlights = essayContainer.querySelectorAll('mark[data-category], mark[data-type], span[data-category], span[data-type]');
 
-    console.log('🔍 Looking for highlights in container:', essayContainer);
-    console.log('🔍 Found highlights:', highlights.length);
-
     if (highlights.length === 0) {
         contentInner.innerHTML = '<p style="color: #999;">No highlights found in the essay.</p>';
         contentInner.dataset.populated = 'true';
@@ -484,38 +476,20 @@ function populateHighlightsContent(contentId) {
     const highlightsData = [];
     let highlightNumber = 1;
 
-    console.log('📋 Building highlights data from', highlights.length, 'highlight elements...');
-
     highlights.forEach((mark, index) => {
         try {
-            console.log(`📝 Processing highlight ${index + 1}, element:`, mark);
-            console.log(`📝 Element tagName:`, mark.tagName);
-            console.log(`📝 Element dataset:`, mark.dataset);
-
             const categories = (mark.dataset.category || mark.dataset.type || 'highlight').split(',').map(c => c.trim());
             const correction = mark.dataset.correction || mark.dataset.message || '';
             const explanation = mark.dataset.explanation || '';
             const notes = mark.dataset.notes || mark.title || '';
             const originalText = mark.dataset.originalText || mark.textContent || '';
 
-            console.log(`📝 Highlight ${index + 1} extracted data:`, {
-                text: originalText ? (originalText.substring(0, 50) + (originalText.length > 50 ? '...' : '')) : '[empty]',
-                textLength: originalText.length,
-                correction: correction ? (correction.substring(0, 30) + '...') : '[none]',
-                explanation: explanation ? (explanation.substring(0, 30) + '...') : '[none]',
-                notes: notes ? (notes.substring(0, 30) + '...') : '[none]',
-                categories: categories,
-                categoriesType: Array.isArray(categories) ? 'array' : typeof categories
-            });
-
             // Validate we have at least some text
             if (!originalText || originalText.trim() === '') {
-                console.warn(`⚠️ Highlight ${index + 1} has no text, skipping`);
                 return;
             }
 
             // Include ALL highlights - we'll show them all, even without corrections yet
-            // Users can see what will appear in the PDF and what still needs corrections
             const highlightData = {
                 number: highlightNumber,
                 text: originalText.trim(),
@@ -525,83 +499,39 @@ function populateHighlightsContent(contentId) {
                 notes: notes.trim()
             };
 
-            console.log(`✅ Adding highlight ${highlightNumber} to data array:`, highlightData);
             highlightsData.push(highlightData);
-
             highlightNumber++;
         } catch (error) {
-            console.error(`❌ Error processing highlight ${index + 1}:`, error);
+            console.error(`Error processing highlight ${index + 1}:`, error);
         }
     });
-
-    console.log('📋 Finished building highlights data. Total:', highlightsData.length);
 
     // Generate HTML
     if (highlightsData.length === 0) {
         contentInner.innerHTML = '<p style="color: #999;">No highlights with corrections or explanations found.</p>';
-        console.log('📄 Set innerHTML to "no highlights" message');
     } else {
         const generatedHTML = createHighlightsLegendHTML(highlightsData);
-        console.log('📄 About to set innerHTML, HTML length:', generatedHTML.length);
-        console.log('📄 Target element:', contentInner);
-        console.log('📄 Target element ID:', contentInner.id);
-
         contentInner.innerHTML = generatedHTML;
-
-        console.log('📄 innerHTML set! Verifying...');
-        console.log('📄 contentInner.innerHTML length after setting:', contentInner.innerHTML.length);
-        console.log('📄 contentInner.children.length:', contentInner.children.length);
-        console.log('📄 contentInner first child:', contentInner.children[0]);
-
-        // Check visibility
-        const computedStyle = window.getComputedStyle(contentInner);
-        console.log('📄 Element visibility:', {
-            display: computedStyle.display,
-            visibility: computedStyle.visibility,
-            opacity: computedStyle.opacity,
-            height: computedStyle.height,
-            overflow: computedStyle.overflow
-        });
-
-        // Check parent visibility
-        const parent = contentInner.parentElement;
-        if (parent) {
-            const parentStyle = window.getComputedStyle(parent);
-            console.log('📄 Parent element:', parent);
-            console.log('📄 Parent visibility:', {
-                display: parentStyle.display,
-                maxHeight: parentStyle.maxHeight,
-                overflow: parentStyle.overflow,
-                height: parentStyle.height
-            });
-        }
     }
 
     contentInner.dataset.populated = 'true';
-    console.log('📄 Marked as populated');
 
     // Recalculate parent's maxHeight to accommodate the new content
     // Only needed if content was already expanded when we populated
-    // Use a simple timeout to ensure DOM has rendered
     setTimeout(() => {
         const content = contentInner.parentElement;
         if (content && content.style.maxHeight && content.style.maxHeight !== '0px') {
-            console.log('📏 Recalculating highlights-content maxHeight...');
-            console.log('📏 Old maxHeight:', content.style.maxHeight);
             // Use large fixed value for reliability
             content.style.maxHeight = '10000px';
-            console.log('📏 Updated maxHeight to: 10000px');
 
-            // CRITICAL: Also expand parent student-details div if in batch mode
+            // Also expand parent student-details div if in batch mode
             setTimeout(() => {
                 const match = contentId.match(/highlights-content-(\d+)/);
                 if (match) {
                     const essayIndex = match[1];
                     const studentDetails = document.getElementById(`student-details-${essayIndex}`);
                     if (studentDetails && studentDetails.style.maxHeight !== '0px') {
-                        console.log('📏 Also expanding parent student-details from populateHighlights');
                         const newHeight = studentDetails.scrollHeight + 2000;
-                        console.log('📏 student-details new maxHeight:', newHeight + 'px');
                         studentDetails.style.maxHeight = newHeight + 'px';
                     }
                 }
@@ -616,11 +546,7 @@ function populateHighlightsContent(contentId) {
  * @returns {string} HTML string
  */
 function createHighlightsLegendHTML(highlightsData) {
-    console.log('🎨 Creating highlights legend HTML for', highlightsData.length, 'highlights');
-    console.log('🎨 highlightsData:', highlightsData);
-
     if (!highlightsData.length) {
-        console.log('⚠️ No highlights data, returning empty string');
         return '';
     }
 
@@ -630,20 +556,16 @@ function createHighlightsLegendHTML(highlightsData) {
         </p>
     `;
 
-    console.log('🎨 Starting forEach loop...');
-
     try {
         highlightsData.forEach((highlight, idx) => {
-            console.log(`🎨 Processing highlight ${idx + 1}/${highlightsData.length}:`, highlight);
-
             // Validate highlight object
             if (!highlight) {
-                console.error(`❌ Highlight ${idx + 1} is null or undefined`);
+                console.error(`Highlight ${idx + 1} is null or undefined`);
                 return;
             }
 
             if (!highlight.categories || !Array.isArray(highlight.categories)) {
-                console.error(`❌ Highlight ${idx + 1} has invalid categories:`, highlight.categories);
+                console.error(`Highlight ${idx + 1} has invalid categories:`, highlight.categories);
                 return;
             }
 
@@ -652,8 +574,6 @@ function createHighlightsLegendHTML(highlightsData) {
                 const catLower = (cat || '').toString().toLowerCase();
                 return catLower.charAt(0).toUpperCase() + catLower.slice(1);
             });
-
-            console.log(`🎨 Category names for highlight ${idx + 1}:`, categoryNames);
 
             let categoryText = '';
             if (categoryNames.length === 1) {
@@ -741,16 +661,12 @@ function createHighlightsLegendHTML(highlightsData) {
                 </div>
             `;
 
-            console.log(`✅ Generated HTML for highlight ${idx + 1}, length:`, highlightHTML.length);
             html += highlightHTML;
         });
     } catch (error) {
-        console.error('❌ Error in createHighlightsLegendHTML forEach:', error);
+        console.error('Error in createHighlightsLegendHTML forEach:', error);
         html += `<p style="color: red;">Error generating highlights: ${error.message}</p>`;
     }
-
-    console.log('🎨 Final HTML length:', html.length);
-    console.log('🎨 Final HTML preview:', html.substring(0, 500) + '...');
 
     return html;
 }
@@ -804,8 +720,6 @@ function setupHighlightChangeListeners() {
 
     // Listen for highlight updates (when user saves edits)
     window.eventBus.on('highlight:updated', (data) => {
-        console.log('📝 Highlight updated, refreshing sections...');
-
         // Refresh all highlights sections (both single and batch)
         refreshHighlightsSection('highlights-content');
 
@@ -820,8 +734,6 @@ function setupHighlightChangeListeners() {
 
     // Listen for highlight removals
     window.eventBus.on('highlight:removed', (data) => {
-        console.log('🗑️ Highlight removed, refreshing sections...');
-
         // Refresh all highlights sections
         refreshHighlightsSection('highlights-content');
 
