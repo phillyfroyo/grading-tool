@@ -682,6 +682,13 @@ class ModalManager {
                     window.HighlightingModule.updateHighlightVisualStyling(element, primaryCategory);
                 }
 
+                console.log('Emitting highlight:updated event', {
+                    element,
+                    categories,
+                    correction,
+                    explanation
+                });
+
                 eventBus.emit('highlight:updated', {
                     element,
                     categories,

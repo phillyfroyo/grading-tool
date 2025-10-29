@@ -716,10 +716,17 @@ function refreshHighlightsSection(contentId) {
  * Setup event listeners for highlight changes
  */
 function setupHighlightChangeListeners() {
-    if (!window.eventBus) return;
+    if (!window.eventBus) {
+        console.warn('EventBus not available for highlight change listeners');
+        return;
+    }
+
+    console.log('Setting up highlight change listeners');
 
     // Listen for highlight updates (when user saves edits)
     window.eventBus.on('highlight:updated', (data) => {
+        console.log('Received highlight:updated event', data);
+
         // Refresh all highlights sections (both single and batch)
         refreshHighlightsSection('highlights-content');
 
@@ -734,6 +741,8 @@ function setupHighlightChangeListeners() {
 
     // Listen for highlight removals
     window.eventBus.on('highlight:removed', (data) => {
+        console.log('Received highlight:removed event', data);
+
         // Refresh all highlights sections
         refreshHighlightsSection('highlights-content');
 
@@ -745,6 +754,8 @@ function setupHighlightChangeListeners() {
             }
         }
     });
+
+    console.log('Highlight change listeners registered');
 }
 
 // Setup event listeners when module loads
