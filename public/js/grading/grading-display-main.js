@@ -111,17 +111,7 @@ function toggleTab(tabId, index) {
             if (otherArrow) otherArrow.style.transform = 'rotate(0deg)';
         }
 
-        // Open this tab
-        const newHeight = tab.scrollHeight + 2000 + 'px';
-        console.log('📏 Setting maxHeight to:', newHeight);
-        tab.style.maxHeight = newHeight;
-
-        if (arrow) {
-            console.log('🔽 Rotating arrow down');
-            arrow.style.transform = 'rotate(180deg)';
-        }
-
-        // Load content if needed
+        // Load content first
         if (isGradeDetails) {
             console.log('📄 Loading essay details...');
             loadEssayDetails(index);
@@ -130,10 +120,23 @@ function toggleTab(tabId, index) {
             loadHighlightsTab(index);
         }
 
-        // Adjust height after content loads
+        // Use a large fixed height to accommodate content
+        // This avoids the scrollHeight=0 issue with overflow:hidden
+        const newHeight = '10000px';
+        console.log('📏 Setting maxHeight to:', newHeight);
+        tab.style.maxHeight = newHeight;
+
+        if (arrow) {
+            console.log('🔽 Rotating arrow down');
+            arrow.style.transform = 'rotate(180deg)';
+        }
+
+        // Adjust height after content loads to fit perfectly
         setTimeout(() => {
-            const adjustedHeight = tab.scrollHeight + 2000 + 'px';
-            console.log('📐 Adjusting height after load:', adjustedHeight);
+            // Force a reflow to get accurate scrollHeight
+            tab.style.display = 'block';
+            const adjustedHeight = Math.max(tab.scrollHeight + 100, 2000) + 'px';
+            console.log('📐 Adjusting height after load:', adjustedHeight, 'scrollHeight:', tab.scrollHeight);
             tab.style.maxHeight = adjustedHeight;
         }, 350);
     } else {
