@@ -367,6 +367,17 @@ function showHighlightEditModal(element, currentCategories) {
                     window.HighlightingModule.updateHighlightVisualStyling(element, selectedCategories[0]);
                 }
 
+                // Emit event for highlights section to refresh
+                if (window.eventBus) {
+                    console.log('Emitting highlight:updated event from highlighting.js');
+                    window.eventBus.emit('highlight:updated', {
+                        element,
+                        categories: selectedCategories,
+                        correction: element.dataset.correction,
+                        explanation: element.dataset.explanation
+                    });
+                }
+
                 console.log('✅ Save completed');
             }
             modal.style.display = 'none';
