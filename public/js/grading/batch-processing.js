@@ -513,6 +513,8 @@ function loadEssayDetails(index) {
                                         category = 'mechanics';
                                     } else if (dataType.includes('fluency')) {
                                         category = 'fluency';
+                                    } else if (dataType.includes('delete')) {
+                                        category = 'delete';
                                     }
                                 } else {
                                     // Fallback: try to determine category from color/class
@@ -528,6 +530,8 @@ function loadEssayDetails(index) {
                                             category = 'mechanics';
                                         } else if (element.style.backgroundColor?.includes('135, 206') || element.className.includes('fluency')) {
                                             category = 'fluency';
+                                        } else if (element.style.textDecoration?.includes('line-through') || element.className.includes('delete')) {
+                                            category = 'delete';
                                         }
                                     }
                                 }
