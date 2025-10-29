@@ -80,8 +80,8 @@ function createBatchEssayHTML(formatted, index) {
             ${createColorLegend()}
         </div>
 
-        <div style="margin-top: 20px;">
-            <button onclick="downloadIndividualEssay(${index})" style="background: #007bff; color: white; border: none; padding: 16px 24px; border-radius: 8px; font-size: 18px; cursor: pointer; font-weight: 600;">Export to PDF</button>
+        <div style="margin-top: 30px; text-align: center;">
+            <button onclick="downloadIndividualEssay(${index})" style="background: #007bff; color: white; border: none; padding: 32px 48px; border-radius: 12px; font-size: 36px; cursor: pointer; font-weight: 600; box-shadow: 0 4px 6px rgba(0,0,0,0.1); transition: all 0.2s;" onmouseover="this.style.background='#0056b3'; this.style.transform='scale(1.05)'" onmouseout="this.style.background='#007bff'; this.style.transform='scale(1)'">Export to PDF</button>
         </div>
     `;
 }
