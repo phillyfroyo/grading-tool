@@ -332,7 +332,7 @@ function createHighlightsUISection(essayIndex = '') {
     const contentId = essayIndex !== '' ? `highlights-content-${essayIndex}` : 'highlights-content';
 
     return `
-        <div style="margin: 20px 0; border: 1px solid #ddd; border-radius: 8px; overflow: hidden;">
+        <div class="highlights-ui-section no-print" style="margin: 20px 0; border: 1px solid #ddd; border-radius: 8px; overflow: hidden;">
             <div
                 onclick="toggleHighlightsSection('${contentId}')"
                 style="
@@ -504,7 +504,8 @@ function populateHighlightsContent(contentId) {
                 categories: categories,
                 correction: correction.trim(),
                 explanation: explanation.trim(),
-                notes: notes.trim()
+                notes: notes.trim(),
+                elementId: mark.id  // Store element ID for delete functionality
             };
 
             console.log(`📦 Highlight ${index + 1} data object:`, highlightData);
@@ -522,6 +523,9 @@ function populateHighlightsContent(contentId) {
     } else {
         const generatedHTML = createHighlightsLegendHTML(highlightsData);
         contentInner.innerHTML = generatedHTML;
+
+        // Setup delete button listeners
+        setupDeleteButtonListeners(contentInner);
     }
 
     contentInner.dataset.populated = 'true';
@@ -662,11 +666,34 @@ function createHighlightsLegendHTML(highlightsData) {
                     background: #f8f9fa;
                     border-radius: 6px;
                     border-left: 4px solid ${borderColor};
+                    position: relative;
                 ">
                     <div style="line-height: 1.6; font-size: 14px;">
                         ${entryText}
                         ${feedbackHTML}
                     </div>
+                    <button
+                        class="delete-highlight-btn"
+                        data-element-id="${highlight.elementId}"
+                        style="
+                            position: absolute;
+                            top: 10px;
+                            right: 10px;
+                            background: #dc3545;
+                            color: white;
+                            border: none;
+                            padding: 6px 12px;
+                            border-radius: 4px;
+                            cursor: pointer;
+                            font-size: 12px;
+                            font-weight: 600;
+                            transition: background 0.2s;
+                        "
+                        onmouseover="this.style.background='#c82333'"
+                        onmouseout="this.style.background='#dc3545'"
+                    >
+                        Delete
+                    </button>
                 </div>
             `;
 
@@ -728,6 +755,58 @@ function refreshHighlightsSection(contentId) {
     } else {
         console.log(`Section ${contentId} is collapsed, will refresh when opened`);
     }
+}
+
+/**
+ * Setup delete button listeners for highlights
+ * @param {HTMLElement} container - Container element with delete buttons
+ */
+function setupDeleteButtonListeners(container) {
+    const deleteButtons = container.querySelectorAll('.delete-highlight-btn');
+
+    deleteButtons.forEach(button => {
+        button.addEventListener('click', function() {
+            const elementId = this.dataset.elementId;
+
+            if (!elementId) {
+                console.error('No element ID found for delete button');
+                return;
+            }
+
+            // Confirm deletion
+            if (!confirm('Are you sure you want to delete this highlight? This will remove it from the essay and the PDF.')) {
+                return;
+            }
+
+            // Find and remove the highlight element from the essay
+            const highlightElement = document.getElementById(elementId);
+            if (highlightElement) {
+                console.log(`🗑️ Deleting highlight: ${elementId}`);
+
+                // Get the original text content
+                const originalText = highlightElement.textContent;
+
+                // Replace the highlight with plain text
+                const textNode = document.createTextNode(originalText);
+                highlightElement.parentNode.replaceChild(textNode, highlightElement);
+
+                console.log(`✅ Highlight deleted successfully`);
+
+                // Refresh the highlights section to update the list
+                // Determine which section to refresh based on the container ID
+                const contentInner = this.closest('[id$="-inner"]');
+                if (contentInner) {
+                    const contentId = contentInner.id.replace('-inner', '');
+                    refreshHighlightsSection(contentId);
+                }
+            } else {
+                console.error(`Highlight element not found: ${elementId}`);
+                alert('Error: Could not find the highlight to delete.');
+            }
+        });
+    });
+
+    console.log(`✅ Setup ${deleteButtons.length} delete button listeners`);
 }
 
 /**
