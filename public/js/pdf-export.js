@@ -1102,16 +1102,16 @@ function enhanceContentForPDF(content, studentName, originalContent = null) {
 
     // Only create the section if we have actual, valid teacher notes
     if (!isEmptyOrDefault) {
-        
+
         console.log('✅ Teacher notes passed validation, creating section with text:', `"${notesText}"`);
-        
+
         // Ensure the teacher notes maintain the student nickname prefix if present
         teacherNotesSection = `
             <div class="teacher-notes-section" style="margin: 10px 0 !important; padding: 0 !important; background: transparent !important; border: none !important;">
                 <p style="margin: 10px 0 !important; padding: 0 !important; line-height: 1.6 !important; color: black !important; font-weight: normal !important; background: transparent !important; border: none !important;">${notesText}</p>
             </div>
         `;
-        
+
         // Remove the original teacher notes element if it exists to prevent duplication
         if (teacherNotesElement) {
             teacherNotesElement.remove();
@@ -1120,6 +1120,11 @@ function enhanceContentForPDF(content, studentName, originalContent = null) {
         console.log('⚠️ No valid teacher notes found after checking all sources, or notes were empty/default');
         // Make sure we don't show an empty section
         teacherNotesSection = '';
+
+        // Remove the original teacher notes element to prevent placeholder text from showing in PDF
+        if (teacherNotesElement) {
+            teacherNotesElement.remove();
+        }
     }
 
     // Simplify overall score to plain text with Grade: prefix and no color
