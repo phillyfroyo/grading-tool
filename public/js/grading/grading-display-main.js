@@ -386,6 +386,8 @@ window.displayBatchResults = displayBatchResults;
 window.setupEditableElements = setupEditableElements;
 window.updateTotalScore = updateTotalScore;
 window.toggleStudentDetails = toggleStudentDetails;
+window.toggleTab = toggleTab;
+window.loadHighlightsTab = loadHighlightsTab;
 window.loadEssayDetails = loadEssayDetails;
 window.downloadIndividualEssay = downloadIndividualEssay;
 window.downloadAllEssays = downloadAllEssays;
@@ -400,6 +402,8 @@ window.GradingDisplayModule = {
     setupEditableElements,
     updateTotalScore,
     toggleStudentDetails,
+    toggleTab,
+    loadHighlightsTab,
     loadEssayDetails,
     downloadIndividualEssay,
     downloadAllEssays,
