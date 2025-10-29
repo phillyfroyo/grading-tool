@@ -5,8 +5,8 @@
 
 // Use global eventBus and logger (loaded via regular scripts)
 const eventBus = window.eventBus || { on: () => {}, emit: () => {} };
-const logger = window.LoggingModule ? window.LoggingModule.createLogger('UI:Modals') : 
-               { info: console.log, warn: console.warn, error: console.error };
+const logger = window.LoggingModule ? window.LoggingModule.createLogger('UI:Modals') :
+               { info: console.log, warn: console.warn, error: console.error, debug: console.log };
 
 class ModalManager {
     constructor() {
