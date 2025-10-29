@@ -484,6 +484,14 @@ function populateHighlightsContent(contentId) {
             const notes = mark.dataset.notes || mark.title || '';
             const originalText = mark.dataset.originalText || mark.textContent || '';
 
+            console.log(`🔍 Reading highlight ${index + 1}:`, {
+                id: mark.id,
+                correction_from_dataset: mark.dataset.correction,
+                explanation_from_dataset: mark.dataset.explanation,
+                correction_final: correction,
+                explanation_final: explanation
+            });
+
             // Validate we have at least some text
             if (!originalText || originalText.trim() === '') {
                 return;
@@ -498,6 +506,8 @@ function populateHighlightsContent(contentId) {
                 explanation: explanation.trim(),
                 notes: notes.trim()
             };
+
+            console.log(`📦 Highlight ${index + 1} data object:`, highlightData);
 
             highlightsData.push(highlightData);
             highlightNumber++;
