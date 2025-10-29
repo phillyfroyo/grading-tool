@@ -484,6 +484,13 @@ function populateHighlightsContent(contentId) {
                 return;
             }
 
+            // Ensure highlight has an ID (for old highlights that don't have one)
+            if (!mark.id || mark.id.trim() === '') {
+                const idEssayIndex = essayIndex !== null ? essayIndex : '0';
+                mark.id = `highlight-${idEssayIndex}-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+                console.log(`🔧 Generated ID for highlight ${index + 1}: ${mark.id}`);
+            }
+
             const categories = (mark.dataset.category || mark.dataset.type || 'highlight').split(',').map(c => c.trim());
             const correction = mark.dataset.correction || mark.dataset.message || '';
             const explanation = mark.dataset.explanation || '';
