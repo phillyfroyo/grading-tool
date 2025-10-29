@@ -876,7 +876,8 @@ function generateFeedbackSummary(scores, total, meta, teacherNotes, encouragemen
               <textarea class="editable-feedback"
                         data-category="${category}"
                         placeholder="Click to add notes (optional)..."
-                        style="width: 100%; min-height: 40px; border: 1px solid #ddd; border-radius: 3px; padding: 8px; resize: vertical; font-family: inherit; line-height: 1.4;">${escapeHtml(details.rationale || '')}</textarea>
+                        rows="1"
+                        style="width: 100%; min-height: 32px; border: 1px solid #ddd; border-radius: 3px; padding: 8px; resize: vertical; font-family: inherit; line-height: 1.4; overflow-y: hidden;">${escapeHtml(details.rationale || '')}</textarea>
             </div>
             <div style="display: flex; align-items: center; gap: 5px; position: relative; white-space: nowrap;">
               <div class="score-input-container" style="position: relative;">
