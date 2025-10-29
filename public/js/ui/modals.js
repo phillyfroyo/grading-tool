@@ -444,57 +444,44 @@ class ModalManager {
      */
     openTeacherNotesModal(element) {
         const modal = this.modals.get('teacherNotes');
-        if (!modal) return;
+        if (!modal) {
+            logger.error('Teacher notes modal not found');
+            return;
+        }
 
         if (!element || !element.dataset) {
-            console.error('Teacher notes modal: invalid element provided', element);
+            logger.error('Teacher notes modal: invalid element provided');
             return;
         }
 
         // Ensure element has an ID for reference
         if (!element.id) {
             element.id = 'teacher-notes-target-' + Date.now();
-            console.log('🆔 Generated ID for element:', element.id);
         }
 
-        // Try to get existing notes from dataset first, then from displayed content
+        // Get existing notes from dataset or displayed content
         let currentText = element.dataset.teacherNotes || '';
-
-        // If no dataset value, extract from the displayed content
         if (!currentText || currentText === 'No notes provided') {
             const contentElement = element.querySelector('.teacher-notes-content');
             if (contentElement) {
-                const displayedText = contentElement.textContent || contentElement.innerText || '';
-                // Don't use the default placeholder text
+                const displayedText = contentElement.textContent || '';
                 if (displayedText && displayedText !== 'No notes provided' && displayedText !== 'Click to add teacher notes') {
                     currentText = displayedText;
                 }
             }
         }
 
+        // Set textarea value
         const textArea = document.getElementById('teacherNotesText');
         if (textArea) {
             textArea.value = currentText;
         }
 
+        // Store target element reference
         modal.element.dataset.targetElement = element.id;
-        console.log('🎯 Set target element ID:', element.id);
 
-        // Store reference for saving
-        modal.data = { targetElement: element };
-
-        // Directly open the modal (not through the modal system to avoid recursion)
-        modal.element.style.display = 'block';
-        this.activeModal = 'teacherNotes';
-
-        // Add backdrop click handler
-        this.setupBackdropClick(modal.element);
-
-        // Make modal draggable
-        this.makeDraggable(modal.element);
-
-        eventBus.emit('modal:opened', { modalId: 'teacherNotes' });
-        console.log('✅ Teacher notes modal opened for element:', element.id);
+        // Open modal using the standard system, passing the target element in config
+        this.openModal('teacherNotes', { targetElement: element });
     }
 
     /**
@@ -513,81 +500,49 @@ class ModalManager {
         const textArea = document.getElementById('teacherNotesText');
         const notesText = textArea?.value || '';
 
-        console.log('💾 Saving teacher notes:', {
-            modal: !!modal,
-            targetElementId,
-            textAreaFound: !!textArea,
-            notesText: notesText,
-            notesLength: notesText.length
-        });
-
-        if (targetElementId) {
-            const targetElement = document.getElementById(targetElementId);
-            console.log('🎯 Target element found:', !!targetElement, targetElementId);
-
-            if (targetElement) {
-                // Always save to dataset and update content, but change display based on content
-                targetElement.dataset.teacherNotes = notesText.trim();
-                console.log('✅ Notes saved to element dataset');
-
-                // Update the displayed content
-                const contentElement = targetElement.querySelector('.teacher-notes-content');
-                if (contentElement) {
-                    if (!notesText.trim()) {
-                        // Show placeholder text when empty
-                        contentElement.textContent = 'Click to add teacher notes';
-                        console.log('✅ Updated to show placeholder text');
-                    } else {
-                        // Show actual notes content
-                        contentElement.textContent = notesText.trim();
-                        console.log('✅ Updated displayed teacher notes content');
-                    }
-                }
-
-                // Update visual indicator based on content
-                if (!notesText.trim()) {
-                    // Reset to original appearance when empty
-                    targetElement.style.backgroundColor = '';
-                    targetElement.title = 'Click to edit teacher notes';
-                    console.log('🔄 Reset to original appearance - empty notes');
-                } else {
-                    // Apply yellow background for edited notes
-                    targetElement.style.backgroundColor = '#fff3cd';
-                    targetElement.title = 'Teacher notes: ' + notesText.substring(0, 100) +
-                                         (notesText.length > 100 ? '...' : '');
-                    console.log('🟡 Applied yellow background and title');
-                }
-
-                // Always keep the teacher notes section visible
-                targetElement.style.display = '';
-                console.log('✅ Teacher notes section kept visible');
-
-            // Update the stored grading data if it exists (for GPT-generated grades)
-            if (typeof window !== 'undefined' && window.currentGradingData) {
-                window.currentGradingData.teacher_notes = notesText.trim();
-                console.log('✅ Updated currentGradingData.teacher_notes');
-            }
-
-            // Also store in the actual DOM element's dataset for persistence
-            const actualTeacherNotesElement = document.querySelector('.teacher-notes');
-            if (actualTeacherNotesElement) {
-                actualTeacherNotesElement.dataset.teacherNotes = notesText;
-                console.log('✅ Saved notes to DOM element dataset for persistence');
-            }
-
-            eventBus.emit('teacher-notes:saved', {
-                element: targetElement,
-                notes: notesText
-            });
-            console.log('📡 Emitted teacher-notes:saved event');
-            } else {
-                console.error('❌ Target element not found:', targetElementId);
-            }
-        } else {
-            console.error('❌ No target element ID found');
+        if (!targetElementId) {
+            logger.error('No target element ID found for teacher notes');
+            return;
         }
 
-        // Don't auto-close modal - let user decide when to close
+        const targetElement = document.getElementById(targetElementId);
+        if (!targetElement) {
+            logger.error('Target element not found:', targetElementId);
+            return;
+        }
+
+        // Save to dataset and update content
+        targetElement.dataset.teacherNotes = notesText.trim();
+
+        // Update the displayed content
+        const contentElement = targetElement.querySelector('.teacher-notes-content');
+        if (contentElement) {
+            contentElement.textContent = notesText.trim() || 'Click to add teacher notes';
+        }
+
+        // Update visual indicator based on content
+        if (notesText.trim()) {
+            targetElement.style.backgroundColor = '#fff3cd';
+            targetElement.title = 'Teacher notes: ' + notesText.substring(0, 100) +
+                                 (notesText.length > 100 ? '...' : '');
+        } else {
+            targetElement.style.backgroundColor = '';
+            targetElement.title = 'Click to edit teacher notes';
+        }
+
+        targetElement.style.display = '';
+
+        // Update stored grading data if it exists
+        if (window.currentGradingData) {
+            window.currentGradingData.teacher_notes = notesText.trim();
+        }
+
+        eventBus.emit('teacher-notes:saved', {
+            element: targetElement,
+            notes: notesText
+        });
+
+        logger.info('Teacher notes saved');
     }
 
     /**
@@ -937,8 +892,6 @@ class ModalManager {
 
 // Create and initialize the modal manager instance
 const modalManager = new ModalManager();
-
-// Initialize the modal manager when DOM is ready
 
 // Initialize modal manager when DOM is ready
 if (typeof window !== 'undefined') {
