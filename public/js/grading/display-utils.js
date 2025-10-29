@@ -478,6 +478,12 @@ function populateHighlightsContent(contentId) {
 
     highlights.forEach((mark, index) => {
         try {
+            // Skip highlights that are excluded from PDF
+            if (mark.dataset.excludeFromPdf === 'true') {
+                console.log(`⏭️ Skipping highlight ${index + 1} - excluded from PDF`);
+                return;
+            }
+
             const categories = (mark.dataset.category || mark.dataset.type || 'highlight').split(',').map(c => c.trim());
             const correction = mark.dataset.correction || mark.dataset.message || '';
             const explanation = mark.dataset.explanation || '';
@@ -505,7 +511,7 @@ function populateHighlightsContent(contentId) {
                 correction: correction.trim(),
                 explanation: explanation.trim(),
                 notes: notes.trim(),
-                elementId: mark.id  // Store element ID for delete functionality
+                elementId: mark.id  // Store element ID for exclude functionality
             };
 
             console.log(`📦 Highlight ${index + 1} data object:`, highlightData);
@@ -524,8 +530,8 @@ function populateHighlightsContent(contentId) {
         const generatedHTML = createHighlightsLegendHTML(highlightsData);
         contentInner.innerHTML = generatedHTML;
 
-        // Setup delete button listeners
-        setupDeleteButtonListeners(contentInner);
+        // Setup exclude from PDF button listeners
+        setupExcludeFromPDFListeners(contentInner);
     }
 
     contentInner.dataset.populated = 'true';
@@ -673,7 +679,7 @@ function createHighlightsLegendHTML(highlightsData) {
                         ${feedbackHTML}
                     </div>
                     <button
-                        class="delete-highlight-btn"
+                        class="exclude-from-pdf-btn"
                         data-element-id="${highlight.elementId}"
                         style="
                             position: absolute;
@@ -685,14 +691,14 @@ function createHighlightsLegendHTML(highlightsData) {
                             padding: 6px 12px;
                             border-radius: 4px;
                             cursor: pointer;
-                            font-size: 12px;
+                            font-size: 11px;
                             font-weight: 600;
                             transition: background 0.2s;
                         "
                         onmouseover="this.style.background='#c82333'"
                         onmouseout="this.style.background='#dc3545'"
                     >
-                        Delete
+                        Remove from PDF export
                     </button>
                 </div>
             `;
@@ -758,39 +764,35 @@ function refreshHighlightsSection(contentId) {
 }
 
 /**
- * Setup delete button listeners for highlights
- * @param {HTMLElement} container - Container element with delete buttons
+ * Setup exclude from PDF button listeners for highlights
+ * @param {HTMLElement} container - Container element with exclude buttons
  */
-function setupDeleteButtonListeners(container) {
-    const deleteButtons = container.querySelectorAll('.delete-highlight-btn');
+function setupExcludeFromPDFListeners(container) {
+    const excludeButtons = container.querySelectorAll('.exclude-from-pdf-btn');
 
-    deleteButtons.forEach(button => {
+    excludeButtons.forEach(button => {
         button.addEventListener('click', function() {
             const elementId = this.dataset.elementId;
 
             if (!elementId) {
-                console.error('No element ID found for delete button');
+                console.error('No element ID found for exclude button');
                 return;
             }
 
-            // Confirm deletion
-            if (!confirm('Are you sure you want to delete this highlight? This will remove it from the essay and the PDF.')) {
+            // Confirm exclusion
+            if (!confirm('Remove this highlight from the PDF export? The highlight will remain in the color-coded essay.')) {
                 return;
             }
 
-            // Find and remove the highlight element from the essay
+            // Find the highlight element in the essay
             const highlightElement = document.getElementById(elementId);
             if (highlightElement) {
-                console.log(`🗑️ Deleting highlight: ${elementId}`);
+                console.log(`📄 Excluding from PDF: ${elementId}`);
 
-                // Get the original text content
-                const originalText = highlightElement.textContent;
+                // Mark element as excluded from PDF
+                highlightElement.dataset.excludeFromPdf = 'true';
 
-                // Replace the highlight with plain text
-                const textNode = document.createTextNode(originalText);
-                highlightElement.parentNode.replaceChild(textNode, highlightElement);
-
-                console.log(`✅ Highlight deleted successfully`);
+                console.log(`✅ Highlight excluded from PDF export`);
 
                 // Refresh the highlights section to update the list
                 // Determine which section to refresh based on the container ID
@@ -801,12 +803,12 @@ function setupDeleteButtonListeners(container) {
                 }
             } else {
                 console.error(`Highlight element not found: ${elementId}`);
-                alert('Error: Could not find the highlight to delete.');
+                alert('Error: Could not find the highlight.');
             }
         });
     });
 
-    console.log(`✅ Setup ${deleteButtons.length} delete button listeners`);
+    console.log(`✅ Setup ${excludeButtons.length} exclude from PDF button listeners`);
 }
 
 /**

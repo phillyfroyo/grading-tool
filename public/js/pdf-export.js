@@ -795,6 +795,12 @@ function processHighlightsForPDF(content) {
     let highlightNumber = 1;
 
     highlights.forEach(mark => {
+        // Skip highlights that are excluded from PDF
+        if (mark.dataset.excludeFromPdf === 'true') {
+            console.log('⏭️ Skipping highlight - excluded from PDF export');
+            return;
+        }
+
         // Get highlight information
         const categories = (mark.dataset.category || mark.dataset.type || 'highlight').split(',').map(c => c.trim());
         const correction = mark.dataset.correction || mark.dataset.message || '';
