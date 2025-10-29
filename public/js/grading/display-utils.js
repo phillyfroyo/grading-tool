@@ -403,23 +403,27 @@ function toggleHighlightsSection(contentId) {
         // First, populate content (if not already done)
         populateHighlightsContent(contentId);
 
-        // Then set maxHeight after content is populated
-        // Use setTimeout to ensure DOM has fully rendered
-        setTimeout(() => {
-            content.style.maxHeight = content.scrollHeight + 'px';
+        // Use a large fixed maxHeight value to avoid calculation issues
+        // This is simpler and more reliable than trying to calculate scrollHeight during transitions
+        content.style.maxHeight = '10000px';
 
-            // CRITICAL: Also expand parent student-details div if in batch mode
-            // The highlights section is nested inside student-details, which also has maxHeight
+        // CRITICAL: Expand parent student-details AFTER the highlights section transition completes
+        // CSS transition is 0.3s (300ms), so wait for it to finish
+        setTimeout(() => {
             const match = contentId.match(/highlights-content-(\d+)/);
             if (match) {
                 const essayIndex = match[1];
                 const studentDetails = document.getElementById(`student-details-${essayIndex}`);
                 if (studentDetails && studentDetails.style.maxHeight !== '0px') {
                     console.log('🔧 Expanding parent student-details to accommodate highlights');
-                    studentDetails.style.maxHeight = studentDetails.scrollHeight + 'px';
+                    console.log('🔧 student-details old maxHeight:', studentDetails.style.maxHeight);
+                    console.log('🔧 student-details new scrollHeight:', studentDetails.scrollHeight);
+                    // Use large fixed value for reliability
+                    studentDetails.style.maxHeight = studentDetails.scrollHeight + 2000 + 'px';
+                    console.log('🔧 student-details updated maxHeight:', studentDetails.style.maxHeight);
                 }
             }
-        }, 100);
+        }, 350);
     } else {
         // Collapse
         content.style.maxHeight = '0px';
@@ -577,28 +581,33 @@ function populateHighlightsContent(contentId) {
     console.log('📄 Marked as populated');
 
     // Recalculate parent's maxHeight to accommodate the new content
-    // Use setTimeout to ensure DOM has finished rendering
+    // Only needed if content was already expanded when we populated
+    // Use a simple timeout to ensure DOM has rendered
     setTimeout(() => {
         const content = contentInner.parentElement;
         if (content && content.style.maxHeight && content.style.maxHeight !== '0px') {
-            console.log('📏 Recalculating parent maxHeight...');
+            console.log('📏 Recalculating highlights-content maxHeight...');
             console.log('📏 Old maxHeight:', content.style.maxHeight);
-            console.log('📏 New scrollHeight:', content.scrollHeight);
-            content.style.maxHeight = content.scrollHeight + 'px';
-            console.log('📏 Updated maxHeight to:', content.style.maxHeight);
+            // Use large fixed value for reliability
+            content.style.maxHeight = '10000px';
+            console.log('📏 Updated maxHeight to: 10000px');
 
             // CRITICAL: Also expand parent student-details div if in batch mode
-            const match = contentId.match(/highlights-content-(\d+)/);
-            if (match) {
-                const essayIndex = match[1];
-                const studentDetails = document.getElementById(`student-details-${essayIndex}`);
-                if (studentDetails && studentDetails.style.maxHeight !== '0px') {
-                    console.log('📏 Also expanding parent student-details');
-                    studentDetails.style.maxHeight = studentDetails.scrollHeight + 'px';
+            setTimeout(() => {
+                const match = contentId.match(/highlights-content-(\d+)/);
+                if (match) {
+                    const essayIndex = match[1];
+                    const studentDetails = document.getElementById(`student-details-${essayIndex}`);
+                    if (studentDetails && studentDetails.style.maxHeight !== '0px') {
+                        console.log('📏 Also expanding parent student-details from populateHighlights');
+                        const newHeight = studentDetails.scrollHeight + 2000;
+                        console.log('📏 student-details new maxHeight:', newHeight + 'px');
+                        studentDetails.style.maxHeight = newHeight + 'px';
+                    }
                 }
-            }
+            }, 50);
         }
-    }, 50);
+    }, 100);
 }
 
 /**
@@ -768,19 +777,22 @@ function refreshHighlightsSection(contentId) {
         // Re-adjust height after content changes
         setTimeout(() => {
             if (content) {
-                content.style.maxHeight = content.scrollHeight + 'px';
+                // Use large fixed value for reliability
+                content.style.maxHeight = '10000px';
+            }
+        }, 100);
 
-                // Also expand parent student-details div if in batch mode
-                const match = contentId.match(/highlights-content-(\d+)/);
-                if (match) {
-                    const essayIndex = match[1];
-                    const studentDetails = document.getElementById(`student-details-${essayIndex}`);
-                    if (studentDetails && studentDetails.style.maxHeight !== '0px') {
-                        studentDetails.style.maxHeight = studentDetails.scrollHeight + 'px';
-                    }
+        // Then expand parent student-details after highlights-content has updated
+        setTimeout(() => {
+            const match = contentId.match(/highlights-content-(\d+)/);
+            if (match) {
+                const essayIndex = match[1];
+                const studentDetails = document.getElementById(`student-details-${essayIndex}`);
+                if (studentDetails && studentDetails.style.maxHeight !== '0px') {
+                    studentDetails.style.maxHeight = studentDetails.scrollHeight + 2000 + 'px';
                 }
             }
-        }, 50);
+        }, 350);
     }
 }
 
