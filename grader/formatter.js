@@ -863,16 +863,22 @@ function generateFeedbackSummary(scores, total, meta, teacherNotes, encouragemen
     
     if (editable) {
       html += `
-        <div class="category-feedback" style="margin: 15px 0; padding: 15px; 
-             border-left: 4px solid ${categoryInfo.color}; 
-             background: ${categoryInfo.backgroundColor}; 
+        <div class="category-feedback" style="margin: 15px 0; padding: 15px;
+             border-left: 4px solid ${categoryInfo.color};
+             background: ${categoryInfo.backgroundColor};
              border-radius: 0 8px 8px 0;"
              data-category="${category}">
-          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
-            <strong style="color: ${categoryInfo.color}; font-size: 1.1em;">
+          <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 15px;">
+            <strong style="color: ${categoryInfo.color}; font-size: 1.1em; white-space: nowrap; padding-top: 8px;">
               ${categoryInfo.name}
             </strong>
-            <div style="display: flex; align-items: center; gap: 5px; position: relative;">
+            <div style="flex: 1; background: white; padding: 10px; border-radius: 4px;">
+              <textarea class="editable-feedback"
+                        data-category="${category}"
+                        placeholder="Click to add notes (optional)..."
+                        style="width: 100%; min-height: 40px; border: 1px solid #ddd; border-radius: 3px; padding: 8px; resize: vertical; font-family: inherit; line-height: 1.4;">${escapeHtml(details.rationale || '')}</textarea>
+            </div>
+            <div style="display: flex; align-items: center; gap: 5px; position: relative; white-space: nowrap;">
               <div class="score-input-container" style="position: relative;">
                 <input type="number"
                        class="editable-score"
@@ -888,12 +894,6 @@ function generateFeedbackSummary(scores, total, meta, teacherNotes, encouragemen
               </div>
               <span style="color: ${categoryColor}; font-weight: bold; font-size: 1.2em;">/${details.out_of}</span>
             </div>
-          </div>
-          <div style="background: white; padding: 10px; border-radius: 4px; line-height: 1.4;">
-            <textarea class="editable-feedback"
-                      data-category="${category}"
-                      placeholder="Click to add notes (optional)..."
-                      style="width: 100%; min-height: 80px; border: 1px solid #ddd; border-radius: 3px; padding: 8px; resize: vertical; font-family: inherit; line-height: 1.4;">${escapeHtml(details.rationale || '')}</textarea>
           </div>
         </div>`;
     } else {
