@@ -96,13 +96,10 @@ Each JSON entry = ONE specific error type with ONE correction
 - Do NOT include phrases like "should be" or explanations in the correction field
 
 **EXPLANATION (Optional):**
-- Use your judgment to provide explanations when they would genuinely help the student learn
-- Consider adding an explanation when:
-  - The error involves a grammar rule that might not be obvious
-  - The word choice is confusing or counterintuitive
-  - Understanding the "why" would prevent future similar errors
-- Keep explanations brief and focused (3-10 words)
-- Omit explanation when the correction is self-explanatory
+- Most corrections are self-explanatory - omit explanation by default
+- Only add explanation when it would genuinely prevent future errors
+- Never explain spelling errors, capitalization, or obvious punctuation
+- Keep explanations brief (3-10 words) when needed
 
 ## OUTPUT FORMAT
 {
