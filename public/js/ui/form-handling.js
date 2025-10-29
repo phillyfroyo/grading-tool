@@ -388,7 +388,7 @@ async function streamBatchGradingSimple(batchData) {
     console.log('🎯 STARTING STREAMING BATCH GRADING');
     console.log(`📊 Total essays to grade: ${batchData.essays.length}`);
 
-    const CHUNK_SIZE = 3; // 3 essays = 1 batch of 3, matches backend BATCH_SIZE (3 API calls per essay with 30k TPM limit)
+    const CHUNK_SIZE = 2; // 2 essays = 1 batch of 2, matches backend BATCH_SIZE (3 API calls per essay with 30k TPM limit)
     const totalEssays = batchData.essays.length;
 
     // If batch is small enough, process in single request

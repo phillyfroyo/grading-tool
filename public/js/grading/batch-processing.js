@@ -54,11 +54,11 @@ function displayBatchProgress(batchData) {
 
     // Initialize queue tracking
     processingQueue = {
-        currentlyProcessing: Math.min(3, batchData.essays.length),
-        maxConcurrent: 3,
+        currentlyProcessing: Math.min(2, batchData.essays.length),
+        maxConcurrent: 2,
         totalEssays: batchData.essays.length,
         completedEssays: [],
-        nextInQueue: 3
+        nextInQueue: 2
     };
 
     const resultsDiv = document.getElementById('results');
