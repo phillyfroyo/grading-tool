@@ -66,10 +66,22 @@ function toggleStudentDetails(index) {
  * @param {number} index - Student index
  */
 function toggleTab(tabId, index) {
+    console.log('🔄 toggleTab called:', { tabId, index });
+
     const tab = document.getElementById(tabId);
     const arrow = document.getElementById(`${tabId}-arrow`);
 
-    if (!tab) return;
+    console.log('📦 Found elements:', {
+        tab: !!tab,
+        arrow: !!arrow,
+        currentMaxHeight: tab?.style.maxHeight,
+        scrollHeight: tab?.scrollHeight
+    });
+
+    if (!tab) {
+        console.error('❌ Tab element not found:', tabId);
+        return;
+    }
 
     // Determine which tab this is
     const isGradeDetails = tabId.includes('grade-details');
@@ -83,7 +95,16 @@ function toggleTab(tabId, index) {
     // Check if currently closed
     const isCurrentlyClosed = tab.style.maxHeight === '0px' || tab.style.maxHeight === '' || tab.style.maxHeight === '0';
 
+    console.log('🔍 Tab state:', {
+        isCurrentlyClosed,
+        currentMaxHeight: tab.style.maxHeight,
+        isGradeDetails,
+        isHighlightsTab
+    });
+
     if (isCurrentlyClosed) {
+        console.log('📂 Opening tab...');
+
         // Close the other tab first
         if (otherTab) {
             otherTab.style.maxHeight = '0px';
@@ -91,25 +112,38 @@ function toggleTab(tabId, index) {
         }
 
         // Open this tab
-        tab.style.maxHeight = tab.scrollHeight + 2000 + 'px';
-        if (arrow) arrow.style.transform = 'rotate(180deg)';
+        const newHeight = tab.scrollHeight + 2000 + 'px';
+        console.log('📏 Setting maxHeight to:', newHeight);
+        tab.style.maxHeight = newHeight;
+
+        if (arrow) {
+            console.log('🔽 Rotating arrow down');
+            arrow.style.transform = 'rotate(180deg)';
+        }
 
         // Load content if needed
         if (isGradeDetails) {
+            console.log('📄 Loading essay details...');
             loadEssayDetails(index);
         } else if (isHighlightsTab) {
+            console.log('✨ Loading highlights tab...');
             loadHighlightsTab(index);
         }
 
         // Adjust height after content loads
         setTimeout(() => {
-            tab.style.maxHeight = tab.scrollHeight + 2000 + 'px';
+            const adjustedHeight = tab.scrollHeight + 2000 + 'px';
+            console.log('📐 Adjusting height after load:', adjustedHeight);
+            tab.style.maxHeight = adjustedHeight;
         }, 350);
     } else {
+        console.log('📁 Closing tab...');
         // Close this tab
         tab.style.maxHeight = '0px';
         if (arrow) arrow.style.transform = 'rotate(0deg)';
     }
+
+    console.log('✅ toggleTab complete');
 }
 
 /**
