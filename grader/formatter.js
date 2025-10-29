@@ -863,7 +863,7 @@ function generateFeedbackSummary(scores, total, meta, teacherNotes, encouragemen
     
     if (editable) {
       html += `
-        <div class="category-feedback" style="margin: 15px 0; padding: 15px;
+        <div class="category-feedback" style="margin: 0; padding: 15px;
              border-left: 4px solid ${categoryInfo.color};
              background: ${categoryInfo.backgroundColor};
              border-radius: 0 8px 8px 0;"
@@ -897,7 +897,7 @@ function generateFeedbackSummary(scores, total, meta, teacherNotes, encouragemen
         </div>`;
     } else {
       html += `
-        <div class="category-feedback" style="margin: 15px 0; padding: 15px; 
+        <div class="category-feedback" style="margin: 0; padding: 15px; 
              border-left: 4px solid ${categoryInfo.color}; 
              background: ${categoryInfo.backgroundColor}; 
              border-radius: 0 8px 8px 0;">
