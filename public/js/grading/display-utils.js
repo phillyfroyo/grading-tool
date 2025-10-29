@@ -678,14 +678,21 @@ function createHighlightsLegendHTML(highlightsData) {
 function refreshHighlightsSection(contentId) {
     const content = document.getElementById(contentId);
     const contentInner = document.getElementById(`${contentId}-inner`);
-    if (!contentInner) return;
+    if (!contentInner) {
+        console.log(`refreshHighlightsSection: contentInner not found for ${contentId}`);
+        return;
+    }
 
-    // Only refresh if the section is expanded (has been populated)
+    // Check if the section is expanded
     const isExpanded = content && (content.style.maxHeight !== '0px' && content.style.maxHeight !== '');
 
+    console.log(`refreshHighlightsSection: ${contentId}, isExpanded: ${isExpanded}`);
+
+    // Always reset populated flag to ensure fresh data on next open
+    contentInner.dataset.populated = 'false';
+
     if (isExpanded) {
-        // Reset populated flag to force refresh
-        contentInner.dataset.populated = 'false';
+        console.log(`Refreshing expanded highlights section: ${contentId}`);
 
         // Repopulate the content
         populateHighlightsContent(contentId);
@@ -709,6 +716,8 @@ function refreshHighlightsSection(contentId) {
                 }
             }
         }, 350);
+    } else {
+        console.log(`Section ${contentId} is collapsed, will refresh when opened`);
     }
 }
 
