@@ -74,20 +74,24 @@ function displayBatchProgress(batchData) {
             <div class="compact-student-list" style="margin: 20px 0;">
                 ${batchData.essays.map((essay, index) => `
                     <div class="student-row" id="student-row-${index}" style="border: 2px solid #ddd; margin: 16px 0; border-radius: 8px; overflow: hidden;">
-                        <div class="student-header" onclick="toggleStudentDetails(${index})" style="
+                        <!-- Student Name Header (clickable to expand grade details) -->
+                        <div class="student-header-clickable" onclick="toggleTab('grade-details-${index}', ${index})" style="
                             padding: 24px 30px;
-                            background: #fff;
-                            cursor: pointer;
+                            background: #f8f9fa;
                             display: flex;
                             align-items: center;
                             justify-content: space-between;
-                            transition: background-color 0.2s;
                             font-size: 22px;
                             font-weight: 500;
                             min-height: 60px;
-                        " onmouseover="this.style.backgroundColor='#f8f9fa'"
-                           onmouseout="this.style.backgroundColor='#fff'">
+                            border-bottom: 1px solid #ddd;
+                            cursor: pointer;
+                            transition: background-color 0.2s;
+                            user-select: none;
+                        " onmouseover="this.style.backgroundColor='#e9ecef'"
+                           onmouseout="this.style.backgroundColor='#f8f9fa'">
                             <div style="display: flex; align-items: center; gap: 15px; flex: 1; min-width: 0;">
+                                <span id="grade-details-${index}-arrow" style="font-size: 18px; transition: transform 0.3s; display: inline-block;">▼</span>
                                 <div id="student-status-${index}" class="student-status" style="display: flex; align-items: center; gap: 12px;">
                                     ${index < 2 ?
                                         `<div class="loading-spinner" id="spinner-${index}" style="width: 24px; height: 24px; border: 3px solid #f3f3f3; border-top: 3px solid #007bff; border-radius: 50%; animation: spin 1s linear infinite;"></div>
@@ -98,15 +102,68 @@ function displayBatchProgress(batchData) {
                                 <span style="font-weight: 600; color: #333; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: 24px;">${essay.studentName}</span>
                             </div>
                             <div style="display: flex; align-items: center; gap: 20px; flex-shrink: 0;">
-                                <label style="display: flex; align-items: center; gap: 10px; margin: 0; cursor: pointer; pointer-events: auto;" onclick="event.stopPropagation();">
+                                <label style="display: flex; align-items: center; gap: 10px; margin: 0; cursor: pointer;" onclick="event.stopPropagation();">
                                     <input type="checkbox" class="mark-complete-checkbox" data-student-index="${index}" style="margin: 0; transform: scale(2);">
                                     <span style="font-size: 20px; color: #666; white-space: nowrap; font-weight: 600;">Mark Complete</span>
                                 </label>
-                                <button onclick="event.stopPropagation(); downloadIndividualEssay(${index})" disabled style="background: #6c757d; color: white; border: none; padding: 16px 24px; border-radius: 8px; font-size: 18px; cursor: not-allowed; white-space: nowrap; pointer-events: auto; font-weight: 600;">Download</button>
+                                <button onclick="event.stopPropagation(); downloadIndividualEssay(${index})" disabled style="background: #6c757d; color: white; border: none; padding: 16px 24px; border-radius: 8px; font-size: 18px; cursor: not-allowed; white-space: nowrap; font-weight: 600;">Download</button>
                             </div>
                         </div>
-                        <div id="student-details-${index}" style="max-height: 0px; overflow: hidden; transition: max-height 0.3s ease-in-out; border-top: 1px solid #ddd;">
+
+                        <!-- Grade Details Content (directly under student name) -->
+                        <div id="grade-details-${index}" class="tab-content" style="
+                            max-height: 0;
+                            overflow: hidden;
+                            transition: max-height 0.3s ease-out;
+                            background: white;
+                        ">
                             <div id="batch-essay-${index}" style="padding: 15px;">${getClaudeLoadingMessage()}</div>
+                        </div>
+
+                        <!-- Highlights Management Tab -->
+                        <div class="tab-header" style="
+                            background: #ffffff;
+                            border-bottom: 1px solid #ddd;
+                            user-select: none;
+                        ">
+                            <div style="display: flex; flex-direction: column; flex: 1;">
+                                <!-- Upper section: Title and arrow (clickable for toggle) -->
+                                <div onclick="toggleTab('highlights-tab-${index}', ${index})" style="
+                                    padding: 15px 30px;
+                                    cursor: pointer;
+                                    display: flex;
+                                    align-items: center;
+                                    gap: 12px;
+                                    transition: background-color 0.2s;
+                                " onmouseover="this.style.backgroundColor='#f8f9fa'"
+                                   onmouseout="this.style.backgroundColor='#ffffff'">
+                                    <span id="highlights-tab-${index}-arrow" style="font-size: 18px; transition: transform 0.3s; display: inline-block;">▼</span>
+                                    <span style="font-weight: 600; font-size: 18px;">Manage 'Highlights and Corrections' as seen on the exported PDF</span>
+                                </div>
+                                <!-- Lower section: Checkbox (independent hover) -->
+                                <label style="
+                                    display: flex;
+                                    align-items: center;
+                                    gap: 8px;
+                                    padding: 8px 30px 15px 60px;
+                                    font-size: 14px;
+                                    cursor: pointer;
+                                    transition: background-color 0.2s;
+                                " onclick="event.stopPropagation();"
+                                   onmouseover="this.style.backgroundColor='#f8f9fa'"
+                                   onmouseout="this.style.backgroundColor='#ffffff'">
+                                    <input type="checkbox" id="highlights-tab-${index}-remove-all" class="remove-all-checkbox" data-content-id="highlights-tab-content-${index}" style="cursor: pointer; width: 16px; height: 16px;">
+                                    <span style="color: #666;">Remove all from PDF</span>
+                                </label>
+                            </div>
+                        </div>
+                        <div id="highlights-tab-${index}" class="tab-content" style="
+                            max-height: 0;
+                            overflow: hidden;
+                            transition: max-height 0.3s ease-out;
+                            background: white;
+                        ">
+                            <div id="highlights-tab-content-${index}" style="padding: 20px;">Loading highlights...</div>
                         </div>
                     </div>
                 `).join('')}
