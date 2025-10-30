@@ -180,14 +180,6 @@ function displayBatchProgress(batchData) {
     resultsDiv.innerHTML = progressHtml;
     resultsDiv.style.display = 'block';
 
-    // Restore checkbox states from localStorage immediately
-    if (window.restoreAllCheckboxStates) {
-        // Use setTimeout to ensure DOM is fully updated
-        setTimeout(() => {
-            window.restoreAllCheckboxStates();
-        }, 100);
-    }
-
     console.log('✅ Batch progress UI displayed');
 
     // Set up rotating Claude message for the first essay only
@@ -322,14 +314,6 @@ function displayBatchResults(batchResult, originalData) {
 
     resultsDiv.innerHTML = compactHtml;
     resultsDiv.style.display = 'block';
-
-    // Restore checkbox states from localStorage immediately
-    if (window.restoreAllCheckboxStates) {
-        // Use setTimeout to ensure DOM is fully updated
-        setTimeout(() => {
-            window.restoreAllCheckboxStates();
-        }, 100);
-    }
 
     // Store batch data globally for download and expand functions
     window.currentBatchData = { batchResult, originalData };

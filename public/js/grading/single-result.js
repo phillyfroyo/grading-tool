@@ -62,14 +62,6 @@ function displayResults(gradingResult, originalData) {
         resultsDiv.innerHTML = essayHTML;
         resultsDiv.style.display = 'block';
 
-        // Restore checkbox states from localStorage immediately
-        if (window.restoreAllCheckboxStates) {
-            // Use setTimeout to ensure DOM is fully updated
-            setTimeout(() => {
-                window.restoreAllCheckboxStates();
-            }, 100);
-        }
-
         // Add event listeners for editable elements
         setupEditableElements(gradingResult, originalData);
 
