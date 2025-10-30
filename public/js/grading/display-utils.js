@@ -921,11 +921,21 @@ function setupRemoveAllCheckbox(contentId) {
         return;
     }
 
-    console.log('🔧 Setting up remove-all checkbox for:', contentId);
+    // Prevent multiple setups on the same checkbox
+    if (checkbox.dataset.setupComplete === 'true') {
+        console.log(`⚠️ Checkbox already set up for ${contentId}, skipping`);
+        return;
+    }
 
-    // Check if user has already manually checked the checkbox (before content loaded)
+    console.log('🔧 Setting up remove-all checkbox for:', contentId);
+    console.log(`📋 Checkbox state at setup time: ${checkbox.checked}`);
+
+    // CAPTURE the checkbox state IMMEDIATELY before any other operations
     const currentCheckboxState = checkbox.checked;
     const savedState = localStorage.getItem(`removeAllFromPDF_${contentId}`);
+
+    console.log(`💾 Saved localStorage state: ${savedState}`);
+    console.log(`✋ Current DOM checkbox state: ${currentCheckboxState}`);
 
     let isChecked;
 
@@ -1045,6 +1055,10 @@ function setupRemoveAllCheckbox(contentId) {
 
         console.log(`✅ Updated all highlights - ${isChecked ? 'excluded' : 'included'} from PDF`);
     });
+
+    // Mark checkbox as set up to prevent duplicate setups
+    checkbox.dataset.setupComplete = 'true';
+    console.log(`✅ Checkbox setup complete for ${contentId}`);
 }
 
 /**
