@@ -152,7 +152,35 @@ function loadHighlightsTab(index) {
     // Get essay container to extract highlights
     const essayContainer = document.querySelector(`.formatted-essay-content[data-essay-index="${index}"]`);
     if (!essayContainer) {
-        contentDiv.innerHTML = '<p style="color: #999;">Essay content not loaded yet. Please expand the grade details first.</p>';
+        // Essay details not loaded yet - load them first, then populate highlights
+        console.log(`📄 Essay content not loaded for index ${index}, loading now...`);
+
+        // Check if essay data exists
+        if (!window[`essayData_${index}`]) {
+            contentDiv.innerHTML = '<p style="color: #999;">Essay data not available.</p>';
+            return;
+        }
+
+        // Load essay details first
+        if (window.BatchProcessingModule && window.BatchProcessingModule.loadEssayDetails) {
+            window.BatchProcessingModule.loadEssayDetails(index);
+
+            // Wait for essay to load, then populate highlights
+            setTimeout(() => {
+                const essayContainerRetry = document.querySelector(`.formatted-essay-content[data-essay-index="${index}"]`);
+                if (essayContainerRetry) {
+                    console.log(`✅ Essay loaded, now populating highlights for index ${index}`);
+                    // Reset loaded flag so we can populate now
+                    contentDiv.dataset.loaded = 'false';
+                    // Recursively call to populate highlights now that essay is loaded
+                    loadHighlightsTab(index);
+                } else {
+                    contentDiv.innerHTML = '<p style="color: #999;">Error loading essay content.</p>';
+                }
+            }, 500); // Wait 500ms for essay to load
+        } else {
+            contentDiv.innerHTML = '<p style="color: #999;">Essay content not loaded yet. Please expand the grade details first.</p>';
+        }
         return;
     }
 
