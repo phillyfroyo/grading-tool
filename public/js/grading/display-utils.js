@@ -601,6 +601,9 @@ function populateHighlightsContent(contentId) {
 
         // Setup remove-all checkbox listener
         setupRemoveAllCheckbox(contentId);
+
+        // Apply saved checkbox state to all highlights immediately
+        applySavedCheckboxStateToHighlights(contentId);
     }
 
     contentInner.dataset.populated = 'true';
@@ -845,6 +848,66 @@ function refreshHighlightsSection(contentId) {
     } else {
         console.log(`Section ${contentId} is collapsed, will refresh when opened`);
     }
+}
+
+/**
+ * Apply saved checkbox state to all highlights when section is first populated
+ * @param {string} contentId - ID of the content div
+ */
+function applySavedCheckboxStateToHighlights(contentId) {
+    const checkbox = document.getElementById(`${contentId}-remove-all`);
+    if (!checkbox) return;
+
+    // Check if checkbox is checked (state was restored from localStorage)
+    const isChecked = checkbox.checked;
+    if (!isChecked) return; // Nothing to do if not checked
+
+    console.log(`🔄 Applying saved checkbox state (${isChecked}) to highlights in ${contentId}`);
+
+    // Find all toggle buttons and apply the excluded state
+    const contentInner = document.getElementById(`${contentId}-inner`);
+    if (!contentInner) return;
+
+    const toggleButtons = contentInner.querySelectorAll('.toggle-pdf-btn');
+    console.log(`🔍 Found ${toggleButtons.length} toggle buttons to update`);
+
+    toggleButtons.forEach(button => {
+        const elementId = button.dataset.elementId;
+        const highlightElement = document.getElementById(elementId);
+
+        if (highlightElement) {
+            // Set excluded state based on checkbox
+            highlightElement.dataset.excludeFromPdf = isChecked ? 'true' : 'false';
+            button.dataset.excluded = isChecked;
+
+            // Update button appearance
+            if (isChecked) {
+                button.style.background = '#28a745';
+                button.textContent = 'Add to PDF export';
+                button.onmouseover = function() { this.style.background = '#218838'; };
+                button.onmouseout = function() { this.style.background = '#28a745'; };
+            } else {
+                button.style.background = '#dc3545';
+                button.textContent = 'Remove from PDF export';
+                button.onmouseover = function() { this.style.background = '#c82333'; };
+                button.onmouseout = function() { this.style.background = '#dc3545'; };
+            }
+
+            // Update entry styling
+            const entryDiv = button.closest('div[style*="margin: 20px 0"]');
+            if (entryDiv) {
+                if (isChecked) {
+                    entryDiv.style.textDecoration = 'line-through';
+                    entryDiv.style.opacity = '0.6';
+                } else {
+                    entryDiv.style.textDecoration = 'none';
+                    entryDiv.style.opacity = '1';
+                }
+            }
+        }
+    });
+
+    console.log(`✅ Applied saved checkbox state to all highlights`);
 }
 
 /**
@@ -1153,3 +1216,93 @@ if (document.readyState === 'loading') {
 
 // Make toggle function globally available
 window.toggleHighlightsSection = toggleHighlightsSection;
+
+/**
+ * Restore all "remove all from PDF" checkbox states from localStorage
+ * Call this immediately after rendering batch results to persist checkbox states
+ */
+function restoreAllCheckboxStates() {
+    console.log('🔄 Restoring all checkbox states from localStorage');
+
+    // Find all remove-all checkboxes in the document
+    const checkboxes = document.querySelectorAll('.remove-all-checkbox');
+    console.log(`📋 Found ${checkboxes.length} remove-all checkboxes to restore`);
+
+    checkboxes.forEach(checkbox => {
+        const contentId = checkbox.dataset.contentId;
+        if (!contentId) {
+            console.warn('Checkbox missing contentId:', checkbox);
+            return;
+        }
+
+        // Restore state from localStorage
+        const savedState = localStorage.getItem(`removeAllFromPDF_${contentId}`);
+        if (savedState !== null) {
+            const isChecked = savedState === 'true';
+            checkbox.checked = isChecked;
+            console.log(`✅ Restored checkbox state for ${contentId}: ${isChecked}`);
+        }
+
+        // Attach change listener to save state immediately (if not already attached)
+        if (!checkbox.dataset.listenerAttached) {
+            checkbox.addEventListener('change', function() {
+                const isChecked = this.checked;
+                console.log(`📋 Checkbox ${isChecked ? 'CHECKED' : 'UNCHECKED'} for ${contentId}`);
+
+                // Save state to localStorage
+                localStorage.setItem(`removeAllFromPDF_${contentId}`, isChecked.toString());
+                console.log(`💾 Saved checkbox state to localStorage: ${isChecked}`);
+
+                // If highlights are already loaded, apply the change immediately
+                const contentInner = document.getElementById(`${contentId}-inner`);
+                if (contentInner && contentInner.dataset.populated === 'true') {
+                    console.log('🔄 Applying checkbox change to loaded highlights');
+                    const toggleButtons = contentInner.querySelectorAll('.toggle-pdf-btn');
+
+                    toggleButtons.forEach(button => {
+                        const elementId = button.dataset.elementId;
+                        const highlightElement = document.getElementById(elementId);
+
+                        if (!highlightElement) return;
+
+                        // Set excluded state
+                        highlightElement.dataset.excludeFromPdf = isChecked ? 'true' : 'false';
+                        button.dataset.excluded = isChecked;
+
+                        // Update button appearance
+                        if (isChecked) {
+                            button.style.background = '#28a745';
+                            button.textContent = 'Add to PDF export';
+                            button.onmouseover = function() { this.style.background = '#218838'; };
+                            button.onmouseout = function() { this.style.background = '#28a745'; };
+                        } else {
+                            button.style.background = '#dc3545';
+                            button.textContent = 'Remove from PDF export';
+                            button.onmouseover = function() { this.style.background = '#c82333'; };
+                            button.onmouseout = function() { this.style.background = '#dc3545'; };
+                        }
+
+                        // Update entry styling
+                        const entryDiv = button.closest('div[style*="margin: 20px 0"]');
+                        if (entryDiv) {
+                            if (isChecked) {
+                                entryDiv.style.textDecoration = 'line-through';
+                                entryDiv.style.opacity = '0.6';
+                            } else {
+                                entryDiv.style.textDecoration = 'none';
+                                entryDiv.style.opacity = '1';
+                            }
+                        }
+                    });
+
+                    console.log(`✅ Applied checkbox change to all highlights`);
+                }
+            });
+            checkbox.dataset.listenerAttached = 'true';
+            console.log(`🔧 Attached change listener to checkbox for ${contentId}`);
+        }
+    });
+}
+
+// Export the restore function
+window.restoreAllCheckboxStates = restoreAllCheckboxStates;

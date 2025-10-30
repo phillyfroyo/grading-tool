@@ -48,7 +48,8 @@
       "Bash(rm:*)",
       "Bash(git restore:*)",
       "Bash(git rm:*)",
-      "mcp__ide__getDiagnostics"
+      "mcp__ide__getDiagnostics",
+      "Bash(git log:*)"
     ],
     "deny": [],
     "ask": []
