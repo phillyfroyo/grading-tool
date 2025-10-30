@@ -930,35 +930,24 @@ function setupRemoveAllCheckbox(contentId) {
     let isChecked;
 
     // Priority order:
-    // 1. If checkbox is already checked manually, respect that (user interacted before content loaded)
-    // 2. Otherwise, use saved localStorage state
-    // 3. Otherwise, check current highlight state
-    if (currentCheckboxState) {
-        // User manually checked before content loaded - save this to localStorage
-        isChecked = true;
-        localStorage.setItem(`removeAllFromPDF_${contentId}`, 'true');
-        console.log('✅ User pre-checked checkbox detected, saving to localStorage');
-    } else if (savedState !== null) {
-        // Restore from localStorage
+    // 1. Use saved localStorage state if it exists (most reliable)
+    // 2. If no saved state but checkbox is checked, respect that (user interacted before content loaded)
+    // 3. Otherwise, default to unchecked
+    if (savedState !== null) {
+        // Restore from localStorage - this is the most reliable source
         isChecked = savedState === 'true';
         checkbox.checked = isChecked;
         console.log(`📥 Restored checkbox state from localStorage: ${isChecked}`);
+    } else if (currentCheckboxState) {
+        // User manually checked before content loaded - save this to localStorage
+        isChecked = true;
+        localStorage.setItem(`removeAllFromPDF_${contentId}`, 'true');
+        console.log('✅ User pre-checked checkbox detected (no saved state), saving to localStorage');
     } else {
-        // No saved state and not pre-checked - check current highlights
-        const contentInner = document.getElementById(`${contentId}-inner`);
-        if (contentInner) {
-            const toggleButtons = contentInner.querySelectorAll('.toggle-pdf-btn');
-            if (toggleButtons.length > 0) {
-                const allExcluded = Array.from(toggleButtons).every(btn => btn.dataset.excluded === 'true');
-                isChecked = allExcluded;
-                checkbox.checked = allExcluded;
-                console.log(`📊 Set checkbox based on current highlights: ${allExcluded}`);
-            } else {
-                isChecked = false;
-            }
-        } else {
-            isChecked = false;
-        }
+        // Default to unchecked
+        isChecked = false;
+        checkbox.checked = false;
+        console.log('📊 No saved state or pre-check, defaulting to unchecked');
     }
 
     // Apply the determined state to all highlights
