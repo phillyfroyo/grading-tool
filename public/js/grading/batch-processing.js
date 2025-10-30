@@ -308,12 +308,34 @@ function displayBatchResults(batchResult, originalData) {
     const successCount = batchResult.results.filter(r => r.success).length;
     const failureCount = batchResult.results.filter(r => !r.success).length;
 
+    // Capture checkbox states BEFORE replacing HTML
+    const checkboxStates = {};
+    document.querySelectorAll('.remove-all-checkbox').forEach(checkbox => {
+        const contentId = checkbox.dataset.contentId;
+        if (contentId && checkbox.checked) {
+            checkboxStates[contentId] = true;
+            console.log(`💾 Captured checked state for ${contentId}`);
+        }
+    });
+
     const compactHtml = window.DisplayUtilsModule ?
         window.DisplayUtilsModule.createBatchResultsHTML(batchResult, successCount, failureCount) :
         createBatchResultsHTMLFallback(batchResult, successCount, failureCount);
 
     resultsDiv.innerHTML = compactHtml;
     resultsDiv.style.display = 'block';
+
+    // Restore checkbox states AFTER HTML is replaced
+    setTimeout(() => {
+        Object.entries(checkboxStates).forEach(([contentId, isChecked]) => {
+            const checkbox = document.querySelector(`.remove-all-checkbox[data-content-id="${contentId}"]`);
+            if (checkbox && isChecked) {
+                checkbox.checked = true;
+                localStorage.setItem(`removeAllFromPDF_${contentId}`, 'true');
+                console.log(`✅ Restored checked state for ${contentId}`);
+            }
+        });
+    }, 50);
 
     // Store batch data globally for download and expand functions
     window.currentBatchData = { batchResult, originalData };
