@@ -280,8 +280,83 @@ function loadHighlightsTab(index) {
  * @param {HTMLElement} contentDiv - The content container
  */
 function setupRemoveAllCheckboxForTab(checkbox, contentDiv) {
+    // Prevent duplicate setups
+    if (checkbox.dataset.setupComplete === 'true') {
+        console.log(`⚠️ Checkbox already set up, skipping`);
+        return;
+    }
+
+    console.log('🔧 Setting up remove-all checkbox for tab');
+    console.log(`📋 Checkbox state at setup time: ${checkbox.checked}`);
+
+    // Get the contentId from the checkbox's data attribute or ID
+    const contentId = checkbox.dataset.contentId || checkbox.id.replace('-remove-all', '');
+
+    // CAPTURE the checkbox state IMMEDIATELY before any other operations
+    const currentCheckboxState = checkbox.checked;
+    const savedState = localStorage.getItem(`removeAllFromPDF_${contentId}`);
+
+    console.log(`💾 Saved localStorage state: ${savedState}`);
+    console.log(`✋ Current DOM checkbox state: ${currentCheckboxState}`);
+
+    let isChecked;
+
+    // Priority order:
+    // 1. Use saved localStorage state if it exists (most reliable)
+    // 2. If no saved state but checkbox is checked, respect that (user interacted before content loaded)
+    // 3. Otherwise, default to unchecked
+    if (savedState !== null) {
+        // Restore from localStorage - this is the most reliable source
+        isChecked = savedState === 'true';
+        checkbox.checked = isChecked;
+        console.log(`📥 Restored checkbox state from localStorage: ${isChecked}`);
+    } else if (currentCheckboxState) {
+        // User manually checked before content loaded - save this to localStorage
+        isChecked = true;
+        localStorage.setItem(`removeAllFromPDF_${contentId}`, 'true');
+        console.log('✅ User pre-checked checkbox detected (no saved state), saving to localStorage');
+    } else {
+        // Default to unchecked
+        isChecked = false;
+        checkbox.checked = false;
+        console.log('📊 No saved state or pre-check, defaulting to unchecked');
+    }
+
+    // Apply the determined state to all highlights immediately
+    if (isChecked) {
+        const toggleButtons = contentDiv.querySelectorAll('.toggle-pdf-btn');
+        console.log(`🔍 Applying checked state to ${toggleButtons.length} toggle buttons`);
+
+        toggleButtons.forEach(button => {
+            const elementId = button.dataset.elementId;
+            const highlightElement = document.getElementById(elementId);
+
+            if (highlightElement) {
+                highlightElement.dataset.excludeFromPdf = 'true';
+                button.dataset.excluded = 'true';
+                button.style.background = '#28a745';
+                button.textContent = 'Add to PDF export';
+                button.onmouseover = function() { this.style.background = '#218838'; };
+                button.onmouseout = function() { this.style.background = '#28a745'; };
+
+                const entryDiv = button.closest('div[style*="margin: 20px 0"]');
+                if (entryDiv) {
+                    entryDiv.style.textDecoration = 'line-through';
+                    entryDiv.style.opacity = '0.6';
+                }
+            }
+        });
+    }
+
+    // Add change listener
     checkbox.addEventListener('change', function() {
         const isChecked = this.checked;
+        console.log(`📋 Remove-all checkbox ${isChecked ? 'CHECKED' : 'UNCHECKED'}`);
+
+        // Save state to localStorage
+        localStorage.setItem(`removeAllFromPDF_${contentId}`, isChecked.toString());
+        console.log(`💾 Saved checkbox state to localStorage: ${isChecked}`);
+
         const toggleButtons = contentDiv.querySelectorAll('.toggle-pdf-btn');
 
         toggleButtons.forEach(button => {
@@ -321,12 +396,9 @@ function setupRemoveAllCheckboxForTab(checkbox, contentDiv) {
         });
     });
 
-    // Set initial checkbox state
-    const toggleButtons = contentDiv.querySelectorAll('.toggle-pdf-btn');
-    if (toggleButtons.length > 0) {
-        const allExcluded = Array.from(toggleButtons).every(btn => btn.dataset.excluded === 'true');
-        checkbox.checked = allExcluded;
-    }
+    // Mark checkbox as set up to prevent duplicate setups
+    checkbox.dataset.setupComplete = 'true';
+    console.log(`✅ Checkbox setup complete`);
 }
 
 /**
