@@ -161,26 +161,40 @@ function loadHighlightsTab(index) {
             return;
         }
 
-        // Load essay details first
-        if (window.BatchProcessingModule && window.BatchProcessingModule.loadEssayDetails) {
-            window.BatchProcessingModule.loadEssayDetails(index);
+        // Show loading message
+        contentDiv.innerHTML = '<p style="color: #666;">Loading essay content...</p>';
 
-            // Wait for essay to load, then populate highlights
-            setTimeout(() => {
-                const essayContainerRetry = document.querySelector(`.formatted-essay-content[data-essay-index="${index}"]`);
-                if (essayContainerRetry) {
-                    console.log(`✅ Essay loaded, now populating highlights for index ${index}`);
-                    // Reset loaded flag so we can populate now
-                    contentDiv.dataset.loaded = 'false';
-                    // Recursively call to populate highlights now that essay is loaded
-                    loadHighlightsTab(index);
-                } else {
-                    contentDiv.innerHTML = '<p style="color: #999;">Error loading essay content.</p>';
-                }
-            }, 500); // Wait 500ms for essay to load
+        // Load essay details first - call directly since it's exported
+        if (typeof loadEssayDetails === 'function') {
+            loadEssayDetails(index);
+        } else if (window.BatchProcessingModule && window.BatchProcessingModule.loadEssayDetails) {
+            window.BatchProcessingModule.loadEssayDetails(index);
         } else {
-            contentDiv.innerHTML = '<p style="color: #999;">Essay content not loaded yet. Please expand the grade details first.</p>';
+            contentDiv.innerHTML = '<p style="color: #999;">Unable to load essay content.</p>';
+            return;
         }
+
+        // Poll for essay to be loaded (more reliable than single setTimeout)
+        let attempts = 0;
+        const maxAttempts = 20; // 20 attempts * 100ms = 2 seconds max wait
+        const checkInterval = setInterval(() => {
+            attempts++;
+            const essayContainerRetry = document.querySelector(`.formatted-essay-content[data-essay-index="${index}"]`);
+
+            if (essayContainerRetry) {
+                clearInterval(checkInterval);
+                console.log(`✅ Essay loaded after ${attempts * 100}ms, now populating highlights for index ${index}`);
+                // Reset loaded flag so we can populate now
+                contentDiv.dataset.loaded = 'false';
+                // Recursively call to populate highlights now that essay is loaded
+                loadHighlightsTab(index);
+            } else if (attempts >= maxAttempts) {
+                clearInterval(checkInterval);
+                console.error(`❌ Essay failed to load after ${maxAttempts * 100}ms`);
+                contentDiv.innerHTML = '<p style="color: #999;">Error loading essay content. Please try refreshing.</p>';
+            }
+        }, 100); // Check every 100ms
+
         return;
     }
 
