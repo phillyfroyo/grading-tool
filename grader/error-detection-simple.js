@@ -5,7 +5,7 @@ export function buildSimpleErrorDetectionPrompt(classProfile, studentText) {
   return `Point out all the errors in this ESL student essay.
 
 For each error, provide:
-1. The error category (spelling, grammar, vocabulary, mechanics, delete, or fluency)
+1. The error category (spelling, grammar, vocabulary, mechanics, or fluency)
 2. The exact text with the error
 3. The correction
 4. An explanation (optional - see guidelines below)
@@ -15,7 +15,6 @@ For each error, provide:
 - grammar - verb tenses, subject-verb agreement, articles
 - vocabulary - wrong word choice
 - mechanics - punctuation, capitalization, apostrophes only
-- delete - unnecessary words
 - fluency - awkward phrasing, unnatural English
 
 **Explanation Guidelines:**
