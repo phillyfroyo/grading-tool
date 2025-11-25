@@ -5,7 +5,7 @@ export function buildSimpleErrorDetectionPrompt(classProfile, studentText) {
   return `Point out all the errors in this ESL student essay.
 
 For each error, provide:
-1. The error category (spelling, grammar, vocabulary, mechanics, or fluency)
+1. The error category (spelling, grammar, vocabulary, mechanics, fluency, or delete)
 2. The exact text with the error
 3. The correction
 4. An explanation (optional - see guidelines below)
@@ -16,6 +16,7 @@ For each error, provide:
 - vocabulary - wrong word choice
 - mechanics - punctuation, capitalization, apostrophes only
 - fluency - awkward phrasing, unnatural English
+- delete - redundant or unnecessary words that should be removed entirely (correction should be empty or indicate deletion)
 
 **Explanation Guidelines:**
 - Don't provide explanations for spelling errors
@@ -28,6 +29,12 @@ For each error, provide:
 - Be selective - missing errors is better than false positives. Don't flag stylistic preferences.
 - For run-on sentences: mark the 2 words surrounding where the period should go rather than the entire run-on sentence (mechanics error).
 
+**CRITICAL - Avoid Overlapping Highlights:**
+- If the same text has multiple errors (e.g., "dont" is both spelling and grammar), combine them into ONE entry with multiple categories
+- Use comma-separated categories like "spelling,grammar" for multi-error text
+- Never create separate entries for the same exact text span
+- Example: "dont" should be ONE error with category: "spelling,grammar", not two separate errors
+
 Output as a JSON array:
 {
   "errors": [
@@ -37,10 +44,22 @@ Output as a JSON array:
       "correction": "receive"
     },
     {
+      "category": "spelling,grammar",
+      "error_text": "dont",
+      "correction": "don't",
+      "explanation": "Spelling: add apostrophe. Grammar: use 'don't' for negation with 'I/you/we/they'"
+    },
+    {
       "category": "grammar",
       "error_text": "He don't like",
       "correction": "He doesn't like",
       "explanation": "Use 'doesn't' with 'he/she/it'"
+    },
+    {
+      "category": "delete",
+      "error_text": "very very",
+      "correction": "",
+      "explanation": "Remove redundant repetition"
     }
   ]
 }

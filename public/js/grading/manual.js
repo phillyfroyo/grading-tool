@@ -390,9 +390,9 @@ class ManualGradingManager {
             scores: {
                 grammar: { points: 12, out_of: 15, rationale: "Some grammar issues to address." },
                 vocabulary: { points: 11, out_of: 15, rationale: "Nice vocabulary choices." },
-                spelling: { points: 8, out_of: 10, rationale: "A few spelling errors noted." },
+                spelling: { points: 12, out_of: 15, rationale: "A few spelling errors noted." },
                 mechanics: { points: 13, out_of: 15, rationale: "Excellent mechanics and punctuation." },
-                fluency: { points: 10, out_of: 15, rationale: "Could improve fluency and flow." },
+                fluency: { points: 7, out_of: 10, rationale: "Could improve fluency and flow." },
                 layout: { points: 14, out_of: 15, rationale: "Good layout and formatting." },
                 content: { points: 12, out_of: 15, rationale: "Good content overall." }
             },

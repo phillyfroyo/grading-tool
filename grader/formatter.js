@@ -389,7 +389,7 @@ function resolveOverlapsFixed(issues, priorityOrder) {
     }
   }
 
-  // Enable overlapping highlights for compound errors
+  // Merge overlapping highlights into single highlights with multiple categories
   for (const current of uniqueIssues) {
     let shouldAdd = true;
     const currentCategory = current.category || current.type || 'unknown';
@@ -399,33 +399,71 @@ function resolveOverlapsFixed(issues, priorityOrder) {
       if (overlaps(current.offsets, existing.offsets)) {
         const existingCategory = existing.category || existing.type || 'unknown';
 
-        // ALLOW overlapping highlights for different categories (compound errors)
-        if (currentCategory !== existingCategory) {
-          console.log(`✅ Allowing overlapping compound error: ${currentCategory} + ${existingCategory}`);
-          continue; // Skip conflict resolution, allow both
+        // If exact same offsets and different categories, MERGE into one highlight
+        if (current.offsets.start === existing.offsets.start &&
+            current.offsets.end === existing.offsets.end &&
+            currentCategory !== existingCategory) {
+          console.log(`🔀 Merging overlapping highlights: ${existingCategory} + ${currentCategory}`);
+
+          // Combine categories (avoid duplicates)
+          const existingCategories = existingCategory.split(',');
+          const currentCategories = currentCategory.split(',');
+          const allCategories = [...new Set([...existingCategories, ...currentCategories])];
+          existing.category = allCategories.join(',');
+
+          // Combine explanations if both exist
+          if (current.explanation && existing.explanation) {
+            existing.explanation = `${existingCategory}: ${existing.explanation}. ${currentCategory}: ${current.explanation}`;
+          } else if (current.explanation) {
+            existing.explanation = `${currentCategory}: ${current.explanation}`;
+          }
+
+          console.log(`✅ Merged into single highlight with categories: ${existing.category}`);
+          shouldAdd = false;
+          break;
         }
 
         // For SAME categories, apply priority resolution
-        const currentPriority = priorityOrder.indexOf(currentCategory);
-        const existingPriority = priorityOrder.indexOf(existingCategory);
+        if (currentCategory === existingCategory) {
+          const currentPriority = priorityOrder.indexOf(currentCategory);
+          const existingPriority = priorityOrder.indexOf(existingCategory);
 
-        // If existing has higher priority (lower index), drop current
-        if (existingPriority >= 0 && (currentPriority < 0 || existingPriority < currentPriority)) {
-          console.log(`Dropping lower priority same-category overlap: ${current.message}`);
-          shouldAdd = false;
-          break;
+          // If existing has higher priority (lower index), drop current
+          if (existingPriority >= 0 && (currentPriority < 0 || existingPriority < currentPriority)) {
+            console.log(`Dropping lower priority same-category overlap: ${current.message}`);
+            shouldAdd = false;
+            break;
+          }
+          // If current has higher priority, remove existing and add current
+          else if (currentPriority >= 0 && currentPriority < existingPriority) {
+            console.log(`Replacing lower priority same-category issue: ${existing.message} with ${current.message}`);
+            const index = resolved.indexOf(existing);
+            resolved.splice(index, 1);
+          }
+          // If same priority and same category, keep the first one
+          else if (currentPriority === existingPriority) {
+            console.log(`Same priority same-category overlap, keeping first: ${existing.message}`);
+            shouldAdd = false;
+            break;
+          }
         }
-        // If current has higher priority, remove existing and add current
-        else if (currentPriority >= 0 && currentPriority < existingPriority) {
-          console.log(`Replacing lower priority same-category issue: ${existing.message} with ${current.message}`);
-          const index = resolved.indexOf(existing);
-          resolved.splice(index, 1);
-        }
-        // If same priority and same category, keep the first one
-        else if (currentPriority === existingPriority) {
-          console.log(`Same priority same-category overlap, keeping first: ${existing.message}`);
-          shouldAdd = false;
-          break;
+
+        // For partial overlaps with different categories, keep the longer/more specific one
+        if (currentCategory !== existingCategory &&
+            (current.offsets.start !== existing.offsets.start || current.offsets.end !== existing.offsets.end)) {
+          console.log(`⚠️ Partial overlap detected: ${existingCategory} vs ${currentCategory}`);
+          // Keep the longer highlight (more context)
+          const currentLength = current.offsets.end - current.offsets.start;
+          const existingLength = existing.offsets.end - existing.offsets.start;
+          if (currentLength < existingLength) {
+            console.log(`Dropping shorter partial overlap: ${currentCategory}`);
+            shouldAdd = false;
+            break;
+          } else if (currentLength > existingLength) {
+            console.log(`Replacing with longer partial overlap: ${currentCategory}`);
+            const index = resolved.indexOf(existing);
+            resolved.splice(index, 1);
+          }
         }
       }
     }
@@ -659,7 +697,8 @@ function renderNestedHighlights(text, issues, segmentIndex, editable) {
   // Apply highlights from lowest priority to highest (inside-out)
   for (let i = sortedIssues.length - 1; i >= 0; i--) {
     const issue = sortedIssues[i];
-    const issueCategory = issue.category || issue.type || '';
+    const fullCategory = issue.category || issue.type || '';
+    const issueCategory = fullCategory.split(',')[0].trim(); // Use first category for styling
     const correctionInfo = correctionGuideColors[issueCategory];
     const categoryInfo = correctionInfo || rubric.categories[issueCategory];
 
@@ -718,7 +757,7 @@ function renderNestedHighlights(text, issues, segmentIndex, editable) {
 
     html = `<mark class="highlight-${issueCategory} highlight nested-highlight"
                  data-type="${escapeHtml(issueCategory)}"
-                 data-category="${escapeHtml(issueCategory)}"
+                 data-category="${escapeHtml(fullCategory)}"
                  data-correction="${escapeHtml(correction)}"
                  data-explanation="${escapeHtml(explanation)}"
                  data-message="${escapeHtml(issueDesc)}"
@@ -738,7 +777,9 @@ function renderNestedHighlights(text, issues, segmentIndex, editable) {
 
 function renderSingleHighlight(issue, text, segmentIndex, editable) {
   // Use correction guide colors for inline_issues, fallback to rubric colors
-  const issueCategory = issue.category || issue.type || '';
+  // Handle comma-separated categories (use first category for styling)
+  const fullCategory = issue.category || issue.type || '';
+  const issueCategory = fullCategory.split(',')[0].trim(); // Use first category for colors
   const correctionInfo = correctionGuideColors[issueCategory];
   const categoryInfo = correctionInfo || rubric.categories[issueCategory];
   const color = categoryInfo?.color || '#666';
@@ -790,7 +831,7 @@ function renderSingleHighlight(issue, text, segmentIndex, editable) {
 
   return `<mark class="highlight-${issueCategory} highlight"
                data-type="${escapeHtml(issueCategory)}"
-               data-category="${escapeHtml(issueCategory)}"
+               data-category="${escapeHtml(fullCategory)}"
                data-correction="${escapeHtml(correction)}"
                data-explanation="${escapeHtml(explanation)}"
                data-message="${escapeHtml(issueDesc)}"

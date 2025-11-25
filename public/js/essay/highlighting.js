@@ -414,6 +414,18 @@ function showHighlightEditModal(element, currentCategories) {
                 console.log('✅ Save completed');
             }
             modal.style.display = 'none';
+
+            // Auto-clear selection after saving to prevent accidentally re-opening editor
+            if (window.getSelection) {
+                window.getSelection().removeAllRanges();
+            }
+            // Also clear category selection state
+            if (window.TextSelectionModule && window.TextSelectionModule.clearSelection) {
+                window.TextSelectionModule.clearSelection();
+            } else if (window.clearSelection) {
+                window.clearSelection();
+            }
+            console.log('🧹 Cleared selection after highlight save');
         });
         saveButton.dataset.simpleHandlerAttached = 'true';
     }

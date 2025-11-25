@@ -18,19 +18,19 @@ function setupKeyboardShortcuts() {
             }
         }
 
-        // Ctrl/Cmd + M for manual grading
-        if ((event.ctrlKey || event.metaKey) && event.key === 'm') {
-            event.preventDefault();
-            if (window.TabManagementModule) {
-                window.TabManagementModule.switchTab('manual-grader');
-            }
-        }
-
         // Ctrl/Cmd + G for GPT grading
         if ((event.ctrlKey || event.metaKey) && event.key === 'g') {
             event.preventDefault();
             if (window.TabManagementModule) {
                 window.TabManagementModule.switchTab('gpt-grader');
+            }
+        }
+
+        // Ctrl/Cmd + C for Claude grading
+        if ((event.ctrlKey || event.metaKey) && event.key === 'c') {
+            event.preventDefault();
+            if (window.TabManagementModule) {
+                window.TabManagementModule.switchTab('claude-grader');
             }
         }
 
@@ -63,8 +63,8 @@ function showHelpModal() {
         <h4>Keyboard Shortcuts</h4>
         <ul style="text-align: left; margin: 10px 0;">
             <li><strong>Ctrl/Cmd + E</strong> - Export to PDF</li>
-            <li><strong>Ctrl/Cmd + M</strong> - Switch to Manual Grading</li>
-            <li><strong>Ctrl/Cmd + G</strong> - Switch to GPT Grading</li>
+            <li><strong>Ctrl/Cmd + G</strong> - Switch to GPT tab</li>
+            <li><strong>Ctrl/Cmd + C</strong> - Switch to Claude tab</li>
             <li><strong>Escape</strong> - Clear text selection</li>
             <li><strong>F1</strong> - Show this help</li>
         </ul>
@@ -80,7 +80,7 @@ function showHelpModal() {
     if (window.ModalManagementModule) {
         window.ModalManagementModule.showModal('Help & Shortcuts', helpContent);
     } else {
-        alert('Help: Use Ctrl+E to export, Ctrl+M for manual grading, Ctrl+G for GPT grading, Escape to clear selection');
+        alert('Help: Use Ctrl+E to export, Ctrl+G for GPT tab, Ctrl+C for Claude tab, Escape to clear selection');
     }
 }
 

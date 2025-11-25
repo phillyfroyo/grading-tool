@@ -73,27 +73,27 @@
       "name": "Spelling",
       "color": "#45B7D1",
       "backgroundColor": "#E3F2FD",
-      "weight": 10,
+      "weight": 15,
       "description": "Accuracy and clarity of spelling.",
       "bands": [
         {
-          "range": "10% - 9%",
+          "range": "15% - 13%",
           "description": "Hardly any spelling errors (0-2). No errors that impede communication."
         },
         {
-          "range": "8% - 7%",
+          "range": "12% - 10%",
           "description": "Some spelling errors (3-5). Errors do not impede communication."
         },
         {
-          "range": "6% - 5%",
+          "range": "9% - 7%",
           "description": "Number of errors 6-8 that do not impede communication."
         },
         {
-          "range": "4% - 3%",
+          "range": "6% - 4%",
           "description": "Errors may obscure communication at times. Spelling errors of 8-10."
         },
         {
-          "range": "2% - 0%",
+          "range": "3% - 0%",
           "description": "Frequent errors that obscure communication. Many spelling errors (10 or more or basic ones)."
         }
       ]
@@ -133,15 +133,15 @@
       "name": "Fluency",
       "color": "#A855F7",
       "backgroundColor": "#F3E8FF",
-      "weight": 15,
+      "weight": 10,
       "description": "Organization and logical flow of ideas.",
       "bands": [
         {
-          "range": "15% - 13%",
+          "range": "10% - 9%",
           "description": "Well-organized, coherent, and easy to follow. Valid ideas clearly connected."
         },
         {
-          "range": "12% - 10%",
+          "range": "8% - 7%",
           "description": "Mostly clear organization. Valid ideas organized logically."
         },
         {

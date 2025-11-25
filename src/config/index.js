@@ -27,6 +27,7 @@ const config = {
   },
   api: {
     openaiApiKey: process.env.OPENAI_API_KEY,
+    anthropicApiKey: process.env.ANTHROPIC_API_KEY,
     requestLimit: '10mb'
   },
   files: {
@@ -43,8 +44,8 @@ const config = {
 function validateConfig() {
   const errors = [];
 
-  if (!config.api.openaiApiKey) {
-    errors.push('OPENAI_API_KEY environment variable is required');
+  if (!config.api.openaiApiKey && !config.api.anthropicApiKey) {
+    errors.push('Either OPENAI_API_KEY or ANTHROPIC_API_KEY environment variable is required');
   }
 
   if (errors.length > 0) {
@@ -60,6 +61,7 @@ console.log(`  - Environment: ${config.environment.isVercel ? 'Vercel' : 'Local'
 console.log(`  - Node.js: ${config.environment.nodeVersion}`);
 console.log(`  - Platform: ${config.environment.platform}`);
 console.log(`  - OpenAI API Key: ${config.api.openaiApiKey ? 'Present' : 'Missing'}`);
+console.log(`  - Anthropic API Key: ${config.api.anthropicApiKey ? 'Present' : 'Missing'}`);
 
 export {
   config,

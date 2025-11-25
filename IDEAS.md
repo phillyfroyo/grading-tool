@@ -46,6 +46,7 @@ This file contains ideas for future development that haven't been implemented ye
 - GPT often highlights entire sentences instead of specific words
 - Offset positions frequently incorrect (requires post-processing fixes)
 - Categories sometimes misclassified (grammar vs fluency confusion)
+- **Multiple overlapping highlights**: Need to prevent multiple different highlights across the same word(s). If multiple error types are present in a single word/words, create one highlight with multiple error codes instead of separate overlapping highlights
 
 **3. Teacher Feedback Issues:**
 - Sometimes too generic or repetitive

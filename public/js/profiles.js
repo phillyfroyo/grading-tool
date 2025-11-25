@@ -40,16 +40,29 @@ async function loadProfilesData() {
  * Update the profile dropdown with current profiles
  */
 function updateProfileDropdown() {
+    // Update GPT tab dropdown
     const select = document.getElementById('classProfile');
-    if (!select) return;
+    if (select) {
+        select.innerHTML = '<option value="">Select a class profile...</option>';
+        profiles.forEach(profile => {
+            const option = document.createElement('option');
+            option.value = profile.id;
+            option.textContent = profile.name;
+            select.appendChild(option);
+        });
+    }
 
-    select.innerHTML = '<option value="">Select a class profile...</option>';
-    profiles.forEach(profile => {
-        const option = document.createElement('option');
-        option.value = profile.id;
-        option.textContent = profile.name;
-        select.appendChild(option);
-    });
+    // Update Claude tab dropdown
+    const claudeSelect = document.getElementById('claudeClassProfile');
+    if (claudeSelect) {
+        claudeSelect.innerHTML = '<option value="">Select a class profile...</option>';
+        profiles.forEach(profile => {
+            const option = document.createElement('option');
+            option.value = profile.id;
+            option.textContent = profile.name;
+            claudeSelect.appendChild(option);
+        });
+    }
 }
 
 /**

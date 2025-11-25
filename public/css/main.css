@@ -4,8 +4,12 @@
    ================================================================== */
 
 /* ===== BASE STYLES ===== */
+* {
+    font-family: 'Times New Roman', Times, serif;
+}
+
 body {
-    font-family: Arial, sans-serif;
+    font-family: 'Times New Roman', Times, serif;
     font-size: 20px;
     margin: 0;
     padding: 40px;
@@ -15,6 +19,10 @@ body {
     align-items: center;
     justify-content: center;
     box-sizing: border-box;
+}
+
+input, textarea, select, button {
+    font-family: 'Times New Roman', Times, serif;
 }
 
 h1 {

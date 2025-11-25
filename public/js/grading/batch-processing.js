@@ -61,7 +61,9 @@ function displayBatchProgress(batchData) {
         nextInQueue: 2
     };
 
-    const resultsDiv = document.getElementById('results');
+    // Find the results div in the active tab
+    const activeTab = document.querySelector('.tab-content.active');
+    const resultsDiv = activeTab ? activeTab.querySelector('#results') : document.getElementById('results');
     if (!resultsDiv) return;
 
     // Create the progress UI immediately
@@ -294,7 +296,9 @@ function displayBatchResults(batchResult, originalData) {
         });
     }
 
-    const resultsDiv = document.getElementById('results');
+    // Find the results div in the active tab
+    const activeTab = document.querySelector('.tab-content.active');
+    const resultsDiv = activeTab ? activeTab.querySelector('#results') : document.getElementById('results');
     if (!resultsDiv) return;
 
     // Create compact batch results UI

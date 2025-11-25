@@ -104,6 +104,11 @@ async function handleGradingFormSubmission(e) {
     e.preventDefault();
     console.log('🎯 MAIN GRADING FORM SUBMITTED!');
 
+    // Detect which form is being submitted to determine provider
+    const formId = e.target.id;
+    const provider = formId === 'claudeGradingForm' ? 'claude' : 'openai';
+    console.log('🤖 Using provider:', provider);
+
     const formData = new FormData(e.target);
     const studentName = formData.get('studentName') || 'Student';
     const classProfile = formData.get('classProfile') || '';
@@ -148,10 +153,18 @@ async function handleGradingFormSubmission(e) {
 
 
     // Show loading state
-    const button = e.target.querySelector('#gradeButton');
+    // Find the submit button - different IDs for GPT vs Claude forms
+    const button = e.target.querySelector('button[type="submit"]');
+    if (!button) {
+        console.error('Could not find submit button');
+        return;
+    }
     const originalText = button.textContent;
     button.textContent = 'Grading essays...';
     button.disabled = true;
+
+    // Determine error element ID based on form
+    const errorElementId = formId === 'claudeGradingForm' ? 'claudeClassProfileError' : 'classProfileError';
 
     try {
         if (studentTexts.length === 1) {
@@ -160,7 +173,7 @@ async function handleGradingFormSubmission(e) {
 
             // Validation: Must have either a class profile OR a custom prompt
             if (!classProfile && !prompt) {
-                showInlineError('classProfileError', 'Please select a class profile');
+                showInlineError(errorElementId, 'Please select a class profile');
                 // Reset button state
                 button.textContent = originalText;
                 button.disabled = false;
@@ -168,7 +181,12 @@ async function handleGradingFormSubmission(e) {
             }
 
             // Clear any previous error
-            hideInlineError('classProfileError');
+            hideInlineError(errorElementId);
+
+            // Disable the other provider's tab while grading
+            if (window.TabManagementModule) {
+                window.TabManagementModule.disableInactiveTab(provider);
+            }
 
             const gradingData = {
                 studentText: studentTexts[0].text,
@@ -177,6 +195,7 @@ async function handleGradingFormSubmission(e) {
                 prompt: prompt,
                 classProfile: classProfile,
                 temperature: temperature,
+                provider: provider,
                 isManualMode: false
             };
 
@@ -250,7 +269,7 @@ async function handleGradingFormSubmission(e) {
 
             // Validation: Must have either a class profile OR a custom prompt
             if (!classProfile && !prompt) {
-                showInlineError('classProfileError', 'Please select a class profile');
+                showInlineError(errorElementId, 'Please select a class profile');
                 // Reset button state
                 button.textContent = originalText;
                 button.disabled = false;
@@ -258,7 +277,12 @@ async function handleGradingFormSubmission(e) {
             }
 
             // Clear any previous error
-            hideInlineError('classProfileError');
+            hideInlineError(errorElementId);
+
+            // Disable the other provider's tab while grading
+            if (window.TabManagementModule) {
+                window.TabManagementModule.disableInactiveTab(provider);
+            }
 
             // Note: classProfile is optional if custom prompt is provided
 
@@ -270,7 +294,8 @@ async function handleGradingFormSubmission(e) {
                 })),
                 prompt: prompt,
                 classProfile: classProfile,
-                temperature: temperature
+                temperature: temperature,
+                provider: provider
             };
 
             // Show the progress UI only after validation passes
@@ -295,6 +320,11 @@ async function handleGradingFormSubmission(e) {
         // Restore button state
         button.textContent = originalText;
         button.disabled = false;
+
+        // Re-enable all tabs after grading completes
+        if (window.TabManagementModule) {
+            window.TabManagementModule.enableAllTabs();
+        }
     }
 }
 
@@ -311,6 +341,22 @@ function setupMainGrading() {
         console.log('Main grading form listener added');
     } else {
         console.warn('Main grading form not found');
+    }
+}
+
+/**
+ * Setup Claude grading functionality
+ */
+function setupClaudeGrading() {
+    console.log('Setting up Claude grading functionality');
+
+    // Set up form submission (using the same handler as GPT, it detects which form)
+    const claudeGradingForm = document.getElementById('claudeGradingForm');
+    if (claudeGradingForm) {
+        claudeGradingForm.addEventListener('submit', handleGradingFormSubmission);
+        console.log('Claude grading form listener added');
+    } else {
+        console.warn('Claude grading form not found');
     }
 }
 
@@ -927,6 +973,7 @@ window.FormHandlingModule = {
     handleGradingFormSubmission,
     handleManualGradingSubmission,
     setupMainGrading,
+    setupClaudeGrading,
     setupManualGrading,
     updateManualScore,
     clearManualForm,

@@ -148,9 +148,6 @@ class TabManager {
             case 'profiles':
                 eventBus.emit('profiles:load-list');
                 break;
-            case 'manual-grader':
-                eventBus.emit('manual-grading:tab-activated');
-                break;
             case 'gpt-grader':
                 eventBus.emit('gpt-grading:tab-activated');
                 break;

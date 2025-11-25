@@ -44,10 +44,10 @@ ${category.bands.map(band => `  ${band.range}: ${band.description}`).join('\n')}
 
 ## POINT VALUES (use these exact values):
 - Grammar: out_of = 15
-- Vocabulary: out_of = 15  
-- Spelling: out_of = 10
+- Vocabulary: out_of = 15
+- Spelling: out_of = 15
 - Mechanics: out_of = 15
-- Fluency: out_of = 15
+- Fluency: out_of = 10
 - Layout: out_of = 15
 - Content: out_of = 15
 
@@ -140,9 +140,9 @@ ${studentNickname && studentNickname.trim() ? `
   "scores": {
     "grammar": {"points": X, "out_of": 15, "rationale": ""},
     "vocabulary": {"points": X, "out_of": 15, "rationale": ""},
-    "spelling": {"points": X, "out_of": 10, "rationale": ""},
+    "spelling": {"points": X, "out_of": 15, "rationale": ""},
     "mechanics": {"points": X, "out_of": 15, "rationale": ""},
-    "fluency": {"points": X, "out_of": 15, "rationale": ""},
+    "fluency": {"points": X, "out_of": 10, "rationale": ""},
     "layout": {"points": X, "out_of": 15, "rationale": ""},
     "content": {"points": X, "out_of": 15, "rationale": ""}
   },

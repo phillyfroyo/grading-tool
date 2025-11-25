@@ -351,7 +351,7 @@ function testManualGrading() {
             vocabulary: { points: 11, out_of: 15 },
             grammar: { points: 9, out_of: 15 },
             mechanics: { points: 13, out_of: 15 },
-            spelling: { points: 7, out_of: 10 }
+            spelling: { points: 11, out_of: 15 }
         },
         feedback: {
             content: "Good content overall.",

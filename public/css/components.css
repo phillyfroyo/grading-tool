@@ -150,12 +150,14 @@
     cursor: pointer;
 }
 
-.essay-controls #gradeButton {
+.essay-controls #gradeButton,
+.essay-controls #claudeGradeButton {
     background: #007bff;
     color: white;
 }
 
-.essay-controls #addEssayBtn {
+.essay-controls #addEssayBtn,
+.essay-controls #claudeAddEssayBtn {
     background: #28a745;
     color: white;
 }
@@ -712,12 +714,15 @@ input[type="number"].editable-score {
 /* ===== ESSAY COUNTER CONTROLS ===== */
 /* Hide default number input arrows since we have our own */
 #essayCountInput::-webkit-outer-spin-button,
-#essayCountInput::-webkit-inner-spin-button {
+#essayCountInput::-webkit-inner-spin-button,
+#claudeEssayCountInput::-webkit-outer-spin-button,
+#claudeEssayCountInput::-webkit-inner-spin-button {
     -webkit-appearance: none;
     margin: 0;
 }
 
-#essayCountInput[type=number] {
+#essayCountInput[type=number],
+#claudeEssayCountInput[type=number] {
     -moz-appearance: textfield;
 }
 
