@@ -9,8 +9,8 @@ This file contains ideas for future development that haven't been implemented ye
 ### **📁 Core GPT Files & Their Functions:**
 
 #### **1. PROMPTS & CONFIGURATION**
-- **`grader/grading-prompt.js`** - Generates Step 2 prompt for merciful scoring
-- **`grader/error-detection-prompt.js`** - Generates Step 1 prompt for aggressive error finding
+- **`grader/grading-prompt.js`** - Generates Step 2 prompt for rubric-based scoring
+- **`grader/error-detection-simple.js`** - Generates Step 1 prompt for error detection (used by both GPT and Claude)
 - **`grader/rubric.json`** - Scoring criteria (7 categories, 100 points total)
 
 #### **2. GRADING ENGINES**
@@ -147,6 +147,29 @@ Student Essay → Step 1: Error Detection (temp 0.5) → Safety Patches
 - [ ] Google Classroom sync
 - [ ] Microsoft Teams integration
 - [ ] Webhook support for external systems
+
+## 🎯 Upcoming Investigation & Improvements
+
+### Error Detection Accuracy
+- [ ] **Fix false negatives** (e.g., "this movie have" should be detected as grammar error)
+- [ ] **Fix wrong category selection** (e.g., "this history" → "this story" should be vocabulary, not grammar)
+  - Need to improve category determination logic in error detection prompt
+  - Word-to-word substitutions that are both valid words should likely be vocabulary errors
+  - Subject-verb agreement issues are grammar errors
+
+### Auto-Fill Notes Feature
+- [ ] **Explore auto-fill notes feature for graded categories**
+  - Similar to Highlights/Corrections tab functionality
+  - Auto-deselected by default but available at button click
+  - Would auto-generate category-specific feedback based on detected errors
+
+### Grade Handling Edge Cases
+- [ ] **Investigate how model handles grades when no vocab/grammar in class profile**
+  - What happens when 0 vocab/0 grammar items are specified?
+  - Should the model still grade these categories?
+  - May need to adjust prompts for profiles with empty requirements
+
+---
 
 ## 🔧 Technical Debt & Refactoring
 - [ ] Convert to TypeScript

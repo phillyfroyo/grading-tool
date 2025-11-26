@@ -4,68 +4,46 @@
 export function buildGradingPrompt(rubric, classProfile, cefrLevel, studentText, errorDetectionResults, studentNickname) {
   const levelInfo = rubric.cefr_levels[cefrLevel] || rubric.cefr_levels['C1'];
   const categories = Object.keys(rubric.categories);
+  const studentName = studentNickname && studentNickname.trim() ? studentNickname.trim() : '';
 
-  // Determine student reference - use nickname if provided, otherwise use generic terms
-  const studentRef = studentNickname && studentNickname.trim() ? studentNickname.trim() : 'the student';
-  const studentRefCapitalized = studentNickname && studentNickname.trim() ?
-    studentNickname.charAt(0).toUpperCase() + studentNickname.slice(1) : 'The student';
+  // Count errors by category for the prompt
+  const errorCounts = {};
+  errorDetectionResults.inline_issues.forEach(issue => {
+    const cat = issue.category || issue.type || 'unknown';
+    errorCounts[cat] = (errorCounts[cat] || 0) + 1;
+  });
+  const errorSummary = Object.entries(errorCounts)
+    .map(([cat, count]) => `${cat}: ${count}`)
+    .join(', ') || 'none';
 
-  // Debug logging
-  console.log('🏷️ GRADING PROMPT: Student nickname received:', studentNickname || 'none');
-  console.log('🏷️ GRADING PROMPT: Using student reference:', studentRef);
+  return `You are an ESL writing grader. Score according to the rubric and provide brief feedback.
 
-  return `You are an expert ESL writing grader. Grade according to the rubric.
-
-## YOUR JOB
-Assign accurate scores based on the rubric. Errors are already detected. Provide feedback according to the actual essay quality.
-
-ERRORS PROVIDED: ${errorDetectionResults.inline_issues.length} total errors found
-VOCABULARY COUNT: ${errorDetectionResults.vocabulary_count || 0}
-GRAMMAR STRUCTURES: ${errorDetectionResults.grammar_structures_used?.join(', ') || 'none'}
-
-## GRADING MINDSET
-- Follow the rubric objectively while maintaining a supportive tone
-- Score based on demonstrated competency with growth-oriented feedback
-- Provide accurate assessment that celebrates progress and guides improvement
-- Focus on student effort and potential, not just current deficiencies
+## TASK
+Score each category using the rubric bands. Errors are already detected - use them to inform your scores.
 
 CEFR Level: ${cefrLevel} (${levelInfo.name})
+Word Count: ${errorDetectionResults.word_count || 'unknown'}
+Total Errors: ${errorDetectionResults.inline_issues.length} (${errorSummary})
+Vocabulary Used: ${errorDetectionResults.vocabulary_count || 0}
+Grammar Structures: ${errorDetectionResults.grammar_structures_used?.join(', ') || 'none'}
 
-## ZERO SCORE RULES (automatic 0 if any apply):
+## ZERO SCORE RULES (automatic 0):
 ${rubric.zero_rules.map(rule => `- ${rule}`).join('\n')}
 
-## GRADING CATEGORIES:
+## RUBRIC:
 ${categories.map(cat => {
   const category = rubric.categories[cat];
-  return `${category.name} (${category.weight} points):
+  return `**${category.name}** (${category.weight} pts):
 ${category.bands.map(band => `  ${band.range}: ${band.description}`).join('\n')}`;
 }).join('\n\n')}
 
-
-## POINT VALUES (use these exact values):
-- Grammar: out_of = 15
-- Vocabulary: out_of = 15
-- Spelling: out_of = 15
-- Mechanics: out_of = 15
-- Fluency: out_of = 10
-- Layout: out_of = 15
-- Content: out_of = 15
-
-## ASSIGNMENT PROMPT:
+## ASSIGNMENT:
 ${classProfile.prompt || 'No specific prompt provided'}
 
-## REQUIREMENTS:
-- Word count: **See assignment prompt above for specific word count requirement**
+Requirements:
 - Transition words: ${rubric.layout_rules.transition_words_min} minimum
 - Class vocabulary: ${classProfile.vocabulary.join(', ')}
 - Grammar structures: ${classProfile.grammar.join(', ')}
-
-## SCORING RULES:
-- Follow rubric bands precisely
-- Score based on actual performance against criteria
-- Perfect performance = FULL POINTS
-- Use the full range of the rubric
-
 
 ## STUDENT TEXT:
 "${studentText}"
@@ -74,66 +52,6 @@ ${classProfile.prompt || 'No specific prompt provided'}
 ${errorDetectionResults.inline_issues.map(issue =>
   `- ${issue.category || issue.type}: ${issue.text} → ${issue.correction}`
 ).join('\n')}
-
-## TWO-PART APPROACH:
-1. SCORING: Apply rubric bands objectively to determine points
-2. FEEDBACK: Write encouraging, positive, and growth-oriented comments that celebrate effort and guide improvement (see positive guidelines above)
-
-## IMPORTANT NOTES:
-- **LEAVE ALL rationale FIELDS BLANK** (empty string "")
-- Category feedback is optional and should be added manually by teachers
-- Only provide overall teacher_notes for general essay feedback
-- Score objectively based on rubric but don't include category-specific comments
-
-## POSITIVE FEEDBACK LANGUAGE GUIDELINES:
-
-**ALWAYS START POSITIVELY:** Begin with encouragement and acknowledge effort
-**BE GROWTH-ORIENTED:** Frame challenges as opportunities for improvement
-**BALANCE FEEDBACK:** Include what the student did well alongside areas to strengthen
-**USE SUPPORTIVE LANGUAGE:** "Let's work on" instead of "You need to fix"
-
-${studentNickname && studentNickname.trim() ? `
-**PERSONALIZED POSITIVE FEEDBACK** (using student nickname "${studentNickname}"):
-
-❌ HARSH: "Many grammatical errors (15+ and basic ones) and no use of any structure seen in class"
-✅ POSITIVE: "${studentNickname} - Nice work overall. Let's focus on strengthening your grammar structures and tense consistency."
-
-❌ HARSH: "Barely meets requirements. Length is 30 words under the target"
-✅ POSITIVE: "${studentRefCapitalized} - good ideas here. Try developing them more fully to meet the length requirements."
-
-❌ HARSH: "No valid content points. Essay has nothing to do with the topic"
-✅ POSITIVE: "${studentRefCapitalized} - let's focus on addressing the assignment topic more directly."
-
-❌ HARSH: "Frequent errors that obscure communication"
-✅ POSITIVE: "${studentRefCapitalized} - let's work on grammar and spelling to make your message clearer."
-
-**For higher scores, celebrate and guide:**
-✅ "${studentNickname} - Good work. Just a few areas to fine-tune."
-✅ "${studentNickname} - Your vocabulary shows progress. Keep building on this."
-
-**For lower scores, encourage and support:**
-✅ "${studentRefCapitalized} - let's work on basic sentence structure."
-✅ "${studentRefCapitalized} - focus on addressing the assignment prompt more fully."` : `
-
-❌ HARSH: "Many grammatical errors (15+ and basic ones) and no use of any structure seen in class"
-✅ POSITIVE: "Nice work overall. Let's focus on strengthening your grammar structures and tense consistency."
-
-❌ HARSH: "Barely meets requirements. Length is 30 words under the target"
-✅ POSITIVE: "Good ideas here. Try developing them more fully to meet the length requirements."
-
-❌ HARSH: "No valid content points. Essay has nothing to do with the topic"
-✅ POSITIVE: "Let's focus on addressing the assignment topic more directly."
-
-❌ HARSH: "Frequent errors that obscure communication"
-✅ POSITIVE: "Let's work on grammar and spelling to make your message clearer."
-
-**For higher scores, celebrate and guide:**
-✅ "Good work. Just a few areas to fine-tune."
-✅ "Your vocabulary shows progress. Keep building on this."
-
-**For lower scores, encourage and support:**
-✅ "Let's work on basic sentence structure."
-✅ "Focus on addressing the assignment prompt more fully."`}
 
 ## OUTPUT FORMAT:
 {
@@ -147,34 +65,32 @@ ${studentNickname && studentNickname.trim() ? `
     "content": {"points": X, "out_of": 15, "rationale": ""}
   },
   "total": {"points": X, "out_of": 100},
-  "teacher_notes": "${studentNickname && studentNickname.trim() ?
-    'NEVER use exclamation marks. BE CONCISE - 1-2 sentences maximum. ' +
-    'MUST END WITH: See detailed notes below the color-coded essay. ' +
-    'REQUIRED FORMAT based on total score (randomly pick ONE option from the list): ' +
-    '0-49: ' + studentNickname + ' - [specific feedback about what needs work]. See detailed notes below the color-coded essay. (NO intro phrase, go straight to feedback) ' +
-    '50-59: ' + studentNickname + ' - (pick one): Not too bad overall | This meets the basics | Solid effort, but there is room to grow | Good effort, but there is room to grow. [specific feedback] See detailed notes below the color-coded essay. ' +
-    '60-69: ' + studentNickname + ' - (pick one): I think you did a good job overall | Good work here | This is solid work | You did well with this. [specific feedback] See detailed notes below the color-coded essay. ' +
-    '70-79: ' + studentNickname + ' - (pick one): I think you did a great job overall | Solid work with this essay | Strong effort here | This is well done. [specific feedback] See detailed notes below the color-coded essay. ' +
-    '80-89: ' + studentNickname + ' - (pick one): Great job overall | Nice work overall | Excellent work here | Really well done. [specific feedback] See detailed notes below the color-coded essay. ' +
-    '90-100: ' + studentNickname + ' - (pick one): Excellent work overall | Outstanding job | Exceptional work | This is excellent. [specific feedback] See detailed notes below the color-coded essay. ' +
-    'The [specific feedback] should use phrases like Let\'s work on for areas to improve. Do not over-praise basic assignment compliance.' :
-    'NEVER use exclamation marks. BE CONCISE - 1-2 sentences maximum. ' +
-    'MUST END WITH: See detailed notes below the color-coded essay. ' +
-    'REQUIRED SENTENCE STARTERS based on total score (randomly pick ONE option from the list): ' +
-    '0-49 points: [specific feedback about what needs work]. See detailed notes below the color-coded essay. (NO intro phrase, go straight to feedback) ' +
-    '50-59 points: (pick one): Not too bad overall | This meets the basics | Solid effort, but there is room to grow | Good effort, but there is room to grow. ' +
-    '60-69 points: (pick one): I think you did a good job overall | Good work here | This is solid work | You did well with this. ' +
-    '70-79 points: (pick one): I think you did a great job overall | Solid work with this essay | Strong effort here | This is well done. ' +
-    '80-89 points: (pick one): Great job overall | Nice work overall | Excellent work here | Really well done. ' +
-    '90-100 points: (pick one): Excellent work overall | Outstanding job | Exceptional work | This is excellent. ' +
-    'After the starter, add specific feedback using phrases like Let\'s work on for areas to improve. Do not over-praise basic assignment compliance. ALWAYS end with: See detailed notes below the color-coded essay.'}",
-  "encouragement_next_steps": [
-    "Actionable steps for improvement",
-    "Specific areas to focus on",
-    "Helpful study suggestions"
-  ]
+  "teacher_notes": "See format below",
+  "encouragement_next_steps": ["Step 1", "Step 2", "Step 3"]
 }
 
-Categories must be exactly: grammar, vocabulary, spelling, mechanics, fluency, layout, content
-Return ONLY valid JSON - no explanations or markdown.`;
+## TEACHER_NOTES FORMAT:
+${studentName ? `Start with "${studentName} - " then follow the format below.` : 'Follow the format below.'}
+
+Structure: [Intro based on score] + [Natural feedback about main issues] + "See detailed notes below the color-coded essay."
+
+Pick ONE intro based on total score:
+- 0-49: (skip intro, start with feedback)
+- 50-59: "Not too bad overall." OR "Solid effort, but there is room to grow."
+- 60-69: "Good work here." OR "This is solid work."
+- 70-79: "I think you did a great job overall." OR "Strong effort here."
+- 80-89: "Great job overall." OR "Nice work overall."
+- 90-100: "Excellent work overall." OR "Outstanding job."
+
+Then write natural feedback (1 sentence) about the main area to improve. Focus on the category with the most errors (${errorSummary}). Use phrases like "Lets work on strengthening your grammar" or "Focus on spelling and mechanics going forward" - make it sound natural, not robotic.
+
+RULES:
+- No exclamation marks
+- 2-3 sentences total (intro + feedback + closing)
+- Base feedback on ACTUAL errors found, not generic advice
+- Do NOT comment on word count or other statistics - only mention error categories
+- Always end with: "See detailed notes below the color-coded essay."
+- Leave all "rationale" fields as empty strings ""
+
+Return ONLY valid JSON.`;
 }

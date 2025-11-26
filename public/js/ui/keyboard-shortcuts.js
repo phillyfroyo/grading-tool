@@ -1,135 +1,39 @@
 /**
  * Keyboard Shortcuts Module
- * Handles keyboard shortcut functionality for the application
+ * NOTE: Custom keyboard shortcuts have been disabled to avoid interfering with
+ * native browser shortcuts like Ctrl+C (copy), Ctrl+V (paste), etc.
  */
 
 /**
- * Setup keyboard shortcuts
+ * Setup keyboard shortcuts - DISABLED
+ * All native browser shortcuts (Ctrl+C, Ctrl+V, Ctrl+X, etc.) now work normally.
  */
 function setupKeyboardShortcuts() {
-    document.addEventListener('keydown', function(event) {
-        // Ctrl/Cmd + E for export
-        if ((event.ctrlKey || event.metaKey) && event.key === 'e') {
-            event.preventDefault();
-            if (typeof exportToPDF === 'function') {
-                exportToPDF();
-            } else if (window.PDFExportModule && window.PDFExportModule.exportToPDF) {
-                window.PDFExportModule.exportToPDF();
-            }
-        }
-
-        // Ctrl/Cmd + G for GPT grading
-        if ((event.ctrlKey || event.metaKey) && event.key === 'g') {
-            event.preventDefault();
-            if (window.TabManagementModule) {
-                window.TabManagementModule.switchTab('gpt-grader');
-            }
-        }
-
-        // Ctrl/Cmd + C for Claude grading
-        if ((event.ctrlKey || event.metaKey) && event.key === 'c') {
-            event.preventDefault();
-            if (window.TabManagementModule) {
-                window.TabManagementModule.switchTab('claude-grader');
-            }
-        }
-
-        // Ctrl/Cmd + S for save (prevent default browser save)
-        if ((event.ctrlKey || event.metaKey) && event.key === 's') {
-            event.preventDefault();
-            console.log('Save shortcut pressed - implement save functionality if needed');
-        }
-
-        // Escape key for clearing selections
-        if (event.key === 'Escape') {
-            if (window.EssayEditingModule && window.EssayEditingModule.clearSelection) {
-                window.EssayEditingModule.clearSelection();
-            }
-        }
-
-        // F1 for help (prevent default)
-        if (event.key === 'F1') {
-            event.preventDefault();
-            showHelpModal();
-        }
-    });
+    // No custom keyboard shortcuts - let browser handle all key combinations naturally
 }
 
 /**
- * Show help modal with keyboard shortcuts
+ * Show help modal - DISABLED
  */
 function showHelpModal() {
-    const helpContent = `
-        <h4>Keyboard Shortcuts</h4>
-        <ul style="text-align: left; margin: 10px 0;">
-            <li><strong>Ctrl/Cmd + E</strong> - Export to PDF</li>
-            <li><strong>Ctrl/Cmd + G</strong> - Switch to GPT tab</li>
-            <li><strong>Ctrl/Cmd + C</strong> - Switch to Claude tab</li>
-            <li><strong>Escape</strong> - Clear text selection</li>
-            <li><strong>F1</strong> - Show this help</li>
-        </ul>
-        <h4>Essay Editing</h4>
-        <ul style="text-align: left; margin: 10px 0;">
-            <li>Select text first, then choose a category button</li>
-            <li>Or choose a category button first, then select text</li>
-            <li>Click on highlights to edit them</li>
-            <li>Use the Clear Selection button to reset</li>
-        </ul>
-    `;
-
-    if (window.ModalManagementModule) {
-        window.ModalManagementModule.showModal('Help & Shortcuts', helpContent);
-    } else {
-        alert('Help: Use Ctrl+E to export, Ctrl+G for GPT tab, Ctrl+C for Claude tab, Escape to clear selection');
-    }
+    // No longer needed since shortcuts are disabled
 }
 
 /**
- * Add custom keyboard shortcut
- * @param {string} key - Key combination (e.g., 'ctrl+shift+d')
- * @param {Function} callback - Function to execute
- * @param {string} description - Description for help display
+ * Add custom keyboard shortcut - DISABLED
  */
 function addKeyboardShortcut(key, callback, description = '') {
-    // Store custom shortcuts for help display
-    if (!window.customShortcuts) {
-        window.customShortcuts = [];
-    }
-
-    window.customShortcuts.push({ key, callback, description });
-
-    // Parse key combination
-    const parts = key.toLowerCase().split('+');
-    const modifiers = {
-        ctrl: parts.includes('ctrl'),
-        meta: parts.includes('meta') || parts.includes('cmd'),
-        shift: parts.includes('shift'),
-        alt: parts.includes('alt')
-    };
-    const mainKey = parts[parts.length - 1];
-
-    document.addEventListener('keydown', function(event) {
-        if (event.key.toLowerCase() === mainKey &&
-            event.ctrlKey === modifiers.ctrl &&
-            event.metaKey === modifiers.meta &&
-            event.shiftKey === modifiers.shift &&
-            event.altKey === modifiers.alt) {
-            event.preventDefault();
-            callback(event);
-        }
-    });
+    // Disabled - do nothing
 }
 
 /**
- * Remove keyboard shortcut event listeners
+ * Remove keyboard shortcut event listeners - DISABLED
  */
 function removeKeyboardShortcuts() {
-    // This would require tracking event listeners, which is complex
-    // For now, just clear custom shortcuts
-    window.customShortcuts = [];
+    // Disabled - do nothing
 }
 
-// Export functions for module usage
+// Export functions for module usage (empty implementations)
 window.KeyboardShortcutsModule = {
     setupKeyboardShortcuts,
     showHelpModal,

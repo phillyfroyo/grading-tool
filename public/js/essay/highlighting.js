@@ -165,19 +165,40 @@ function applyBatchHighlight(range, text, category, essayIndex) {
  * @param {HTMLElement} element - Highlight element
  * @param {string} primaryCategory - Primary category
  */
-function updateHighlightVisualStyling(element, primaryCategory) {
+function updateHighlightVisualStyling(element, primaryCategory, allCategories = null) {
     const categoryStyles = {
         grammar: { color: '#FF8C00', backgroundColor: 'rgba(255, 140, 0, 0.3)' },
         vocabulary: { color: '#00A36C', backgroundColor: 'rgba(0, 163, 108, 0.3)' },
         mechanics: { backgroundColor: '#D3D3D3', color: '#000000' },
         spelling: { color: '#DC143C', backgroundColor: 'rgba(220, 20, 60, 0.3)' },
         fluency: { backgroundColor: '#87CEEB', color: '#000000' },
-        delete: { textDecoration: 'line-through', color: '#000000' }
+        delete: { textDecoration: 'line-through', color: '#000000', fontWeight: 'bold' }
     };
+
+    // Reset all category-related styles first to prevent style bleed from previous category
+    element.style.color = '';
+    element.style.backgroundColor = '';
+    element.style.textDecoration = '';
+    element.style.fontWeight = '';
+    element.style.boxShadow = '';
+    element.style.borderBottom = '';
 
     const style = categoryStyles[primaryCategory];
     if (style) {
         Object.assign(element.style, style);
+    }
+
+    // Check for multi-category - add visual indicator
+    const categories = allCategories || (element.dataset.category ? element.dataset.category.split(',') : [primaryCategory]);
+    if (categories.length > 1) {
+        // Multi-category highlight: add dashed underline and box shadow to indicate multiple errors
+        const secondaryCategory = categories[1];
+        const secondaryStyle = categoryStyles[secondaryCategory];
+        if (secondaryStyle) {
+            const secondaryColor = secondaryStyle.color || '#666';
+            element.style.borderBottom = `2px dashed ${secondaryColor}`;
+            element.style.boxShadow = `inset 0 0 0 1px ${secondaryColor}`;
+        }
     }
 }
 
@@ -350,8 +371,14 @@ function showHighlightEditModal(element, currentCategories) {
             if (element && selectedCategories.length > 0) {
                 console.log('💾 Saving highlight with categories:', selectedCategories);
 
-                // Save categories to element
+                // Save categories to element (update both data-category and data-type for compatibility)
                 element.dataset.category = selectedCategories.join(',');
+                element.dataset.type = selectedCategories[0]; // data-type stores primary category
+
+                // Update className to match new primary category
+                // Remove old highlight-* classes and add new one
+                element.className = element.className.replace(/highlight-\w+/g, '').trim();
+                element.classList.add(`highlight-${selectedCategories[0]}`);
 
                 // Save correction and explanation to element
                 const correctionTextarea = document.getElementById('editCorrection');
@@ -395,10 +422,15 @@ function showHighlightEditModal(element, currentCategories) {
                 }
                 element.title = tooltip;
 
-                // Update visual styling
-                if (window.HighlightingModule) {
-                    window.HighlightingModule.updateHighlightVisualStyling(element, selectedCategories[0]);
+                // Update visual styling (pass all categories for multi-error styling)
+                console.log('🎨 Updating visual styling to:', selectedCategories);
+                if (window.HighlightingModule && window.HighlightingModule.updateHighlightVisualStyling) {
+                    window.HighlightingModule.updateHighlightVisualStyling(element, selectedCategories[0], selectedCategories);
+                } else {
+                    // Direct call as fallback
+                    updateHighlightVisualStyling(element, selectedCategories[0], selectedCategories);
                 }
+                console.log('🎨 Style after update:', element.style.cssText);
 
                 // Emit event for highlights section to refresh
                 if (window.eventBus) {
