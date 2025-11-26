@@ -903,22 +903,37 @@ function generateFeedbackSummary(scores, total, meta, teacherNotes, encouragemen
     const percentage = Math.round((details.points / details.out_of) * 100);
     const categoryColor = getScoreColor(percentage);
     
+    // Check if rationale has content (auto-filled by model)
+    const hasRationale = details.rationale && details.rationale.trim().length > 0;
+
     if (editable) {
       html += `
         <div class="category-feedback" style="margin: 0; padding: 15px;
              border-left: 4px solid ${categoryInfo.color};
              background: ${categoryInfo.backgroundColor};
              border-radius: 0 8px 8px 0;"
-             data-category="${category}">
+             data-category="${category}"
+             data-note-exclude-from-pdf="true">
           <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 15px;">
             <strong style="color: ${categoryInfo.color}; font-size: 1.1em; white-space: nowrap; padding-top: 8px;">
               ${categoryInfo.name}
             </strong>
-            <textarea class="editable-feedback"
+            <div class="category-note-wrapper" style="flex: 1; display: flex; flex-direction: column; gap: 5px;">
+              <textarea class="editable-feedback"
+                        data-category="${category}"
+                        placeholder="Click to add notes (optional)..."
+                        rows="1"
+                        style="min-height: 32px; border: 1px solid #ddd; border-radius: 3px; padding: 8px; resize: vertical; font-family: inherit; line-height: 1.4; overflow-y: hidden; background: white; ${hasRationale ? 'text-decoration: line-through; opacity: 0.6;' : ''}">${escapeHtml(details.rationale || '')}</textarea>
+              ${hasRationale ? `
+              <button class="toggle-note-pdf-btn no-print"
                       data-category="${category}"
-                      placeholder="Click to add notes (optional)..."
-                      rows="1"
-                      style="flex: 1; min-height: 32px; border: 1px solid #ddd; border-radius: 3px; padding: 8px; resize: vertical; font-family: inherit; line-height: 1.4; overflow-y: hidden; background: white;">${escapeHtml(details.rationale || '')}</textarea>
+                      data-excluded="true"
+                      style="align-self: flex-end; padding: 4px 10px; font-size: 11px; border: none; border-radius: 4px; cursor: pointer; background: #28a745; color: white;"
+                      onmouseover="this.style.background='#218838'"
+                      onmouseout="this.style.background=this.dataset.excluded==='true'?'#28a745':'#dc3545'">
+                Add to PDF export
+              </button>` : ''}
+            </div>
             <div style="display: flex; align-items: center; gap: 5px; position: relative; white-space: nowrap;">
               <div class="score-input-container" style="position: relative;">
                 <input type="number"

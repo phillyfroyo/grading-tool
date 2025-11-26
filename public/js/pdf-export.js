@@ -985,6 +985,20 @@ function enhanceContentForPDF(content, studentName, originalContent = null) {
         }
     });
 
+    // Copy category note exclude-from-pdf data attributes from original to cloned elements
+    const originalCategoryFeedbacks = content.querySelectorAll('.category-feedback[data-category]');
+    originalCategoryFeedbacks.forEach((original) => {
+        const category = original.dataset.category;
+        const isExcluded = original.dataset.noteExcludeFromPdf;
+        if (category) {
+            const clonedFeedback = tempDiv.querySelector(`.category-feedback[data-category="${category}"]`);
+            if (clonedFeedback && isExcluded) {
+                clonedFeedback.dataset.noteExcludeFromPdf = isExcluded;
+                console.log(`📋 Copied note exclude state for category ${category}: ${isExcluded}`);
+            }
+        }
+    });
+
     // Copy input values from original to cloned elements (for score inputs)
     const originalInputs = content.querySelectorAll('input[type="number"], .editable-score');
     originalInputs.forEach((original) => {
@@ -1288,9 +1302,14 @@ function enhanceContentForPDF(content, studentName, originalContent = null) {
 
         // Extract comments/feedback - first check for textarea elements (manual grading)
         let comments = '';
+
+        // Check if category notes are excluded from PDF export
+        const isNoteExcluded = section.dataset.noteExcludeFromPdf === 'true';
+        console.log(`  Category ${categoryName} note excluded from PDF: ${isNoteExcluded}`);
+
         const feedbackTextarea = section.querySelector('textarea.editable-feedback, textarea');
         console.log(`  Looking for textarea in section for ${categoryName}:`, !!feedbackTextarea);
-        if (feedbackTextarea) {
+        if (feedbackTextarea && !isNoteExcluded) {
             // Get the textarea value from the cloned element (values were already copied correctly)
             const category = feedbackTextarea.dataset.category || categoryName.toLowerCase();
 
@@ -1318,8 +1337,8 @@ function enhanceContentForPDF(content, studentName, originalContent = null) {
             } else {
                 console.log(`  Textarea is empty or whitespace only`);
             }
-        } else {
-            // Try to find comments after the score
+        } else if (!isNoteExcluded) {
+            // Try to find comments after the score (only if notes not excluded)
             // Use the first successful pattern match from above
             let scoreMatch = null;
             for (const pattern of scorePatterns) {
@@ -1350,6 +1369,8 @@ function enhanceContentForPDF(content, studentName, originalContent = null) {
                     comments = cleanedComments;
                 }
             }
+        } else {
+            console.log(`  Skipping comment extraction - notes excluded from PDF`);
         }
 
         // Replace the entire section with plain text format

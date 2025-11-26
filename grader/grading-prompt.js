@@ -81,18 +81,25 @@ ${errorDetectionResults.inline_issues.map(issue =>
 ## OUTPUT FORMAT:
 {
   "scores": {
-    "grammar": {"points": X, "out_of": 15, "rationale": ""},
-    "vocabulary": {"points": X, "out_of": 15, "rationale": ""},
-    "spelling": {"points": X, "out_of": 15, "rationale": ""},
-    "mechanics": {"points": X, "out_of": 15, "rationale": ""},
-    "fluency": {"points": X, "out_of": 10, "rationale": ""},
-    "layout": {"points": X, "out_of": 15, "rationale": ""},
-    "content": {"points": X, "out_of": 15, "rationale": ""}
+    "grammar": {"points": X, "out_of": 15, "rationale": "Brief note explaining score (1 sentence)"},
+    "vocabulary": {"points": X, "out_of": 15, "rationale": "Brief note explaining score (1 sentence)"},
+    "spelling": {"points": X, "out_of": 15, "rationale": "Brief note explaining score (1 sentence)"},
+    "mechanics": {"points": X, "out_of": 15, "rationale": "Brief note explaining score (1 sentence)"},
+    "fluency": {"points": X, "out_of": 10, "rationale": "Brief note explaining score (1 sentence)"},
+    "layout": {"points": X, "out_of": 15, "rationale": "Brief note explaining score (1 sentence)"},
+    "content": {"points": X, "out_of": 15, "rationale": "Brief note explaining score (1 sentence)"}
   },
   "total": {"points": X, "out_of": 100},
   "teacher_notes": "See format below",
   "encouragement_next_steps": ["Step 1", "Step 2", "Step 3"]
 }
+
+## RATIONALE FORMAT:
+For each category rationale, write 1 brief sentence that:
+- Explains why the student received this score
+- References specific strengths or areas for improvement
+- Uses supportive language (e.g., "Good use of transitions" or "Let's work on tense consistency")
+- No exclamation marks
 
 ## TEACHER_NOTES FORMAT:
 ${studentName ? `Start with "${studentName} - " then follow the format below.` : 'Follow the format below.'}
@@ -115,7 +122,6 @@ RULES:
 - Base feedback on ACTUAL errors found, not generic advice
 - Do NOT comment on word count or other statistics - only mention error categories
 - Always end with: "See detailed notes below the color-coded essay."
-- Leave all "rationale" fields as empty strings ""
 
 Return ONLY valid JSON.`;
 }

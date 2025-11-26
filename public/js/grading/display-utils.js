@@ -1102,6 +1102,69 @@ function updateRemoveAllCheckboxState(container) {
 }
 
 /**
+ * Setup toggle PDF button listeners for category notes (auto-filled rationales)
+ * Called after grading results are displayed
+ */
+function setupCategoryNoteToggleListeners() {
+    console.log('🔧 Setting up category note toggle listeners');
+    const toggleButtons = document.querySelectorAll('.toggle-note-pdf-btn');
+    console.log(`🔍 Found ${toggleButtons.length} category note toggle buttons`);
+
+    toggleButtons.forEach((button, index) => {
+        // Skip if already set up
+        if (button.dataset.listenerSetup === 'true') return;
+        button.dataset.listenerSetup = 'true';
+
+        button.addEventListener('click', function(event) {
+            event.preventDefault();
+            event.stopPropagation();
+
+            const category = this.dataset.category;
+            const isCurrentlyExcluded = this.dataset.excluded === 'true';
+            const newExcludedState = !isCurrentlyExcluded;
+
+            console.log(`🖱️ Category note toggle clicked: ${category}, excluded: ${isCurrentlyExcluded} -> ${newExcludedState}`);
+
+            // Find the parent category-feedback div
+            const categoryDiv = this.closest('.category-feedback');
+            if (categoryDiv) {
+                categoryDiv.dataset.noteExcludeFromPdf = newExcludedState ? 'true' : 'false';
+            }
+
+            // Find the textarea for this category
+            const textarea = categoryDiv?.querySelector('.editable-feedback');
+
+            // Update button appearance
+            this.dataset.excluded = newExcludedState;
+            if (newExcludedState) {
+                // Excluded state - green "Add" button, grayed textarea
+                this.style.background = '#28a745';
+                this.textContent = 'Add to PDF export';
+                if (textarea) {
+                    textarea.style.textDecoration = 'line-through';
+                    textarea.style.opacity = '0.6';
+                }
+            } else {
+                // Included state - red "Remove" button, normal textarea
+                this.style.background = '#dc3545';
+                this.textContent = 'Remove from PDF export';
+                if (textarea) {
+                    textarea.style.textDecoration = 'none';
+                    textarea.style.opacity = '1';
+                }
+            }
+
+            console.log(`✅ Toggled category note PDF inclusion for ${category}`);
+        });
+    });
+
+    console.log(`✅ Setup ${toggleButtons.length} category note toggle listeners`);
+}
+
+// Make the function globally available
+window.setupCategoryNoteToggleListeners = setupCategoryNoteToggleListeners;
+
+/**
  * Setup event listeners for highlight changes
  */
 function setupHighlightChangeListeners() {
