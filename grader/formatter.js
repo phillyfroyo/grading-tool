@@ -1,44 +1,45 @@
 // Embedded rubric data - no file dependencies!
+// NOTE: Keep weights in sync with rubric.json
 const rubric = {
   "categories": {
     "grammar": {
       "id": "grammar",
-      "name": "Grammar", 
-      "color": "#FF8C00",
-      "backgroundColor": "#FFF3E0",
+      "name": "Grammar",
+      "color": "#FF6B6B",
+      "backgroundColor": "#FFE5E5",
       "weight": 15
     },
     "vocabulary": {
       "id": "vocabulary",
       "name": "Vocabulary",
-      "color": "#00A36C", 
-      "backgroundColor": "#E8F5E9",
+      "color": "#4ECDC4",
+      "backgroundColor": "#E8F8F7",
       "weight": 15
     },
     "spelling": {
       "id": "spelling",
       "name": "Spelling",
-      "color": "#DC143C",
-      "backgroundColor": "#FFEBEE", 
-      "weight": 10
+      "color": "#45B7D1",
+      "backgroundColor": "#E3F2FD",
+      "weight": 15
     },
     "mechanics": {
       "id": "mechanics",
       "name": "Mechanics & Punctuation",
-      "color": "#696969",
-      "backgroundColor": "#F5F5F5",
+      "color": "#F7B731",
+      "backgroundColor": "#FFF8E1",
       "weight": 15
     },
     "fluency": {
-      "id": "fluency", 
+      "id": "fluency",
       "name": "Fluency",
-      "color": "#1E90FF",
-      "backgroundColor": "#E1F5FE",
-      "weight": 15
+      "color": "#A855F7",
+      "backgroundColor": "#F3E8FF",
+      "weight": 10
     },
     "layout": {
       "id": "layout",
-      "name": "Layout & Follow Specs", 
+      "name": "Layout & Follow Specs",
       "color": "#16A34A",
       "backgroundColor": "#DCFCE7",
       "weight": 15
@@ -46,7 +47,7 @@ const rubric = {
     "content": {
       "id": "content",
       "name": "Content & Information",
-      "color": "#DC2626", 
+      "color": "#DC2626",
       "backgroundColor": "#FEE2E2",
       "weight": 15
     }

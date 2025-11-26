@@ -4,6 +4,7 @@
 export function buildGradingPrompt(rubric, classProfile, cefrLevel, studentText, errorDetectionResults, studentNickname) {
   const levelInfo = rubric.cefr_levels[cefrLevel] || rubric.cefr_levels['C1'];
   const categories = Object.keys(rubric.categories);
+
   const studentName = studentNickname && studentNickname.trim() ? studentNickname.trim() : '';
 
   // Count errors by category for the prompt
@@ -16,34 +17,58 @@ export function buildGradingPrompt(rubric, classProfile, cefrLevel, studentText,
     .map(([cat, count]) => `${cat}: ${count}`)
     .join(', ') || 'none';
 
-  return `You are an ESL writing grader. Score according to the rubric and provide brief feedback.
+  return `You are an expert ESL writing grader. Grade according to the rubric.
 
-## TASK
-Score each category using the rubric bands. Errors are already detected - use them to inform your scores.
+## YOUR JOB
+Assign accurate scores based on the rubric. Errors are already detected. Provide feedback according to the actual essay quality.
+
+ERRORS PROVIDED: ${errorDetectionResults.inline_issues.length} total errors found
+VOCABULARY COUNT: ${errorDetectionResults.vocabulary_count || 0}
+GRAMMAR STRUCTURES: ${errorDetectionResults.grammar_structures_used?.join(', ') || 'none'}
+
+## GRADING MINDSET
+- Follow the rubric objectively while maintaining a supportive tone
+- Score based on demonstrated competency with growth-oriented feedback
+- Provide accurate assessment that celebrates things done correctly and guides improvement
+- Focus on student effort and potential, not just current deficiencies
 
 CEFR Level: ${cefrLevel} (${levelInfo.name})
-Word Count: ${errorDetectionResults.word_count || 'unknown'}
-Total Errors: ${errorDetectionResults.inline_issues.length} (${errorSummary})
-Vocabulary Used: ${errorDetectionResults.vocabulary_count || 0}
-Grammar Structures: ${errorDetectionResults.grammar_structures_used?.join(', ') || 'none'}
 
-## ZERO SCORE RULES (automatic 0):
+## ZERO SCORE RULES (automatic 0 if any apply):
 ${rubric.zero_rules.map(rule => `- ${rule}`).join('\n')}
 
-## RUBRIC:
+## GRADING CATEGORIES:
 ${categories.map(cat => {
   const category = rubric.categories[cat];
-  return `**${category.name}** (${category.weight} pts):
+  return `${category.name} (${category.weight} points):
 ${category.bands.map(band => `  ${band.range}: ${band.description}`).join('\n')}`;
 }).join('\n\n')}
 
-## ASSIGNMENT:
+
+## POINT VALUES (use these exact values):
+- Grammar: out_of = 15
+- Vocabulary: out_of = 15
+- Spelling: out_of = 15
+- Mechanics: out_of = 15
+- Fluency: out_of = 10
+- Layout: out_of = 15
+- Content: out_of = 15
+
+## ASSIGNMENT PROMPT:
 ${classProfile.prompt || 'No specific prompt provided'}
 
-Requirements:
+## REQUIREMENTS:
+- Word count: **See assignment prompt above for specific word count requirement**
 - Transition words: ${rubric.layout_rules.transition_words_min} minimum
-- Class vocabulary: ${classProfile.vocabulary.join(', ')}
-- Grammar structures: ${classProfile.grammar.join(', ')}
+${classProfile.vocabulary.length > 0 ? `- Class vocabulary to look for: ${classProfile.vocabulary.join(', ')}` : '- Class vocabulary: Not specified (grade vocabulary correctness only)'}
+${classProfile.grammar.length > 0 ? `- Grammar structures to look for: ${classProfile.grammar.join(', ')}` : '- Grammar structures: Not specified (grade grammar correctness only)'}
+
+## SCORING RULES:
+- Follow rubric bands precisely
+- Score based on actual performance against criteria
+- Perfect performance = FULL POINTS
+- Use the full range of the rubric
+
 
 ## STUDENT TEXT:
 "${studentText}"
