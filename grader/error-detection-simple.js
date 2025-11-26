@@ -12,7 +12,10 @@ For each error, provide:
 
 **Error Categories (in priority order):**
 
-1. **spelling** - Words spelled incorrectly (recieve→receive, tomorow→tomorrow). Does NOT include apostrophe errors (those are mechanics).
+1. **spelling** - Words spelled incorrectly (recieve→receive, tomorow→tomorrow)
+- Does NOT include apostrophe errors (those are mechanics).
+- Does NOT include wrong word choice (those are vocabulary)
+- One word MAX
 
 2. **grammar** - Structural language errors including:
    - Verb tenses/forms (go→went, is walk→is walking)
@@ -21,27 +24,34 @@ For each error, provide:
    - Pronouns (his→her, they→their)
    - Singular/plural mismatches (one dogs→one dog)
    - Word order within grammatical structures when it breaks grammar rules
+   - NOT for vocabulary errors
 
-3. **vocabulary** - Wrong word chosen where the intended meaning is different (affect→effect, except→accept). NOT for grammar issues or near-synonyms that work contextually.
+3. **vocabulary** 
+- Wrong word chosen where the intended meaning is different (history → story, income → expences)
+- One word / word phrase MAX
 
 4. **mechanics** - Punctuation and capitalization ONLY:
    - Missing/wrong punctuation (periods, commas, question marks)
    - Run-on sentences (mark ONLY the 2 words surrounding where the punctuation should go)
    - Capitalization (monday→Monday, i→I)
    - Apostrophes for contractions (dont→don't) and possession (johns→john's)
+   - DO NOT mark: words with all CAPITAL LETTERS, (parentheses), or *asterisks* - these may be intentional formatting required by the assignment
 
-5. **fluency** - Natural expression and flow issues (ONLY mark if you've found fewer than 25 errors in categories 1-4):
+5. **fluency** - Natural expression and flow issues (ONLY mark if you've found fewer than 20 errors in categories 1-4):
    - Awkward phrasing that is grammatically correct but unnatural
    - Wordy expressions that could be more concise
    - Word order that is technically correct but sounds wrong
    - Unclear or confusing sentence structure that doesn't violate grammar rules
 
-6. **delete** - Redundant or unnecessary words/phrases that should be completely removed (correction should be empty).
+6. **delete** - Redundant or unnecessary words that should be completely removed
+- ONE WORD MAX. 
+- No correction notes
+- Explanation: "[word] is an unnecessary word"
 
 **Important Guidelines:**
 - Prioritize categories 1-4 (spelling, grammar, vocabulary, mechanics) over fluency
-- Only look for fluency errors if the essay has fewer than 25 errors in other categories
-- Highlight ONLY the error itself (single words for spelling, minimal phrase for grammar)
+- Only look for fluency errors if the essay has fewer than 20 errors in other categories
+- Highlight ONLY the error itself (single words for spelling, vocabulary, and delete word. Minimal phrase for grammar, mechanics, and fluency)
 - Favor atomic edits - mark as few words as possible for each error
 - Be selective - missing errors is better than false positives
 - For run-on sentences: mark ONLY the 2 words surrounding where the period should go (mechanics error)
@@ -91,9 +101,8 @@ Output as a JSON array:
     },
     {
       "category": "delete",
-      "error_text": "very very",
-      "correction": "",
-      "explanation": "Remove redundant repetition"
+      "error_text": "film",
+      "explanation": "'film' is unnecessary"
     }
   ]
 }

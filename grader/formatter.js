@@ -4,36 +4,36 @@ const rubric = {
     "grammar": {
       "id": "grammar",
       "name": "Grammar", 
-      "color": "#FF6B6B",
-      "backgroundColor": "#FFE5E5",
+      "color": "#FF8C00",
+      "backgroundColor": "#FFF3E0",
       "weight": 15
     },
     "vocabulary": {
       "id": "vocabulary",
       "name": "Vocabulary",
-      "color": "#4ECDC4", 
-      "backgroundColor": "#E8F8F7",
+      "color": "#00A36C", 
+      "backgroundColor": "#E8F5E9",
       "weight": 15
     },
     "spelling": {
       "id": "spelling",
       "name": "Spelling",
-      "color": "#45B7D1",
-      "backgroundColor": "#E3F2FD", 
+      "color": "#DC143C",
+      "backgroundColor": "#FFEBEE", 
       "weight": 10
     },
     "mechanics": {
       "id": "mechanics",
       "name": "Mechanics & Punctuation",
-      "color": "#F7B731",
-      "backgroundColor": "#FFF8E1",
+      "color": "#696969",
+      "backgroundColor": "#F5F5F5",
       "weight": 15
     },
     "fluency": {
       "id": "fluency", 
       "name": "Fluency",
-      "color": "#A855F7",
-      "backgroundColor": "#F3E8FF",
+      "color": "#1E90FF",
+      "backgroundColor": "#E1F5FE",
       "weight": 15
     },
     "layout": {

@@ -211,8 +211,8 @@ function getAvailableCategories() {
     return [
         { id: 'grammar', name: 'Grammar Error', color: '#FF8C00' },
         { id: 'vocabulary', name: 'Vocabulary Error', color: '#00A36C' },
-        { id: 'mechanics', name: 'Mechanics Error', color: '#D3D3D3' },
         { id: 'spelling', name: 'Spelling Error', color: '#DC143C' },
+        { id: 'mechanics', name: 'Mechanics Error', color: '#D3D3D3' },
         { id: 'fluency', name: 'Fluency Error', color: '#87CEEB' },
         { id: 'delete', name: 'Delete Word', color: '#000000' }
     ];
