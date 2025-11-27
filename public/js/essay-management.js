@@ -341,9 +341,10 @@ function setupEssayManagement() {
         });
     });
 
-    // Validate input on change
+    // Validate input on blur (when user leaves the field)
+    // Using blur instead of input so users can clear the field to type a new number
     if (essayCountInput) {
-        essayCountInput.addEventListener('input', () => {
+        essayCountInput.addEventListener('blur', () => {
             let value = parseInt(essayCountInput.value);
             if (isNaN(value) || value < 1) {
                 essayCountInput.value = 1;
@@ -364,9 +365,10 @@ function setupEssayManagement() {
         });
     }
 
-    // Validate Claude input on change
+    // Validate Claude input on blur (when user leaves the field)
+    // Using blur instead of input so users can clear the field to type a new number
     if (claudeEssayCountInput) {
-        claudeEssayCountInput.addEventListener('input', () => {
+        claudeEssayCountInput.addEventListener('blur', () => {
             let value = parseInt(claudeEssayCountInput.value);
             if (isNaN(value) || value < 1) {
                 claudeEssayCountInput.value = 1;
