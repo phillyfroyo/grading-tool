@@ -174,7 +174,7 @@ function createManualEssayHTML(studentName, formatted, result) {
                 <div id="selectionStatus" style="margin-top: 8px; font-size: 12px; color: #666; min-height: 16px;"></div>
             </div>
             <!-- Essay text area -->
-            <div class="formatted-essay-content" style="padding: 15px; line-height: 1.6; user-select: text;">
+            <div class="formatted-essay-content" style="padding: 15px; line-height: 1.6; user-select: text; ">
                 ${formatted.formattedText}
             </div>
             <!-- Color Legend -->

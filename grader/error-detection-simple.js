@@ -5,7 +5,7 @@ export function buildSimpleErrorDetectionPrompt(classProfile, studentText) {
   return `Point out all the errors in this ESL student essay.
 
 For each error, provide:
-1. The error category (spelling, grammar, vocabulary, mechanics, fluency, or delete)
+1. The error category (spelling, grammar, vocabulary, mechanics, or fluency)
 2. The exact text with the error
 3. The correction
 4. An explanation (optional - see guidelines below)
@@ -43,15 +43,10 @@ For each error, provide:
    - Word order that is technically correct but sounds wrong
    - Unclear or confusing sentence structure that doesn't violate grammar rules
 
-6. **delete** - Redundant or unnecessary words that should be completely removed
-- ONE WORD MAX. 
-- No correction notes
-- Explanation: "[word] is an unnecessary word"
-
 **Important Guidelines:**
 - Prioritize categories 1-4 (spelling, grammar, vocabulary, mechanics) over fluency
 - Only look for fluency errors if the essay has fewer than 20 errors in other categories
-- Highlight ONLY the error itself (single words for spelling, vocabulary, and delete word. Minimal phrase for grammar, mechanics, and fluency)
+- Highlight ONLY the error itself (single words for spelling and vocabulary. Minimal phrase for grammar, mechanics, and fluency)
 - Favor atomic edits - mark as few words as possible for each error
 - Be selective - missing errors is better than false positives
 - For run-on sentences: mark ONLY the 2 words surrounding where the period should go (mechanics error)
@@ -98,11 +93,6 @@ Output as a JSON array:
       "error_text": "in a very quick manner",
       "correction": "quickly",
       "explanation": "More concise phrasing"
-    },
-    {
-      "category": "delete",
-      "error_text": "film",
-      "explanation": "'film' is unnecessary"
     }
   ]
 }

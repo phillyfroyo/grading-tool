@@ -25,7 +25,7 @@ function createSingleEssayHTML(studentName, formatted) {
                 <div id="selectionStatus" style="margin-top: 8px; font-size: 12px; color: #666; min-height: 16px;"></div>
             </div>
             <!-- Essay text area -->
-            <div class="formatted-essay-content" style="padding: 15px; line-height: 1.6; user-select: text;">
+            <div class="formatted-essay-content" style="padding: 15px; line-height: 1.6; user-select: text; font-size: 48px;">
                 ${formatted.formattedText}
             </div>
             <!-- Color Legend -->
@@ -66,7 +66,7 @@ function createBatchEssayHTML(formatted, index) {
                 padding: 15px;
                 line-height: 1.6;
                 user-select: text;
-                min-height: 200px;
+                                min-height: 200px;
                 max-height: none;
                 overflow: visible;
                 background: #fff;

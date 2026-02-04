@@ -672,6 +672,10 @@ input[type="number"].editable-score {
     overflow-y: auto;
 }
 
+.formatted-essay-content {
+    font-size: 28px;
+}
+
 .result-actions {
     display: flex;
     gap: 15px;

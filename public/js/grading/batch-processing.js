@@ -20,26 +20,26 @@ function getClaudeLoadingMessage() {
         "🤔 Cogitating on this essay...",
         "✨ Percolating thoughts...",
         "🔮 Ruminating deeply...",
-        "💭 Mulling this over...",
         "🌀 Churning through ideas...",
-        "🎯 Calibrating analysis...",
-        "📚 Parsing pedagogical patterns...",
         "🧠 Neurons firing...",
         "⚡ Synapses sparking...",
-        "🔍 Scrutinizing semantics...",
-        "💡 Illuminating insights...",
-        "🎨 Crafting comprehension...",
-        "🌟 Crystallizing conclusions...",
-        "📖 Decoding discourse...",
-        "🎭 Contemplating composition...",
-        "🔬 Analyzing argumentation...",
-        "🌈 Synthesizing structures...",
-        "🎪 Juggling judgments...",
-        "🎢 Navigating nuances...",
         "🎪 Orchestrating observations...",
         "💪 Working hard...",
         "🧠 Thinking vigorously...",
-        "🤗 I'm trying my best..."
+        "🤗 I'm trying my best...",
+        "🌌 Contemplating reality...",
+        "🧘 Finding inner peace...",
+        "☕ Brewing thoughts...",
+        "🤯 Having an existential moment...",
+        "🦉 Channeling ancient wisdom...",
+        "🎩 Pulling insights from hat...",
+        "🔄 Reticulating splines...",
+        "🧙 Casting analysis spell...",
+        "💫 Achieving enlightenment...",
+        "🤓 Adjusting imaginary glasses...",
+        "📡 Downloading wisdom...",
+        "🐢 Slow and steady wins the race...",
+        "🎲 Rolling for intelligence..."
     ];
     return messages[Math.floor(Math.random() * messages.length)];
 }
@@ -185,11 +185,11 @@ function displayBatchProgress(batchData) {
     console.log('✅ Batch progress UI displayed');
 
     // Set up rotating Claude message for the first essay only
-    // Start with "Processing..." then switch to funny messages after 10 seconds
+    // Start with "Processing..." then switch to funny messages after 3 seconds
     if (batchData.essays.length > 0) {
         const firstEssayMessageElement = document.getElementById('processing-message-0');
         if (firstEssayMessageElement) {
-            // After 10 seconds, start rotating funny messages
+            // After 3 seconds, start rotating funny messages
             setTimeout(() => {
                 // Only switch if still processing
                 if (firstEssayMessageElement.textContent === 'Processing...') {
@@ -202,9 +202,9 @@ function displayBatchProgress(batchData) {
                         if (currentText !== 'Processing...' && !currentText.includes('✓') && !currentText.includes('✗')) {
                             firstEssayMessageElement.textContent = getClaudeLoadingMessage();
                         }
-                    }, 10000); // Update every 10 seconds
+                    }, 5000); // Update every 5 seconds
                 }
-            }, 10000); // Wait 10 seconds before first funny message
+            }, 3000); // Wait 3 seconds before first funny message
         }
     }
 }
@@ -402,11 +402,11 @@ function loadEssayDetails(index) {
     if (!essayDiv || !window[`essayData_${index}`]) return;
 
     // Only load if not already loaded (contains one of the initial Claude messages from the dropdown)
-    const initialClaudeMessages = ["🤔 Cogitating", "✨ Percolating", "🔮 Ruminating", "💭 Mulling", "🌀 Churning",
-                                   "🎯 Calibrating", "📚 Parsing", "🧠 Neurons", "⚡ Synapses", "🔍 Scrutinizing",
-                                   "💡 Illuminating", "🎨 Crafting", "🌟 Crystallizing", "📖 Decoding", "🎭 Contemplating",
-                                   "🔬 Analyzing", "🌈 Synthesizing", "🎪 Juggling", "🎢 Navigating", "🎪 Orchestrating",
-                                   "💪 Working", "🧠 Thinking", "🤗 I'm trying"];
+    const initialClaudeMessages = ["🤔 Cogitating", "✨ Percolating", "🔮 Ruminating", "🌀 Churning",
+                                   "🧠 Neurons", "⚡ Synapses", "🎪 Orchestrating", "💪 Working", "🧠 Thinking",
+                                   "🤗 I'm trying", "🌌 Contemplating", "🧘 Finding", "☕ Brewing", "🤯 Having",
+                                   "🦉 Channeling", "🎩 Pulling", "🔄 Reticulating", "🧙 Casting", "💫 Achieving",
+                                   "🤓 Adjusting", "📡 Downloading", "🐢 Slow", "🎲 Rolling"];
     const containsInitialMessage = initialClaudeMessages.some(msg => essayDiv.innerHTML.includes(msg));
 
     if (containsInitialMessage || essayDiv.innerHTML.includes('Loading formatted result...')) {

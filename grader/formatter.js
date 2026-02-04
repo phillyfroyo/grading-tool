@@ -642,8 +642,8 @@ function renderSegmentsToHTML(segments, options = {}) {
   const htmlContent = segments.map((segment, index) => {
     if (segment.type === 'normal') {
       return editable ?
-        `<span class="text-segment" data-segment-id="${index}">${escapeHtmlWithFormatting(segment.text)}</span>` :
-        escapeHtmlWithFormatting(segment.text);
+        `<span class="text-segment" data-segment-id="${index}" style="font-size: 28px;">${escapeHtmlWithFormatting(segment.text)}</span>` :
+        `<span class="normal-text" style="font-size: 28px;">${escapeHtmlWithFormatting(segment.text)}</span>`;
     } else if (segment.type === 'caret') {
       // Render caret marker for comma/period suggestions
       const issueDesc = segment.issue.message || segment.issue.correction || segment.issue.text;
