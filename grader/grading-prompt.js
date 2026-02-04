@@ -14,9 +14,9 @@ export function buildGradingPrompt(rubric, classProfile, cefrLevel, studentText,
     errorCounts[cat] = (errorCounts[cat] || 0) + 1;
   });
 
-  // Find the top 2 categories with the most errors
+  // Find the top 2 categories with the most errors (names only, no counts)
   const sortedErrors = Object.entries(errorCounts).sort((a, b) => b[1] - a[1]);
-  const topCategories = sortedErrors.slice(0, 2).map(([cat, count]) => `${cat} (${count})`).join(' and ');
+  const topCategories = sortedErrors.slice(0, 2).map(([cat]) => cat).join(' and ');
   const hasMultipleIssues = sortedErrors.length > 1;
 
   return `You are an expert ESL writing grader. Grade according to the rubric.
@@ -116,9 +116,14 @@ Pick ONE intro based on total score:
 - 80-89: "Great job overall."
 - 90-100: "Excellent work overall."
 
-The top problem areas are: ${topCategories || 'none'}.
-Write ONE sentence mentioning ${hasMultipleIssues ? 'one or both of these categories' : 'this category'}.
-Examples: "Let's focus on grammar going forward." or "Let's work on spelling and vocabulary."
+The areas that need the most attention: ${topCategories || 'none'}.
+Write ONE sentence about ${hasMultipleIssues ? 'one or both of these areas' : 'this area'}.
+Choose from phrases like:
+- "Let's focus on [category] going forward."
+- "Let's work on [categories], as these need the most attention."
+- "Keep practicing [categories] - that's where we can improve most."
+- "Next time, pay extra attention to [categories]."
+NEVER include numbers or counts in the teacher notes.
 
 CRITICAL RULES:
 - Write exactly ONE feedback sentence - do NOT write two sentences that say the same thing differently
