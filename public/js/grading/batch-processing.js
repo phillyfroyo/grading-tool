@@ -19,27 +19,25 @@ function getClaudeLoadingMessage() {
     const messages = [
         "🤔 Cogitating on this essay...",
         "✨ Percolating thoughts...",
-        "🔮 Ruminating deeply...",
         "🌀 Churning through ideas...",
         "🧠 Neurons firing...",
         "⚡ Synapses sparking...",
-        "🎪 Orchestrating observations...",
         "💪 Working hard...",
         "🧠 Thinking vigorously...",
         "🤗 I'm trying my best...",
-        "🌌 Contemplating reality...",
+        "🪐 Contemplating reality...",
+        "🪐 Contemplating reality...",
         "🧘 Finding inner peace...",
         "☕ Brewing thoughts...",
         "🤯 Having an existential moment...",
         "🦉 Channeling ancient wisdom...",
-        "🎩 Pulling insights from hat...",
-        "🔄 Reticulating splines...",
         "🧙 Casting analysis spell...",
         "💫 Achieving enlightenment...",
-        "🤓 Adjusting imaginary glasses...",
         "📡 Downloading wisdom...",
         "🐢 Slow and steady wins the race...",
-        "🎲 Rolling for intelligence..."
+        "🎩 Pulling insights from within...",
+        "🤓 Adjusting my glasses...",
+        "🎲 Searching for intelligence..."
     ];
     return messages[Math.floor(Math.random() * messages.length)];
 }
@@ -69,46 +67,46 @@ function displayBatchProgress(batchData) {
     // Create the progress UI immediately
     const progressHtml = `
         <div class="batch-results">
-            <h2>Grading ${batchData.essays.length} Essays. This will take a few minutes.</h2>
-            <div style="background: #fff3cd; border: 2px solid #ffc107; padding: 20px; border-radius: 8px; margin: 20px 0; color: #856404; font-size: 18px; line-height: 1.5; font-weight: 500;">
-                <strong style="font-size: 20px;">⚠️ Important:</strong> The AI will make mistakes. Please review all essays and make any necessary manual edits.
+            <h2 style="font-size: 20px; margin-bottom: 12px;">Grading ${batchData.essays.length} Essays. This will take a few minutes.</h2>
+            <div style="background: #fff3cd; border: 2px solid #ffc107; padding: 12px; border-radius: 6px; margin: 12px 0; color: #856404; font-size: 14px; line-height: 1.4; font-weight: 500;">
+                <strong style="font-size: 15px;">⚠️</strong> The AI will make mistakes. Please review all essays and make any necessary manual edits.
             </div>
-            <div class="compact-student-list" style="margin: 20px 0;">
+            <div class="compact-student-list" style="margin: 12px 0;">
                 ${batchData.essays.map((essay, index) => `
-                    <div class="student-row" id="student-row-${index}" style="border: 2px solid #ddd; margin: 16px 0; border-radius: 8px; overflow: hidden;">
+                    <div class="student-row" id="student-row-${index}" style="border: 2px solid #ddd; margin: 10px 0; border-radius: 6px; overflow: hidden;">
                         <!-- Student Name Header (clickable to expand grade details) -->
                         <div class="student-header-clickable" onclick="toggleTab('grade-details-${index}', ${index})" style="
-                            padding: 24px 30px;
+                            padding: 12px 18px;
                             background: #f8f9fa;
                             display: flex;
                             align-items: center;
                             justify-content: space-between;
-                            font-size: 22px;
+                            font-size: 15px;
                             font-weight: 500;
-                            min-height: 60px;
+                            min-height: 40px;
                             border-bottom: 1px solid #ddd;
                             cursor: pointer;
                             transition: background-color 0.2s;
                             user-select: none;
                         " onmouseover="this.style.backgroundColor='#e9ecef'"
                            onmouseout="this.style.backgroundColor='#f8f9fa'">
-                            <div style="display: flex; align-items: center; gap: 15px; flex: 1; min-width: 0;">
-                                <span id="grade-details-${index}-arrow" style="font-size: 18px; transition: transform 0.3s; display: inline-block;">▼</span>
-                                <div id="student-status-${index}" class="student-status" style="display: flex; align-items: center; gap: 12px;">
+                            <div style="display: flex; align-items: center; gap: 10px; flex: 1; min-width: 0;">
+                                <span id="grade-details-${index}-arrow" style="font-size: 14px; transition: transform 0.3s; display: inline-block;">▼</span>
+                                <div id="student-status-${index}" class="student-status" style="display: flex; align-items: center; gap: 8px;">
                                     ${index < 2 ?
-                                        `<div class="loading-spinner" id="spinner-${index}" style="width: 24px; height: 24px; border: 3px solid #f3f3f3; border-top: 3px solid #007bff; border-radius: 50%; animation: spin 1s linear infinite;"></div>
-                                        <span id="processing-message-${index}" style="color: #666; font-size: 18px; font-weight: 500;">Processing...</span>` :
-                                        `<span id="processing-message-${index}" style="color: #999; font-size: 18px; font-weight: 500;">In queue</span>`
+                                        `<div class="loading-spinner" id="spinner-${index}" style="width: 18px; height: 18px; border: 2px solid #f3f3f3; border-top: 2px solid #007bff; border-radius: 50%; animation: spin 1s linear infinite;"></div>
+                                        <span id="processing-message-${index}" style="color: #666; font-size: 14px; font-weight: 500;">Processing...</span>` :
+                                        `<span id="processing-message-${index}" style="color: #999; font-size: 14px; font-weight: 500;">In queue</span>`
                                     }
                                 </div>
-                                <span style="font-weight: 600; color: #333; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: 24px;">${essay.studentName}</span>
+                                <span style="font-weight: 600; color: #333; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: 16px;">${essay.studentName}</span>
                             </div>
-                            <div style="display: flex; align-items: center; gap: 20px; flex-shrink: 0;">
-                                <label style="display: flex; align-items: center; gap: 10px; margin: 0; cursor: pointer;" onclick="event.stopPropagation();">
-                                    <input type="checkbox" class="mark-complete-checkbox" data-student-index="${index}" style="margin: 0; transform: scale(2);">
-                                    <span style="font-size: 20px; color: #666; white-space: nowrap; font-weight: 600;">Mark Complete</span>
+                            <div style="display: flex; align-items: center; gap: 12px; flex-shrink: 0;">
+                                <label style="display: flex; align-items: center; gap: 6px; margin: 0; cursor: pointer;" onclick="event.stopPropagation();">
+                                    <input type="checkbox" class="mark-complete-checkbox" data-student-index="${index}" style="margin: 0; transform: scale(1.3);">
+                                    <span style="font-size: 14px; color: #666; white-space: nowrap; font-weight: 600;">Mark Complete</span>
                                 </label>
-                                <button onclick="event.stopPropagation(); downloadIndividualEssay(${index})" disabled style="background: #6c757d; color: white; border: none; padding: 16px 24px; border-radius: 8px; font-size: 18px; cursor: not-allowed; white-space: nowrap; font-weight: 600;">Download</button>
+                                <button onclick="event.stopPropagation(); downloadIndividualEssay(${index})" disabled style="background: #6c757d; color: white; border: none; padding: 8px 14px; border-radius: 6px; font-size: 14px; cursor: not-allowed; white-space: nowrap; font-weight: 600;">Download</button>
                             </div>
                         </div>
 
@@ -119,7 +117,7 @@ function displayBatchProgress(batchData) {
                             transition: max-height 0.3s ease-out;
                             background: white;
                         ">
-                            <div id="batch-essay-${index}" style="padding: 15px;">${getClaudeLoadingMessage()}</div>
+                            <div id="batch-essay-${index}" style="padding: 12px;">${getClaudeLoadingMessage()}</div>
                         </div>
 
                         <!-- Highlights Management Tab -->
@@ -131,30 +129,30 @@ function displayBatchProgress(batchData) {
                             <div style="display: flex; flex-direction: column; flex: 1;">
                                 <!-- Upper section: Title and arrow (clickable for toggle) -->
                                 <div onclick="toggleTab('highlights-tab-${index}', ${index})" style="
-                                    padding: 15px 30px;
+                                    padding: 10px 18px;
                                     cursor: pointer;
                                     display: flex;
                                     align-items: center;
-                                    gap: 12px;
+                                    gap: 8px;
                                     transition: background-color 0.2s;
                                 " onmouseover="this.style.backgroundColor='#f8f9fa'"
                                    onmouseout="this.style.backgroundColor='#ffffff'">
-                                    <span id="highlights-tab-${index}-arrow" style="font-size: 18px; transition: transform 0.3s; display: inline-block;">▼</span>
-                                    <span style="font-weight: 600; font-size: 18px;">Manage 'Highlights and Corrections' as seen on the exported PDF</span>
+                                    <span id="highlights-tab-${index}-arrow" style="font-size: 14px; transition: transform 0.3s; display: inline-block;">▼</span>
+                                    <span style="font-weight: 600; font-size: 14px;">Manage 'Highlights and Corrections' as seen on the exported PDF</span>
                                 </div>
                                 <!-- Lower section: Checkbox (independent hover) -->
                                 <label style="
                                     display: flex;
                                     align-items: center;
-                                    gap: 8px;
-                                    padding: 8px 30px 15px 60px;
-                                    font-size: 14px;
+                                    gap: 6px;
+                                    padding: 6px 18px 10px 40px;
+                                    font-size: 13px;
                                     cursor: pointer;
                                     transition: background-color 0.2s;
                                 " onclick="event.stopPropagation();"
                                    onmouseover="this.style.backgroundColor='#f8f9fa'"
                                    onmouseout="this.style.backgroundColor='#ffffff'">
-                                    <input type="checkbox" id="highlights-tab-${index}-remove-all" class="remove-all-checkbox" data-content-id="highlights-tab-content-${index}" style="cursor: pointer; width: 16px; height: 16px;">
+                                    <input type="checkbox" id="highlights-tab-${index}-remove-all" class="remove-all-checkbox" data-content-id="highlights-tab-content-${index}" style="cursor: pointer; width: 14px; height: 14px;">
                                     <span style="color: #666;">Remove all from PDF</span>
                                 </label>
                             </div>
@@ -165,7 +163,7 @@ function displayBatchProgress(batchData) {
                             transition: max-height 0.3s ease-out;
                             background: white;
                         ">
-                            <div id="highlights-tab-content-${index}" style="padding: 20px;">Loading highlights...</div>
+                            <div id="highlights-tab-content-${index}" style="padding: 15px;">Loading highlights...</div>
                         </div>
                     </div>
                 `).join('')}
@@ -202,9 +200,9 @@ function displayBatchProgress(batchData) {
                         if (currentText !== 'Processing...' && !currentText.includes('✓') && !currentText.includes('✗')) {
                             firstEssayMessageElement.textContent = getClaudeLoadingMessage();
                         }
-                    }, 5000); // Update every 5 seconds
+                    }, 6000); // Update every 6 seconds
                 }
-            }, 3000); // Wait 3 seconds before first funny message
+            }, 4000); // Wait 4 seconds before first funny message
         }
     }
 }
@@ -264,7 +262,7 @@ function updateEssayStatus(index, success, error = null) {
             // Update from "In queue" to "Processing..."
             nextStatusElement.innerHTML = `
                 <div class="loading-spinner" id="spinner-${nextIndex}" style="width: 24px; height: 24px; border: 3px solid #f3f3f3; border-top: 3px solid #007bff; border-radius: 50%; animation: spin 1s linear infinite;"></div>
-                <span id="processing-message-${nextIndex}" style="color: #666; font-size: 18px; font-weight: 500;">Processing...</span>
+                <span id="processing-message-${nextIndex}" style="color: #666; font-size: 14px; font-weight: 500;">Processing...</span>
             `;
         }
 
@@ -416,7 +414,7 @@ function loadEssayDetails(index) {
         const loadingMessage = getClaudeLoadingMessage();
         essayDiv.innerHTML = window.DisplayUtilsModule ?
             window.DisplayUtilsModule.createLoadingSpinner(loadingMessage) :
-            `<div style="padding: 20px; font-size: 16px; color: #666;">${loadingMessage}</div>`;
+            `<div style="padding: 12px; font-size: 14px; color: #666;">${loadingMessage}</div>`;
 
         fetch('/format', {
             method: 'POST',
@@ -792,15 +790,15 @@ function clearBatchCompletionStatus() {
 function createBatchResultsHTMLFallback(batchResult, successCount, failureCount) {
     return `
         <div class="batch-results">
-            <h2>Grading Results (${batchResult.totalEssays} essays)</h2>
-            <div class="batch-summary" style="background: #f8f9fa; padding: 15px; border-radius: 8px; margin: 15px 0;">
-                <p><strong>Summary:</strong> ${successCount} successful, ${failureCount} failed</p>
+            <h2 style="font-size: 20px; margin-bottom: 12px;">Grading Results (${batchResult.totalEssays} essays)</h2>
+            <div class="batch-summary" style="background: #f8f9fa; padding: 10px; border-radius: 6px; margin: 10px 0; font-size: 14px;">
+                <p style="margin: 0;"><strong>Summary:</strong> ${successCount} successful, ${failureCount} failed</p>
             </div>
-            <div class="compact-student-list" style="margin: 20px 0;">
+            <div class="compact-student-list" style="margin: 12px 0;">
                 ${batchResult.results.map((essay, index) => `
-                    <div class="student-row" style="border: 2px solid #ddd; margin: 16px 0; padding: 24px; border-radius: 8px; min-height: 60px;">
-                        <div onclick="toggleStudentDetails(${index})" style="cursor: pointer; font-size: 22px; font-weight: 500; display: flex; align-items: center; gap: 12px;">
-                            <span style="font-size: 24px;">${essay.success ? '✅' : '❌'}</span>
+                    <div class="student-row" style="border: 2px solid #ddd; margin: 10px 0; padding: 12px 18px; border-radius: 6px; min-height: 40px;">
+                        <div onclick="toggleStudentDetails(${index})" style="cursor: pointer; font-size: 15px; font-weight: 500; display: flex; align-items: center; gap: 10px;">
+                            <span style="font-size: 18px;">${essay.success ? '✅' : '❌'}</span>
                             <span>${essay.studentName}</span>
                         </div>
                         <div id="student-details-${index}" style="display: none;">

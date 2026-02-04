@@ -16,16 +16,16 @@ function createSingleEssayHTML(studentName, formatted) {
         <h3 style="margin: 20px 0 10px 0;">Color-Coded Essay:</h3>
         <div id="essayContainer" style="border: 1px solid #ddd; border-radius: 4px;">
             <!-- Category selector bar -->
-            <div id="categoryBar" style="padding: 10px; background: #f8f9fa; border-bottom: 1px solid #ddd; border-radius: 4px 4px 0 0;">
-                <div style="margin-bottom: 5px; font-weight: bold; font-size: 14px;">Select category then highlight text, or highlight text then select category:</div>
+            <div id="categoryBar" style="padding: 10px 10px 6px 10px; background: #f8f9fa; border-bottom: 1px solid #ddd; border-radius: 4px 4px 0 0;">
+                <div style="margin-bottom: 10px; font-weight: bold; font-size: 14px;">Select category then highlight text, or highlight text then select category:</div>
                 <div id="categoryButtons" style="display: flex; flex-wrap: wrap; gap: 8px;">
                     ${createCategoryButtons()}
                     <button id="clearSelectionBtn" onclick="clearSelection()" style="background: #f5f5f5; color: #666; border: 2px solid #ccc; padding: 8px 12px; border-radius: 4px; cursor: pointer; margin-left: 10px;">Clear Selection</button>
                 </div>
-                <div id="selectionStatus" style="margin-top: 8px; font-size: 12px; color: #666; min-height: 16px;"></div>
+                <div id="selectionStatus" style="margin-top: 2px; font-size: 12px; color: #666; min-height: 10px;"></div>
             </div>
             <!-- Essay text area -->
-            <div class="formatted-essay-content" style="padding: 15px; line-height: 1.6; user-select: text; font-size: 48px;">
+            <div class="formatted-essay-content" style="padding: 15px; line-height: 1.6; user-select: text;">
                 ${formatted.formattedText}
             </div>
             <!-- Color Legend -->
@@ -53,13 +53,13 @@ function createBatchEssayHTML(formatted, index) {
         <h3 style="margin: 20px 0 10px 0;">Color-Coded Essay:</h3>
         <div id="essayContainer-${index}" style="border: 1px solid #ddd; border-radius: 4px;">
             <!-- Category selector bar -->
-            <div id="categoryBar-${index}" style="padding: 10px; background: #f8f9fa; border-bottom: 1px solid #ddd; border-radius: 4px 4px 0 0;">
-                <div style="margin-bottom: 5px; font-weight: bold; font-size: 14px;">Select category then highlight text, or highlight text then select category:</div>
+            <div id="categoryBar-${index}" style="padding: 10px 10px 6px 10px; background: #f8f9fa; border-bottom: 1px solid #ddd; border-radius: 4px 4px 0 0;">
+                <div style="margin-bottom: 10px; font-weight: bold; font-size: 14px;">Select category then highlight text, or highlight text then select category:</div>
                 <div id="categoryButtons-${index}" style="display: flex; flex-wrap: wrap; gap: 8px;">
                     ${createCategoryButtons(index)}
                     <button id="clearSelectionBtn-${index}" onclick="clearSelection(${index})" style="background: #f5f5f5; color: #666; border: 2px solid #ccc; padding: 8px 12px; border-radius: 4px; cursor: pointer; margin-left: 10px;">Clear Selection</button>
                 </div>
-                <div id="selectionStatus-${index}" style="margin-top: 8px; font-size: 12px; color: #666; min-height: 16px;"></div>
+                <div id="selectionStatus-${index}" style="margin-top: 2px; font-size: 12px; color: #666; min-height: 10px;"></div>
             </div>
             <!-- Essay text area -->
             <div class="formatted-essay-content" data-essay-index="${index}" style="
@@ -80,8 +80,8 @@ function createBatchEssayHTML(formatted, index) {
             ${createColorLegend()}
         </div>
 
-        <div style="margin-top: 30px; text-align: center;">
-            <button onclick="downloadIndividualEssay(${index})" style="background: #007bff; color: white; border: none; padding: 20px 36px; border-radius: 8px; font-size: 24px; cursor: pointer; font-weight: 600; box-shadow: 0 2px 4px rgba(0,0,0,0.1); transition: all 0.2s;" onmouseover="this.style.background='#0056b3'; this.style.transform='translateY(-2px)'; this.style.boxShadow='0 4px 8px rgba(0,0,0,0.15)'" onmouseout="this.style.background='#007bff'; this.style.transform='translateY(0)'; this.style.boxShadow='0 2px 4px rgba(0,0,0,0.1)'">Export to PDF</button>
+        <div style="margin-top: 20px; text-align: center;">
+            <button onclick="downloadIndividualEssay(${index})" style="background: #007bff; color: white; border: none; padding: 10px 20px; border-radius: 6px; font-size: 15px; cursor: pointer; font-weight: 600; box-shadow: 0 2px 4px rgba(0,0,0,0.1); transition: all 0.2s;" onmouseover="this.style.background='#0056b3'; this.style.transform='translateY(-2px)'; this.style.boxShadow='0 4px 8px rgba(0,0,0,0.15)'" onmouseout="this.style.background='#007bff'; this.style.transform='translateY(0)'; this.style.boxShadow='0 2px 4px rgba(0,0,0,0.1)'">Export to PDF</button>
         </div>
     `;
 }
@@ -100,12 +100,12 @@ function createCategoryButtons(essayIndex = '') {
     const dataAttr = essayIndex ? ` data-essay-index="${essayIndex}"` : '';
 
     return `
-        <button class="category-btn" data-category="grammar"${dataAttr} style="background: transparent; color: #FF8C00; border: 2px solid #FF8C00; padding: 8px 12px; border-radius: 20px; cursor: pointer; font-weight: bold; transition: all 0.2s;">Grammar Error</button>
-        <button class="category-btn" data-category="vocabulary"${dataAttr} style="background: transparent; color: #00A36C; border: 2px solid #00A36C; padding: 8px 12px; border-radius: 20px; cursor: pointer; font-weight: bold; transition: all 0.2s;">Vocabulary Error</button>
-        <button class="category-btn" data-category="spelling"${dataAttr} style="background: transparent; color: #DC143C; border: 2px solid #DC143C; padding: 8px 12px; border-radius: 20px; cursor: pointer; font-weight: bold; transition: all 0.2s;">Spelling Error</button>
-        <button class="category-btn" data-category="mechanics"${dataAttr} style="background: #D3D3D3; color: #000000; border: 2px solid #D3D3D3; padding: 8px 12px; border-radius: 20px; cursor: pointer; font-weight: bold; transition: all 0.2s;">Mechanics Error</button>
-        <button class="category-btn" data-category="fluency"${dataAttr} style="background: #87CEEB; color: #000000; border: 2px solid #87CEEB; padding: 8px 12px; border-radius: 20px; cursor: pointer; font-weight: bold; transition: all 0.2s;">Fluency Error</button>
-        <button class="category-btn" data-category="delete"${dataAttr} style="background: transparent; color: #000000; border: 2px solid #000000; padding: 8px 12px; border-radius: 20px; cursor: pointer; font-weight: bold; text-decoration: line-through; transition: all 0.2s;">Delete Word</button>
+        <button class="category-btn" data-category="grammar"${dataAttr} style="background: transparent; color: #FF8C00; border: 2px solid #FF8C00; padding: 8px 12px; border-radius: 20px; cursor: pointer; font-weight: bold; transition: all 0.2s;">Grammar</button>
+        <button class="category-btn" data-category="vocabulary"${dataAttr} style="background: transparent; color: #00A36C; border: 2px solid #00A36C; padding: 8px 12px; border-radius: 20px; cursor: pointer; font-weight: bold; transition: all 0.2s;">Vocab</button>
+        <button class="category-btn" data-category="spelling"${dataAttr} style="background: transparent; color: #DC143C; border: 2px solid #DC143C; padding: 8px 12px; border-radius: 20px; cursor: pointer; font-weight: bold; transition: all 0.2s;">Spelling</button>
+        <button class="category-btn" data-category="mechanics"${dataAttr} style="background: #D3D3D3; color: #000000; border: 2px solid #D3D3D3; padding: 8px 12px; border-radius: 20px; cursor: pointer; font-weight: bold; transition: all 0.2s;">Mechanics</button>
+        <button class="category-btn" data-category="fluency"${dataAttr} style="background: #87CEEB; color: #000000; border: 2px solid #87CEEB; padding: 8px 12px; border-radius: 20px; cursor: pointer; font-weight: bold; transition: all 0.2s;">Fluency</button>
+        <button class="category-btn" data-category="delete"${dataAttr} style="background: transparent; color: #000000; border: 2px solid #000000; padding: 8px 12px; border-radius: 20px; cursor: pointer; font-weight: bold; text-decoration: line-through; transition: all 0.2s;">Delete</button>
     `;
 }
 
@@ -139,35 +139,35 @@ function createStudentRowHTML(essay, index, statusIcon) {
     const textColor = essay.success ? '#333' : '#721c24';
 
     return `
-        <div class="student-row" style="border: 2px solid #ddd; margin: 16px 0; border-radius: 8px; overflow: hidden;">
+        <div class="student-row" style="border: 2px solid #ddd; margin: 10px 0; border-radius: 6px; overflow: hidden;">
             <!-- Student Name Header (clickable to expand grade details) -->
             <div class="student-header-clickable" onclick="toggleTab('grade-details-${index}', ${index})" style="
-                padding: 24px 30px;
+                padding: 12px 18px;
                 background: ${backgroundColor};
                 display: flex;
                 align-items: center;
                 justify-content: space-between;
-                font-size: 22px;
+                font-size: 15px;
                 font-weight: 500;
-                min-height: 60px;
+                min-height: 40px;
                 border-bottom: 1px solid #ddd;
                 cursor: pointer;
                 transition: background-color 0.2s;
                 user-select: none;
             " onmouseover="this.style.backgroundColor='${essay.success ? '#e9ecef' : '#ffe5e5'}'"
                onmouseout="this.style.backgroundColor='${backgroundColor}'">
-                <div style="display: flex; align-items: center; gap: 15px; flex: 1; min-width: 0;">
-                    <span id="grade-details-${index}-arrow" style="font-size: 18px; transition: transform 0.3s; display: inline-block;">▼</span>
-                    <span style="font-size: 28px;">${statusIcon}</span>
-                    <span style="font-weight: 600; color: ${textColor}; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: 24px;">${essay.studentName}</span>
-                    ${!essay.success ? '<span style="color: #721c24; font-size: 20px; white-space: nowrap; font-weight: 500;">(Failed)</span>' : ''}
+                <div style="display: flex; align-items: center; gap: 10px; flex: 1; min-width: 0;">
+                    <span id="grade-details-${index}-arrow" style="font-size: 14px; transition: transform 0.3s; display: inline-block;">▼</span>
+                    <span style="font-size: 18px;">${statusIcon}</span>
+                    <span style="font-weight: 600; color: ${textColor}; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: 16px;">${essay.studentName}</span>
+                    ${!essay.success ? '<span style="color: #721c24; font-size: 14px; white-space: nowrap; font-weight: 500;">(Failed)</span>' : ''}
                 </div>
-                <div style="display: flex; align-items: center; gap: 20px; flex-shrink: 0;">
-                    <label style="display: flex; align-items: center; gap: 10px; margin: 0; cursor: pointer;" onclick="event.stopPropagation();">
-                        <input type="checkbox" class="mark-complete-checkbox" data-student-index="${index}" style="margin: 0; transform: scale(2);">
-                        <span style="font-size: 20px; color: #666; white-space: nowrap; font-weight: 600;">Mark Complete</span>
+                <div style="display: flex; align-items: center; gap: 12px; flex-shrink: 0;">
+                    <label style="display: flex; align-items: center; gap: 6px; margin: 0; cursor: pointer;" onclick="event.stopPropagation();">
+                        <input type="checkbox" class="mark-complete-checkbox" data-student-index="${index}" style="margin: 0; transform: scale(1.3);">
+                        <span style="font-size: 14px; color: #666; white-space: nowrap; font-weight: 600;">Mark Complete</span>
                     </label>
-                    ${essay.success ? `<button onclick="event.stopPropagation(); downloadIndividualEssay(${index})" style="background: #007bff; color: white; border: none; padding: 16px 24px; border-radius: 8px; font-size: 18px; cursor: pointer; white-space: nowrap; font-weight: 600;">Download</button>` : ''}
+                    ${essay.success ? `<button onclick="event.stopPropagation(); downloadIndividualEssay(${index})" style="background: #007bff; color: white; border: none; padding: 8px 14px; border-radius: 6px; font-size: 14px; cursor: pointer; white-space: nowrap; font-weight: 600;">Download</button>` : ''}
                 </div>
             </div>
 
@@ -191,30 +191,30 @@ function createStudentRowHTML(essay, index, statusIcon) {
                 <div style="display: flex; flex-direction: column; flex: 1;">
                     <!-- Upper section: Title and arrow (clickable for toggle) -->
                     <div onclick="toggleTab('highlights-tab-${index}', ${index})" style="
-                        padding: 15px 30px;
+                        padding: 10px 18px;
                         cursor: pointer;
                         display: flex;
                         align-items: center;
-                        gap: 12px;
+                        gap: 8px;
                         transition: background-color 0.2s;
                     " onmouseover="this.style.backgroundColor='#f8f9fa'"
                        onmouseout="this.style.backgroundColor='#ffffff'">
-                        <span id="highlights-tab-${index}-arrow" style="font-size: 18px; transition: transform 0.3s; display: inline-block;">▼</span>
-                        <span style="font-weight: 600; font-size: 18px;">Manage 'Highlights and Corrections' as seen on the exported PDF</span>
+                        <span id="highlights-tab-${index}-arrow" style="font-size: 14px; transition: transform 0.3s; display: inline-block;">▼</span>
+                        <span style="font-weight: 600; font-size: 14px;">Manage 'Highlights and Corrections' as seen on the exported PDF</span>
                     </div>
                     <!-- Lower section: Checkbox (independent hover) -->
                     <label style="
                         display: flex;
                         align-items: center;
-                        gap: 8px;
-                        padding: 8px 30px 15px 60px;
-                        font-size: 14px;
+                        gap: 6px;
+                        padding: 6px 18px 10px 40px;
+                        font-size: 13px;
                         cursor: pointer;
                         transition: background-color 0.2s;
                     " onclick="event.stopPropagation();"
                        onmouseover="this.style.backgroundColor='#f8f9fa'"
                        onmouseout="this.style.backgroundColor='#ffffff'">
-                        <input type="checkbox" id="highlights-tab-${index}-remove-all" class="remove-all-checkbox" data-content-id="highlights-tab-content-${index}" style="cursor: pointer; width: 16px; height: 16px;">
+                        <input type="checkbox" id="highlights-tab-${index}-remove-all" class="remove-all-checkbox" data-content-id="highlights-tab-content-${index}" style="cursor: pointer; width: 14px; height: 14px;">
                         <span style="color: #666;">Remove all from PDF</span>
                     </label>
                 </div>
@@ -225,7 +225,7 @@ function createStudentRowHTML(essay, index, statusIcon) {
                 transition: max-height 0.3s ease-out;
                 background: white;
             ">
-                <div id="highlights-tab-content-${index}" style="padding: 20px;">Loading highlights...</div>
+                <div id="highlights-tab-content-${index}" style="padding: 15px;">Loading highlights...</div>
             </div>
             ` : `
             <div style="padding: 15px; color: #721c24;">Error: ${essay.error}</div>
@@ -244,14 +244,14 @@ function createStudentRowHTML(essay, index, statusIcon) {
 function createBatchResultsHTML(batchResult, successCount, failureCount) {
     let html = `
         <div class="batch-results">
-            <h2>Grading Results (${batchResult.totalEssays} essays)</h2>
-            <div style="background: #fff3cd; border: 2px solid #ffc107; padding: 20px; border-radius: 8px; margin: 20px 0; color: #856404; font-size: 18px; line-height: 1.5; font-weight: 500;">
-                <strong style="font-size: 20px;">⚠️ Important:</strong> The AI will make mistakes. Please review all essays and make any necessary manual edits.
+            <h2 style="font-size: 20px; margin-bottom: 12px;">Grading Results (${batchResult.totalEssays} essays)</h2>
+            <div style="background: #fff3cd; border: 2px solid #ffc107; padding: 12px; border-radius: 6px; margin: 12px 0; color: #856404; font-size: 14px; line-height: 1.4; font-weight: 500;">
+                <strong style="font-size: 15px;">⚠️</strong> The AI will make mistakes. Please review all essays and make any necessary manual edits.
             </div>
-            <div class="batch-summary" style="background: #f8f9fa; padding: 15px; border-radius: 8px; margin: 15px 0;">
-                <p><strong>Summary:</strong> ${successCount} successful, ${failureCount} failed</p>
+            <div class="batch-summary" style="background: #f8f9fa; padding: 10px; border-radius: 6px; margin: 10px 0; font-size: 14px;">
+                <p style="margin: 0;"><strong>Summary:</strong> ${successCount} successful, ${failureCount} failed</p>
             </div>
-            <div class="compact-student-list" style="margin: 20px 0;">
+            <div class="compact-student-list" style="margin: 12px 0;">
     `;
 
     // Create compact student list
@@ -744,7 +744,7 @@ function createHighlightsLegendHTML(highlightsData) {
             const isExcluded = highlight.isExcluded;
             const buttonBg = isExcluded ? '#28a745' : '#dc3545';
             const buttonHoverBg = isExcluded ? '#218838' : '#c82333';
-            const buttonText = isExcluded ? 'Add to PDF export' : 'Remove from PDF export';
+            const buttonText = isExcluded ? '+' : '-';
             const entryStyle = isExcluded ? 'text-decoration: line-through; opacity: 0.6;' : '';
 
             const highlightHTML = `
@@ -915,7 +915,7 @@ function setupRemoveAllCheckbox(contentId) {
 
                     // Update button appearance for excluded state
                     button.style.background = '#28a745';
-                    button.textContent = 'Add to PDF export';
+                    button.textContent = '+';
                     button.onmouseover = function() { this.style.background = '#218838'; };
                     button.onmouseout = function() { this.style.background = '#28a745'; };
 
@@ -966,13 +966,13 @@ function setupRemoveAllCheckbox(contentId) {
             if (isChecked) {
                 // Excluded state - green "Add" button
                 button.style.background = '#28a745';
-                button.textContent = 'Add to PDF export';
+                button.textContent = '+';
                 button.onmouseover = function() { this.style.background = '#218838'; };
                 button.onmouseout = function() { this.style.background = '#28a745'; };
             } else {
                 // Included state - red "Remove" button
                 button.style.background = '#dc3545';
-                button.textContent = 'Remove from PDF export';
+                button.textContent = '-';
                 button.onmouseover = function() { this.style.background = '#c82333'; };
                 button.onmouseout = function() { this.style.background = '#dc3545'; };
             }
@@ -1046,14 +1046,14 @@ function setupTogglePDFListeners(container) {
                 // Excluded state - green "Add" button
                 this.style.background = '#28a745';
                 this.style.setProperty('--hover-bg', '#218838');
-                this.textContent = 'Add to PDF export';
+                this.textContent = '+';
                 this.onmouseover = function() { this.style.background = '#218838'; };
                 this.onmouseout = function() { this.style.background = '#28a745'; };
             } else {
                 // Included state - red "Remove" button
                 this.style.background = '#dc3545';
                 this.style.setProperty('--hover-bg', '#c82333');
-                this.textContent = 'Remove from PDF export';
+                this.textContent = '-';
                 this.onmouseover = function() { this.style.background = '#c82333'; };
                 this.onmouseout = function() { this.style.background = '#dc3545'; };
             }
@@ -1139,7 +1139,7 @@ function setupCategoryNoteToggleListeners() {
             if (newExcludedState) {
                 // Excluded state - green "Add" button, grayed textarea
                 this.style.background = '#28a745';
-                this.textContent = 'Add to PDF export';
+                this.textContent = '+';
                 if (textarea) {
                     textarea.style.textDecoration = 'line-through';
                     textarea.style.opacity = '0.6';
@@ -1147,7 +1147,7 @@ function setupCategoryNoteToggleListeners() {
             } else {
                 // Included state - red "Remove" button, normal textarea
                 this.style.background = '#dc3545';
-                this.textContent = 'Remove from PDF export';
+                this.textContent = '-';
                 if (textarea) {
                     textarea.style.textDecoration = 'none';
                     textarea.style.opacity = '1';

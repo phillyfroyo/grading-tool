@@ -7,15 +7,17 @@ export function buildGradingPrompt(rubric, classProfile, cefrLevel, studentText,
 
   const studentName = studentNickname && studentNickname.trim() ? studentNickname.trim() : '';
 
-  // Count errors by category for the prompt
+  // Count errors by category and find the top categories
   const errorCounts = {};
   errorDetectionResults.inline_issues.forEach(issue => {
     const cat = issue.category || issue.type || 'unknown';
     errorCounts[cat] = (errorCounts[cat] || 0) + 1;
   });
-  const errorSummary = Object.entries(errorCounts)
-    .map(([cat, count]) => `${cat}: ${count}`)
-    .join(', ') || 'none';
+
+  // Find the top 2 categories with the most errors
+  const sortedErrors = Object.entries(errorCounts).sort((a, b) => b[1] - a[1]);
+  const topCategories = sortedErrors.slice(0, 2).map(([cat, count]) => `${cat} (${count})`).join(' and ');
+  const hasMultipleIssues = sortedErrors.length > 1;
 
   return `You are an expert ESL writing grader. Grade according to the rubric.
 
@@ -104,23 +106,23 @@ For each category rationale, write 1 brief sentence that:
 ## TEACHER_NOTES FORMAT:
 ${studentName ? `Start with "${studentName} - " then follow the format below.` : 'Follow the format below.'}
 
-Structure: [Intro based on score] + [Natural feedback about main issues] + "See detailed notes below the color-coded essay."
+Structure: [Intro] + [ONE sentence mentioning 1-2 areas to improve] + [Closing]
 
 Pick ONE intro based on total score:
 - 0-49: (skip intro, start with feedback)
-- 50-59: "Not too bad overall." OR "Solid effort, but there is room to grow."
-- 60-69: "Good work here." OR "This is solid work."
-- 70-79: "I think you did a great job overall." OR "Strong effort here."
-- 80-89: "Great job overall." OR "Nice work overall."
-- 90-100: "Excellent work overall." OR "Outstanding job."
+- 50-59: "Not too bad overall."
+- 60-69: "Good work here."
+- 70-79: "I think you did a great job overall."
+- 80-89: "Great job overall."
+- 90-100: "Excellent work overall."
 
-Then write natural feedback (1 sentence) about the main area to improve. Focus on the category with the most errors (${errorSummary}). Use phrases like "Lets work on strengthening your grammar" or "Focus on spelling and mechanics going forward" - make it sound natural, not robotic.
+The top problem areas are: ${topCategories || 'none'}.
+Write ONE sentence mentioning ${hasMultipleIssues ? 'one or both of these categories' : 'this category'}.
+Examples: "Let's focus on grammar going forward." or "Let's work on spelling and vocabulary."
 
-RULES:
+CRITICAL RULES:
+- Write exactly ONE feedback sentence - do NOT write two sentences that say the same thing differently
 - No exclamation marks
-- 2-3 sentences total (intro + feedback + closing)
-- Base feedback on ACTUAL errors found, not generic advice
-- Do NOT comment on word count or other statistics - only mention error categories
 - Always end with: "See detailed notes below the color-coded essay."
 
 Return ONLY valid JSON.`;

@@ -5,50 +5,50 @@ const rubric = {
     "grammar": {
       "id": "grammar",
       "name": "Grammar",
-      "color": "#FF6B6B",
-      "backgroundColor": "#FFE5E5",
+      "color": "#FF8C00",
+      "backgroundColor": "#FFF3E0",
       "weight": 15
     },
     "vocabulary": {
       "id": "vocabulary",
       "name": "Vocabulary",
-      "color": "#4ECDC4",
-      "backgroundColor": "#E8F8F7",
+      "color": "#00A36C",
+      "backgroundColor": "#E8F5E9",
       "weight": 15
     },
     "spelling": {
       "id": "spelling",
       "name": "Spelling",
-      "color": "#45B7D1",
-      "backgroundColor": "#E3F2FD",
+      "color": "#DC143C",
+      "backgroundColor": "#FFEBEE",
       "weight": 15
     },
     "mechanics": {
       "id": "mechanics",
       "name": "Mechanics & Punctuation",
-      "color": "#F7B731",
-      "backgroundColor": "#FFF8E1",
+      "color": "#555555",
+      "backgroundColor": "#E0E0E0",
       "weight": 15
     },
     "fluency": {
       "id": "fluency",
       "name": "Fluency",
-      "color": "#A855F7",
-      "backgroundColor": "#F3E8FF",
+      "color": "#0277BD",
+      "backgroundColor": "#E1F5FE",
       "weight": 10
     },
     "layout": {
       "id": "layout",
       "name": "Layout & Follow Specs",
-      "color": "#16A34A",
-      "backgroundColor": "#DCFCE7",
+      "color": "#7C3AED",
+      "backgroundColor": "#EDE9FE",
       "weight": 15
     },
     "content": {
       "id": "content",
       "name": "Content & Information",
-      "color": "#DC2626",
-      "backgroundColor": "#FEE2E2",
+      "color": "#E91E63",
+      "backgroundColor": "#FCE4EC",
       "weight": 15
     }
   }
@@ -642,8 +642,8 @@ function renderSegmentsToHTML(segments, options = {}) {
   const htmlContent = segments.map((segment, index) => {
     if (segment.type === 'normal') {
       return editable ?
-        `<span class="text-segment" data-segment-id="${index}" style="font-size: 28px;">${escapeHtmlWithFormatting(segment.text)}</span>` :
-        `<span class="normal-text" style="font-size: 28px;">${escapeHtmlWithFormatting(segment.text)}</span>`;
+        `<span class="text-segment" data-segment-id="${index}">${escapeHtmlWithFormatting(segment.text)}</span>` :
+        `<span class="normal-text">${escapeHtmlWithFormatting(segment.text)}</span>`;
     } else if (segment.type === 'caret') {
       // Render caret marker for comma/period suggestions
       const issueDesc = segment.issue.message || segment.issue.correction || segment.issue.text;
@@ -853,45 +853,39 @@ function generateFeedbackSummary(scores, total, meta, teacherNotes, encouragemen
   
   let html = `
     <div class="grading-summary">
-      <div class="overall-score" style="color: ${scoreColor}; font-size: 2em; font-weight: bold; text-align: center; margin: 20px 0;">
+      <div class="overall-score" style="color: ${scoreColor}; font-size: 1.5em; font-weight: bold; text-align: center; margin: 10px 0 8px 0;">
         ${total?.points || 0}/${total?.out_of || 100}
       </div>
-      
-      <div class="teacher-notes editable-section" style="background: #e8f5e8; padding: 15px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #4CAF50; cursor: pointer; border: 2px solid transparent;" onclick="editTeacherNotes(this)" title="Click to edit teacher notes" data-teacher-notes="${escapeHtml(teacherNotes || '')}">
-        <strong class="teacher-notes-label">📝 Teacher Notes:</strong> 
-        <span class="teacher-notes-content">${escapeHtml(teacherNotes || 'Click to add teacher notes')}</span>
+
+      <div class="teacher-notes editable-section" style="background: #e8f5e8; padding: 10px 12px; border-radius: 6px; margin: 0 0 8px 0; border-left: 4px solid #4CAF50; cursor: pointer; border: 2px solid transparent; font-size: 14px;" onclick="editTeacherNotes(this)" title="Click to edit teacher notes" data-teacher-notes="${escapeHtml(teacherNotes || '')}">
+        <strong class="teacher-notes-label" style="font-size: 14px;">📝 Teacher Notes:</strong>
+        <span class="teacher-notes-content" style="font-size: 14px;">${escapeHtml(teacherNotes || 'Click to add teacher notes')}</span>
         <span class="edit-indicator" style="font-size: 10px; margin-left: 5px; color: #666;">✎</span>
       </div>
       
-      <div class="stats-row" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; margin: 20px 0;">
-        <div class="editable-stat" style="padding: 10px; background: #e3f2fd; border-radius: 4px; text-align: center; cursor: pointer; border: 2px solid transparent;" onclick="editStat(this, 'word_count')" title="Click to edit">
-          <strong>📊 Word Count</strong><br>
-          <span class="stat-value" style="font-size: 1.2em; color: #1976D2;">${meta?.word_count || 'Not counted'}</span>
-          <span class="edit-indicator" style="font-size: 10px; margin-left: 2px; color: #666;">✎</span>
+      <div class="stats-row" style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; margin: 8px 0 6px 0;">
+        <div class="stat-box" style="padding: 6px; background: #e3f2fd; border-radius: 4px; text-align: center; font-size: 12px;" title="${meta?.word_count || 'N/A'} words">
+          <strong>📊 Words</strong><br>
+          <span class="stat-value" style="font-size: 1.1em; color: #1976D2;">${meta?.word_count || 'N/A'}</span>
         </div>
-        <div class="editable-stat" style="padding: 10px; background: #f3e5f5; border-radius: 4px; text-align: center; cursor: pointer; border: 2px solid transparent;" onclick="editTransitions(this)" title="Click to edit">
+        <div class="stat-box" style="padding: 6px; background: #f3e5f5; border-radius: 4px; text-align: center; font-size: 12px;" title="${(meta?.transition_words_found || []).length > 0 ? (meta.transition_words_found).join(', ') : 'No transitions found'}">
           <strong>🔗 Transitions</strong><br>
-          <span class="stat-value" style="font-size: 1.2em; color: #7B1FA2;">${(meta?.transition_words_found || []).length} found</span>
-          <span class="edit-indicator" style="font-size: 10px; margin-left: 2px; color: #666;">✎</span>
-          ${(meta?.transition_words_found || []).length > 0 ? `<br><small class="stat-detail">(${(meta.transition_words_found).join(', ')})</small>` : ''}
+          <span class="stat-value" style="font-size: 1.1em; color: #7B1FA2;">${(meta?.transition_words_found || []).length}</span>
         </div>
-        <div class="editable-stat" style="padding: 10px; background: #e8f5e8; border-radius: 4px; text-align: center; cursor: pointer; border: 2px solid transparent;" onclick="editVocabulary(this)" title="Click to edit">
-          <strong>📚 Class Vocabulary</strong><br>
-          <span class="stat-value" style="font-size: 1.2em; color: #388E3C;">
-            ${Array.isArray(meta?.class_vocabulary_used) ? meta.class_vocabulary_used.length + ' used' : (meta?.class_vocabulary_used || 'N/A')}
+        <div class="stat-box" style="padding: 6px; background: #e8f5e8; border-radius: 4px; text-align: center; font-size: 12px;" title="${Array.isArray(meta?.class_vocabulary_used) && meta.class_vocabulary_used.length > 0 ? meta.class_vocabulary_used.join(', ') : 'No vocabulary found'}">
+          <strong>📚 Vocabulary</strong><br>
+          <span class="stat-value" style="font-size: 1.1em; color: #388E3C;">
+            ${Array.isArray(meta?.class_vocabulary_used) ? meta.class_vocabulary_used.length : (meta?.class_vocabulary_used || 'N/A')}
           </span>
-          <span class="edit-indicator" style="font-size: 10px; margin-left: 2px; color: #666;">✎</span>
-          ${Array.isArray(meta?.class_vocabulary_used) && meta.class_vocabulary_used.length > 0 ? `<br><small class="stat-detail">(${meta.class_vocabulary_used.join(', ')})</small>` : ''}
         </div>
-        <div class="editable-stat" style="padding: 10px; background: #fff3e0; border-radius: 4px; text-align: center; cursor: pointer; border: 2px solid transparent;" onclick="editGrammar(this)" title="Click to edit">
+        <div class="stat-box" style="padding: 6px; background: #fff3e0; border-radius: 4px; text-align: center; font-size: 12px;" title="${Array.isArray(meta?.grammar_structures_used) && meta.grammar_structures_used.length > 0 ? meta.grammar_structures_used.join(', ') : 'No grammar structures found'}">
           <strong>📖 Grammar</strong><br>
-          <span class="stat-value" style="font-size: 1.2em; color: #F57C00;">
-            ${Array.isArray(meta?.grammar_structures_used) ? meta.grammar_structures_used.length + ' structures' : (meta?.grammar_structures_used || 'N/A')}
+          <span class="stat-value" style="font-size: 1.1em; color: #F57C00;">
+            ${Array.isArray(meta?.grammar_structures_used) ? meta.grammar_structures_used.length : (meta?.grammar_structures_used || 'N/A')}
           </span>
-          <span class="edit-indicator" style="font-size: 10px; margin-left: 2px; color: #666;">✎</span>
-          ${Array.isArray(meta?.grammar_structures_used) && meta.grammar_structures_used.length > 0 ? `<br><small class="stat-detail">(${meta.grammar_structures_used.slice(0,2).join(', ')}${meta.grammar_structures_used.length > 2 ? '...' : ''})</small>` : ''}
         </div>
       </div>
+      <div class="no-pdf" style="text-align: right; font-size: 11px; color: #888; margin-top: -2px; margin-bottom: 6px;">These are for your info only, not displayed on PDF</div>
       
       <div class="category-breakdown">
         <h3>Category Breakdown:</h3>`;
@@ -908,33 +902,30 @@ function generateFeedbackSummary(scores, total, meta, teacherNotes, encouragemen
 
     if (editable) {
       html += `
-        <div class="category-feedback" style="margin: 0; padding: 15px;
+        <div class="category-feedback" style="margin: 0; padding: 10px 12px;
              border-left: 4px solid ${categoryInfo.color};
              background: ${categoryInfo.backgroundColor};
-             border-radius: 0 8px 8px 0;"
+             border-radius: 0 6px 6px 0;"
              data-category="${category}"
              data-note-exclude-from-pdf="true">
-          <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 15px;">
-            <strong style="color: ${categoryInfo.color}; font-size: 1.1em; white-space: nowrap; padding-top: 8px;">
+          <div style="display: flex; align-items: stretch; gap: 10px;">
+            <strong style="color: ${categoryInfo.color}; font-size: 14px; white-space: nowrap; display: flex; align-items: center; min-width: 80px;">
               ${categoryInfo.name}
             </strong>
-            <div class="category-note-wrapper" style="flex: 1; display: flex; flex-direction: column; gap: 5px;">
-              <textarea class="editable-feedback"
-                        data-category="${category}"
-                        placeholder="Click to add notes (optional)..."
-                        rows="1"
-                        style="min-height: 32px; border: 1px solid #ddd; border-radius: 3px; padding: 8px; resize: vertical; font-family: inherit; line-height: 1.4; overflow-y: hidden; background: white; ${hasRationale ? 'text-decoration: line-through; opacity: 0.6;' : ''}">${escapeHtml(details.rationale || '')}</textarea>
-              ${hasRationale ? `
-              <button class="toggle-note-pdf-btn no-print"
+            <textarea class="editable-feedback"
                       data-category="${category}"
-                      data-excluded="true"
-                      style="align-self: flex-end; padding: 4px 10px; font-size: 11px; border: none; border-radius: 4px; cursor: pointer; background: #28a745; color: white;"
-                      onmouseover="this.style.background='#218838'"
-                      onmouseout="this.style.background=this.dataset.excluded==='true'?'#28a745':'#dc3545'">
-                Add to PDF export
-              </button>` : ''}
-            </div>
-            <div style="display: flex; align-items: center; gap: 5px; position: relative; white-space: nowrap;">
+                      placeholder="Add notes..."
+                      rows="1"
+                      style="flex: 1; min-height: 34px; border: 1px solid #ddd; border-radius: 4px; padding: 8px 10px; resize: none; font-family: inherit; font-size: 14px; line-height: 1.4; overflow-y: hidden; background: white; box-sizing: border-box; ${hasRationale ? 'text-decoration: line-through; opacity: 0.6;' : ''}">${escapeHtml(details.rationale || '')}</textarea>
+            ${hasRationale ? `
+            <button class="toggle-note-pdf-btn no-print"
+                    data-category="${category}"
+                    data-excluded="true"
+                    style="padding: 0; width: 26px; height: 34px; font-size: 18px; font-weight: bold; border: none; border-radius: 4px; cursor: pointer; background: #28a745; color: white; display: flex; align-items: center; justify-content: center; flex-shrink: 0;"
+                    onmouseover="this.style.background='#218838'"
+                    onmouseout="this.style.background=this.dataset.excluded==='true'?'#28a745':'#dc3545'"
+                    title="Add to PDF export">+</button>` : ''}
+            <div style="display: flex; align-items: center; gap: 4px; flex-shrink: 0;">
               <div class="score-input-container" style="position: relative;">
                 <input type="number"
                        class="editable-score"
@@ -942,36 +933,34 @@ function generateFeedbackSummary(scores, total, meta, teacherNotes, encouragemen
                        value="${details.points}"
                        min="0"
                        max="${details.out_of}"
-                       style="width: 80px; height: 40px; padding: 8px 30px 8px 8px; border: 2px solid #ddd; border-radius: 6px; text-align: center; font-weight: bold; font-size: 1.2em; color: ${categoryColor};">
-
-                <!-- Large clickable areas for increment/decrement - 50/50 split -->
-                <div class="arrow-up-area" data-action="increment" style="position: absolute; top: 0; right: 0; width: 35px; height: 50%; cursor: pointer; z-index: 10; background: transparent;"></div>
-                <div class="arrow-down-area" data-action="decrement" style="position: absolute; bottom: 0; right: 0; width: 35px; height: 50%; cursor: pointer; z-index: 10; background: transparent;"></div>
+                       style="width: 54px; height: 34px; padding: 2px 18px 2px 4px; border: 1px solid #ddd; border-radius: 4px; text-align: center; font-weight: bold; font-size: 16px; color: ${categoryColor}; box-sizing: border-box;">
+                <div class="arrow-up-area" data-action="increment" style="position: absolute; top: 0; right: 0; width: 18px; height: 50%; cursor: pointer; z-index: 10; background: transparent;"></div>
+                <div class="arrow-down-area" data-action="decrement" style="position: absolute; bottom: 0; right: 0; width: 18px; height: 50%; cursor: pointer; z-index: 10; background: transparent;"></div>
               </div>
-              <span style="color: ${categoryColor}; font-weight: bold; font-size: 1.2em;">/${details.out_of}</span>
+              <span style="color: ${categoryColor}; font-weight: bold; font-size: 16px;">/${details.out_of}</span>
             </div>
           </div>
         </div>`;
     } else {
       html += `
-        <div class="category-feedback" style="margin: 0; padding: 15px; 
-             border-left: 4px solid ${categoryInfo.color}; 
-             background: ${categoryInfo.backgroundColor}; 
-             border-radius: 0 8px 8px 0;">
-          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
-            <strong style="color: ${categoryInfo.color}; font-size: 1.1em;">
+        <div class="category-feedback" style="margin: 0; padding: 10px 12px;
+             border-left: 4px solid ${categoryInfo.color};
+             background: ${categoryInfo.backgroundColor};
+             border-radius: 0 6px 6px 0;">
+          <div style="display: flex; align-items: center; gap: 10px;">
+            <strong style="color: ${categoryInfo.color}; font-size: 14px; min-width: 80px;">
               ${categoryInfo.name}
             </strong>
-            <span class="editable-stat-score" style="color: ${categoryColor}; font-weight: bold; font-size: 1.2em; cursor: pointer; border: 2px solid transparent;"
+            ${details.rationale ? `<div style="flex: 1; background: white; padding: 8px 10px; border-radius: 4px; font-size: 14px; line-height: 1.4;">
+              ${escapeHtml(details.rationale)}
+            </div>` : '<div style="flex: 1;"></div>'}
+            <span class="editable-stat-score" style="color: ${categoryColor}; font-weight: bold; font-size: 16px; cursor: pointer; flex-shrink: 0;"
                   onclick="editStat(this, '${categoryInfo.name} Score')"
                   title="Click to edit score"
                   data-category="${category}">
               ${details.points}/${details.out_of}
             </span>
           </div>
-          ${details.rationale ? `<div style="background: white; padding: 10px; border-radius: 4px; line-height: 1.4;">
-            ${escapeHtml(details.rationale)}
-          </div>` : ''}
         </div>`;
     }
   });

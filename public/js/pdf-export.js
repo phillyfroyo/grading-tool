@@ -1643,7 +1643,7 @@ function createPrintContent(resultsDiv, studentName) {
     const highlightsData = processHighlightsForPDF(clone);
 
     // Remove interactive elements
-    const buttonsToRemove = clone.querySelectorAll('button, .category-btn, .remove-essay-btn, .manage-profiles-btn');
+    const buttonsToRemove = clone.querySelectorAll('button, .category-btn, .remove-essay-btn, .manage-profiles-btn, .no-pdf');
     buttonsToRemove.forEach(btn => btn.remove());
 
     // Remove onclick attributes

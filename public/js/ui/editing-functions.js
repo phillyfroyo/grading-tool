@@ -487,10 +487,17 @@ function setupEditableElements() {
 
     // Make feedback textareas expandable
     document.querySelectorAll('.editable-feedback').forEach(textarea => {
-        textarea.addEventListener('input', function() {
+        // Auto-resize function
+        const autoResize = function() {
             this.style.height = 'auto';
-            this.style.height = this.scrollHeight + 'px';
-        });
+            this.style.height = Math.max(34, this.scrollHeight) + 'px';
+        };
+
+        // Resize on input
+        textarea.addEventListener('input', autoResize);
+
+        // Initial resize for pre-filled content
+        setTimeout(() => autoResize.call(textarea), 50);
     });
 }
 

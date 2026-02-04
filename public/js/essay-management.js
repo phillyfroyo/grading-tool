@@ -31,9 +31,9 @@ function addAnotherEssay(count = 1) {
             <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 8px;">
                 <label style="margin: 0; font-weight: 500;">Essay ${newIndex + 1}:</label>
                 <input type="text" class="student-name" placeholder="Student name" required
-                       style="padding: 15px; border: 2px solid #ddd; border-radius: 8px; width: 300px; font-size: 22px; height: 60px; box-sizing: border-box;">
+                       style="padding: 10px; border: 2px solid #ddd; border-radius: 6px; width: 220px; font-size: 16px; height: 42px; box-sizing: border-box;">
                 <input type="text" class="student-nickname" placeholder="Nickname (optional)"
-                       style="padding: 15px; border: 2px solid #ddd; border-radius: 8px; width: 200px; font-size: 22px; height: 60px; box-sizing: border-box;">
+                       style="padding: 10px; border: 2px solid #ddd; border-radius: 6px; width: 150px; font-size: 16px; height: 42px; box-sizing: border-box;">
                 <button type="button" class="remove-essay-btn" onclick="removeEssay(${newIndex})"
                         style="background: #dc3545; color: white; border: none; padding: 5px 10px; border-radius: 4px; cursor: pointer;">
                     Remove
@@ -233,9 +233,9 @@ function addClaudeEssay(count = 1) {
             <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 8px;">
                 <label style="margin: 0; font-weight: 500;">Essay ${newIndex + 1}:</label>
                 <input type="text" class="student-name" placeholder="Student name" required
-                       style="padding: 15px; border: 2px solid #ddd; border-radius: 8px; width: 300px; font-size: 22px; height: 60px; box-sizing: border-box;">
+                       style="padding: 10px; border: 2px solid #ddd; border-radius: 6px; width: 220px; font-size: 16px; height: 42px; box-sizing: border-box;">
                 <input type="text" class="student-nickname" placeholder="Nickname (optional)"
-                       style="padding: 15px; border: 2px solid #ddd; border-radius: 8px; width: 200px; font-size: 22px; height: 60px; box-sizing: border-box;">
+                       style="padding: 10px; border: 2px solid #ddd; border-radius: 6px; width: 150px; font-size: 16px; height: 42px; box-sizing: border-box;">
                 <button type="button" class="remove-essay-btn" onclick="removeClaudeEssay(${newIndex})"
                         style="background: #dc3545; color: white; border: none; padding: 5px 10px; border-radius: 4px; cursor: pointer;">
                     Remove

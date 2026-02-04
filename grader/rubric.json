@@ -11,8 +11,8 @@
     "grammar": {
       "id": "grammar",
       "name": "Grammar",
-      "color": "#FF6B6B",
-      "backgroundColor": "#FFE5E5",
+      "color": "#FF8C00",
+      "backgroundColor": "#FFF3E0",
       "weight": 15,
       "description": "Tenses, subject/verb agreement, negatives, and structures seen in class.",
       "bands": [
@@ -41,8 +41,8 @@
     "vocabulary": {
       "id": "vocabulary",
       "name": "Vocabulary",
-      "color": "#4ECDC4",
-      "backgroundColor": "#E8F8F7",
+      "color": "#00A36C",
+      "backgroundColor": "#E8F5E9",
       "weight": 15,
       "description": "Correct words and vocabulary taught in class.",
       "bands": [
@@ -71,8 +71,8 @@
     "spelling": {
       "id": "spelling",
       "name": "Spelling",
-      "color": "#45B7D1",
-      "backgroundColor": "#E3F2FD",
+      "color": "#DC143C",
+      "backgroundColor": "#FFEBEE",
       "weight": 15,
       "description": "Accuracy and clarity of spelling.",
       "bands": [
@@ -101,8 +101,8 @@
     "mechanics": {
       "id": "mechanics",
       "name": "Mechanics & Punctuation",
-      "color": "#F7B731",
-      "backgroundColor": "#FFF8E1",
+      "color": "#555555",
+      "backgroundColor": "#E0E0E0",
       "weight": 15,
       "description": "Correct use of commas, periods, capitalization, and sentence boundaries.",
       "bands": [
@@ -131,8 +131,8 @@
     "fluency": {
       "id": "fluency",
       "name": "Fluency",
-      "color": "#A855F7",
-      "backgroundColor": "#F3E8FF",
+      "color": "#0277BD",
+      "backgroundColor": "#E1F5FE",
       "weight": 10,
       "description": "Organization and logical flow of ideas.",
       "bands": [
@@ -161,8 +161,8 @@
     "layout": {
       "id": "layout",
       "name": "Layout & Follow Specs",
-      "color": "#16A34A",
-      "backgroundColor": "#DCFCE7",
+      "color": "#7C3AED",
+      "backgroundColor": "#EDE9FE",
       "weight": 15,
       "description": "Structure, paragraphs, length, and cohesive devices (transition words, pronouns, synonyms).",
       "bands": [
@@ -191,8 +191,8 @@
     "content": {
       "id": "content",
       "name": "Content & Information",
-      "color": "#DC2626",
-      "backgroundColor": "#FEE2E2",
+      "color": "#E91E63",
+      "backgroundColor": "#FCE4EC",
       "weight": 15,
       "description": "Completeness and relevance of ideas and supporting information.",
       "bands": [

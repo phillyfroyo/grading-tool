@@ -10,9 +10,9 @@
 
 body {
     font-family: 'Times New Roman', Times, serif;
-    font-size: 20px;
+    font-size: 18px;
     margin: 0;
-    padding: 40px;
+    padding: 15px;
     background: #f5f5f5;
     min-height: 100vh;
     display: flex;
@@ -26,28 +26,28 @@ input, textarea, select, button {
 }
 
 h1 {
-    font-size: 48px;
-}
-
-h2 {
     font-size: 36px;
 }
 
-h3 {
+h2 {
     font-size: 28px;
 }
 
+h3 {
+    font-size: 22px;
+}
+
 p, li, span {
-    font-size: 20px;
+    font-size: 18px;
     line-height: 1.6;
 }
 
 /* ===== LAYOUT ===== */
 .container {
-    max-width: 1600px; /* Reduced from 2000px */
-    width: calc(100% - 40px); /* Reduced from 80px */
+    max-width: 1050px;
+    width: calc(100% - 30px);
     background: white;
-    padding: 40px; /* Reduced from 60px */
+    padding: 25px;
     border-radius: 8px;
     box-shadow: 0 2px 4px rgba(0,0,0,0.1);
     margin: 0 auto;
@@ -56,11 +56,11 @@ p, li, span {
 .app-header {
     position: relative;
     text-align: center;
-    margin-bottom: 40px;
+    margin-bottom: 20px;
 }
 
 .app-header img {
-    max-height: 80px;
+    max-height: 60px;
 }
 
 /* User menu styles */
@@ -74,24 +74,24 @@ p, li, span {
 
 /* ===== FORM ELEMENTS ===== */
 .form-group {
-    margin: 30px 0;
+    margin: 15px 0;
 }
 
 label {
     display: block;
-    margin-bottom: 10px;
+    margin-bottom: 6px;
     font-weight: bold;
-    font-size: 24px;
+    font-size: 16px;
 }
 
 textarea,
 input[type="text"],
 select {
     width: 100%;
-    padding: 20px;
+    padding: 10px;
     border: 2px solid #ddd;
-    border-radius: 8px;
-    font-size: 22px;
+    border-radius: 6px;
+    font-size: 16px;
     box-sizing: border-box;
 }
 
@@ -99,10 +99,10 @@ select {
 button {
     background: #007bff;
     color: white;
-    padding: 24px 48px;
+    padding: 10px 20px;
     border: none;
-    border-radius: 8px;
-    font-size: 24px;
+    border-radius: 6px;
+    font-size: 16px;
     cursor: pointer;
 }
 
@@ -174,13 +174,6 @@ mark[data-type] {
     color: unset;
 }
 
-/* ===== ZOOM FOR BETTER READABILITY ===== */
-/* Global zoom for more comfortable viewing */
-.container {
-    zoom: 0.75; /* 75% zoom for better readability */
-    transform: scale(0.75); /* Fallback for browsers that don't support zoom */
-    transform-origin: top center;
-}
 
 /* ===== SCORE INPUT ARROWS - LARGER AND MORE CLICKABLE ===== */
 /* Hide default arrows since we have our own large clickable areas */

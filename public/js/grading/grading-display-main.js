@@ -335,7 +335,7 @@ function setupRemoveAllCheckboxForTab(checkbox, contentDiv) {
                 highlightElement.dataset.excludeFromPdf = 'true';
                 button.dataset.excluded = 'true';
                 button.style.background = '#28a745';
-                button.textContent = 'Add to PDF export';
+                button.textContent = '+';
                 button.onmouseover = function() { this.style.background = '#218838'; };
                 button.onmouseout = function() { this.style.background = '#28a745'; };
 
@@ -372,12 +372,12 @@ function setupRemoveAllCheckboxForTab(checkbox, contentDiv) {
             // Update button appearance
             if (isChecked) {
                 button.style.background = '#28a745';
-                button.textContent = 'Add to PDF export';
+                button.textContent = '+';
                 button.onmouseover = function() { this.style.background = '#218838'; };
                 button.onmouseout = function() { this.style.background = '#28a745'; };
             } else {
                 button.style.background = '#dc3545';
-                button.textContent = 'Remove from PDF export';
+                button.textContent = '-';
                 button.onmouseover = function() { this.style.background = '#c82333'; };
                 button.onmouseout = function() { this.style.background = '#dc3545'; };
             }
