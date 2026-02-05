@@ -7,59 +7,21 @@
  * Export single essay to PDF
  */
 function exportToPDF() {
-    console.log('🎯 EXPORT TO PDF CALLED');
-
     const resultsDiv = document.getElementById('results');
     if (!resultsDiv || resultsDiv.style.display === 'none' || !resultsDiv.innerHTML.trim()) {
         alert('No results to export. Please grade an essay first.');
         return;
     }
 
-    console.log('📋 Results div found:', resultsDiv);
-    console.log('📋 Results div content length:', resultsDiv.innerHTML.length);
-    console.log('📋 Results div content preview:', resultsDiv.innerHTML.substring(0, 300));
-
-    // Get student name from the heading
     const heading = resultsDiv.querySelector('h2');
-    console.log('📋 Heading found:', heading);
-    console.log('📋 Heading text:', heading ? heading.textContent : 'No heading found');
-
     const studentName = heading ? heading.textContent.replace('Grading Results for ', '') : 'Student';
-
-    // Create export content
     const exportContent = createExportContent(resultsDiv, studentName);
-    console.log('📋 Export content created:', exportContent);
-    console.log('📋 Export content HTML length:', exportContent.innerHTML.length);
-    console.log('📋 Export content HTML preview:', exportContent.innerHTML.substring(0, 500));
-    console.log('📋 Export content outer HTML preview:', exportContent.outerHTML.substring(0, 500));
 
-    // Check if html2pdf is available
     if (!isHTML2PDFLoaded()) {
         alert('PDF export library is not loaded. Please try again in a moment.');
         return;
     }
 
-    // Export using html2pdf with simple options
-    const opt = {
-        margin: 0.5,
-        filename: `${studentName}_grading_results.pdf`,
-        image: { type: 'jpeg', quality: 0.8 },
-        html2canvas: {
-            scale: 1,
-            allowTaint: true,
-            backgroundColor: '#ffffff'
-        },
-        jsPDF: {
-            unit: 'in',
-            format: 'letter',
-            orientation: 'portrait'
-        }
-    };
-
-    console.log('📋 Starting PDF generation with options:', opt);
-
-    // Use browser's print dialog instead of problematic html2pdf
-    console.log('📋 Opening print dialog for PDF generation...');
     openPrintDialog(resultsDiv, studentName);
 }
 
@@ -69,13 +31,9 @@ function exportToPDF() {
  * @param {string} studentName - Student name
  */
 function openPrintDialog(resultsDiv, studentName) {
-    console.log('📋 Preparing content for print dialog...');
-
-    // Create a new window for printing
     const printWindow = window.open('', '_blank', 'width=800,height=600');
 
     if (!printWindow) {
-        console.log('Print window blocked by browser. Using iframe method...');
         // Use alternative method - create a hidden iframe
         createPrintIframe(resultsDiv, studentName);
         return;
@@ -650,7 +608,6 @@ function openPrintDialog(resultsDiv, studentName) {
 
     printWindow.document.close();
 
-    console.log('✅ Print window opened successfully');
 }
 
 /**
@@ -659,7 +616,6 @@ function openPrintDialog(resultsDiv, studentName) {
  * @param {string} studentName - Student name
  */
 function createPrintIframe(resultsDiv, studentName) {
-    console.log('📋 Creating print iframe as fallback...');
 
     // Create a hidden iframe
     const iframe = document.createElement('iframe');
@@ -733,7 +689,6 @@ function createPrintIframe(resultsDiv, studentName) {
         try {
             iframe.contentWindow.focus();
             iframe.contentWindow.print();
-            console.log('✅ Print dialog opened via iframe');
         } catch (error) {
             console.error('Failed to print via iframe:', error);
             // Final fallback - direct browser print of current page
@@ -759,37 +714,6 @@ function processHighlightsForPDF(content) {
         // Exclude marks that are inside the color legend
         return !mark.closest('.color-legend');
     });
-    console.log('🔍 Looking for highlights with mark[data-category], mark[data-type]:', allHighlights.length, 'total,', highlights.length, 'after filtering out legend');
-
-    // Debug: Check what mark elements exist
-    const allMarks = content.querySelectorAll('mark');
-    console.log('🔍 Found total mark elements:', allMarks.length);
-
-    // Also check for span elements with highlighting classes
-    const highlightSpans = content.querySelectorAll('span[data-category], span.highlight, span[class*="highlight"]');
-    console.log('🔍 Found span highlights:', highlightSpans.length);
-    if (highlightSpans.length > 0) {
-        highlightSpans.forEach((span, index) => {
-            console.log(`📝 Highlight span ${index}:`, {
-                attributes: Array.from(span.attributes).map(attr => `${attr.name}="${attr.value}"`),
-                text: span.textContent.substring(0, 50),
-                classes: span.className
-            });
-        });
-    }
-    if (allMarks.length > 0) {
-        allMarks.forEach((mark, index) => {
-            console.log(`🏷️ Mark ${index}:`, {
-                attributes: Array.from(mark.attributes).map(attr => `${attr.name}="${attr.value}"`),
-                text: mark.textContent.substring(0, 50),
-                classes: mark.className,
-                hasDataCategory: !!mark.dataset.category,
-                hasDataType: !!mark.dataset.type,
-                dataCategory: mark.dataset.category,
-                dataType: mark.dataset.type
-            });
-        });
-    }
 
     const highlightsData = [];
     let highlightNumber = 1;
@@ -797,7 +721,6 @@ function processHighlightsForPDF(content) {
     highlights.forEach(mark => {
         // Skip highlights that are excluded from PDF
         if (mark.dataset.excludeFromPdf === 'true') {
-            console.log('⏭️ Skipping highlight - excluded from PDF export');
             return;
         }
 
@@ -807,15 +730,6 @@ function processHighlightsForPDF(content) {
         const explanation = mark.dataset.explanation || '';
         const notes = mark.dataset.notes || mark.dataset.message || mark.title || ''; // backwards compatibility
         const originalText = mark.dataset.originalText || mark.textContent || '';
-
-        // Debug logging for PDF data extraction
-        console.log('📋 PDF Debug - Mark data:', {
-            text: originalText,
-            correction: correction,
-            explanation: explanation,
-            'dataset.correction': mark.dataset.correction,
-            'dataset.explanation': mark.dataset.explanation
-        });
 
         // Only process highlights that have notes/explanations for numbering
         if (notes && notes.trim() && !notes.toLowerCase().includes('click to edit')) {
@@ -851,7 +765,6 @@ function processHighlightsForPDF(content) {
         }
     });
 
-    console.log('📝 Processed', highlightsData.length, 'highlights for PDF');
     return highlightsData;
 }
 
@@ -895,21 +808,11 @@ function createHighlightsLegend(highlightsData) {
         // Add correction and explanation if they exist
         let feedbackHTML = '';
 
-        console.log('📋 PDF Feedback Generation:', {
-            number: highlight.number,
-            text: highlight.text,
-            correction: highlight.correction,
-            explanation: highlight.explanation,
-            'correction exists': !!highlight.correction,
-            'explanation exists': !!highlight.explanation
-        });
-
         // Add correction if it exists and is meaningful
         if (highlight.correction &&
             highlight.correction.trim() !== '' &&
             !highlight.correction.includes('**no notes have been entered**')) {
             feedbackHTML += `<div class="correction-text"><strong>Correction:</strong> ${highlight.correction}</div>`;
-            console.log('✅ Added correction to PDF');
         }
 
         // Add explanation if it exists and is meaningful (must be non-empty and different from correction)
@@ -920,10 +823,8 @@ function createHighlightsLegend(highlightsData) {
 
         if (hasExplanation) {
             feedbackHTML += `<div class="correction-text"><strong>Explanation:</strong> ${highlight.explanation}</div>`;
-            console.log('✅ Added explanation to PDF');
         }
 
-        console.log('📋 Final feedbackHTML:', feedbackHTML);
 
         legendHTML += `
             <div class="highlight-entry ${cssClass}">
@@ -962,7 +863,6 @@ function enhanceContentForPDF(content, studentName, originalContent = null) {
                 clonedTextarea.value = original.value;
                 clonedTextarea.textContent = original.value;
                 clonedTextarea.innerHTML = original.value;
-                console.log(`📝 Copied textarea value for category ${category}: "${original.value}"`);
             }
         } else {
             // Fallback: match by class or id if no data-category
@@ -980,7 +880,6 @@ function enhanceContentForPDF(content, studentName, originalContent = null) {
                 clonedTextarea.value = original.value;
                 clonedTextarea.textContent = original.value;
                 clonedTextarea.innerHTML = original.value;
-                console.log(`📝 Copied textarea value for ${id || className}: "${original.value}"`);
             }
         }
     });
@@ -994,7 +893,6 @@ function enhanceContentForPDF(content, studentName, originalContent = null) {
             const clonedFeedback = tempDiv.querySelector(`.category-feedback[data-category="${category}"]`);
             if (clonedFeedback && isExcluded) {
                 clonedFeedback.dataset.noteExcludeFromPdf = isExcluded;
-                console.log(`📋 Copied note exclude state for category ${category}: ${isExcluded}`);
             }
         }
     });
@@ -1018,7 +916,6 @@ function enhanceContentForPDF(content, studentName, originalContent = null) {
         if (clonedInput) {
             clonedInput.value = original.value;
             clonedInput.setAttribute('value', original.value);
-            console.log(`🔢 Copied input value for ${original.id || original.className}: "${original.value}"`);
         }
     });
 
@@ -1047,23 +944,19 @@ function enhanceContentForPDF(content, studentName, originalContent = null) {
                                tempDiv.querySelector('[class*="teacher-notes"]') ||
                                tempDiv.querySelector('[data-section="teacher-notes"]');
 
-    console.log('🔍 Looking for teacher notes element:', !!teacherNotesElement);
 
     // Also check the original content (not just the clone) for saved data
     // Use originalContent if provided, otherwise fall back to content
     const sourceForOriginal = originalContent || content;
     const originalTeacherNotes = sourceForOriginal.querySelector('.teacher-notes');
     const savedNotesFromDataset = originalTeacherNotes?.dataset?.teacherNotes;
-    console.log('📊 Saved notes from dataset:', savedNotesFromDataset);
 
     // Check window.currentGradingData as another fallback
     const globalTeacherNotes = window.currentGradingData?.teacher_notes;
-    console.log('🌐 Global teacher notes:', globalTeacherNotes);
 
     let notesText = '';
 
     if (teacherNotesElement) {
-        console.log('📝 Found teacher notes element:', teacherNotesElement.innerHTML);
         
         // First, try to get notes from .teacher-notes-content span (this is what contains the actual notes)
         const notesContentSpan = teacherNotesElement.querySelector('.teacher-notes-content');
@@ -1074,7 +967,6 @@ function enhanceContentForPDF(content, studentName, originalContent = null) {
             if (notesText === 'Click to add teacher notes') {
                 notesText = ''; // Don't include placeholder text
             }
-            console.log('📝 Found teacher notes in content span:', `"${notesText}"`);
         } else {
             // Fallback: get content directly from element, but clean it properly
             // Clone the element to avoid modifying the original
@@ -1095,20 +987,17 @@ function enhanceContentForPDF(content, studentName, originalContent = null) {
                 ?.replace(/Click to add teacher notes/i, '')
                 ?.replace(/✎/g, '')
                 ?.trim() || '';
-            console.log('📝 Found teacher notes in element text:', `"${notesText}"`);
         }
     }
 
     // Fallback to dataset if no notes found or if we only have "No notes provided"
     if ((!notesText || notesText === 'No notes provided') && savedNotesFromDataset && savedNotesFromDataset !== 'No notes provided') {
         notesText = savedNotesFromDataset;
-        console.log('📂 Using saved notes from dataset:', notesText);
     }
 
     // Fallback to global data if still no notes or only default text
     if ((!notesText || notesText === 'No notes provided') && globalTeacherNotes && globalTeacherNotes !== 'No notes provided') {
         notesText = globalTeacherNotes;
-        console.log('🌍 Using global teacher notes:', notesText);
     }
 
     // Clean up the notes text - ensure it doesn't have the "📝 Teacher Notes:" prefix
@@ -1131,7 +1020,6 @@ function enhanceContentForPDF(content, studentName, originalContent = null) {
     // Only create the section if we have actual, valid teacher notes
     if (!isEmptyOrDefault) {
 
-        console.log('✅ Teacher notes passed validation, creating section with text:', `"${notesText}"`);
 
         // Ensure the teacher notes maintain the student nickname prefix if present
         teacherNotesSection = `
@@ -1145,7 +1033,6 @@ function enhanceContentForPDF(content, studentName, originalContent = null) {
             teacherNotesElement.remove();
         }
     } else {
-        console.log('⚠️ No valid teacher notes found after checking all sources, or notes were empty/default');
         // Make sure we don't show an empty section
         teacherNotesSection = '';
 
@@ -1214,9 +1101,7 @@ function enhanceContentForPDF(content, studentName, originalContent = null) {
 
     // Convert score sections to plain text format
     const scoreSections = tempDiv.querySelectorAll('.score-section, .category, .category-feedback, [class*="score"]');
-    console.log(`Found ${scoreSections.length} score sections to process`);
     scoreSections.forEach((section, index) => {
-        console.log(`Processing section ${index}:`, section.className, section.innerHTML.substring(0, 200) + '...');
         // Extract category name from h3/h4/strong elements
         const categoryNameEl = section.querySelector('h3, h4, strong');
         let categoryName = categoryNameEl ? categoryNameEl.textContent.trim() : '';
@@ -1275,11 +1160,9 @@ function enhanceContentForPDF(content, studentName, originalContent = null) {
             const score = scoreInput.value || '0';
             const max = scoreInput.getAttribute('max') || scoreInput.dataset.max || '15';
             scoreText = `${score}/${max}`;
-            console.log(`Found scoreInput for ${categoryName}: ${scoreText}`);
         } else if (editableStatScore) {
             // Extract score from editable stat score element (GPT grading with manual edits)
             scoreText = editableStatScore.textContent.trim();
-            console.log(`Found editableStatScore for ${categoryName}: ${scoreText}`);
         } else {
             // Try multiple patterns to catch broken formatting
             for (const pattern of scorePatterns) {
@@ -1305,23 +1188,15 @@ function enhanceContentForPDF(content, studentName, originalContent = null) {
 
         // Check if category notes are excluded from PDF export
         const isNoteExcluded = section.dataset.noteExcludeFromPdf === 'true';
-        console.log(`  Category ${categoryName} note excluded from PDF: ${isNoteExcluded}`);
 
         const feedbackTextarea = section.querySelector('textarea.editable-feedback, textarea');
-        console.log(`  Looking for textarea in section for ${categoryName}:`, !!feedbackTextarea);
         if (feedbackTextarea && !isNoteExcluded) {
             // Get the textarea value from the cloned element (values were already copied correctly)
             const category = feedbackTextarea.dataset.category || categoryName.toLowerCase();
 
             // Use the cloned textarea value (which was copied from the correct original)
             let textareaValue = feedbackTextarea.value || feedbackTextarea.textContent || feedbackTextarea.innerHTML || '';
-            console.log(`  Using cloned textarea for ${category}, value: "${feedbackTextarea.value}"`);
 
-            console.log(`  Textarea found, value: "${feedbackTextarea.value}"`);
-            console.log(`  Textarea textContent: "${feedbackTextarea.textContent}"`);
-            console.log(`  Textarea innerHTML: "${feedbackTextarea.innerHTML}"`);
-            console.log(`  Final textareaValue: "${textareaValue}"`);
-            console.log(`  Textarea classes:`, feedbackTextarea.className);
 
             if (textareaValue && textareaValue.trim()) {
                 const cleanValue = textareaValue.trim();
@@ -1330,12 +1205,9 @@ function enhanceContentForPDF(content, studentName, originalContent = null) {
                     !cleanValue.match(/^Click to add notes/i) &&
                     !cleanValue.match(/^No feedback provided/i)) {
                     comments = cleanValue;
-                    console.log(`  Using textarea content as comments: "${comments}"`);
                 } else {
-                    console.log(`  Textarea content filtered out: "${cleanValue}"`);
                 }
             } else {
-                console.log(`  Textarea is empty or whitespace only`);
             }
         } else if (!isNoteExcluded) {
             // Try to find comments after the score (only if notes not excluded)
@@ -1370,14 +1242,11 @@ function enhanceContentForPDF(content, studentName, originalContent = null) {
                 }
             }
         } else {
-            console.log(`  Skipping comment extraction - notes excluded from PDF`);
         }
 
         // Replace the entire section with plain text format
         if (categoryName && scoreText) {
             // Debug logging
-            console.log(`Processing category: ${categoryName}, Score: ${scoreText}, Comments: "${comments}"`);
-            console.log('🟡 Creating category element with yellow highlighting');
 
             // Include notes inline with category header if there are comments
             const notesInline = (comments && comments.length > 0) ? ` (${comments})` : '';
@@ -1387,9 +1256,7 @@ function enhanceContentForPDF(content, studentName, originalContent = null) {
                     <p class="category-header-yellow" style="margin: 5px 0 !important; padding: 2px 4px !important; font-weight: bold !important; color: black !important; background: #FFFF99 !important; background-color: #FFFF99 !important; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; border: none !important;">${categoryName}: ${scoreText}${notesInline}</p>`;
 
             if (comments && comments.length > 0) {
-                console.log(`Added inline notes for ${categoryName}: ${comments}`);
             } else {
-                console.log(`No notes found for ${categoryName}`);
             }
 
             plainTextHTML += `
@@ -1412,7 +1279,6 @@ function enhanceContentForPDF(content, studentName, originalContent = null) {
                             child.removeAttribute('style');
                             child.removeAttribute('class');
                         } else {
-                            console.log('🟡 Preserving yellow highlighting for:', child.textContent.substring(0, 50));
                         }
                     }
                 });
@@ -1509,7 +1375,6 @@ function enhanceContentForPDF(content, studentName, originalContent = null) {
 
     // Add teacher notes after Grade but before Category Breakdown
     if (teacherNotesSection) {
-        console.log('✅ Adding teacher notes after Grade, before Category Breakdown');
         const teacherNotesDiv = document.createElement('div');
         teacherNotesDiv.innerHTML = teacherNotesSection;
 
@@ -1586,14 +1451,12 @@ function enhanceContentForPDF(content, studentName, originalContent = null) {
                 element.style.background = '#FFFF99';
                 element.style.setProperty('-webkit-print-color-adjust', 'exact', 'important');
                 element.style.setProperty('print-color-adjust', 'exact', 'important');
-                console.log('🟡 Applied strong yellow highlighting to:', element.textContent.substring(0, 50));
             }
         }
     });
 
     // Final pass: Ensure all category headers have correct yellow highlighting
     const yellowHeaders = tempDiv.querySelectorAll('.category-header-yellow');
-    console.log('🔍 Found .category-header-yellow elements for final pass:', yellowHeaders.length);
 
     yellowHeaders.forEach(header => {
         // Force yellow background with maximum strength
@@ -1601,7 +1464,6 @@ function enhanceContentForPDF(content, studentName, originalContent = null) {
         header.style.setProperty('background', '#FFFF99', 'important');
         header.style.setProperty('-webkit-print-color-adjust', 'exact', 'important');
         header.style.setProperty('print-color-adjust', 'exact', 'important');
-        console.log('🟡 Final pass: Applied yellow highlighting to:', header.textContent.substring(0, 50));
     });
 
     // Get the cleaned HTML
@@ -1755,13 +1617,14 @@ function createPrintContent(resultsDiv, studentName) {
             text.includes('select category then highlight') ||
             text.includes('highlight text then select category')
         )) {
-            // Don't remove if it's part of essay content
+            // Don't remove if it's part of essay content or category-feedback
             if (!el.querySelector('.formatted-essay-content') &&
                 !el.classList.contains('formatted-essay-content') &&
-                !el.closest('.formatted-essay-content')) {
+                !el.closest('.formatted-essay-content') &&
+                !el.classList.contains('category-feedback') &&
+                !el.closest('.category-feedback')) {
                 // Remove if it's a heading or small content section
                 if (el.textContent.length < 300 || el.tagName?.match(/^H[1-6]$/) || el.tagName === 'STRONG') {
-                    console.log('🗑️ Removing from PDF:', el.textContent.substring(0, 50) + '...');
                     el.remove();
                 }
             }
@@ -1778,14 +1641,15 @@ function createPrintContent(resultsDiv, studentName) {
             text.includes('class vocab') ||
             text.includes('grammar structures')
         )) {
-            // Don't remove if it contains essay content
+            // Don't remove if it contains essay content or is a category-feedback section
             if (!container.querySelector('.formatted-essay-content') &&
                 !container.classList.contains('formatted-essay-content') &&
-                !container.closest('.formatted-essay-content')) {
+                !container.closest('.formatted-essay-content') &&
+                !container.classList.contains('category-feedback') &&
+                !container.closest('.category-feedback')) {
                 // Check if this container mostly contains the unwanted content
                 const wordsInText = text.split(/\s+/).length;
                 if (wordsInText < 50) { // Small containers
-                    console.log('🗑️ Removing container from PDF:', text.substring(0, 50) + '...');
                     container.remove();
                 }
             }
@@ -1810,7 +1674,6 @@ function createPrintContent(resultsDiv, studentName) {
  * @param {string} studentName - Student name
  */
 function createFallbackPDF(resultsDiv, studentName) {
-    console.log('📋 Creating ultra-simple fallback PDF');
 
     // Create the simplest possible HTML content
     const simpleContent = document.createElement('div');
@@ -1830,12 +1693,9 @@ function createFallbackPDF(resultsDiv, studentName) {
         <p>Generated by Essay Grading Tool</p>
     `;
 
-    console.log('📋 Ultra-simple fallback content created, length:', simpleContent.innerHTML.length);
-    console.log('📋 Ultra-simple fallback content preview:', simpleContent.innerHTML.substring(0, 200));
 
     // Test if the element has actual dimensions
     document.body.appendChild(simpleContent);
-    console.log('📋 Element dimensions - width:', simpleContent.offsetWidth, 'height:', simpleContent.offsetHeight);
 
     // Use the most basic options possible
     const ultraSimpleOpt = {
@@ -1853,7 +1713,6 @@ function createFallbackPDF(resultsDiv, studentName) {
         }
     };
 
-    console.log('📋 html2pdf appears to be broken, skipping to manual PDF creation...');
     document.body.removeChild(simpleContent);
 
     // Skip html2pdf entirely and use manual method
@@ -1865,7 +1724,6 @@ function createFallbackPDF(resultsDiv, studentName) {
  */
 function createManualPDF(textContent, studentName) {
     try {
-        console.log('📋 Creating manual PDF using jsPDF directly');
 
         // Check if jsPDF is available - html2pdf bundles it differently
         let jsPDF;
@@ -1873,12 +1731,10 @@ function createManualPDF(textContent, studentName) {
         // First try window.jspdf (lowercase)
         if (typeof window.jspdf !== 'undefined' && window.jspdf.jsPDF) {
             jsPDF = window.jspdf.jsPDF;
-            console.log('📋 Found jsPDF at window.jspdf.jsPDF');
         }
         // Try window.jsPDF
         else if (typeof window.jsPDF !== 'undefined') {
             jsPDF = window.jsPDF;
-            console.log('📋 Found jsPDF at window.jsPDF');
         }
         // Try to create a temporary html2pdf instance and extract jsPDF
         else if (typeof html2pdf !== 'undefined') {
@@ -1890,9 +1746,7 @@ function createManualPDF(textContent, studentName) {
                     // Try accessing the jsPDF from the html2pdf function itself
                     jsPDF = html2pdf.jsPDF || html2pdf().jsPDF;
                 }
-                console.log('📋 Extracted jsPDF from html2pdf');
             } catch (e) {
-                console.log('📋 Could not extract jsPDF from html2pdf:', e);
             }
         }
 
@@ -1902,7 +1756,6 @@ function createManualPDF(textContent, studentName) {
             return;
         }
 
-        console.log('📋 Creating PDF with jsPDF...');
         const doc = new jsPDF();
 
         // Add title
@@ -1921,14 +1774,12 @@ function createManualPDF(textContent, studentName) {
         // Save the PDF
         doc.save(`${studentName}_grading_manual.pdf`);
 
-        console.log('✅ Manual PDF generation completed');
         alert('PDF generated using manual method.');
 
     } catch (error) {
         console.error('❌ Manual PDF generation failed:', error);
 
         // Final fallback - create a downloadable text file
-        console.log('📋 Creating downloadable text file as final fallback...');
         createTextFile(textContent, studentName);
     }
 }
@@ -1938,7 +1789,6 @@ function createManualPDF(textContent, studentName) {
  */
 function createTextFile(textContent, studentName) {
     try {
-        console.log('📋 Creating downloadable text file');
 
         const fileContent = `Essay Grading Report
 Student: ${studentName}
@@ -1967,7 +1817,6 @@ Generated by Essay Grading Tool`;
         // Clean up
         URL.revokeObjectURL(url);
 
-        console.log('✅ Text file download completed');
         alert('PDF generation failed, but grading results have been downloaded as a text file.');
 
     } catch (error) {
@@ -1980,7 +1829,6 @@ Generated by Essay Grading Tool`;
  * Export manual grading to PDF
  */
 function exportManualToPDF() {
-    console.log('🎯 EXPORT MANUAL TO PDF CALLED');
 
     // Try different possible containers
     let manualContainer = document.getElementById('manualResults');
@@ -1993,8 +1841,6 @@ function exportManualToPDF() {
         return;
     }
 
-    console.log('📋 Manual container found:', manualContainer);
-    console.log('📋 Manual content preview:', manualContainer.innerHTML.substring(0, 200));
 
     // CRITICAL: Sync all editable score values before export
     let totalScore = 0;
@@ -2006,7 +1852,6 @@ function exportManualToPDF() {
         const max = parseFloat(input.getAttribute('max')) || 0;
         totalScore += score;
         totalMax += max;
-        console.log(`💾 Synced ${input.dataset.category}: ${input.value}/${input.getAttribute('max')}`);
     });
 
     // Fix floating point precision
@@ -2017,7 +1862,6 @@ function exportManualToPDF() {
     if (overallScoreElement) {
         const percentage = totalMax > 0 ? Math.round((totalScore / totalMax) * 100) : 0;
         overallScoreElement.innerHTML = `<div style="font-size: 2em; font-weight: bold; text-align: center; margin: 20px 0;">${totalScore}/${totalMax} (${percentage}%)</div>`;
-        console.log(`📊 Updated overall score: ${totalScore}/${totalMax} (${percentage}%)`);
     }
 
     // Get student name - handle different possible formats
@@ -2034,7 +1878,6 @@ function exportManualToPDF() {
             .trim();
     }
 
-    console.log('📋 Using same reliable print dialog method for manual grading...');
 
     // Use the same reliable print dialog method as the main grading
     openPrintDialog(manualContainer, studentName);
@@ -2047,8 +1890,6 @@ function exportManualToPDF() {
  * @returns {HTMLElement} Export content element
  */
 function createExportContent(resultsDiv, studentName) {
-    console.log('📋 Creating export content for student:', studentName);
-    console.log('📋 Results div content (first 500 chars):', resultsDiv.innerHTML.substring(0, 500));
 
     // Create very simple HTML for PDF
     const html = `
@@ -2065,8 +1906,6 @@ function createExportContent(resultsDiv, studentName) {
     const exportDiv = document.createElement('div');
     exportDiv.innerHTML = html;
 
-    console.log('📋 Final export div content length:', exportDiv.innerHTML.length);
-    console.log('📋 Final export div preview:', exportDiv.innerHTML.substring(0, 500));
 
     return exportDiv;
 }
@@ -2077,16 +1916,12 @@ function createExportContent(resultsDiv, studentName) {
  * @returns {string} Simple HTML content
  */
 function extractSimpleContent(resultsDiv) {
-    console.log('📋 Extracting content from results div...');
 
     // Extract the essential content as simple HTML
     const heading = resultsDiv.querySelector('h2');
     const feedbackSummary = resultsDiv.querySelector('.grading-summary') || resultsDiv.querySelector('.feedback-summary');
     const essayContent = resultsDiv.querySelector('.formatted-essay-content');
 
-    console.log('📋 Found heading:', !!heading);
-    console.log('📋 Found feedback summary:', !!feedbackSummary);
-    console.log('📋 Found essay content:', !!essayContent);
 
     let content = '';
 
@@ -2097,7 +1932,6 @@ function extractSimpleContent(resultsDiv) {
 
     // Add feedback summary if exists
     if (feedbackSummary) {
-        console.log('📋 Adding feedback summary, length:', feedbackSummary.innerHTML.length);
         content += `
             <div style="margin-bottom: 30px;">
                 <h3 style="color: #333; border-bottom: 1px solid #ddd; padding-bottom: 10px;">Grading Summary</h3>
@@ -2108,7 +1942,6 @@ function extractSimpleContent(resultsDiv) {
 
     // Add essay content if exists
     if (essayContent) {
-        console.log('📋 Adding essay content, length:', essayContent.innerHTML.length);
         content += `
             <div style="margin-bottom: 30px;">
                 <h3 style="color: #333; border-bottom: 1px solid #ddd; padding-bottom: 10px;">Essay Text</h3>
@@ -2121,7 +1954,6 @@ function extractSimpleContent(resultsDiv) {
 
     // If no specific content found, use a simplified version of the entire results div
     if (!content.trim()) {
-        console.log('📋 No specific content found, using full results div');
         const clone = resultsDiv.cloneNode(true);
 
         // Remove interactive elements but preserve content
@@ -2148,8 +1980,6 @@ function extractSimpleContent(resultsDiv) {
         content = clone.innerHTML;
     }
 
-    console.log('📋 Final extracted content length:', content.length);
-    console.log('📋 Final extracted content preview:', content.substring(0, 400));
 
     return content;
 }
@@ -2425,7 +2255,6 @@ function initializePDFExport() {
         return;
     }
 
-    console.log('PDF export functionality initialized');
 }
 
 // Wait for html2pdf to load if not already available
@@ -2448,8 +2277,6 @@ if (!isHTML2PDFLoaded()) {
  * @param {Object} essayData - Essay data containing essay and originalData
  */
 function exportIndividualEssay(essayData) {
-    console.log('🎯 EXPORT INDIVIDUAL ESSAY TO PDF CALLED');
-    console.log('📋 Essay data:', essayData);
 
     if (!essayData || !essayData.essay || !essayData.originalData) {
         console.error('❌ Invalid essay data provided');
@@ -2469,11 +2296,8 @@ function exportIndividualEssay(essayData) {
         return;
     }
 
-    console.log('📋 Essay container found:', essayContainer);
-    console.log('📋 Container content length:', essayContainer.innerHTML.length);
 
     // Use the print dialog method (same as main export functionality)
-    console.log('📋 Opening print dialog for individual essay...');
     openPrintDialog(essayContainer, studentName);
 }
 
@@ -2510,15 +2334,6 @@ window.downloadIndividualEssay = function(index) {
         exportIndividualEssay(essayData);
     } else {
         console.error('Essay data not found for index:', index);
-        console.log('Available essay data keys:', Object.keys(window).filter(k => k.startsWith('essayData_')));
         alert('Error: Essay data not found. Please try again.');
     }
 };
-
-// Log successful loading
-console.log('✅ PDF Export Module loaded successfully', {
-    PDFExportModule: !!window.PDFExportModule,
-    exportToPDF: !!window.exportToPDF,
-    exportManualToPDF: !!window.exportManualToPDF,
-    exportIndividualEssay: !!window.exportIndividualEssay
-});

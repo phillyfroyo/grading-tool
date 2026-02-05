@@ -102,12 +102,10 @@ async function handleManualGradingSubmission(e) {
  */
 async function handleGradingFormSubmission(e) {
     e.preventDefault();
-    console.log('🎯 MAIN GRADING FORM SUBMITTED!');
 
     // Detect which form is being submitted to determine provider
     const formId = e.target.id;
     const provider = formId === 'claudeGradingForm' ? 'claude' : 'openai';
-    console.log('🤖 Using provider:', provider);
 
     const formData = new FormData(e.target);
     const studentName = formData.get('studentName') || 'Student';
@@ -120,7 +118,6 @@ async function handleGradingFormSubmission(e) {
         const selectedProfile = profiles.find(p => p.id === classProfile);
         if (selectedProfile && selectedProfile.temperature !== undefined) {
             temperature = selectedProfile.temperature;
-            console.log('📡 Using profile temperature:', temperature, 'from profile:', classProfile);
         }
     }
     // Fallback to form field if it exists (for backwards compatibility)
@@ -225,10 +222,6 @@ async function handleGradingFormSubmission(e) {
             }
 
             const result = await response.json();
-            console.log('📋 Grading API response:', result);
-            console.log('📋 Response keys:', Object.keys(result));
-            console.log('📋 Success field:', result.success);
-            console.log('📋 Full response object:', JSON.stringify(result, null, 2));
 
             if (result.success) {
                 // Update progress UI to show completion
@@ -305,6 +298,10 @@ async function handleGradingFormSubmission(e) {
 
             // Use streaming batch endpoint for better UX (essays return progressively)
             console.log('🎯 CALLING STREAMING BATCH GRADING WITH:', batchData);
+
+            // Store original batch data globally for retry functionality
+            window.originalBatchDataForRetry = batchData;
+
             try {
                 await streamBatchGradingSimple(batchData);
             } catch (streamError) {
@@ -431,21 +428,15 @@ function updateManualScore(category, score) {
  * @param {Object} batchData - The batch data to process
  */
 async function streamBatchGradingSimple(batchData) {
-    console.log('🎯 STARTING STREAMING BATCH GRADING');
-    console.log(`📊 Total essays to grade: ${batchData.essays.length}`);
-
-    const CHUNK_SIZE = 2; // 2 essays = 1 batch of 2, matches backend BATCH_SIZE (3 API calls per essay with 30k TPM limit)
+    const CHUNK_SIZE = 2; // 2 essays = 1 batch of 2, matches backend BATCH_SIZE
     const totalEssays = batchData.essays.length;
 
     // If batch is small enough, process in single request
     if (totalEssays <= CHUNK_SIZE) {
-        console.log(`📊 Processing ${totalEssays} essays in single request`);
         return processEssayChunk(batchData, 0);
     }
 
     // Large batch - split into chunks and process sequentially
-    console.log(`📦 Large batch detected: splitting into ${Math.ceil(totalEssays / CHUNK_SIZE)} chunks of ${CHUNK_SIZE} essays`);
-
     let allResults = [];
     let processedCount = 0;
 
@@ -453,8 +444,6 @@ async function streamBatchGradingSimple(batchData) {
         const chunkStart = processedCount;
         const chunkEnd = Math.min(chunkStart + CHUNK_SIZE, totalEssays);
         const chunkEssays = batchData.essays.slice(chunkStart, chunkEnd);
-
-        console.log(`\n🔄 Processing chunk ${Math.floor(chunkStart / CHUNK_SIZE) + 1}/${Math.ceil(totalEssays / CHUNK_SIZE)}: essays ${chunkStart + 1}-${chunkEnd} of ${totalEssays}`);
 
         const chunkData = {
             ...batchData,
@@ -470,17 +459,9 @@ async function streamBatchGradingSimple(batchData) {
             }
 
             processedCount = chunkEnd;
-            console.log(`✅ Chunk complete. Progress: ${processedCount}/${totalEssays} essays (${Math.round(processedCount/totalEssays*100)}%)`);
 
         } catch (error) {
-            console.error(`❌ CHUNK FAILED: Essays ${chunkStart + 1}-${chunkEnd}`, {
-                chunkSize: chunkEssays.length,
-                errorMessage: error.message,
-                errorStack: error.stack,
-                essaysProcessedSoFar: processedCount,
-                totalEssays: totalEssays,
-                percentComplete: Math.round(processedCount/totalEssays*100)
-            });
+            console.error(`❌ Chunk failed: Essays ${chunkStart + 1}-${chunkEnd}:`, error.message);
 
             // Mark failed essays in UI
             for (let i = chunkStart; i < chunkEnd; i++) {
@@ -490,12 +471,9 @@ async function streamBatchGradingSimple(batchData) {
             }
 
             // Continue with next chunk instead of failing entire batch
-            console.warn(`⚠️ Skipping failed chunk, continuing with remaining essays...`);
             processedCount = chunkEnd;
         }
     }
-
-    console.log(`\n🎉 ALL CHUNKS COMPLETE: ${totalEssays} essays processed`);
 
     return {
         success: true,
@@ -528,12 +506,6 @@ async function processEssayChunk(chunkData, globalOffset) {
             reject(new Error(`SSE timeout after 20 minutes. Processed ${processedResults.length}/${chunkData.essays.length} essays.`));
         }, TIMEOUT_MS);
 
-        console.log(`📡 Initiating SSE connection for chunk...`, {
-            chunkSize: chunkData.essays.length,
-            globalOffset,
-            startTime: new Date().toISOString()
-        });
-
         // Use direct fetch with streaming instead of EventSource
         fetch('/api/grade-batch?stream=true', {
             method: 'POST',
@@ -544,15 +516,8 @@ async function processEssayChunk(chunkData, globalOffset) {
         }).then(response => {
             if (!response.ok) {
                 clearTimeout(timeoutId);
-                console.error(`❌ HTTP ERROR: Status ${response.status}`, {
-                    statusText: response.statusText,
-                    chunkSize: chunkData.essays.length,
-                    globalOffset
-                });
                 throw new Error(`HTTP ${response.status}: ${response.statusText}`);
             }
-
-            console.log('✅ SSE connection established successfully');
 
             const reader = response.body.getReader();
             const decoder = new TextDecoder();
@@ -562,11 +527,6 @@ async function processEssayChunk(chunkData, globalOffset) {
                 return reader.read().then(({ done, value }) => {
                     if (done) {
                         clearTimeout(timeoutId);
-                        console.log('✅ SSE stream completed', {
-                            resultsReceived: processedResults.length,
-                            expectedCount: chunkData.essays.length,
-                            allReceived: processedResults.length === chunkData.essays.length
-                        });
                         resolve({
                             success: true,
                             results: processedResults,
@@ -586,7 +546,7 @@ async function processEssayChunk(chunkData, globalOffset) {
                                 const data = JSON.parse(line.slice(6));
                                 handleStreamingMessage(data);
                             } catch (e) {
-                                console.error('Error parsing streaming data:', e, line);
+                                console.error('Error parsing streaming data:', e);
                             }
                         }
                     });
@@ -598,41 +558,20 @@ async function processEssayChunk(chunkData, globalOffset) {
             return readStream();
         }).catch(error => {
             clearTimeout(timeoutId);
-            console.error('❌ SSE FETCH ERROR:', {
-                errorMessage: error.message,
-                errorStack: error.stack,
-                chunkSize: chunkData.essays.length,
-                globalOffset,
-                processedSoFar: processedResults.length,
-                timestamp: new Date().toISOString()
-            });
+            console.error('❌ SSE fetch error:', error.message);
             reject(error);
         });
 
         function handleStreamingMessage(data) {
-            console.log('📨 Received streaming message:', data);
-
             switch (data.type) {
                 case 'start':
-                    console.log('✅ Streaming started');
                     break;
 
                 case 'processing':
-                    const globalIndex = data.index + globalOffset;
-                    const progressMsg = data.batch
-                        ? `🔄 Processing essay ${globalIndex + 1} (Backend batch ${data.batch}/${data.totalBatches})`
-                        : `🔄 Processing essay ${globalIndex + 1}`;
-                    console.log(progressMsg);
                     break;
 
                 case 'result':
                         const globalResultIndex = data.index + globalOffset;
-                        console.log(`✅ Received result for essay ${globalResultIndex + 1}`, {
-                            localIndex: data.index,
-                            globalIndex: globalResultIndex,
-                            success: data.success,
-                            studentName: data.studentName
-                        });
 
                         // Adjust data index to global position
                         const adjustedData = {
@@ -674,12 +613,6 @@ async function processEssayChunk(chunkData, globalOffset) {
 
                     case 'complete':
                         clearTimeout(timeoutId);
-                        console.log('🎉 Chunk streaming complete', {
-                            processingTime: data.totalTimeSeconds ? `${data.totalTimeSeconds}s` : 'unknown',
-                            chunkSize: chunkData.essays.length,
-                            resultsReceived: processedResults.filter(r => r !== undefined).length,
-                            globalOffset
-                        });
 
                         // Create result object
                         const chunkResult = {

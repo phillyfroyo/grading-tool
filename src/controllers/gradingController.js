@@ -45,45 +45,31 @@ async function handleLegacyGrade(req, res) {
 async function handleApiGrade(req, res) {
   const { studentText, prompt, classProfile, temperature, studentNickname, provider } = req.body;
 
-  console.log("\n🔥 API GRADING REQUEST RECEIVED 🔥");
-  console.log("Student text length:", studentText?.length || 0, "characters");
-  console.log("Class profile:", classProfile);
-  console.log("Temperature:", temperature || 0);
-  console.log("Provider:", provider || 'openai');
-  console.log("Environment:", isVercel ? 'Vercel' : 'Local');
-
   try {
-    console.log("\n⚡ STARTING UNIFIED GRADING SYSTEM...");
-    console.log("🔍 Looking for profile:", classProfile);
-
-    // Get userId from session or cookies (same logic as profile controller)
+    // Get userId from session or cookies
     let userId = req.session?.userId;
     if (!userId && req.signedCookies) {
       userId = req.signedCookies.userId;
     }
-    console.log("🔑 User ID for grading:", userId, "from session:", !!req.session?.userId, "from cookies:", !!req.signedCookies?.userId);
 
-    // Get profile data (unified for both environments)
+    // Get profile data
     const profileData = await findProfileById(classProfile, userId);
 
     if (!profileData) {
-      console.log("❌ Profile not found, returning 404");
       return res.status(404).json({ error: "Class profile not found", requested: classProfile });
     }
 
-    console.log("✅ Profile found:", profileData.name);
-    console.log("🤖 Using UNIFIED grading system (identical local & Vercel)...");
-    console.log("🏷️ Student nickname:", studentNickname || 'none provided');
-
-    // Use unified grading system (works identically everywhere)
+    // Use unified grading system
     const result = await gradeEssayUnified(studentText, prompt, profileData, studentNickname, provider);
-    console.log("\n✅ UNIFIED GRADING COMPLETED!");
-    console.log("Original score:", result.total?.points + "/" + result.total?.out_of);
 
-    // Apply temperature adjustment using profile temperature or explicit temperature
+    // Validate result has required fields
+    if (!result || !result.scores || !result.total) {
+      throw new Error('Incomplete grading result - missing scores or total');
+    }
+
+    // Apply temperature adjustment
     const finalTemperature = temperature !== undefined ? temperature : (profileData.temperature || 0);
     const finalResult = applyTemperatureAdjustment(result, finalTemperature);
-    console.log("Final score after temperature:", finalResult.total?.points + "/" + finalResult.total?.out_of);
 
     const responseObject = {
       success: true,
@@ -100,7 +86,6 @@ async function handleApiGrade(req, res) {
       segments: finalResult.segments
     };
 
-    console.log("📤 Sending response with success field:", responseObject.success);
     res.json(responseObject);
   } catch (error) {
     console.error("\n❌ GRADING ERROR:", error);
@@ -129,13 +114,6 @@ async function handleBatchGrade(req, res) {
   const { essays, prompt, classProfile, temperature, provider } = req.body;
   const isStreaming = req.query.stream === 'true';
 
-  console.log(`\n🔥 ${isStreaming ? 'STREAMING' : 'BATCH'} GRADING REQUEST RECEIVED 🔥`);
-  console.log("Number of essays:", essays?.length || 0);
-  console.log("Class profile:", classProfile);
-  console.log("Temperature:", temperature || 0);
-  console.log("Streaming mode:", isStreaming);
-  console.log("Environment:", isVercel ? 'Vercel' : 'Local');
-
   // If streaming mode is requested, set up Server-Sent Events
   if (isStreaming) {
     return handleStreamingBatchGrade(req, res, { essays, prompt, classProfile, temperature, provider });
@@ -146,26 +124,18 @@ async function handleBatchGrade(req, res) {
       return res.status(400).json({ error: "No essays provided for grading" });
     }
 
-    console.log("\n⚡ STARTING BATCH GRADING SYSTEM...");
-    console.log("🔍 Looking for profile:", classProfile);
-
-    // Get userId from session or cookies (same logic as profile controller)
+    // Get userId from session or cookies
     let userId = req.session?.userId;
     if (!userId && req.signedCookies) {
       userId = req.signedCookies.userId;
     }
-    console.log("🔑 User ID for batch grading:", userId, "from session:", !!req.session?.userId, "from cookies:", !!req.signedCookies?.userId);
 
-    // Get profile data (unified for both environments)
+    // Get profile data
     const profileData = await findProfileById(classProfile, userId);
 
     if (!profileData) {
-      console.log("❌ Profile not found, returning 404");
       return res.status(404).json({ error: "Class profile not found", requested: classProfile });
     }
-
-    console.log("✅ Profile found:", profileData.name);
-    console.log("🤖 Grading", essays.length, "essays using UNIFIED grading system...");
 
     const results = [];
     const finalTemperature = temperature !== undefined ? temperature : (profileData.temperature || 0);
@@ -173,12 +143,9 @@ async function handleBatchGrade(req, res) {
     // Grade each essay
     for (let i = 0; i < essays.length; i++) {
       const essay = essays[i];
-      console.log(`\n📝 Grading essay ${i + 1}/${essays.length} for ${essay.studentName}...`);
-      console.log(`🏷️ Student nickname: ${essay.studentNickname || 'none'}`);
 
       try {
         const result = await gradeEssayUnified(essay.studentText, prompt, profileData, essay.studentNickname, provider);
-        console.log(`✅ Essay ${i + 1} graded successfully`);
 
         // Apply temperature adjustment
         const finalResult = applyTemperatureAdjustment(result, finalTemperature);
@@ -316,7 +283,11 @@ async function handleStreamingBatchGrade(req, res, { essays, prompt, classProfil
           console.log(`🏷️ Student nickname: ${essay.studentNickname || 'none'}`);
 
           const result = await gradeEssayUnified(essay.studentText, prompt, profileData, essay.studentNickname, provider);
-          console.log(`✅ Essay ${globalIndex + 1} graded successfully`);
+
+          // Validate result has required fields before marking as successful
+          if (!result || !result.scores || !result.total) {
+            throw new Error('Incomplete grading result - missing scores or total');
+          }
 
           // Apply temperature adjustment
           const finalResult = applyTemperatureAdjustment(result, finalTemperature);
@@ -347,10 +318,23 @@ async function handleStreamingBatchGrade(req, res, { essays, prompt, classProfil
       // Wait for all essays in this batch to complete using allSettled for better error handling
       const batchResults = await Promise.allSettled(batchPromises);
 
-      // Extract results and sort them to maintain a consistent order for the delay
-      const processedResults = batchResults
-        .map(result => result.status === 'fulfilled' ? result.value : null)
-        .filter(result => result !== null);
+      // Extract results, converting rejected promises to error objects instead of silently dropping them
+      const processedResults = batchResults.map((result, idx) => {
+        if (result.status === 'fulfilled') {
+          return result.value;
+        }
+        // Handle rejected promises - convert to error result instead of dropping
+        const globalIndex = batchStart + idx;
+        const essay = batch[idx];
+        console.error(`❌ Promise rejected for essay ${globalIndex + 1}:`, result.reason);
+        return {
+          index: globalIndex,
+          success: false,
+          studentName: essay?.studentName || `Student ${globalIndex + 1}`,
+          studentNickname: essay?.studentNickname || '',
+          error: result.reason?.message || 'Unknown error - essay grading failed'
+        };
+      });
 
       // Stream results with a 500ms delay between each for better UX
       for (let i = 0; i < processedResults.length; i++) {

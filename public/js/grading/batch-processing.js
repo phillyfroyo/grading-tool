@@ -47,9 +47,6 @@ function getClaudeLoadingMessage() {
  * @param {Object} batchData - The batch data being processed
  */
 function displayBatchProgress(batchData) {
-    console.log('🎯 DISPLAY BATCH PROGRESS UI CALLED');
-    console.log('📊 Batch data:', batchData);
-
     // Initialize queue tracking
     processingQueue = {
         currentlyProcessing: Math.min(2, batchData.essays.length),
@@ -180,8 +177,6 @@ function displayBatchProgress(batchData) {
     resultsDiv.innerHTML = progressHtml;
     resultsDiv.style.display = 'block';
 
-    console.log('✅ Batch progress UI displayed');
-
     // Set up rotating Claude message for the first essay only
     // Start with "Processing..." then switch to funny messages after 3 seconds
     if (batchData.essays.length > 0) {
@@ -245,11 +240,20 @@ function updateEssayStatus(index, success, error = null) {
         }
     } else {
         statusElement.innerHTML = `
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#dc3545" stroke-width="2">
-                <circle cx="12" cy="12" r="10"></circle>
-                <path d="M15 9l-6 6M9 9l6 6"></path>
-            </svg>
-            ${error ? `<div style="font-size: 11px; color: #666; margin-left: 8px;">${error}</div>` : ''}
+            <div style="display: flex; align-items: center; gap: 8px;">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#dc3545" stroke-width="2">
+                    <circle cx="12" cy="12" r="10"></circle>
+                    <path d="M15 9l-6 6M9 9l6 6"></path>
+                </svg>
+                <span style="color: #dc3545; font-weight: 500;">Failed</span>
+                <button onclick="window.BatchProcessingModule.retryEssay(${index})"
+                        style="padding: 4px 10px; font-size: 12px; background: #007bff; color: white; border: none; border-radius: 4px; cursor: pointer;"
+                        onmouseover="this.style.background='#0056b3'"
+                        onmouseout="this.style.background='#007bff'">
+                    Retry
+                </button>
+            </div>
+            ${error ? `<div style="font-size: 11px; color: #666; margin-top: 4px;">${error}</div>` : ''}
         `;
     }
 
@@ -276,10 +280,6 @@ function updateEssayStatus(index, success, error = null) {
  * @param {Object} originalData - The original form data
  */
 function displayBatchResults(batchResult, originalData) {
-    console.log('🎯 DISPLAY BATCH RESULTS CALLED');
-    console.log('Batch result:', batchResult);
-    console.log('Original data:', originalData);
-
     // Update loading indicators to checkmarks progressively
     if (batchResult.results) {
         batchResult.results.forEach((essay, index) => {
@@ -865,6 +865,89 @@ if (document.readyState === 'loading') {
     setupBatchHighlightListeners();
 }
 
+/**
+ * Retry grading a single failed essay
+ * @param {number} index - Essay index to retry
+ */
+async function retryEssay(index) {
+    console.log(`🔄 Retrying essay at index ${index}`);
+
+    // Get original batch data (stored separately from currentBatchData to avoid conflicts)
+    const batchData = window.originalBatchDataForRetry;
+    if (!batchData || !batchData.essays || !batchData.essays[index]) {
+        console.error('❌ Cannot retry: original batch data not found');
+        alert('Cannot retry: original essay data not found. Please refresh and try grading again.');
+        return;
+    }
+
+    const essay = batchData.essays[index];
+
+    // Update UI to show retrying
+    const statusElement = document.getElementById(`student-status-${index}`);
+    if (statusElement) {
+        statusElement.innerHTML = `
+            <div class="loading-spinner" style="width: 24px; height: 24px; border: 3px solid #f3f3f3; border-top: 3px solid #007bff; border-radius: 50%; animation: spin 1s linear infinite;"></div>
+            <span style="color: #666; font-size: 14px; font-weight: 500;">Retrying...</span>
+        `;
+    }
+
+    try {
+        // Call the single essay grading endpoint
+        const response = await fetch('/api/grade', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                studentText: essay.studentText,
+                prompt: batchData.prompt,
+                classProfile: batchData.classProfile,
+                temperature: batchData.temperature,
+                provider: batchData.provider,
+                studentNickname: essay.studentNickname
+            })
+        });
+
+        if (!response.ok) {
+            const errorText = await response.text();
+            throw new Error(`Server error: ${response.status} - ${errorText}`);
+        }
+
+        const result = await response.json();
+
+        if (result.success) {
+            console.log(`✅ Retry successful for ${essay.studentName}`);
+
+            // Store the essay data in the same format as batch processing
+            window[`essayData_${index}`] = {
+                essay: {
+                    index: index,
+                    success: true,
+                    studentName: essay.studentName,
+                    studentNickname: essay.studentNickname,
+                    result: result
+                },
+                originalData: {
+                    studentText: essay.studentText,
+                    studentName: essay.studentName,
+                    studentNickname: essay.studentNickname,
+                    index: index
+                }
+            };
+
+            // Update status to success
+            updateEssayStatus(index, true);
+
+        } else {
+            throw new Error(result.error || 'Grading returned unsuccessful');
+        }
+
+    } catch (error) {
+        console.error(`❌ Retry failed for essay ${index}:`, error);
+        updateEssayStatus(index, false, `Retry failed: ${error.message}`);
+    }
+}
+
 // Export functions for module usage
 window.BatchProcessingModule = {
     displayBatchProgress,
@@ -879,5 +962,6 @@ window.BatchProcessingModule = {
     updateBatchProgress,
     setupBatchProcessing,
     restoreBatchCompletionStatus,
-    clearBatchCompletionStatus
+    clearBatchCompletionStatus,
+    retryEssay
 };
