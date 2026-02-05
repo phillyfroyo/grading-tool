@@ -26,7 +26,6 @@ function getClaudeLoadingMessage() {
         "🧠 Thinking vigorously...",
         "🤗 I'm trying my best...",
         "🪐 Contemplating reality...",
-        "🪐 Contemplating reality...",
         "🧘 Finding inner peace...",
         "☕ Brewing thoughts...",
         "🤯 Having an existential moment...",
@@ -37,7 +36,13 @@ function getClaudeLoadingMessage() {
         "🐢 Slow and steady wins the race...",
         "🎩 Pulling insights from within...",
         "🤓 Adjusting my glasses...",
-        "🎲 Searching for intelligence..."
+        "🎲 Searching for intelligence...",
+        "📚 Reading between the lines...",
+        "🎭 Weighing nuance carefully...",
+        "🌊 Swimming through paragraphs...",
+        "🔬 Examining with great care...",
+        "💭 Lost in thought (productively)...",
+        "📝 Pondering pedagogically..."
     ];
     return messages[Math.floor(Math.random() * messages.length)];
 }
@@ -238,6 +243,11 @@ function updateEssayStatus(index, success, error = null) {
                 downloadBtn.style.cursor = 'pointer';
             }
         }
+
+        // Defensive timeout: check if content actually loaded after 5 seconds
+        setTimeout(() => {
+            checkEssayContentLoaded(index);
+        }, 5000); // 5 second timeout
     } else {
         statusElement.innerHTML = `
             <div style="display: flex; align-items: center; gap: 8px;">
@@ -271,6 +281,52 @@ function updateEssayStatus(index, success, error = null) {
         }
 
         processingQueue.nextInQueue++;
+    }
+}
+
+/**
+ * Check if essay content loaded correctly, switch to failed state if not
+ * @param {number} index - Essay index to check
+ */
+function checkEssayContentLoaded(index) {
+    console.log(`⏱️ Running content check for essay ${index}`);
+    const essayDiv = document.getElementById(`batch-essay-${index}`);
+    if (!essayDiv) {
+        console.log(`⏱️ Essay ${index}: div not found`);
+        return;
+    }
+
+    // Check if the formatted content exists with the correct essay index
+    const formattedContent = essayDiv.querySelector(`.formatted-essay-content[data-essay-index="${index}"]`);
+    const anyFormattedContent = essayDiv.querySelector('.formatted-essay-content');
+
+    console.log(`⏱️ Essay ${index} check:`, {
+        hasFormattedContent: !!anyFormattedContent,
+        formattedContentIndex: anyFormattedContent?.dataset?.essayIndex,
+        expectedIndex: index,
+        matchesExpected: !!formattedContent
+    });
+
+    const hasCorrectContent = formattedContent !== null;
+
+    if (!hasCorrectContent) {
+        // Check if it's still showing a loading message
+        const content = essayDiv.innerHTML;
+        const loadingIndicators = ["🤔", "✨", "🌀", "🧠", "⚡", "💪", "🤗", "🪐", "🧘", "☕", "🤯", "🦉", "🧙", "💫", "📡", "🐢", "🎩", "🤓", "🎲", "📚", "🎭", "🌊", "🔬", "💭", "📝", "Loading", "loading-spinner"];
+        const isStillLoading = loadingIndicators.some(indicator => content.includes(indicator));
+
+        // Check if wrong essay content loaded (has formatted-essay-content but wrong index)
+        const hasWrongContent = anyFormattedContent && anyFormattedContent.dataset.essayIndex !== String(index);
+
+        console.log(`⏱️ Essay ${index} failure details:`, { isStillLoading, hasWrongContent });
+
+        if (isStillLoading || hasWrongContent) {
+            console.error(`⚠️ Essay ${index} content check FAILED - switching to failed state`);
+            // Switch to failed state with retry
+            updateEssayStatus(index, false, 'Content failed to load');
+        }
+    } else {
+        console.log(`⏱️ Essay ${index} content check PASSED`);
     }
 }
 
@@ -453,28 +509,16 @@ function loadEssayDetails(index) {
 
                 // Initialize essay editing for this batch item AFTER content is loaded
                 setTimeout(() => {
-                    console.log('🔄 Initializing essay editing features for index:', index);
-
                     // Initialize text selection
                     const essayContentDiv = document.querySelector(`.formatted-essay-content[data-essay-index="${index}"]`);
                     if (essayContentDiv) {
-                        console.log('✅ Found essay content div, setting up text selection');
                         essayContentDiv.addEventListener('mouseup', (e) => {
-                            console.log('🖱️ Mouseup event in essay content, target:', e.target);
-
                             // Get current selection to check if user is actually selecting text
                             const selection = window.getSelection();
                             const hasTextSelection = selection.rangeCount > 0 && !selection.isCollapsed;
 
-                            console.log('📝 Selection status:', {
-                                hasSelection: hasTextSelection,
-                                selectedText: hasTextSelection ? selection.toString().trim() : '',
-                                rangeCount: selection.rangeCount
-                            });
-
                             // If user has selected text, allow highlighting even within existing highlights
                             if (hasTextSelection) {
-                                console.log('✅ User has text selected, proceeding with highlighting');
                                 if (window.TextSelectionModule) {
                                     window.TextSelectionModule.handleBatchTextSelection(e, index);
                                 }
@@ -483,14 +527,12 @@ function loadEssayDetails(index) {
 
                             // If no text selection, check if user clicked on an existing highlight
                             if (e.target.tagName === 'SPAN' || e.target.tagName === 'MARK') {
-                                console.log('🎯 User clicked on existing highlight with no selection, skipping text selection');
                                 return;
                             }
 
                             // Check if click was inside a highlight (but no text selected)
                             const highlightParent = e.target.closest('span[data-category], mark[data-category]');
                             if (highlightParent) {
-                                console.log('🎯 User clicked inside highlight with no selection, skipping text selection');
                                 return;
                             }
 
@@ -499,19 +541,15 @@ function loadEssayDetails(index) {
                                 window.TextSelectionModule.handleBatchTextSelection(e, index);
                             }
                         });
-                    } else {
-                        console.log('❌ Could not find essay content div for index:', index);
                     }
 
                     // Initialize category buttons
                     const categoryButtons = document.querySelectorAll(`#categoryButtons-${index} .category-btn`);
-                    console.log(`📝 Found ${categoryButtons.length} category buttons for index ${index}`);
 
                     categoryButtons.forEach(btn => {
                         btn.addEventListener('click', function(e) {
                             e.preventDefault();
                             const category = this.dataset.category;
-                            console.log('🏷️ Category button clicked:', category);
 
                             if (window.CategorySelectionModule) {
                                 window.CategorySelectionModule.selectBatchCategory(category, index);
@@ -526,12 +564,8 @@ function loadEssayDetails(index) {
                     if (window.HighlightingModule) {
                         const essayContainer = document.getElementById(`batch-essay-${index}`);
                         if (essayContainer) {
-                            console.log('🎨 Ensuring highlight click handlers for container:', essayContainer);
-
                             // Check for both span and mark elements from GPT highlighting
                             const gptHighlights = essayContainer.querySelectorAll('span[style*="background"], span[class*="highlight"], span[style*="color"], mark[data-type], mark.highlighted-segment');
-                            console.log(`🔍 Found ${gptHighlights.length} GPT highlights`);
-                            console.log('GPT highlights found:', gptHighlights);
 
                             // Add click handlers to GPT highlights
                             gptHighlights.forEach((element, i) => {
@@ -584,14 +618,6 @@ function loadEssayDetails(index) {
                                 element.addEventListener('click', function(e) {
                                     e.stopPropagation();
                                     e.preventDefault();
-                                    console.log('🖱️ GPT highlight clicked:', this);
-                                    console.log('📊 Element details:', {
-                                        tagName: this.tagName,
-                                        category: this.dataset.category,
-                                        text: this.textContent,
-                                        style: this.style.cssText,
-                                        dataType: this.dataset.type
-                                    });
                                     if (window.HighlightingModule) {
                                         window.HighlightingModule.editHighlight(this);
                                     }
@@ -599,11 +625,8 @@ function loadEssayDetails(index) {
 
                                 // Also add mousedown handler as backup
                                 element.addEventListener('mousedown', function(e) {
-                                    console.log('🖱️ GPT highlight mousedown:', this);
                                     e.stopPropagation();
                                 }, true);
-
-                                console.log(`✅ Added click handler to GPT highlight ${i}: ${category}`);
                             });
 
                             // Still run the original function for mark elements
@@ -966,6 +989,7 @@ async function retryEssay(index) {
 window.BatchProcessingModule = {
     displayBatchProgress,
     updateEssayStatus,
+    checkEssayContentLoaded,
     displayBatchResults,
     toggleStudentDetails,
     loadEssayDetails,

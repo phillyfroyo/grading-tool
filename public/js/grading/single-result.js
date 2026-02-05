@@ -184,7 +184,6 @@ function setupBatchEditableElements(gradingResult, originalData, essayIndex) {
     if (essayIndex === 0) {
         currentGradingData = null;
         currentOriginalData = null;
-        console.log('🧹 Cleared single essay data for batch processing');
     }
 
     // Store data for this specific essay index
@@ -196,11 +195,8 @@ function setupBatchEditableElements(gradingResult, originalData, essayIndex) {
     // Add listeners for score inputs within the specific essay container
     const essayContainer = document.getElementById(`batch-essay-${essayIndex}`);
     if (essayContainer) {
-        console.log('🔧 Setting up editable elements for batch essay', essayIndex);
-
         // Check if we've already set up listeners for this container
         if (essayContainer.dataset.listenersAttached === 'true') {
-            console.log('⚠️ Listeners already attached for essay', essayIndex, '- skipping');
             return;
         }
 

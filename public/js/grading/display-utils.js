@@ -546,7 +546,6 @@ function populateHighlightsContent(contentId) {
             if (!mark.id || mark.id.trim() === '') {
                 const idEssayIndex = essayIndex !== null ? essayIndex : '0';
                 mark.id = `highlight-${idEssayIndex}-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
-                console.log(`🔧 Generated ID for highlight ${index + 1}: ${mark.id}`);
             }
 
             const categories = (mark.dataset.category || mark.dataset.type || 'highlight').split(',').map(c => c.trim());
@@ -554,14 +553,6 @@ function populateHighlightsContent(contentId) {
             const explanation = mark.dataset.explanation || '';
             const notes = mark.dataset.notes || mark.title || '';
             const originalText = mark.dataset.originalText || mark.textContent || '';
-
-            console.log(`🔍 Reading highlight ${index + 1}:`, {
-                id: mark.id,
-                correction_from_dataset: mark.dataset.correction,
-                explanation_from_dataset: mark.dataset.explanation,
-                correction_final: correction,
-                explanation_final: explanation
-            });
 
             // Validate we have at least some text
             if (!originalText || originalText.trim() === '') {
@@ -579,8 +570,6 @@ function populateHighlightsContent(contentId) {
                 elementId: mark.id,  // Store element ID for exclude functionality
                 isExcluded: mark.dataset.excludeFromPdf === 'true'  // Track excluded state
             };
-
-            console.log(`📦 Highlight ${index + 1} data object:`, highlightData);
 
             highlightsData.push(highlightData);
             highlightNumber++;
@@ -734,12 +723,6 @@ function createHighlightsLegendHTML(highlightsData) {
                 feedbackHTML += `<div style="margin-top: 8px; font-style: italic; color: #999; padding-left: 20px;"><em>Click the highlighted text to add correction and explanation</em></div>`;
             }
 
-            console.log(`📝 Creating button for highlight ${highlight.number}:`, {
-                elementId: highlight.elementId,
-                hasElementId: !!highlight.elementId,
-                isExcluded: highlight.isExcluded
-            });
-
             // Determine button appearance based on excluded state
             const isExcluded = highlight.isExcluded;
             const buttonBg = isExcluded ? '#28a745' : '#dc3545';
@@ -805,20 +788,16 @@ function refreshHighlightsSection(contentId) {
     const content = document.getElementById(contentId);
     const contentInner = document.getElementById(`${contentId}-inner`);
     if (!contentInner) {
-        console.log(`refreshHighlightsSection: contentInner not found for ${contentId}`);
         return;
     }
 
     // Check if the section is expanded
     const isExpanded = content && (content.style.maxHeight !== '0px' && content.style.maxHeight !== '');
 
-    console.log(`refreshHighlightsSection: ${contentId}, isExpanded: ${isExpanded}`);
-
     // Always reset populated flag to ensure fresh data on next open
     contentInner.dataset.populated = 'false';
 
     if (isExpanded) {
-        console.log(`Refreshing expanded highlights section: ${contentId}`);
 
         // Repopulate the content
         populateHighlightsContent(contentId);
@@ -842,8 +821,6 @@ function refreshHighlightsSection(contentId) {
                 }
             }
         }, 350);
-    } else {
-        console.log(`Section ${contentId} is collapsed, will refresh when opened`);
     }
 }
 
@@ -860,19 +837,12 @@ function setupRemoveAllCheckbox(contentId) {
 
     // Prevent multiple setups on the same checkbox
     if (checkbox.dataset.setupComplete === 'true') {
-        console.log(`⚠️ Checkbox already set up for ${contentId}, skipping`);
         return;
     }
-
-    console.log('🔧 Setting up remove-all checkbox for:', contentId);
-    console.log(`📋 Checkbox state at setup time: ${checkbox.checked}`);
 
     // CAPTURE the checkbox state IMMEDIATELY before any other operations
     const currentCheckboxState = checkbox.checked;
     const savedState = localStorage.getItem(`removeAllFromPDF_${contentId}`);
-
-    console.log(`💾 Saved localStorage state: ${savedState}`);
-    console.log(`✋ Current DOM checkbox state: ${currentCheckboxState}`);
 
     let isChecked;
 
@@ -884,17 +854,14 @@ function setupRemoveAllCheckbox(contentId) {
         // Restore from localStorage - this is the most reliable source
         isChecked = savedState === 'true';
         checkbox.checked = isChecked;
-        console.log(`📥 Restored checkbox state from localStorage: ${isChecked}`);
     } else if (currentCheckboxState) {
         // User manually checked before content loaded - save this to localStorage
         isChecked = true;
         localStorage.setItem(`removeAllFromPDF_${contentId}`, 'true');
-        console.log('✅ User pre-checked checkbox detected (no saved state), saving to localStorage');
     } else {
         // Default to unchecked
         isChecked = false;
         checkbox.checked = false;
-        console.log('📊 No saved state or pre-check, defaulting to unchecked');
     }
 
     // Apply the determined state to all highlights
@@ -902,7 +869,6 @@ function setupRemoveAllCheckbox(contentId) {
         const contentInner = document.getElementById(`${contentId}-inner`);
         if (contentInner) {
             const toggleButtons = contentInner.querySelectorAll('.toggle-pdf-btn');
-            console.log(`🔍 Applying checked state to ${toggleButtons.length} toggle buttons`);
 
             toggleButtons.forEach(button => {
                 const elementId = button.dataset.elementId;
@@ -932,22 +898,18 @@ function setupRemoveAllCheckbox(contentId) {
 
     checkbox.addEventListener('change', function() {
         const isChecked = this.checked;
-        console.log(`📋 Remove-all checkbox ${isChecked ? 'CHECKED' : 'UNCHECKED'}`);
 
         // Save state to localStorage
         localStorage.setItem(`removeAllFromPDF_${contentId}`, isChecked.toString());
-        console.log(`💾 Saved checkbox state to localStorage: ${isChecked}`);
 
         // Find the content container
         const contentInner = document.getElementById(`${contentId}-inner`);
         if (!contentInner) {
-            console.error('Content inner not found');
             return;
         }
 
         // Find all toggle buttons
         const toggleButtons = contentInner.querySelectorAll('.toggle-pdf-btn');
-        console.log(`🔍 Found ${toggleButtons.length} toggle buttons to update`);
 
         toggleButtons.forEach(button => {
             const elementId = button.dataset.elementId;
@@ -989,13 +951,10 @@ function setupRemoveAllCheckbox(contentId) {
                 }
             }
         });
-
-        console.log(`✅ Updated all highlights - ${isChecked ? 'excluded' : 'included'} from PDF`);
     });
 
     // Mark checkbox as set up to prevent duplicate setups
     checkbox.dataset.setupComplete = 'true';
-    console.log(`✅ Checkbox setup complete for ${contentId}`);
 }
 
 /**
@@ -1003,23 +962,12 @@ function setupRemoveAllCheckbox(contentId) {
  * @param {HTMLElement} container - Container element with toggle buttons
  */
 function setupTogglePDFListeners(container) {
-    console.log('🔧 setupTogglePDFListeners called with container:', container);
     const toggleButtons = container.querySelectorAll('.toggle-pdf-btn');
-    console.log(`🔍 Found ${toggleButtons.length} toggle buttons`);
 
-    toggleButtons.forEach((button, index) => {
-        console.log(`🎯 Setting up listener for button ${index + 1}:`, {
-            elementId: button.dataset.elementId,
-            isExcluded: button.dataset.excluded,
-            button: button
-        });
-
+    toggleButtons.forEach((button) => {
         button.addEventListener('click', function(event) {
-            console.log('🖱️ BUTTON CLICKED!', event);
             const elementId = this.dataset.elementId;
             const isCurrentlyExcluded = this.dataset.excluded === 'true';
-            console.log('📋 Element ID from button:', elementId);
-            console.log('📋 Currently excluded:', isCurrentlyExcluded);
 
             if (!elementId) {
                 console.error('No element ID found for toggle button');
@@ -1037,8 +985,6 @@ function setupTogglePDFListeners(container) {
             // Toggle the excluded state
             const newExcludedState = !isCurrentlyExcluded;
             highlightElement.dataset.excludeFromPdf = newExcludedState ? 'true' : 'false';
-
-            console.log(`${newExcludedState ? '📄 Excluded' : '✅ Included'} from PDF: ${elementId}`);
 
             // Update button appearance
             this.dataset.excluded = newExcludedState;
@@ -1070,14 +1016,10 @@ function setupTogglePDFListeners(container) {
                 }
             }
 
-            console.log(`✅ Toggled highlight PDF inclusion`);
-
             // Update the remove-all checkbox state
             updateRemoveAllCheckboxState(container);
         });
     });
-
-    console.log(`✅ Setup ${toggleButtons.length} toggle PDF button listeners`);
 }
 
 /**
@@ -1106,9 +1048,7 @@ function updateRemoveAllCheckboxState(container) {
  * Called after grading results are displayed
  */
 function setupCategoryNoteToggleListeners() {
-    console.log('🔧 Setting up category note toggle listeners');
     const toggleButtons = document.querySelectorAll('.toggle-note-pdf-btn');
-    console.log(`🔍 Found ${toggleButtons.length} category note toggle buttons`);
 
     toggleButtons.forEach((button, index) => {
         // Skip if already set up
@@ -1122,8 +1062,6 @@ function setupCategoryNoteToggleListeners() {
             const category = this.dataset.category;
             const isCurrentlyExcluded = this.dataset.excluded === 'true';
             const newExcludedState = !isCurrentlyExcluded;
-
-            console.log(`🖱️ Category note toggle clicked: ${category}, excluded: ${isCurrentlyExcluded} -> ${newExcludedState}`);
 
             // Find the parent category-feedback div
             const categoryDiv = this.closest('.category-feedback');
@@ -1154,11 +1092,8 @@ function setupCategoryNoteToggleListeners() {
                 }
             }
 
-            console.log(`✅ Toggled category note PDF inclusion for ${category}`);
         });
     });
-
-    console.log(`✅ Setup ${toggleButtons.length} category note toggle listeners`);
 }
 
 // Make the function globally available
@@ -1173,11 +1108,8 @@ function setupHighlightChangeListeners() {
         return;
     }
 
-    console.log('Setting up highlight change listeners');
-
     // Listen for highlight updates (when user saves edits)
     window.eventBus.on('highlight:updated', (data) => {
-        console.log('Received highlight:updated event', data);
 
         // Refresh all highlights sections (both single and batch)
         refreshHighlightsSection('highlights-content');
@@ -1193,7 +1125,6 @@ function setupHighlightChangeListeners() {
 
     // Listen for highlight removals
     window.eventBus.on('highlight:removed', (data) => {
-        console.log('Received highlight:removed event', data);
 
         // Refresh all highlights sections
         refreshHighlightsSection('highlights-content');
@@ -1206,8 +1137,6 @@ function setupHighlightChangeListeners() {
             }
         }
     });
-
-    console.log('Highlight change listeners registered');
 }
 
 // Setup event listeners when module loads

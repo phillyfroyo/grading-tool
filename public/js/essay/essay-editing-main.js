@@ -34,8 +34,6 @@ function initializeEssayEditing() {
  * @param {Object} originalData - Original essay data
  */
 function initializeBatchEssayEditing(essayIndex, gradingResult, originalData) {
-    console.log(`🔧 Initializing batch essay editing for index ${essayIndex}...`);
-
     // Setup batch text selection
     if (window.TextSelectionModule) {
         window.TextSelectionModule.setupBatchTextSelection(essayIndex);
@@ -48,8 +46,6 @@ function initializeBatchEssayEditing(essayIndex, gradingResult, originalData) {
 
     // Store essay-specific data for editing
     window[`batchGradingData_${essayIndex}`] = { gradingResult, originalData };
-
-    console.log(`✅ Batch essay editing initialized for index ${essayIndex}`);
 }
 
 /**

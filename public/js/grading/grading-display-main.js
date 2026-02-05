@@ -85,6 +85,13 @@ function toggleTab(tabId, index) {
         // Load content first
         if (isGradeDetails) {
             loadEssayDetails(index);
+
+            // Check content loaded correctly after 2 seconds (gives user quick feedback)
+            setTimeout(() => {
+                if (window.BatchProcessingModule && window.BatchProcessingModule.checkEssayContentLoaded) {
+                    window.BatchProcessingModule.checkEssayContentLoaded(index);
+                }
+            }, 2000);
         } else if (isHighlightsTab) {
             loadHighlightsTab(index);
         }
@@ -255,12 +262,8 @@ function loadHighlightsTab(index) {
 function setupRemoveAllCheckboxForTab(checkbox, contentDiv) {
     // Prevent duplicate setups
     if (checkbox.dataset.setupComplete === 'true') {
-        console.log(`⚠️ Checkbox already set up, skipping`);
         return;
     }
-
-    console.log('🔧 Setting up remove-all checkbox for tab');
-    console.log(`📋 Checkbox state at setup time: ${checkbox.checked}`);
 
     // Get the contentId from the checkbox's data attribute or ID
     const contentId = checkbox.dataset.contentId || checkbox.id.replace('-remove-all', '');
@@ -268,9 +271,6 @@ function setupRemoveAllCheckboxForTab(checkbox, contentDiv) {
     // CAPTURE the checkbox state IMMEDIATELY before any other operations
     const currentCheckboxState = checkbox.checked;
     const savedState = localStorage.getItem(`removeAllFromPDF_${contentId}`);
-
-    console.log(`💾 Saved localStorage state: ${savedState}`);
-    console.log(`✋ Current DOM checkbox state: ${currentCheckboxState}`);
 
     let isChecked;
 
@@ -282,23 +282,19 @@ function setupRemoveAllCheckboxForTab(checkbox, contentDiv) {
         // Restore from localStorage - this is the most reliable source
         isChecked = savedState === 'true';
         checkbox.checked = isChecked;
-        console.log(`📥 Restored checkbox state from localStorage: ${isChecked}`);
     } else if (currentCheckboxState) {
         // User manually checked before content loaded - save this to localStorage
         isChecked = true;
         localStorage.setItem(`removeAllFromPDF_${contentId}`, 'true');
-        console.log('✅ User pre-checked checkbox detected (no saved state), saving to localStorage');
     } else {
         // Default to unchecked
         isChecked = false;
         checkbox.checked = false;
-        console.log('📊 No saved state or pre-check, defaulting to unchecked');
     }
 
     // Apply the determined state to all highlights immediately
     if (isChecked) {
         const toggleButtons = contentDiv.querySelectorAll('.toggle-pdf-btn');
-        console.log(`🔍 Applying checked state to ${toggleButtons.length} toggle buttons`);
 
         toggleButtons.forEach(button => {
             const elementId = button.dataset.elementId;
@@ -324,11 +320,9 @@ function setupRemoveAllCheckboxForTab(checkbox, contentDiv) {
     // Add change listener
     checkbox.addEventListener('change', function() {
         const isChecked = this.checked;
-        console.log(`📋 Remove-all checkbox ${isChecked ? 'CHECKED' : 'UNCHECKED'}`);
 
         // Save state to localStorage
         localStorage.setItem(`removeAllFromPDF_${contentId}`, isChecked.toString());
-        console.log(`💾 Saved checkbox state to localStorage: ${isChecked}`);
 
         const toggleButtons = contentDiv.querySelectorAll('.toggle-pdf-btn');
 
@@ -371,7 +365,6 @@ function setupRemoveAllCheckboxForTab(checkbox, contentDiv) {
 
     // Mark checkbox as set up to prevent duplicate setups
     checkbox.dataset.setupComplete = 'true';
-    console.log(`✅ Checkbox setup complete`);
 }
 
 /**
@@ -383,20 +376,16 @@ function refreshHighlightsTab(index) {
     const tab = document.getElementById(`highlights-tab-${index}`);
 
     if (!contentDiv) {
-        console.log(`refreshHighlightsTab: contentDiv not found for index ${index}`);
         return;
     }
 
     // Check if the tab is currently expanded
     const isExpanded = tab && (tab.style.maxHeight !== '0px' && tab.style.maxHeight !== '');
 
-    console.log(`refreshHighlightsTab: index ${index}, isExpanded: ${isExpanded}`);
-
     // Reset the loaded flag to force reload
     contentDiv.dataset.loaded = 'false';
 
     if (isExpanded) {
-        console.log(`Refreshing expanded highlights tab: ${index}`);
         // Reload the content
         loadHighlightsTab(index);
 
@@ -406,8 +395,6 @@ function refreshHighlightsTab(index) {
                 tab.style.maxHeight = Math.max(tab.scrollHeight + 100, 2000) + 'px';
             }
         }, 100);
-    } else {
-        console.log(`Tab ${index} is collapsed, will refresh when opened`);
     }
 }
 
@@ -420,12 +407,8 @@ function setupHighlightChangeListeners() {
         return;
     }
 
-    console.log('Setting up highlight change listeners for tabs');
-
     // Listen for highlight updates (when user saves edits)
     window.eventBus.on('highlight:updated', (data) => {
-        console.log('Received highlight:updated event', data);
-
         // Refresh all highlights tabs (check for multiple essays)
         for (let i = 0; i < 50; i++) {
             const contentDiv = document.getElementById(`highlights-tab-content-${i}`);
@@ -437,8 +420,6 @@ function setupHighlightChangeListeners() {
 
     // Listen for highlight removals
     window.eventBus.on('highlight:removed', (data) => {
-        console.log('Received highlight:removed event', data);
-
         // Refresh all highlights tabs
         for (let i = 0; i < 50; i++) {
             const contentDiv = document.getElementById(`highlights-tab-content-${i}`);
@@ -447,8 +428,6 @@ function setupHighlightChangeListeners() {
             }
         }
     });
-
-    console.log('Highlight change listeners registered for tabs');
 }
 
 /**

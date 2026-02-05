@@ -667,7 +667,6 @@ function migrateLegacyHighlights(container = document) {
  */
 function ensureHighlightClickHandlers(container = document) {
     const highlights = container.querySelectorAll('mark[data-category], mark.highlight');
-    console.log(`🎯 Found ${highlights.length} highlights to attach click handlers to`);
 
     highlights.forEach((highlight, index) => {
         // Ensure highlight has required attributes
@@ -676,7 +675,6 @@ function ensureHighlightClickHandlers(container = document) {
             const classMatch = highlight.className.match(/highlight-(\w+)/);
             if (classMatch) {
                 highlight.dataset.category = classMatch[1];
-                console.log(`📌 Added category ${classMatch[1]} to highlight ${index}`);
             }
         }
 
@@ -684,7 +682,6 @@ function ensureHighlightClickHandlers(container = document) {
             highlight.addEventListener('click', function(e) {
                 e.stopPropagation();
                 e.preventDefault();
-                console.log('🖱️ Highlight clicked:', this);
                 editHighlight(this);
             });
             highlight.dataset.hasClickListener = 'true';
@@ -699,7 +696,6 @@ function ensureHighlightClickHandlers(container = document) {
                 tooltip += `\nExplanation: None`;
             }
             highlight.title = tooltip;
-            console.log(`✅ Added click handler to highlight ${index}`);
         }
     });
 }
