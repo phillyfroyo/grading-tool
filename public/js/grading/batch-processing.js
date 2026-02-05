@@ -447,6 +447,9 @@ function toggleStudentDetails(index) {
     }
 }
 
+// Track which essays are currently being loaded to prevent duplicate fetches
+const essayLoadingLock = {};
+
 /**
  * Load essay details for batch result expansion
  * @param {number} index - Essay index
@@ -454,58 +457,67 @@ function toggleStudentDetails(index) {
 function loadEssayDetails(index) {
     const essayDiv = document.getElementById(`batch-essay-${index}`);
 
-    // Debug: Track essay data availability for infinite load investigation
-    console.log(`🔍 Loading essay ${index}, essayData exists:`, !!window[`essayData_${index}`]);
-    if (window[`essayData_${index}`]) {
-        const data = window[`essayData_${index}`];
-        console.log(`📋 Essay ${index} data check:`, {
-            hasEssay: !!data.essay,
-            hasResult: !!data.essay?.result,
-            hasScores: !!data.essay?.result?.scores,
-            hasTotal: !!data.essay?.result?.total,
-            success: data.essay?.success
-        });
-    }
-
     if (!essayDiv || !window[`essayData_${index}`]) return;
 
-    // Only load if not already loaded (contains one of the initial Claude messages from the dropdown)
-    const initialClaudeMessages = ["🤔 Cogitating", "✨ Percolating", "🔮 Ruminating", "🌀 Churning",
-                                   "🧠 Neurons", "⚡ Synapses", "🎪 Orchestrating", "💪 Working", "🧠 Thinking",
-                                   "🤗 I'm trying", "🌌 Contemplating", "🧘 Finding", "☕ Brewing", "🤯 Having",
-                                   "🦉 Channeling", "🎩 Pulling", "🔄 Reticulating", "🧙 Casting", "💫 Achieving",
-                                   "🤓 Adjusting", "📡 Downloading", "🐢 Slow", "🎲 Rolling"];
-    const containsInitialMessage = initialClaudeMessages.some(msg => essayDiv.innerHTML.includes(msg));
+    // LOCK: Prevent duplicate concurrent loads for the same essay
+    if (essayLoadingLock[index]) {
+        console.log(`🔒 Essay ${index} already loading, skipping duplicate call`);
+        return;
+    }
 
-    if (containsInitialMessage || essayDiv.innerHTML.includes('Loading formatted result...')) {
-        const { essay, originalData } = window[`essayData_${index}`];
+    // Check if already loaded (has formatted content with correct index)
+    const alreadyLoaded = essayDiv.querySelector(`.formatted-essay-content[data-essay-index="${index}"]`);
+    if (alreadyLoaded) {
+        console.log(`✅ Essay ${index} already loaded, skipping`);
+        return;
+    }
 
-        // Show loading spinner with Claude-style message
-        const loadingMessage = getClaudeLoadingMessage();
-        essayDiv.innerHTML = window.DisplayUtilsModule ?
-            window.DisplayUtilsModule.createLoadingSpinner(loadingMessage) :
-            `<div style="padding: 12px; font-size: 14px; color: #666;">${loadingMessage}</div>`;
+    // Set the lock
+    essayLoadingLock[index] = true;
+    console.log(`🔐 Acquired lock for essay ${index}`);
 
-        fetch('/format', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-                studentText: originalData.studentText,
-                gradingResults: essay.result,
-                studentName: essay.studentName,
-                editable: true
-            })
+    const { essay, originalData } = window[`essayData_${index}`];
+
+    // Show loading spinner with Claude-style message
+    const loadingMessage = getClaudeLoadingMessage();
+    essayDiv.innerHTML = window.DisplayUtilsModule ?
+        window.DisplayUtilsModule.createLoadingSpinner(loadingMessage) :
+        `<div style="padding: 12px; font-size: 14px; color: #666;">${loadingMessage}</div>`;
+
+    fetch('/format', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+            studentText: originalData.studentText,
+            gradingResults: essay.result,
+            studentName: essay.studentName,
+            editable: true
         })
-        .then(response => response.json())
-        .then(formatted => {
-            if (formatted.success) {
-                const essayHTML = window.DisplayUtilsModule ?
-                    window.DisplayUtilsModule.createBatchEssayHTML(formatted, index) :
-                    createBatchEssayHTMLFallback(formatted, index);
+    })
+    .then(response => response.json())
+    .then(formatted => {
+        if (formatted.success) {
+            const essayHTML = window.DisplayUtilsModule ?
+                window.DisplayUtilsModule.createBatchEssayHTML(formatted, index) :
+                createBatchEssayHTMLFallback(formatted, index);
 
-                essayDiv.innerHTML = essayHTML;
+            essayDiv.innerHTML = essayHTML;
+
+            // Release lock - loading complete
+            essayLoadingLock[index] = false;
+
+            // IMMEDIATE verification: confirm content loaded into correct div
+            const verifyDiv = document.getElementById(`batch-essay-${index}`);
+            const verifyContent = verifyDiv?.querySelector(`.formatted-essay-content[data-essay-index="${index}"]`);
+            if (!verifyContent) {
+                console.error(`❌ Essay ${index} content verification FAILED - content did not load correctly`);
+                // Mark as failed immediately
+                updateEssayStatus(index, false, 'Content failed to load - please retry');
+                return; // Don't continue initialization
+            }
+            console.log(`✅ Essay ${index} content loaded and verified`);
 
                 // Initialize essay editing for this batch item AFTER content is loaded
                 setTimeout(() => {
@@ -652,20 +664,26 @@ function loadEssayDetails(index) {
                     }
                 }, 200); // Slightly longer delay to ensure DOM is ready
             } else {
+                // Release lock on formatting error
+                essayLoadingLock[index] = false;
                 const errorHTML = window.DisplayUtilsModule ?
                     window.DisplayUtilsModule.createErrorHTML('Error formatting essay', formatted.error) :
                     '<div class="error">Error formatting essay</div>';
                 essayDiv.innerHTML = errorHTML;
+                updateEssayStatus(index, false, 'Error formatting essay - please retry');
             }
         })
         .catch(error => {
-            console.error('Error loading essay details:', error);
+            // Release lock on fetch error
+            essayLoadingLock[index] = false;
+            console.error(`❌ Essay ${index} fetch error:`, error);
             const errorHTML = window.DisplayUtilsModule ?
                 window.DisplayUtilsModule.createErrorHTML('Error loading essay details', error.message) :
                 '<div class="error">Error loading essay details</div>';
             essayDiv.innerHTML = errorHTML;
+            // Mark as failed so retry button appears
+            updateEssayStatus(index, false, 'Error loading essay - please retry');
         });
-    }
 }
 
 /**
@@ -908,6 +926,9 @@ if (document.readyState === 'loading') {
  */
 async function retryEssay(index) {
     console.log(`🔄 Retrying essay at index ${index}`);
+
+    // Clear the loading lock to allow fresh load
+    essayLoadingLock[index] = false;
 
     // Get original batch data (stored separately from currentBatchData to avoid conflicts)
     const batchData = window.originalBatchDataForRetry;
