@@ -397,6 +397,20 @@ function toggleStudentDetails(index) {
  */
 function loadEssayDetails(index) {
     const essayDiv = document.getElementById(`batch-essay-${index}`);
+
+    // Debug: Track essay data availability for infinite load investigation
+    console.log(`🔍 Loading essay ${index}, essayData exists:`, !!window[`essayData_${index}`]);
+    if (window[`essayData_${index}`]) {
+        const data = window[`essayData_${index}`];
+        console.log(`📋 Essay ${index} data check:`, {
+            hasEssay: !!data.essay,
+            hasResult: !!data.essay?.result,
+            hasScores: !!data.essay?.result?.scores,
+            hasTotal: !!data.essay?.result?.total,
+            success: data.essay?.success
+        });
+    }
+
     if (!essayDiv || !window[`essayData_${index}`]) return;
 
     // Only load if not already loaded (contains one of the initial Claude messages from the dropdown)

@@ -571,6 +571,14 @@ async function processEssayChunk(chunkData, globalOffset) {
                     break;
 
                 case 'result':
+                        // Debug: Track what data we're receiving for infinite load investigation
+                        console.log(`📥 Essay ${data.index + globalOffset} result received:`, {
+                            success: data.success,
+                            hasResult: !!data.result,
+                            hasScores: !!data.result?.scores,
+                            hasTotal: !!data.result?.total
+                        });
+
                         const globalResultIndex = data.index + globalOffset;
 
                         // Adjust data index to global position

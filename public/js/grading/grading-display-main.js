@@ -66,17 +66,8 @@ function toggleStudentDetails(index) {
  * @param {number} index - Student index
  */
 function toggleTab(tabId, index) {
-    console.log('🔄 toggleTab called:', { tabId, index });
-
     const tab = document.getElementById(tabId);
     const arrow = document.getElementById(`${tabId}-arrow`);
-
-    console.log('📦 Found elements:', {
-        tab: !!tab,
-        arrow: !!arrow,
-        currentMaxHeight: tab?.style.maxHeight,
-        scrollHeight: tab?.scrollHeight
-    });
 
     if (!tab) {
         console.error('❌ Tab element not found:', tabId);
@@ -90,33 +81,19 @@ function toggleTab(tabId, index) {
     // Check if currently closed
     const isCurrentlyClosed = tab.style.maxHeight === '0px' || tab.style.maxHeight === '' || tab.style.maxHeight === '0';
 
-    console.log('🔍 Tab state:', {
-        isCurrentlyClosed,
-        currentMaxHeight: tab.style.maxHeight,
-        isGradeDetails,
-        isHighlightsTab
-    });
-
     if (isCurrentlyClosed) {
-        console.log('📂 Opening tab...');
-
         // Load content first
         if (isGradeDetails) {
-            console.log('📄 Loading essay details...');
             loadEssayDetails(index);
         } else if (isHighlightsTab) {
-            console.log('✨ Loading highlights tab...');
             loadHighlightsTab(index);
         }
 
         // Use a large fixed height to accommodate content
         // This avoids the scrollHeight=0 issue with overflow:hidden
-        const newHeight = '10000px';
-        console.log('📏 Setting maxHeight to:', newHeight);
-        tab.style.maxHeight = newHeight;
+        tab.style.maxHeight = '10000px';
 
         if (arrow) {
-            console.log('🔽 Rotating arrow down');
             arrow.style.transform = 'rotate(180deg)';
         }
 
@@ -125,17 +102,13 @@ function toggleTab(tabId, index) {
             // Force a reflow to get accurate scrollHeight
             tab.style.display = 'block';
             const adjustedHeight = Math.max(tab.scrollHeight + 100, 2000) + 'px';
-            console.log('📐 Adjusting height after load:', adjustedHeight, 'scrollHeight:', tab.scrollHeight);
             tab.style.maxHeight = adjustedHeight;
         }, 350);
     } else {
-        console.log('📁 Closing tab...');
         // Close this tab
         tab.style.maxHeight = '0px';
         if (arrow) arrow.style.transform = 'rotate(0deg)';
     }
-
-    console.log('✅ toggleTab complete');
 }
 
 /**
