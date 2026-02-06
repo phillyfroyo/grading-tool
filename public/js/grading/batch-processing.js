@@ -244,10 +244,6 @@ function updateEssayStatus(index, success, error = null) {
             }
         }
 
-        // Defensive timeout: check if content actually loaded after 5 seconds
-        setTimeout(() => {
-            checkEssayContentLoaded(index);
-        }, 5000); // 5 second timeout
     } else {
         statusElement.innerHTML = `
             <div style="display: flex; align-items: center; gap: 8px;">
@@ -281,30 +277,6 @@ function updateEssayStatus(index, success, error = null) {
         }
 
         processingQueue.nextInQueue++;
-    }
-}
-
-/**
- * Check if essay content loaded correctly, switch to failed state if not
- * @param {number} index - Essay index to check
- */
-function checkEssayContentLoaded(index) {
-    const essayDiv = document.getElementById(`batch-essay-${index}`);
-    if (!essayDiv) return;
-
-    const formattedContent = essayDiv.querySelector(`.formatted-essay-content[data-essay-index="${index}"]`);
-    if (formattedContent) return; // Content loaded correctly
-
-    // Check if still loading or has wrong content
-    const content = essayDiv.innerHTML;
-    const loadingIndicators = ["🤔", "✨", "🌀", "🧠", "⚡", "💪", "🤗", "🪐", "🧘", "☕", "🤯", "🦉", "🧙", "💫", "📡", "🐢", "🎩", "🤓", "🎲", "📚", "🎭", "🌊", "🔬", "💭", "📝", "Loading", "loading-spinner"];
-    const isStillLoading = loadingIndicators.some(indicator => content.includes(indicator));
-    const anyFormattedContent = essayDiv.querySelector('.formatted-essay-content');
-    const hasWrongContent = anyFormattedContent && anyFormattedContent.dataset.essayIndex !== String(index);
-
-    if (isStillLoading || hasWrongContent) {
-        console.error(`❌ Essay ${index} content check FAILED`);
-        updateEssayStatus(index, false, 'Content failed to load');
     }
 }
 
@@ -983,7 +955,6 @@ async function retryEssay(index) {
 window.BatchProcessingModule = {
     displayBatchProgress,
     updateEssayStatus,
-    checkEssayContentLoaded,
     displayBatchResults,
     toggleStudentDetails,
     loadEssayDetails,

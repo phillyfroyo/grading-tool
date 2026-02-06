@@ -85,13 +85,6 @@ function toggleTab(tabId, index) {
         // Load content first
         if (isGradeDetails) {
             loadEssayDetails(index);
-
-            // Check content loaded correctly after 2 seconds (gives user quick feedback)
-            setTimeout(() => {
-                if (window.BatchProcessingModule && window.BatchProcessingModule.checkEssayContentLoaded) {
-                    window.BatchProcessingModule.checkEssayContentLoaded(index);
-                }
-            }, 2000);
         } else if (isHighlightsTab) {
             loadHighlightsTab(index);
         }

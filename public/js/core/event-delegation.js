@@ -46,16 +46,8 @@ class EventDelegation {
     handleGlobalClick(event) {
         const target = event.target;
 
-        // Debug: Log all button clicks
-        if (target.tagName === 'BUTTON') {
-            console.log('Button clicked:', target.textContent, 'data-action:', target.dataset.action);
-        }
-
         // Handle data-action attributes
         const action = target.dataset.action;
-        if (action) {
-            console.log('Action found:', action, 'Handler exists:', this.handlers.has(action));
-        }
         if (action && this.handlers.has(action)) {
             event.preventDefault();
             console.log('Calling handler for action:', action);
