@@ -289,44 +289,22 @@ function updateEssayStatus(index, success, error = null) {
  * @param {number} index - Essay index to check
  */
 function checkEssayContentLoaded(index) {
-    console.log(`⏱️ Running content check for essay ${index}`);
     const essayDiv = document.getElementById(`batch-essay-${index}`);
-    if (!essayDiv) {
-        console.log(`⏱️ Essay ${index}: div not found`);
-        return;
-    }
+    if (!essayDiv) return;
 
-    // Check if the formatted content exists with the correct essay index
     const formattedContent = essayDiv.querySelector(`.formatted-essay-content[data-essay-index="${index}"]`);
+    if (formattedContent) return; // Content loaded correctly
+
+    // Check if still loading or has wrong content
+    const content = essayDiv.innerHTML;
+    const loadingIndicators = ["🤔", "✨", "🌀", "🧠", "⚡", "💪", "🤗", "🪐", "🧘", "☕", "🤯", "🦉", "🧙", "💫", "📡", "🐢", "🎩", "🤓", "🎲", "📚", "🎭", "🌊", "🔬", "💭", "📝", "Loading", "loading-spinner"];
+    const isStillLoading = loadingIndicators.some(indicator => content.includes(indicator));
     const anyFormattedContent = essayDiv.querySelector('.formatted-essay-content');
+    const hasWrongContent = anyFormattedContent && anyFormattedContent.dataset.essayIndex !== String(index);
 
-    console.log(`⏱️ Essay ${index} check:`, {
-        hasFormattedContent: !!anyFormattedContent,
-        formattedContentIndex: anyFormattedContent?.dataset?.essayIndex,
-        expectedIndex: index,
-        matchesExpected: !!formattedContent
-    });
-
-    const hasCorrectContent = formattedContent !== null;
-
-    if (!hasCorrectContent) {
-        // Check if it's still showing a loading message
-        const content = essayDiv.innerHTML;
-        const loadingIndicators = ["🤔", "✨", "🌀", "🧠", "⚡", "💪", "🤗", "🪐", "🧘", "☕", "🤯", "🦉", "🧙", "💫", "📡", "🐢", "🎩", "🤓", "🎲", "📚", "🎭", "🌊", "🔬", "💭", "📝", "Loading", "loading-spinner"];
-        const isStillLoading = loadingIndicators.some(indicator => content.includes(indicator));
-
-        // Check if wrong essay content loaded (has formatted-essay-content but wrong index)
-        const hasWrongContent = anyFormattedContent && anyFormattedContent.dataset.essayIndex !== String(index);
-
-        console.log(`⏱️ Essay ${index} failure details:`, { isStillLoading, hasWrongContent });
-
-        if (isStillLoading || hasWrongContent) {
-            console.error(`⚠️ Essay ${index} content check FAILED - switching to failed state`);
-            // Switch to failed state with retry
-            updateEssayStatus(index, false, 'Content failed to load');
-        }
-    } else {
-        console.log(`⏱️ Essay ${index} content check PASSED`);
+    if (isStillLoading || hasWrongContent) {
+        console.error(`❌ Essay ${index} content check FAILED`);
+        updateEssayStatus(index, false, 'Content failed to load');
     }
 }
 
@@ -461,20 +439,17 @@ function loadEssayDetails(index) {
 
     // LOCK: Prevent duplicate concurrent loads for the same essay
     if (essayLoadingLock[index]) {
-        console.log(`🔒 Essay ${index} already loading, skipping duplicate call`);
         return;
     }
 
     // Check if already loaded (has formatted content with correct index)
     const alreadyLoaded = essayDiv.querySelector(`.formatted-essay-content[data-essay-index="${index}"]`);
     if (alreadyLoaded) {
-        console.log(`✅ Essay ${index} already loaded, skipping`);
         return;
     }
 
     // Set the lock
     essayLoadingLock[index] = true;
-    console.log(`🔐 Acquired lock for essay ${index}`);
 
     const { essay, originalData } = window[`essayData_${index}`];
 
@@ -517,9 +492,8 @@ function loadEssayDetails(index) {
                 updateEssayStatus(index, false, 'Content failed to load - please retry');
                 return; // Don't continue initialization
             }
-            console.log(`✅ Essay ${index} content loaded and verified`);
 
-                // Initialize essay editing for this batch item AFTER content is loaded
+            // Initialize essay editing for this batch item AFTER content is loaded
                 setTimeout(() => {
                     // Initialize text selection
                     const essayContentDiv = document.querySelector(`.formatted-essay-content[data-essay-index="${index}"]`);
@@ -653,7 +627,6 @@ function loadEssayDetails(index) {
 
                     // Setup editable elements for score inputs (critical for batch processing)
                     if (window.SingleResultModule && window.SingleResultModule.setupBatchEditableElements) {
-                        console.log('🔧 Setting up batch editable elements for essay', index);
                         window.SingleResultModule.setupBatchEditableElements(essay.result, originalData, index);
                     }
 

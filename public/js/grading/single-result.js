@@ -167,7 +167,6 @@ function setupEditableElements(gradingResult, originalData) {
     // Use setTimeout to ensure DOM is fully ready
     setTimeout(() => {
         if (window.setupCategoryNoteToggleListeners) {
-            console.log('🔧 Calling setupCategoryNoteToggleListeners from setupEditableElements');
             window.setupCategoryNoteToggleListeners();
         }
     }, 50);
@@ -304,7 +303,6 @@ function setupBatchEditableElements(gradingResult, originalData, essayIndex) {
     // Use setTimeout to ensure DOM is fully ready
     setTimeout(() => {
         if (window.setupCategoryNoteToggleListeners) {
-            console.log('🔧 Calling setupCategoryNoteToggleListeners from setupBatchEditableElements for essay', essayIndex);
             window.setupCategoryNoteToggleListeners();
         }
     }, 50);

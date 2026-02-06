@@ -889,8 +889,6 @@ function processBatchResultQueue() {
     window.batchQueueProcessor = setTimeout(() => {
         const data = window.batchResultQueue.shift();
 
-        console.log(`🎯 Processing queued result for essay ${data.index} with 3s delay`);
-
         // Update the UI for this essay
         if (window.BatchProcessingModule) {
             window.BatchProcessingModule.updateEssayStatus(data.index, data.success, data.error);
@@ -898,7 +896,6 @@ function processBatchResultQueue() {
 
         // Pre-load the essay content so users can click and view it right away
         if (data.success) {
-            console.log(`🔄 Pre-loading essay content for immediate access: ${data.index}`);
             if (window.BatchProcessingModule && window.BatchProcessingModule.loadEssayDetails) {
                 window.BatchProcessingModule.loadEssayDetails(data.index);
             }
