@@ -8,7 +8,11 @@
       "Bash(git push:*)",
       "Bash(git stash:*)",
       "Bash(cat:*)",
-      "Bash(git merge:*)"
+      "Bash(git merge:*)",
+      "Bash(npx prisma migrate dev:*)",
+      "Bash(find:*)",
+      "Bash(node -c:*)",
+      "Bash(node --check:*)"
     ],
     "deny": [],
     "ask": []
