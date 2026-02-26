@@ -82,7 +82,7 @@
     function saveImmediately() {
         clearDebounce();
         hasPendingChanges = true;
-        updateBannerStatus('\u2713 Saving\u2026');
+        updateBannerStatus('\u2713 Saving\u2026', 'ok');
         return doSave();
     }
 
@@ -303,16 +303,46 @@
     }
 
     /**
-     * Update the banner status text (called after saves).
+     * Update the banner status text and appearance.
+     * @param {string} text - Status message
+     * @param {'ok'|'warn'} level - Visual style
      */
-    function updateBannerStatus(text) {
+    function updateBannerStatus(text, level) {
+        const banner = document.getElementById('auto-save-banner');
         const status = document.getElementById('auto-save-status');
-        if (status) {
-            status.textContent = text;
+        if (!banner || !status) return;
+
+        status.textContent = text;
+
+        if (level === 'warn') {
+            banner.style.background = 'rgba(255,243,205,0.95)';
+            banner.style.borderBottomColor = 'rgba(200,170,80,0.4)';
+            banner.style.color = '#856404';
+            status.style.color = '#856404';
+        } else {
+            banner.style.background = 'rgba(209,243,209,0.92)';
+            banner.style.borderBottomColor = 'rgba(100,180,100,0.4)';
+            banner.style.color = '#2d6a2d';
+            status.style.color = '#2d6a2d';
         }
     }
 
     // --- Internal helpers ---
+
+    let retryTimer = null;
+
+    /**
+     * Schedule a retry save after a failure (10s delay).
+     * If the retry succeeds, the banner switches back to green.
+     */
+    function scheduleRetry() {
+        if (retryTimer) return; // already scheduled
+        retryTimer = setTimeout(() => {
+            retryTimer = null;
+            hasPendingChanges = true;
+            doSave();
+        }, 10000);
+    }
 
     function clearDebounce() {
         if (debounceTimer) {
@@ -445,16 +475,18 @@
             });
             if (!resp.ok) {
                 console.warn('[AutoSave] Save failed:', resp.status);
-                updateBannerStatus('\u26a0 Save failed — will retry');
+                updateBannerStatus('Changes failed to auto-save, sorry. Do not refresh or close the page.', 'warn');
+                scheduleRetry();
             } else {
                 console.log('[AutoSave] Save successful');
                 lastSuccessfulSaveTime = Date.now();
                 hasPendingChanges = false;
-                updateBannerStatus('\u2713 All changes saved');
+                updateBannerStatus('\u2713 All changes saved', 'ok');
             }
         } catch (err) {
             console.warn('[AutoSave] Save error:', err);
-            updateBannerStatus('\u26a0 Save failed — will retry');
+            updateBannerStatus('Changes failed to auto-save, sorry. Do not refresh or close the page.', 'warn');
+            scheduleRetry();
         } finally {
             isSaving = false;
         }
