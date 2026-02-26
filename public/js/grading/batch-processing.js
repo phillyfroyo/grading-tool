@@ -364,9 +364,9 @@ function displayBatchResults(batchResult, originalData) {
         });
     }
 
-    // Show clear button for starting fresh
+    // Show auto-save banner
     if (window.AutoSaveModule) {
-        window.AutoSaveModule.showClearButton();
+        window.AutoSaveModule.showClearButton('Grading complete');
     }
 }
 

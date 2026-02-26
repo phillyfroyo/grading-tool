@@ -82,7 +82,7 @@
     function saveImmediately() {
         clearDebounce();
         hasPendingChanges = true;
-        updateBannerStatus('\u2713 Saving\u2026', 'ok');
+        updateBannerStatus('Saving\u2026', 'ok');
         return doSave();
     }
 
@@ -259,29 +259,29 @@
         banner.style.cssText =
             'position:fixed;top:0;left:0;right:0;z-index:9999;' +
             'display:flex;align-items:center;justify-content:space-between;' +
-            'padding:8px 20px;' +
+            'padding:4px 20px;' +
             'background:rgba(209,243,209,0.92);' +
             'border-bottom:1px solid rgba(100,180,100,0.4);' +
-            'box-shadow:0 1px 4px rgba(0,0,0,0.08);' +
-            'font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;' +
-            'font-size:13px;color:#2d6a2d;' +
+            'box-shadow:0 1px 3px rgba(0,0,0,0.06);' +
+            'font-family:"Inter","Helvetica Neue",Arial,sans-serif;' +
+            'font-size:12px;color:#2d6a2d;letter-spacing:0.01em;' +
             'backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);';
 
         // Status text (left)
         const status = document.createElement('span');
         status.id = 'auto-save-status';
-        status.textContent = statusText || '\u2713 Session restored';
         status.style.cssText = 'font-weight:500;';
+        setStatusContent(status, statusText || 'Session restored', 'ok');
 
         // Clear button (right)
         const btn = document.createElement('button');
         btn.textContent = 'Clear & Start Fresh';
         btn.style.cssText =
-            'padding:5px 16px;' +
+            'padding:4px 14px;' +
             'background:#e8e8e8;color:#444;' +
             'border:1px solid #ccc;border-radius:4px;' +
-            'font-size:12px;font-weight:600;cursor:pointer;' +
-            'transition:background 0.15s;';
+            'font-family:inherit;font-size:11px;font-weight:600;cursor:pointer;' +
+            'transition:background 0.15s;white-space:nowrap;';
         btn.addEventListener('mouseover', () => {
             btn.style.background = '#dcdcdc';
         });
@@ -303,6 +303,20 @@
     }
 
     /**
+     * Set status span content with optional trailing icon.
+     */
+    function setStatusContent(statusEl, text, level) {
+        statusEl.innerHTML = '';
+        statusEl.appendChild(document.createTextNode(text));
+        if (level === 'ok') {
+            const icon = document.createElement('span');
+            icon.textContent = ' \u2713';
+            icon.style.cssText = 'font-weight:400;margin-left:4px;';
+            statusEl.appendChild(icon);
+        }
+    }
+
+    /**
      * Update the banner status text and appearance.
      * @param {string} text - Status message
      * @param {'ok'|'warn'} level - Visual style
@@ -312,7 +326,7 @@
         const status = document.getElementById('auto-save-status');
         if (!banner || !status) return;
 
-        status.textContent = text;
+        setStatusContent(status, text, level);
 
         if (level === 'warn') {
             banner.style.background = 'rgba(255,243,205,0.95)';
@@ -481,7 +495,7 @@
                 console.log('[AutoSave] Save successful');
                 lastSuccessfulSaveTime = Date.now();
                 hasPendingChanges = false;
-                updateBannerStatus('\u2713 All changes saved', 'ok');
+                updateBannerStatus('All changes saved', 'ok');
             }
         } catch (err) {
             console.warn('[AutoSave] Save error:', err);
