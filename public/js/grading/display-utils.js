@@ -445,7 +445,8 @@ window.DisplayUtilsModule = {
     createInfoHTML,
     formatColoredScore,
     createHighlightsLegendHTML,
-    setupTogglePDFListeners
+    setupTogglePDFListeners,
+    setupRemoveAllCheckbox
 };
 
 /**

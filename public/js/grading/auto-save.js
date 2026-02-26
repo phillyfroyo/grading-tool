@@ -151,6 +151,47 @@
                 });
             }
 
+            // 4b. Inject saved highlights tab HTML
+            if (sessionData.highlightsTabHTML) {
+                Object.entries(sessionData.highlightsTabHTML).forEach(([indexStr, html]) => {
+                    const hlTabDiv = document.getElementById(`highlights-tab-content-${indexStr}`);
+                    if (hlTabDiv && html) {
+                        hlTabDiv.innerHTML = html;
+                        hlTabDiv.dataset.loaded = 'true';
+                        reattachHighlightsHandlers(parseInt(indexStr, 10), hlTabDiv, 'tab');
+                    }
+                });
+            }
+
+            // 4c. Inject saved highlights content (grade-details section)
+            if (sessionData.highlightsContentHTML) {
+                Object.entries(sessionData.highlightsContentHTML).forEach(([indexStr, html]) => {
+                    const hlInner = document.getElementById(`highlights-content-${indexStr}-inner`);
+                    if (hlInner && html) {
+                        hlInner.innerHTML = html;
+                        hlInner.dataset.populated = 'true';
+                        reattachHighlightsHandlers(parseInt(indexStr, 10), hlInner, 'content');
+                    }
+                });
+            }
+
+            // 4d. Restore remove-all checkbox states
+            if (sessionData.removeAllStates) {
+                Object.entries(sessionData.removeAllStates).forEach(([contentId, checked]) => {
+                    if (!checked) return;
+                    // For highlights-tab: checkbox id is "highlights-tab-${i}-remove-all"
+                    // For highlights-content: checkbox id is "highlights-content-${i}-remove-all"
+                    const cbId = contentId + '-remove-all';
+                    // Also check the alternate format from the tab
+                    const tabMatch = contentId.match(/^highlights-tab-content-(\d+)$/);
+                    const actualCbId = tabMatch ? `highlights-tab-${tabMatch[1]}-remove-all` : cbId;
+                    const cb = document.getElementById(actualCbId);
+                    if (cb) {
+                        cb.checked = true;
+                    }
+                });
+            }
+
             // 5. Apply score overrides
             if (sessionData.scoreOverrides) {
                 applyScoreOverrides(sessionData.scoreOverrides);
@@ -422,6 +463,8 @@
 
         // Gather rendered HTML from DOM (for instant restore)
         const renderedHTML = {};
+        const highlightsTabHTML = {};
+        const highlightsContentHTML = {};
         if (!omitHTML) {
             for (let i = 0; i < resultCount; i++) {
                 const div = document.getElementById(`batch-essay-${i}`);
@@ -430,6 +473,18 @@
                     renderedHTML[i] = div.innerHTML;
                 }
                 console.log(`[AutoSave] buildPayload essay ${i}: hasContent=${hasContent}, length=${div ? div.innerHTML.length : 0}`);
+
+                // Save highlights tab content ("Manage Highlights" standalone tab)
+                const hlTabDiv = document.getElementById(`highlights-tab-content-${i}`);
+                if (hlTabDiv && hlTabDiv.dataset.loaded === 'true' && hlTabDiv.innerHTML.trim() && hlTabDiv.innerHTML.trim() !== 'Loading highlights...') {
+                    highlightsTabHTML[i] = hlTabDiv.innerHTML;
+                }
+
+                // Save highlights content within grade-details section
+                const hlContentInner = document.getElementById(`highlights-content-${i}-inner`);
+                if (hlContentInner && hlContentInner.dataset.populated === 'true' && hlContentInner.innerHTML.trim()) {
+                    highlightsContentHTML[i] = hlContentInner.innerHTML;
+                }
             }
         }
 
@@ -451,12 +506,30 @@
             }
         }
 
+        // Gather remove-all checkbox states (checked property doesn't survive innerHTML)
+        const removeAllStates = {};
+        for (let i = 0; i < resultCount; i++) {
+            // Highlights tab remove-all checkbox
+            const hlTabCb = document.getElementById(`highlights-tab-${i}-remove-all`);
+            if (hlTabCb && hlTabCb.checked) {
+                removeAllStates[`highlights-tab-content-${i}`] = true;
+            }
+            // Grade-details highlights remove-all checkbox
+            const hlContentCb = document.getElementById(`highlights-content-${i}-remove-all`);
+            if (hlContentCb && hlContentCb.checked) {
+                removeAllStates[`highlights-content-${i}`] = true;
+            }
+        }
+
         const sessionData = {
             currentBatchData: window.currentBatchData,
             essaySnapshots,
             renderedHTML,
+            highlightsTabHTML,
+            highlightsContentHTML,
             scoreOverrides,
             completedEssays,
+            removeAllStates,
         };
 
         return {
@@ -639,6 +712,122 @@
                 });
             }
         }, 250);
+    }
+
+    /**
+     * Re-attach interactive handlers on a restored highlights section.
+     * @param {number} index - Essay index
+     * @param {HTMLElement} container - The highlights content container
+     * @param {'tab'|'content'} type - Which highlights section this is
+     */
+    function reattachHighlightsHandlers(index, container, type) {
+        setTimeout(() => {
+            // Strip guard attributes that survived innerHTML injection
+            container.querySelectorAll('[data-setup-complete]').forEach(
+                el => el.removeAttribute('data-setup-complete')
+            );
+
+            // Setup toggle PDF button listeners
+            if (window.DisplayUtilsModule && window.DisplayUtilsModule.setupTogglePDFListeners) {
+                window.DisplayUtilsModule.setupTogglePDFListeners(container);
+            }
+
+            // Setup remove-all checkbox
+            if (type === 'tab') {
+                const checkbox = document.getElementById(`highlights-tab-${index}-remove-all`);
+                if (checkbox) {
+                    checkbox.removeAttribute('data-setup-complete');
+                    // setupRemoveAllCheckboxForTab is declared at global scope in grading-display-main.js
+                    if (window.setupRemoveAllCheckboxForTab) {
+                        window.setupRemoveAllCheckboxForTab(checkbox, container);
+                    } else {
+                        setupRemoveAllCheckboxFromAutoSave(checkbox, container);
+                    }
+                }
+            } else if (type === 'content') {
+                const contentId = `highlights-content-${index}`;
+                const checkbox = document.getElementById(`${contentId}-remove-all`);
+                if (checkbox) {
+                    checkbox.removeAttribute('data-setup-complete');
+                    if (window.DisplayUtilsModule && window.DisplayUtilsModule.setupRemoveAllCheckbox) {
+                        window.DisplayUtilsModule.setupRemoveAllCheckbox(contentId);
+                    }
+                }
+            }
+        }, 250);
+    }
+
+    /**
+     * Setup remove-all checkbox listener for highlights tab (mirrors setupRemoveAllCheckboxForTab
+     * from grading-display-main.js, which is a file-scoped function we can't call directly).
+     */
+    function setupRemoveAllCheckboxFromAutoSave(checkbox, contentDiv) {
+        if (checkbox.dataset.setupComplete === 'true') return;
+
+        const contentId = checkbox.dataset.contentId || checkbox.id.replace('-remove-all', '');
+        const savedState = localStorage.getItem(`removeAllFromPDF_${contentId}`);
+
+        let isChecked;
+        if (savedState !== null) {
+            isChecked = savedState === 'true';
+            checkbox.checked = isChecked;
+        } else {
+            isChecked = checkbox.checked;
+        }
+
+        // Apply state to all toggle buttons
+        if (isChecked) {
+            const toggleButtons = contentDiv.querySelectorAll('.toggle-pdf-btn');
+            toggleButtons.forEach(button => {
+                const elementId = button.dataset.elementId;
+                const highlightElement = document.getElementById(elementId);
+                if (highlightElement) {
+                    highlightElement.dataset.excludeFromPdf = 'true';
+                    button.dataset.excluded = 'true';
+                    button.style.background = '#28a745';
+                    button.textContent = '+';
+                    button.onmouseover = function() { this.style.background = '#218838'; };
+                    button.onmouseout = function() { this.style.background = '#28a745'; };
+                    const entryDiv = button.closest('div[style*="margin: 20px 0"]');
+                    if (entryDiv) {
+                        entryDiv.style.textDecoration = 'line-through';
+                        entryDiv.style.opacity = '0.6';
+                    }
+                }
+            });
+        }
+
+        // Add change listener
+        checkbox.addEventListener('change', function() {
+            const checked = this.checked;
+            localStorage.setItem(`removeAllFromPDF_${contentId}`, checked.toString());
+            const toggleButtons = contentDiv.querySelectorAll('.toggle-pdf-btn');
+            toggleButtons.forEach(button => {
+                const elementId = button.dataset.elementId;
+                const highlightElement = document.getElementById(elementId);
+                if (!highlightElement) return;
+                highlightElement.dataset.excludeFromPdf = checked ? 'true' : 'false';
+                button.dataset.excluded = checked;
+                if (checked) {
+                    button.style.background = '#28a745';
+                    button.textContent = '+';
+                    button.onmouseover = function() { this.style.background = '#218838'; };
+                    button.onmouseout = function() { this.style.background = '#28a745'; };
+                } else {
+                    button.style.background = '#dc3545';
+                    button.textContent = '-';
+                    button.onmouseover = function() { this.style.background = '#c82333'; };
+                    button.onmouseout = function() { this.style.background = '#dc3545'; };
+                }
+                const entryDiv = button.closest('div[style*="margin: 20px 0"]');
+                if (entryDiv) {
+                    entryDiv.style.textDecoration = checked ? 'line-through' : 'none';
+                    entryDiv.style.opacity = checked ? '0.6' : '1';
+                }
+            });
+        });
+
+        checkbox.dataset.setupComplete = 'true';
     }
 
     /**
