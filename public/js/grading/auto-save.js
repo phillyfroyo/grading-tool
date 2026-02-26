@@ -69,29 +69,9 @@
         }
         listenToEventBus();
 
-        // beforeunload safety-net via sendBeacon — only if we have unsaved changes
-        window.addEventListener('beforeunload', function () {
-            if (!hasPendingChanges) {
-                console.log('[AutoSave] beforeunload: no pending changes, skipping beacon');
-                return;
-            }
-            const payload = buildPayload();
-            if (payload) {
-                const body = JSON.stringify(payload);
-                const blob = new Blob([body], { type: 'application/json' });
-                if (blob.size <= 60000) {
-                    navigator.sendBeacon('/api/grading-session', blob);
-                } else {
-                    // sendBeacon has a ~64KB limit; use fetch with keepalive for larger payloads
-                    fetch('/api/grading-session', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: body,
-                        keepalive: true,
-                    }).catch(() => {});
-                }
-            }
-        });
+        // No beforeunload beacon — the DOM is unreliable during page teardown
+        // and stale/empty payloads have been overwriting good DB data.
+        // Debounced saves (2.5s) and immediate saves cover all edit scenarios.
 
         console.log('[AutoSave] Initialized');
     }
@@ -102,6 +82,7 @@
     function saveImmediately() {
         clearDebounce();
         hasPendingChanges = true;
+        updateBannerStatus('\u2713 Saving\u2026');
         return doSave();
     }
 
@@ -156,13 +137,10 @@
             }
 
             // 4. Inject saved rendered HTML (skip /format call)
-            const htmlKeys = sessionData.renderedHTML ? Object.keys(sessionData.renderedHTML) : [];
-            console.log('[AutoSave] renderedHTML keys:', htmlKeys, 'lengths:', htmlKeys.map(k => (sessionData.renderedHTML[k] || '').length));
             if (sessionData.renderedHTML) {
                 Object.entries(sessionData.renderedHTML).forEach(([indexStr, html]) => {
                     const idx = parseInt(indexStr, 10);
                     const essayDiv = document.getElementById(`batch-essay-${idx}`);
-                    console.log(`[AutoSave] Inject essay ${idx}: div found=${!!essayDiv}, html length=${(html || '').length}`);
                     if (essayDiv && html) {
                         essayDiv.innerHTML = html;
                         // Re-attach interactive handlers for this essay
@@ -252,9 +230,12 @@
             if (f) f.reset();
         });
 
-        // Remove clear button
-        const btn = document.getElementById('auto-save-clear-btn');
-        if (btn) btn.remove();
+        // Remove banner and reset body padding
+        const banner = document.getElementById('auto-save-banner');
+        if (banner) {
+            document.body.style.paddingTop = '';
+            banner.remove();
+        }
 
         // Clear SingleResultModule batch data
         if (window.SingleResultModule && window.SingleResultModule.clearGradingState) {
@@ -265,33 +246,68 @@
     }
 
     /**
-     * Show / create "Clear & Start Fresh" button above the results div.
+     * Show the fixed auto-save banner at the top of the viewport.
+     * Left side: status text. Right side: "Clear & Start Fresh" button.
      */
-    function showClearButton() {
-        if (document.getElementById('auto-save-clear-btn')) return;
+    function showClearButton(statusText) {
+        if (document.getElementById('auto-save-banner')) return;
 
-        const activeTab = document.querySelector('.tab-content.active');
-        const resultsDiv = activeTab
-            ? activeTab.querySelector('#results')
-            : document.getElementById('results');
-        if (!resultsDiv) return;
+        const banner = document.createElement('div');
+        banner.id = 'auto-save-banner';
+        banner.style.cssText =
+            'position:fixed;top:0;left:0;right:0;z-index:9999;' +
+            'display:flex;align-items:center;justify-content:space-between;' +
+            'padding:8px 20px;' +
+            'background:rgba(209,243,209,0.92);' +
+            'border-bottom:1px solid rgba(100,180,100,0.4);' +
+            'box-shadow:0 1px 4px rgba(0,0,0,0.08);' +
+            'font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;' +
+            'font-size:13px;color:#2d6a2d;' +
+            'backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);';
 
+        // Status text (left)
+        const status = document.createElement('span');
+        status.id = 'auto-save-status';
+        status.textContent = statusText || '\u2713 Session restored';
+        status.style.cssText = 'font-weight:500;';
+
+        // Clear button (right)
         const btn = document.createElement('button');
-        btn.id = 'auto-save-clear-btn';
         btn.textContent = 'Clear & Start Fresh';
         btn.style.cssText =
-            'display:block;margin:12px auto;padding:10px 24px;' +
-            'background:#dc3545;color:#fff;border:none;border-radius:6px;' +
-            'font-size:15px;font-weight:600;cursor:pointer;';
-        btn.addEventListener('mouseover', () => (btn.style.background = '#b02a37'));
-        btn.addEventListener('mouseout', () => (btn.style.background = '#dc3545'));
+            'padding:5px 16px;' +
+            'background:#e8e8e8;color:#444;' +
+            'border:1px solid #ccc;border-radius:4px;' +
+            'font-size:12px;font-weight:600;cursor:pointer;' +
+            'transition:background 0.15s;';
+        btn.addEventListener('mouseover', () => {
+            btn.style.background = '#dcdcdc';
+        });
+        btn.addEventListener('mouseout', () => {
+            btn.style.background = '#e8e8e8';
+        });
         btn.addEventListener('click', function () {
             if (confirm('This will clear all graded essays. Are you sure?')) {
                 clearSavedSession();
             }
         });
 
-        resultsDiv.parentNode.insertBefore(btn, resultsDiv);
+        banner.appendChild(status);
+        banner.appendChild(btn);
+        document.body.appendChild(banner);
+
+        // Push page content down so banner doesn't overlap it
+        document.body.style.paddingTop = banner.offsetHeight + 'px';
+    }
+
+    /**
+     * Update the banner status text (called after saves).
+     */
+    function updateBannerStatus(text) {
+        const status = document.getElementById('auto-save-status');
+        if (status) {
+            status.textContent = text;
+        }
     }
 
     // --- Internal helpers ---
@@ -367,7 +383,6 @@
                 if (hasContent) {
                     renderedHTML[i] = div.innerHTML;
                 }
-                console.log(`[AutoSave] buildPayload essay ${i}: div found=${!!div}, hasContent=${hasContent}, length=${div ? div.innerHTML.length : 0}`);
             }
         }
 
@@ -427,13 +442,16 @@
             });
             if (!resp.ok) {
                 console.warn('[AutoSave] Save failed:', resp.status);
+                updateBannerStatus('\u26a0 Save failed — will retry');
             } else {
                 console.log('[AutoSave] Save successful');
                 lastSuccessfulSaveTime = Date.now();
                 hasPendingChanges = false;
+                updateBannerStatus('\u2713 All changes saved');
             }
         } catch (err) {
             console.warn('[AutoSave] Save error:', err);
+            updateBannerStatus('\u26a0 Save failed — will retry');
         } finally {
             isSaving = false;
         }
