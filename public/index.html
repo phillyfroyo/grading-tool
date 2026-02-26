@@ -427,6 +427,7 @@
     <script src="/js/grading/batch-processing.js?v=17"></script>
     <script type="module" src="/js/grading/manual.js?v=14"></script>
     <script src="/js/grading/grading-display-main.js?v=14"></script>
+    <script src="/js/grading/auto-save.js?v=1"></script>
 
     <!-- Other Modules -->
     <script src="/js/profiles.js?v=18"></script>
@@ -485,6 +486,12 @@
                 window.ProfilesModule.initializeProfiles();
             }
 
+            // Initialize auto-save and restore any saved session
+            if (window.AutoSaveModule) {
+                window.AutoSaveModule.initialize();
+                await window.AutoSaveModule.loadAndRestore();
+            }
+
             console.log('✅ Hybrid modular application initialized');
             console.log('📊 Module status:', {
                 ui: !!window.UIInteractionsModule,
@@ -497,7 +504,8 @@
                 batchProcessing: !!window.BatchProcessingModule,
                 displayUtils: !!window.DisplayUtilsModule,
                 modalManager: !!window.ModalManager,
-                profiles: !!window.ProfilesModule
+                profiles: !!window.ProfilesModule,
+                autoSave: !!window.AutoSaveModule
             });
         }
 

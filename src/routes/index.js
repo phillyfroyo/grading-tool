@@ -4,6 +4,7 @@
 import express from 'express';
 import gradingRoutes from './grading.js';
 import profileRoutes from './profiles.js';
+import gradingSessionRoutes from './gradingSession.js';
 import staticRoutes from './static.js';
 import authRoutes from './auth.js';
 
@@ -14,6 +15,7 @@ const router = express.Router();
 router.use('/auth', authRoutes);
 router.use('/', gradingRoutes);
 router.use('/', profileRoutes);
+router.use('/', gradingSessionRoutes);
 
 // Static routes LAST (includes catch-all / route)
 router.use('/', staticRoutes);

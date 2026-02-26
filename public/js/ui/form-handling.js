@@ -248,6 +248,11 @@ async function handleGradingFormSubmission(e) {
                 } else {
                     console.error('Neither BatchProcessingModule nor GradingDisplayModule available');
                 }
+
+                // Auto-save after single essay grading completes
+                if (window.AutoSaveModule) {
+                    setTimeout(() => window.AutoSaveModule.saveImmediately(), 1000);
+                }
             } else {
                 // Update progress UI to show failure for single essay
                 if (window.BatchProcessingModule) {
@@ -303,7 +308,21 @@ async function handleGradingFormSubmission(e) {
             window.originalBatchDataForRetry = batchData;
 
             try {
-                await streamBatchGradingSimple(batchData);
+                const streamResult = await streamBatchGradingSimple(batchData);
+
+                // Ensure window.currentBatchData is set after streaming completes
+                // (streaming displays results individually via queue, skipping displayBatchResults)
+                if (!window.currentBatchData && streamResult) {
+                    window.currentBatchData = {
+                        batchResult: streamResult,
+                        originalData: batchData
+                    };
+                }
+
+                // Auto-save after streaming batch completes
+                if (window.AutoSaveModule) {
+                    setTimeout(() => window.AutoSaveModule.saveImmediately(), 2000);
+                }
             } catch (streamError) {
                 console.error('Streaming failed, using fallback:', streamError);
                 await fallbackToBatchProcessing(batchData);
@@ -875,6 +894,10 @@ function setupFormValidation() {
 function processBatchResultQueue() {
     if (!window.batchResultQueue || window.batchResultQueue.length === 0) {
         window.batchQueueProcessor = null;
+        // Auto-save after all queued results have been processed
+        if (window.AutoSaveModule) {
+            setTimeout(() => window.AutoSaveModule.saveImmediately(), 2000);
+        }
         return;
     }
 

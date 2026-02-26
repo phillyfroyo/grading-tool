@@ -31,9 +31,20 @@ model sessions {
 }
 
 model users {
-  id             String           @id
-  email          String           @unique
-  createdAt      DateTime         @default(now())
-  updatedAt      DateTime
-  class_profiles class_profiles[]
+  id                      String                   @id
+  email                   String                   @unique
+  createdAt               DateTime                 @default(now())
+  updatedAt               DateTime
+  class_profiles          class_profiles[]
+  saved_grading_sessions  saved_grading_sessions?
+}
+
+model saved_grading_sessions {
+  id          String   @id @default(cuid())
+  userId      String   @unique
+  activeTab   String
+  sessionData String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  users       users    @relation(fields: [userId], references: [id], onDelete: Cascade)
 }

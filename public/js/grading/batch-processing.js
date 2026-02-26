@@ -363,6 +363,11 @@ function displayBatchResults(batchResult, originalData) {
             }
         });
     }
+
+    // Show clear button for starting fresh
+    if (window.AutoSaveModule) {
+        window.AutoSaveModule.showClearButton();
+    }
 }
 
 /**
