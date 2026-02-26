@@ -71,22 +71,24 @@
 
         // beforeunload safety-net via sendBeacon — only if we have unsaved changes
         window.addEventListener('beforeunload', function () {
-            // Skip beacon if we have no pending changes (already saved recently)
-            if (!hasPendingChanges && (Date.now() - lastSuccessfulSaveTime) < 10000) {
+            if (!hasPendingChanges) {
                 console.log('[AutoSave] beforeunload: no pending changes, skipping beacon');
                 return;
             }
             const payload = buildPayload();
             if (payload) {
-                const blob = new Blob([JSON.stringify(payload)], { type: 'application/json' });
-                // If payload is too large for sendBeacon (~64KB), strip renderedHTML
-                if (blob.size > 60000) {
-                    const lite = buildPayload(true);
-                    if (lite) {
-                        navigator.sendBeacon('/api/grading-session', new Blob([JSON.stringify(lite)], { type: 'application/json' }));
-                    }
-                } else {
+                const body = JSON.stringify(payload);
+                const blob = new Blob([body], { type: 'application/json' });
+                if (blob.size <= 60000) {
                     navigator.sendBeacon('/api/grading-session', blob);
+                } else {
+                    // sendBeacon has a ~64KB limit; use fetch with keepalive for larger payloads
+                    fetch('/api/grading-session', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: body,
+                        keepalive: true,
+                    }).catch(() => {});
                 }
             }
         });
@@ -194,8 +196,12 @@
             // 8. Show clear button
             showClearButton();
 
-            isRestoring = false;
-            console.log('[AutoSave] Restore complete');
+            // Delay clearing isRestoring until after reattachHandlers timeouts (250ms)
+            // and applyScoreOverrides event dispatches have settled
+            setTimeout(() => {
+                isRestoring = false;
+                console.log('[AutoSave] Restore complete');
+            }, 500);
             return true;
         } catch (err) {
             isRestoring = false;
