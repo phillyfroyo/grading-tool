@@ -137,6 +137,8 @@
             }
 
             // 4. Inject saved rendered HTML (skip /format call)
+            const htmlKeys = sessionData.renderedHTML ? Object.keys(sessionData.renderedHTML) : [];
+            console.log('[AutoSave] renderedHTML keys:', htmlKeys, 'lengths:', htmlKeys.map(k => (sessionData.renderedHTML[k] || '').length));
             if (sessionData.renderedHTML) {
                 Object.entries(sessionData.renderedHTML).forEach(([indexStr, html]) => {
                     const idx = parseInt(indexStr, 10);
@@ -383,6 +385,7 @@
                 if (hasContent) {
                     renderedHTML[i] = div.innerHTML;
                 }
+                console.log(`[AutoSave] buildPayload essay ${i}: hasContent=${hasContent}, length=${div ? div.innerHTML.length : 0}`);
             }
         }
 

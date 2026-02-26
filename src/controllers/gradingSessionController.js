@@ -26,6 +26,11 @@ async function handleSaveGradingSession(req, res) {
     return res.status(400).json({ error: 'activeTab and sessionData are required' });
   }
 
+  const rhKeys = sessionData?.renderedHTML ? Object.keys(sessionData.renderedHTML) : [];
+  console.log('[GRADING_SESSION] Save - activeTab:', activeTab,
+    'renderedHTML keys:', rhKeys,
+    'renderedHTML lengths:', rhKeys.map(k => (sessionData.renderedHTML[k] || '').length));
+
   const saved = await saveGradingSession(userId, activeTab, sessionData);
   if (!saved) {
     return res.status(500).json({ error: 'Failed to save grading session' });
