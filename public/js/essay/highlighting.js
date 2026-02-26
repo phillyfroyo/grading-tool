@@ -324,11 +324,11 @@ function showHighlightEditModal(element, currentCategories) {
 
         return `
             <button class="modal-category-btn ${selectedClass}" data-category="${category.id}"
-                    style="background: ${bgColor}; color: ${textColor}; border: 3px solid ${category.color};
-                           padding: 12px 20px; border-radius: 20px; cursor: pointer; font-weight: bold;
-                           transition: all 0.2s; font-size: 16px; ${decoration}; position: relative;">
+                    style="background: ${bgColor}; color: ${textColor}; border: 2px solid ${category.color};
+                           padding: 6px 14px; border-radius: 16px; cursor: pointer; font-weight: 600;
+                           transition: all 0.2s; font-size: 13px; ${decoration}; position: relative;">
                 ${category.name}
-                ${isSelected ? '<span class="checkmark" style="position: absolute; top: -5px; right: -5px; background: #28a745; color: white; border-radius: 50%; width: 20px; height: 20px; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: bold;">✓</span>' : ''}
+                ${isSelected ? '<span class="checkmark" style="position: absolute; top: -4px; right: -4px; background: #28a745; color: white; border-radius: 50%; width: 16px; height: 16px; display: flex; align-items: center; justify-content: center; font-size: 10px; font-weight: bold;">✓</span>' : ''}
             </button>
         `;
     }).join('');
@@ -553,7 +553,7 @@ function toggleModalCategory(category) {
                 // Add checkmark if not present
                 if (!categoryBtn.querySelector('.checkmark')) {
                     categoryBtn.style.position = 'relative';
-                    categoryBtn.innerHTML += '<span class="checkmark" style="position: absolute; top: -5px; right: -5px; background: #28a745; color: white; border-radius: 50%; width: 20px; height: 20px; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: bold;">✓</span>';
+                    categoryBtn.innerHTML += '<span class="checkmark" style="position: absolute; top: -4px; right: -4px; background: #28a745; color: white; border-radius: 50%; width: 16px; height: 16px; display: flex; align-items: center; justify-content: center; font-size: 10px; font-weight: bold;">✓</span>';
                 }
             } else {
                 categoryBtn.style.backgroundColor = (isMechanics || isFluency) ? categoryData.color : 'transparent';
