@@ -4,10 +4,8 @@
 
 ---
 
-## 1. Spell check in user-added notes
-**The problem:** There's no spell checking in the text fields where graders type notes and explanations, so typos can slip into student-facing corrections.
-
-**Proposed feature:** Add red-underline spell check to all user-editable text fields (notes, explanations, correction text, etc.). First try the browser-native `spellcheck="true"` HTML attribute on `<textarea>` / `<input>` / `contenteditable` elements — this may be sufficient with zero dependencies. If not, investigate lightweight JS spell-check libraries.
+## ~~1. Spell check in user-added notes~~ DONE
+Fixed: Enabled browser-native `spellcheck="true"` on all teacher-facing textareas.
 
 ---
 
@@ -21,6 +19,8 @@
 ## ~~3. Highlights across formatting gaps don't render + formatting is lost~~ DONE
 Fixed: Cross-paragraph highlights now split into linked `<mark>` elements sharing a `data-highlight-group` ID. Clicking, saving, removing, and resizing all operate on the full group. Highlights tab, content section, and PDF export deduplicate grouped marks. Tooltip now always shows "Correction: None / Explanation: None" for highlights with no notes.
 
+**Also fixed:** Multi-line corrections/explanations (e.g. multiple correction options separated by newlines) now preserve line breaks in both the on-screen highlights legend and the PDF export. Added HTML entity escaping to PDF export for safety.
+
 ---
 
 ## 4. Adding/removing highlights can corrupt student text
@@ -30,12 +30,8 @@ Fixed: Cross-paragraph highlights now split into linked `<mark>` elements sharin
 
 ---
 
-## 5. Overlapping highlight logic — highlights are not independent
-**The problem:** When two highlights overlap (share some of the same text), they become entangled. If you remove the second highlight, it also removes or breaks the first one.
-
-**Expected behavior:** Every highlight should be completely independent. You should be able to add, edit, or remove any single highlight without affecting any other highlight, even if they overlap the same words.
-
-**Example:** Suppose the essay says "The quick brown fox." You highlight "quick brown" as error A, then highlight "brown fox" as error B. If you delete error B, error A ("quick brown") should remain intact. Currently, deleting B also removes or corrupts A.
+## ~~5. Overlapping highlight logic — highlights are not independent~~ DONE
+Fixed: Removing a highlight now unwraps its child nodes instead of replacing with flat text, preserving any nested marks from overlapping highlights.
 
 ---
 

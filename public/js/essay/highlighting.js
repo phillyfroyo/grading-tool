@@ -1287,9 +1287,12 @@ function removeHighlight(element) {
             const fullText = Array.from(groupMarks).map(m => m.textContent).join('\n\n');
             groupMarks.forEach(m => {
                 if (m.parentNode) {
+                    // Unwrap: move child nodes into parent, preserving nested marks
                     const parent = m.parentNode;
-                    const textNode = document.createTextNode(m.textContent);
-                    parent.replaceChild(textNode, m);
+                    while (m.firstChild) {
+                        parent.insertBefore(m.firstChild, m);
+                    }
+                    parent.removeChild(m);
                     parent.normalize();
                 }
             });
@@ -1302,9 +1305,11 @@ function removeHighlight(element) {
         const parent = element.parentNode;
         const text = element.textContent;
 
-        // Replace highlighted element with plain text
-        const textNode = document.createTextNode(text);
-        parent.replaceChild(textNode, element);
+        // Unwrap: move child nodes into parent, preserving nested marks from overlapping highlights
+        while (element.firstChild) {
+            parent.insertBefore(element.firstChild, element);
+        }
+        parent.removeChild(element);
 
         // Normalize the parent to merge adjacent text nodes
         parent.normalize();
