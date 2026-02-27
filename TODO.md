@@ -18,20 +18,8 @@
 
 ---
 
-## 3. Highlights across formatting gaps don't render + formatting is lost
-**The problem (part A — rendering):** When you select text that spans a formatting gap (e.g., a blank line, paragraph break, or line break), the highlight is saved correctly and shows up in the "Highlights & Corrections" section of both the UI and the PDF, but it does **not** appear visually in the color-coded essay view. The highlighted words just look like normal unhighlighted text.
-
-**Example:** Selecting across this gap:
-```
-Best regards,
-
-Phil
-```
-The highlight data exists, the correction shows up in the sidebar/PDF, but the color-coded essay doesn't show any highlight color on those words.
-
-**The problem (part B — formatting preservation):** Even when cross-gap highlights do work, the student's original formatting (line breaks, paragraph spacing, indentation) is not preserved in the output. The text gets flattened into a single line or loses its structure, which is confusing for students reading their corrections.
-
-**Expected behavior:** Highlights should render correctly in the color-coded essay regardless of formatting gaps, and all original student formatting (line breaks, blank lines, indentation, spacing) should be preserved everywhere — in the color-coded essay, in the corrections list, and in the PDF.
+## ~~3. Highlights across formatting gaps don't render + formatting is lost~~ DONE
+Fixed: Cross-paragraph highlights now split into linked `<mark>` elements sharing a `data-highlight-group` ID. Clicking, saving, removing, and resizing all operate on the full group. Highlights tab, content section, and PDF export deduplicate grouped marks. Tooltip now always shows "Correction: None / Explanation: None" for highlights with no notes.
 
 ---
 

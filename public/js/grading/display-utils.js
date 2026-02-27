@@ -535,12 +535,20 @@ function populateHighlightsContent(contentId) {
         return;
     }
 
-    // Build highlights data
+    // Build highlights data (deduplicate grouped highlights)
     const highlightsData = [];
     let highlightNumber = 1;
+    const seenGroups = new Set();
 
     highlights.forEach((mark, index) => {
         try {
+            // Skip subsequent marks from the same highlight group
+            const groupId = mark.dataset.highlightGroup;
+            if (groupId) {
+                if (seenGroups.has(groupId)) return;
+                seenGroups.add(groupId);
+            }
+
             // Note: We no longer skip excluded highlights - we show them with strikethrough
 
             // Ensure highlight has an ID (for old highlights that don't have one)

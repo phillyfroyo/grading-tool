@@ -180,12 +180,20 @@ function loadHighlightsTab(index) {
         return;
     }
 
-    // Build highlights data
+    // Build highlights data (deduplicate grouped highlights)
     const highlightsData = [];
     let highlightNumber = 1;
+    const seenGroups = new Set();
 
     highlights.forEach((mark, markIndex) => {
         try {
+            // Skip subsequent marks from the same highlight group
+            const groupId = mark.dataset.highlightGroup;
+            if (groupId) {
+                if (seenGroups.has(groupId)) return;
+                seenGroups.add(groupId);
+            }
+
             // Ensure highlight has an ID
             if (!mark.id || mark.id.trim() === '') {
                 mark.id = `highlight-${index}-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;

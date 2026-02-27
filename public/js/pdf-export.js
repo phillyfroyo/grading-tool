@@ -717,8 +717,16 @@ function processHighlightsForPDF(content) {
 
     const highlightsData = [];
     let highlightNumber = 1;
+    const seenGroups = new Set();
 
     highlights.forEach(mark => {
+        // Skip subsequent marks from the same highlight group
+        const groupId = mark.dataset.highlightGroup;
+        if (groupId) {
+            if (seenGroups.has(groupId)) return;
+            seenGroups.add(groupId);
+        }
+
         // Skip highlights that are excluded from PDF
         if (mark.dataset.excludeFromPdf === 'true') {
             return;

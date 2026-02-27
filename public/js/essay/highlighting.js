@@ -17,7 +17,6 @@
         if (!mark || mark.closest('#editModal')) return;
         const correction = mark.dataset.correction || mark.dataset.message || '';
         const explanation = mark.dataset.explanation || '';
-        if (!correction && !explanation) return;
         let text = 'Correction: ' + (correction || 'None');
         text += '\nExplanation: ' + (explanation || 'None');
         tip.textContent = text;
@@ -62,6 +61,109 @@ function getCategoryData(category) {
 }
 
 /**
+ * Apply a highlight across block boundaries (e.g. paragraph breaks).
+ * When surroundContents() fails because the range spans multiple block
+ * elements, this helper splits the highlight into separate <mark> elements
+ * — one per text segment — linked by a shared data-highlight-group ID.
+ *
+ * @param {Range} range - Selection range spanning block boundaries
+ * @param {HTMLElement} templateMark - A fully-configured <mark> to clone attributes from
+ * @param {Function} clickHandler - Click handler function for each mark
+ * @returns {HTMLElement} The first (primary) mark element
+ */
+function applyHighlightAcrossBlocks(range, templateMark, clickHandler) {
+    const groupId = `group-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+
+    // Collect text nodes within the range using TreeWalker
+    const container = range.commonAncestorContainer;
+    const walker = document.createTreeWalker(
+        container,
+        NodeFilter.SHOW_TEXT,
+        {
+            acceptNode: function(node) {
+                // Only include text nodes that are at least partially within the range
+                const nodeRange = document.createRange();
+                nodeRange.selectNodeContents(node);
+                if (range.compareBoundaryPoints(Range.END_TO_START, nodeRange) >= 0 ||
+                    range.compareBoundaryPoints(Range.START_TO_END, nodeRange) <= 0) {
+                    return NodeFilter.FILTER_REJECT;
+                }
+                return NodeFilter.FILTER_ACCEPT;
+            }
+        }
+    );
+
+    // Gather segments: { node, startOffset, endOffset }
+    const segments = [];
+    let node;
+    while ((node = walker.nextNode())) {
+        let startOffset = 0;
+        let endOffset = node.textContent.length;
+
+        // Clamp to range boundaries
+        if (node === range.startContainer) {
+            startOffset = range.startOffset;
+        }
+        if (node === range.endContainer) {
+            endOffset = range.endOffset;
+        }
+
+        const segmentText = node.textContent.substring(startOffset, endOffset);
+        // Skip whitespace-only segments
+        if (!segmentText.trim()) continue;
+
+        segments.push({ node, startOffset, endOffset });
+    }
+
+    if (segments.length === 0) return null;
+
+    // Apply in reverse order to prevent offset invalidation
+    const marks = [];
+    for (let i = segments.length - 1; i >= 0; i--) {
+        const seg = segments[i];
+        const mark = document.createElement('mark');
+
+        // Copy attributes from template
+        mark.className = templateMark.className;
+        mark.style.cssText = templateMark.style.cssText;
+        for (const [key, val] of Object.entries(templateMark.dataset)) {
+            mark.dataset[key] = val;
+        }
+
+        // Set group linkage
+        mark.dataset.highlightGroup = groupId;
+
+        // Give each mark a unique ID; the first (index 0) keeps the template's ID
+        if (i === 0) {
+            mark.id = templateMark.id;
+        } else {
+            mark.id = `${templateMark.id}-part${i}`;
+        }
+
+        // Wrap the text segment
+        const segRange = document.createRange();
+        segRange.setStart(seg.node, seg.startOffset);
+        segRange.setEnd(seg.node, seg.endOffset);
+        segRange.surroundContents(mark);
+
+        // Attach click handler that always opens modal for the primary mark
+        mark.addEventListener('click', clickHandler);
+        mark._hasLiveClickListener = true;
+
+        marks.unshift(mark); // maintain document order
+    }
+
+    // The primary mark is the first one in document order
+    const primaryMark = marks[0];
+
+    // Store combined original text on the primary mark
+    const combinedText = marks.map(m => m.textContent).join('\n\n');
+    primaryMark.dataset.originalText = combinedText;
+
+    return primaryMark;
+}
+
+/**
  * Apply highlight to selected text
  * @param {Range} range - Selection range
  * @param {string} text - Selected text
@@ -94,17 +196,24 @@ function applyHighlight(range, text, category) {
             editHighlight(this);
         });
 
-        // Use extractContents and insertNode for complex ranges that span multiple elements
+        // Use surroundContents for simple ranges; fall back to cross-block helper
         try {
             range.surroundContents(mark);
         } catch (surroundError) {
-            console.log('🔄 surroundContents failed, using extractContents method for complex selection');
-            // Extract the selected content
-            const extractedContent = range.extractContents();
-            // Append the extracted content to our mark element
-            mark.appendChild(extractedContent);
-            // Insert the mark at the range position
-            range.insertNode(mark);
+            console.log('🔄 surroundContents failed, using cross-block highlight method');
+            const primaryMark = applyHighlightAcrossBlocks(range, mark, function(e) {
+                e.stopPropagation();
+                // Always open modal for the primary (first) mark in the group
+                const groupId = this.dataset.highlightGroup;
+                const first = document.querySelector(`mark[data-highlight-group="${groupId}"]`);
+                editHighlight(first || this);
+            });
+            if (primaryMark) {
+                setTimeout(() => {
+                    showHighlightEditModal(primaryMark, [category]);
+                }, 100);
+            }
+            return; // skip the normal setTimeout below
         }
 
         // Auto-open modal for editing the new highlight
@@ -155,17 +264,23 @@ function applyBatchHighlight(range, text, category, essayIndex) {
             editBatchHighlight(this, essayIndex);
         });
 
-        // Use extractContents and insertNode for complex ranges that span multiple elements
+        // Use surroundContents for simple ranges; fall back to cross-block helper
         try {
             range.surroundContents(mark);
         } catch (surroundError) {
-            console.log('🔄 surroundContents failed, using extractContents method for complex selection');
-            // Extract the selected content
-            const extractedContent = range.extractContents();
-            // Append the extracted content to our mark element
-            mark.appendChild(extractedContent);
-            // Insert the mark at the range position
-            range.insertNode(mark);
+            console.log('🔄 surroundContents failed, using cross-block highlight method');
+            const primaryMark = applyHighlightAcrossBlocks(range, mark, function(e) {
+                e.stopPropagation();
+                const groupId = this.dataset.highlightGroup;
+                const first = document.querySelector(`mark[data-highlight-group="${groupId}"]`);
+                editBatchHighlight(first || this, essayIndex);
+            });
+            if (primaryMark) {
+                setTimeout(() => {
+                    showHighlightEditModal(primaryMark, [category]);
+                }, 100);
+            }
+            return;
         }
 
         // Auto-open modal for editing the new highlight
@@ -574,14 +689,27 @@ function rebuildHighlightBoundaries(oldMark, newStart, newEnd, container) {
     const categories = (dataset.category || '').split(',').filter(c => c.trim());
     const primaryCat = categories[0] || 'grammar';
     const oldId = oldMark.id;
+    const oldGroupId = oldMark.dataset.highlightGroup;
 
-    // ── 2. Unwrap old mark (replace with its childNodes) ──
-    const parent = oldMark.parentNode;
-    while (oldMark.firstChild) {
-        parent.insertBefore(oldMark.firstChild, oldMark);
+    // ── 2. Unwrap old mark (and all group siblings if grouped) ──
+    if (oldGroupId) {
+        const groupMarks = document.querySelectorAll(`mark[data-highlight-group="${oldGroupId}"]`);
+        groupMarks.forEach(m => {
+            const p = m.parentNode;
+            while (m.firstChild) {
+                p.insertBefore(m.firstChild, m);
+            }
+            p.removeChild(m);
+            p.normalize();
+        });
+    } else {
+        const parent = oldMark.parentNode;
+        while (oldMark.firstChild) {
+            parent.insertBefore(oldMark.firstChild, oldMark);
+        }
+        parent.removeChild(oldMark);
+        parent.normalize();  // merge adjacent text nodes
     }
-    parent.removeChild(oldMark);
-    parent.normalize();  // merge adjacent text nodes
 
     // ── 3. Walk text nodes to locate new start/end positions ──
     function findPosition(root, targetOffset) {
@@ -620,8 +748,9 @@ function rebuildHighlightBoundaries(oldMark, newStart, newEnd, container) {
     newMark.className = `highlight-${primaryCat}`;
     newMark.style.cursor = 'pointer';
 
-    // Copy all data attributes
+    // Copy all data attributes (remove old group ID — new wrap may or may not need one)
     for (const [key, value] of Object.entries(dataset)) {
+        if (key === 'highlightGroup') continue;
         newMark.dataset[key] = value;
     }
     // Update original text to the new selection
@@ -629,22 +758,46 @@ function rebuildHighlightBoundaries(oldMark, newStart, newEnd, container) {
 
     try {
         range.surroundContents(newMark);
+        // ── 5. Re-apply visual styling ──
+        updateHighlightVisualStyling(newMark, primaryCat, categories);
+        // ── 6. Re-attach click handler ──
+        newMark.addEventListener('click', function(e) {
+            e.stopPropagation();
+            editHighlight(this);
+        });
+        newMark._hasLiveClickListener = true;
     } catch (err) {
-        console.log('surroundContents failed in resize, using extractContents');
-        const extracted = range.extractContents();
-        newMark.appendChild(extracted);
-        range.insertNode(newMark);
+        console.log('surroundContents failed in resize, using cross-block method');
+        // Use cross-block helper for resized highlight that still spans blocks
+        const primaryMark = applyHighlightAcrossBlocks(range, newMark, function(e) {
+            e.stopPropagation();
+            const gid = this.dataset.highlightGroup;
+            const first = document.querySelector(`mark[data-highlight-group="${gid}"]`);
+            editHighlight(first || this);
+        });
+        if (primaryMark) {
+            updateHighlightVisualStyling(primaryMark, primaryCat, categories);
+            // Propagate styling to siblings
+            const gid = primaryMark.dataset.highlightGroup;
+            if (gid) {
+                document.querySelectorAll(`mark[data-highlight-group="${gid}"]`).forEach(sib => {
+                    if (sib !== primaryMark) {
+                        updateHighlightVisualStyling(sib, primaryCat, categories);
+                    }
+                });
+            }
+            // Emit event
+            if (window.eventBus) {
+                window.eventBus.emit('highlight:updated', {
+                    element: primaryMark,
+                    categories,
+                    correction: primaryMark.dataset.correction,
+                    explanation: primaryMark.dataset.explanation
+                });
+            }
+            return primaryMark;
+        }
     }
-
-    // ── 5. Re-apply visual styling ──
-    updateHighlightVisualStyling(newMark, primaryCat, categories);
-
-    // ── 6. Re-attach click handler ──
-    newMark.addEventListener('click', function(e) {
-        e.stopPropagation();
-        editHighlight(this);
-    });
-    newMark._hasLiveClickListener = true;
 
     // ── 7. Emit event for auto-save ──
     if (window.eventBus) {
@@ -689,19 +842,40 @@ function showHighlightEditModal(element, currentCategories) {
     if (highlightedTextDisplay) {
         const container = element.closest('.formatted-essay-content') || element.parentElement;
         const fullText = container.textContent || '';
-        const elementText = element.textContent || '';
+
+        // For grouped highlights, compute span from first to last mark in group
+        const groupId = element.dataset.highlightGroup;
+        let firstMark = element;
+        let lastMark = element;
+        if (groupId) {
+            const groupMarks = Array.from(document.querySelectorAll(`mark[data-highlight-group="${groupId}"]`));
+            if (groupMarks.length > 0) {
+                firstMark = groupMarks[0];
+                lastMark = groupMarks[groupMarks.length - 1];
+            }
+        }
 
         // Compute position via Range (original reliable approach)
         let elementStart = -1;
         try {
             const range = document.createRange();
             range.selectNodeContents(container);
-            range.setEnd(element, 0);
+            range.setEnd(firstMark, 0);
             elementStart = range.toString().length;
         } catch (e) {
-            elementStart = fullText.indexOf(elementText);
+            elementStart = fullText.indexOf(firstMark.textContent);
         }
-        const elementEnd = elementStart !== -1 ? elementStart + elementText.length : 0;
+        // End position: use lastMark
+        let elementEnd = 0;
+        try {
+            const range2 = document.createRange();
+            range2.selectNodeContents(container);
+            range2.setEnd(lastMark, lastMark.childNodes.length);
+            elementEnd = range2.toString().length;
+        } catch (e) {
+            const lastText = lastMark.textContent || '';
+            elementEnd = elementStart !== -1 ? elementStart + lastText.length : 0;
+        }
 
         // Populate module-level state for resize
         _resizeState.fullText      = fullText;
@@ -902,6 +1076,30 @@ function showHighlightEditModal(element, currentCategories) {
                 }
                 console.log('🎨 Style after update:', element.style.cssText);
 
+                // Propagate to group siblings if this is a grouped highlight
+                const groupId = element.dataset.highlightGroup;
+                if (groupId) {
+                    const siblings = document.querySelectorAll(`mark[data-highlight-group="${groupId}"]`);
+                    siblings.forEach(sib => {
+                        if (sib === element) return;
+                        // Copy data attributes (except originalText which stays per-segment)
+                        sib.dataset.category = element.dataset.category;
+                        sib.dataset.type = element.dataset.type;
+                        sib.dataset.correction = element.dataset.correction || '';
+                        sib.dataset.message = element.dataset.message || '';
+                        sib.dataset.explanation = element.dataset.explanation || '';
+                        sib.dataset.notes = element.dataset.notes || '';
+                        if (element.dataset.excludeFromPdf) {
+                            sib.dataset.excludeFromPdf = element.dataset.excludeFromPdf;
+                        }
+                        // Update class and visual styling
+                        sib.className = sib.className.replace(/highlight-\w+/g, '').trim();
+                        sib.classList.add(`highlight-${selectedCategories[0]}`);
+                        sib.removeAttribute('title');
+                        updateHighlightVisualStyling(sib, selectedCategories[0], selectedCategories);
+                    });
+                }
+
                 // Emit event for highlights section to refresh
                 if (window.eventBus) {
                     console.log('Emitting highlight:updated event from highlighting.js');
@@ -1082,6 +1280,25 @@ function toggleModalCategory(category) {
  */
 function removeHighlight(element) {
     if (element && element.parentNode) {
+        // If this mark belongs to a group, remove ALL marks in the group
+        const groupId = element.dataset.highlightGroup;
+        if (groupId) {
+            const groupMarks = document.querySelectorAll(`mark[data-highlight-group="${groupId}"]`);
+            const fullText = Array.from(groupMarks).map(m => m.textContent).join('\n\n');
+            groupMarks.forEach(m => {
+                if (m.parentNode) {
+                    const parent = m.parentNode;
+                    const textNode = document.createTextNode(m.textContent);
+                    parent.replaceChild(textNode, m);
+                    parent.normalize();
+                }
+            });
+            if (window.eventBus) {
+                window.eventBus.emit('highlight:removed', { element, text: fullText });
+            }
+            return;
+        }
+
         const parent = element.parentNode;
         const text = element.textContent;
 
@@ -1160,7 +1377,13 @@ function migrateLegacyHighlights(container = document) {
         if (!element._hasLiveClickListener) {
             element.addEventListener('click', function(e) {
                 e.stopPropagation();
-                editHighlight(this);
+                const gid = this.dataset.highlightGroup;
+                if (gid) {
+                    const primary = document.querySelector(`mark[data-highlight-group="${gid}"]`);
+                    editHighlight(primary || this);
+                } else {
+                    editHighlight(this);
+                }
             });
             element._hasLiveClickListener = true;
             element.style.cursor = 'pointer';
@@ -1192,7 +1415,14 @@ function ensureHighlightClickHandlers(container = document) {
             highlight.addEventListener('click', function(e) {
                 e.stopPropagation();
                 e.preventDefault();
-                editHighlight(this);
+                // For grouped highlights, always open modal for the primary mark
+                const gid = this.dataset.highlightGroup;
+                if (gid) {
+                    const primary = document.querySelector(`mark[data-highlight-group="${gid}"]`);
+                    editHighlight(primary || this);
+                } else {
+                    editHighlight(this);
+                }
             });
             highlight._hasLiveClickListener = true;
             highlight.style.cursor = 'pointer';
@@ -1285,11 +1515,19 @@ document.addEventListener('click', function(e) {
     if (!mark.closest('.formatted-essay-content')) return;
     e.stopPropagation();
     e.preventDefault();
-    editHighlight(mark);
+    // For grouped highlights, always open modal for the primary (first) mark
+    const groupId = mark.dataset.highlightGroup;
+    if (groupId) {
+        const primary = document.querySelector(`mark[data-highlight-group="${groupId}"]`);
+        editHighlight(primary || mark);
+    } else {
+        editHighlight(mark);
+    }
 }, true);
 
 window.HighlightingModule = {
     applyHighlight,
+    applyHighlightAcrossBlocks,
     applyBatchHighlight,
     updateHighlightVisualStyling,
     editHighlight,
