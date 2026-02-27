@@ -226,6 +226,7 @@ class EventDelegation {
         this.registerHandler('manage-profiles', (event, target) => {
             this.handleManageProfiles();
         });
+
     }
 
     // Handler implementations

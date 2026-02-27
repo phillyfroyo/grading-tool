@@ -35,8 +35,12 @@ function createSingleEssayHTML(studentName, formatted) {
         <!-- Highlights and Corrections Section -->
         ${createHighlightsUISection()}
 
-        <div style="margin-top: 20px;">
+        <div style="margin-top: 20px; display: flex; gap: 10px; align-items: center;">
             <button data-action="export-pdf">Export to PDF</button>
+            <button onclick="saveEssayToAccount(this, 0)"
+                    style="background: #28a745; color: white; border: none; padding: 10px 20px; border-radius: 6px; font-size: 15px; cursor: pointer; font-weight: 600; box-shadow: 0 2px 4px rgba(0,0,0,0.1); transition: all 0.2s;"
+                    onmouseover="this.style.background='#218838'; this.style.transform='translateY(-2px)'"
+                    onmouseout="this.style.background='#28a745'; this.style.transform='translateY(0)'">Save Essay</button>
         </div>
     `;
 }
@@ -80,8 +84,9 @@ function createBatchEssayHTML(formatted, index) {
             ${createColorLegend()}
         </div>
 
-        <div style="margin-top: 20px; text-align: center;">
+        <div style="margin-top: 20px; text-align: center; display: flex; justify-content: center; gap: 10px;">
             <button onclick="downloadIndividualEssay(${index})" style="background: #007bff; color: white; border: none; padding: 10px 20px; border-radius: 6px; font-size: 15px; cursor: pointer; font-weight: 600; box-shadow: 0 2px 4px rgba(0,0,0,0.1); transition: all 0.2s;" onmouseover="this.style.background='#0056b3'; this.style.transform='translateY(-2px)'; this.style.boxShadow='0 4px 8px rgba(0,0,0,0.15)'" onmouseout="this.style.background='#007bff'; this.style.transform='translateY(0)'; this.style.boxShadow='0 2px 4px rgba(0,0,0,0.1)'">Export to PDF</button>
+            <button onclick="saveEssayToAccount(this, ${index})" style="background: #28a745; color: white; border: none; padding: 10px 20px; border-radius: 6px; font-size: 15px; cursor: pointer; font-weight: 600; box-shadow: 0 2px 4px rgba(0,0,0,0.1); transition: all 0.2s;" onmouseover="this.style.background='#218838'; this.style.transform='translateY(-2px)'; this.style.boxShadow='0 4px 8px rgba(0,0,0,0.15)'" onmouseout="this.style.background='#28a745'; this.style.transform='translateY(0)'; this.style.boxShadow='0 2px 4px rgba(0,0,0,0.1)'">Save Essay</button>
         </div>
     `;
 }
@@ -1159,3 +1164,123 @@ if (document.readyState === 'loading') {
 
 // Make toggle function globally available
 window.toggleHighlightsSection = toggleHighlightsSection;
+
+/**
+ * Save an essay to the user's account
+ * @param {HTMLElement} btn - The button element clicked
+ * @param {number} essayIndex - Essay index (0 for single, N for batch)
+ */
+async function saveEssayToAccount(btn, essayIndex) {
+    console.log('[SAVE_ESSAY] Save button clicked for essay index:', essayIndex);
+
+    // Prevent double-clicks
+    if (btn.disabled) return;
+    btn.disabled = true;
+    const originalText = btn.textContent;
+    btn.textContent = 'Saving...';
+
+    try {
+        // Get rendered HTML from DOM
+        let renderedHTML = '';
+        const batchDiv = document.getElementById(`batch-essay-${essayIndex}`);
+        const singleContainer = document.getElementById('essayContainer');
+        if (batchDiv) {
+            renderedHTML = batchDiv.innerHTML;
+        } else if (singleContainer) {
+            // For single essay, grab the results div content
+            const resultsDiv = document.getElementById('results');
+            if (resultsDiv) renderedHTML = resultsDiv.innerHTML;
+        }
+
+        if (!renderedHTML) {
+            alert('No essay content found to save.');
+            btn.disabled = false;
+            btn.textContent = originalText;
+            return;
+        }
+
+        // Get essay grading data (JSON)
+        let essayData = null;
+        const essayDataObj = window[`essayData_${essayIndex}`];
+        const batchData = window.SingleResultModule?.getBatchGradingData?.();
+
+        if (essayDataObj) {
+            essayData = essayDataObj;
+        } else if (batchData && batchData[essayIndex]) {
+            essayData = batchData[essayIndex];
+        } else if (window.SingleResultModule) {
+            essayData = {
+                gradingData: window.SingleResultModule.getCurrentGradingData(),
+                originalData: window.SingleResultModule.getCurrentOriginalData()
+            };
+        }
+
+        if (!essayData) {
+            alert('No grading data found to save.');
+            btn.disabled = false;
+            btn.textContent = originalText;
+            return;
+        }
+
+        // Get student name
+        let studentName = '';
+        if (essayDataObj?.originalData?.studentName) {
+            studentName = essayDataObj.originalData.studentName;
+        } else if (essayDataObj?.essay?.studentName) {
+            studentName = essayDataObj.essay.studentName;
+        } else if (batchData?.[essayIndex]?.originalData?.studentName) {
+            studentName = batchData[essayIndex].originalData.studentName;
+        } else if (window.SingleResultModule?.getCurrentOriginalData?.()?.studentName) {
+            studentName = window.SingleResultModule.getCurrentOriginalData().studentName;
+        }
+
+        if (!studentName) {
+            studentName = prompt('Enter student name:');
+            if (!studentName) {
+                btn.disabled = false;
+                btn.textContent = originalText;
+                return;
+            }
+        }
+
+        // Get class profile ID from the active tab's dropdown
+        let classProfileId = null;
+        const activeTab = document.querySelector('.tab-content.active');
+        if (activeTab) {
+            const profileSelect = activeTab.querySelector('select[name="classProfile"]');
+            if (profileSelect) classProfileId = profileSelect.value || null;
+        }
+
+        // POST to API
+        const response = await fetch('/api/saved-essays', {
+            method: 'POST',
+            credentials: 'include',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                classProfileId,
+                studentName,
+                renderedHTML,
+                essayData
+            })
+        });
+
+        const result = await response.json();
+        if (result.success) {
+            btn.textContent = 'Saved!';
+            btn.style.background = '#6c757d';
+            btn.style.cursor = 'default';
+            btn.onmouseover = null;
+            btn.onmouseout = null;
+        } else {
+            throw new Error(result.error || 'Save failed');
+        }
+    } catch (error) {
+        console.error('[SAVE_ESSAY] Error:', error);
+        alert('Failed to save essay: ' + error.message);
+        btn.disabled = false;
+        btn.textContent = originalText;
+    }
+}
+
+// Make save function globally available
+window.saveEssayToAccount = saveEssayToAccount;

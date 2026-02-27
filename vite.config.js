@@ -9,7 +9,7 @@ export default defineConfig({
     rollupOptions: {
       input: {
         main: resolve(__dirname, 'public/index.html'),
-        // Add any additional entry points here
+        account: resolve(__dirname, 'public/account.html'),
       },
       output: {
         // Ensure proper module structure

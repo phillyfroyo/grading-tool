@@ -37,6 +37,7 @@ model users {
   updatedAt               DateTime
   class_profiles          class_profiles[]
   saved_grading_sessions  saved_grading_sessions?
+  saved_essays            saved_essays[]
 }
 
 model saved_grading_sessions {
@@ -47,4 +48,16 @@ model saved_grading_sessions {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
   users       users    @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model saved_essays {
+  id             String   @id @default(cuid())
+  userId         String
+  classProfileId String?
+  studentName    String
+  renderedHTML   String
+  essayData      String
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  users          users    @relation(fields: [userId], references: [id], onDelete: Cascade)
 }

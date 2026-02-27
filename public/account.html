@@ -1,0 +1,245 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>My Essays - ESL Essay Grader</title>
+    <link rel="icon" type="image/png" href="/images/LMGM-favicon.png">
+    <link rel="stylesheet" href="/css/main.css?v=7">
+    <link rel="stylesheet" href="/css/components.css?v=22">
+    <style>
+        body {
+            background: #f5f5f5;
+            margin: 0;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+        }
+        .account-container {
+            max-width: 1100px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        /* Header */
+        .account-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 24px;
+            padding: 12px 0;
+        }
+        .account-header-left {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+        }
+        .account-header-left img {
+            height: 50px;
+        }
+        .account-header-left h1 {
+            font-size: 22px;
+            margin: 0;
+            color: #333;
+        }
+        .back-link {
+            color: #007bff;
+            text-decoration: none;
+            font-size: 14px;
+        }
+        .back-link:hover {
+            text-decoration: underline;
+        }
+        .account-user-menu {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            font-size: 13px;
+            color: #666;
+        }
+        .sign-out-btn {
+            color: #dc3545;
+            background: none;
+            border: 1px solid #dc3545;
+            padding: 4px 12px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 13px;
+        }
+        .sign-out-btn:hover {
+            background: #dc3545;
+            color: white;
+        }
+
+        /* Profile group */
+        .profile-group {
+            margin-bottom: 28px;
+        }
+        .profile-group-header {
+            font-size: 16px;
+            font-weight: 600;
+            color: #495057;
+            margin-bottom: 10px;
+            padding: 8px 14px;
+            background: #e9ecef;
+            border-radius: 6px;
+        }
+
+        /* Essay rows — matches batch-processing.js student-row style */
+        .saved-essay-row {
+            border: 2px solid #ddd;
+            margin: 10px 0;
+            border-radius: 6px;
+            overflow: hidden;
+            background: white;
+        }
+        .saved-essay-header {
+            padding: 12px 18px;
+            background: #f8f9fa;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            font-size: 15px;
+            font-weight: 500;
+            min-height: 40px;
+            border-bottom: 1px solid #ddd;
+            cursor: pointer;
+            transition: background-color 0.2s;
+            user-select: none;
+        }
+        .saved-essay-header:hover {
+            background-color: #e9ecef;
+        }
+        .saved-essay-header-left {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            flex: 1;
+            min-width: 0;
+        }
+        .saved-essay-arrow {
+            font-size: 14px;
+            transition: transform 0.3s;
+            display: inline-block;
+        }
+        .saved-essay-arrow.open {
+            transform: rotate(180deg);
+        }
+        .saved-essay-status {
+            font-size: 18px;
+        }
+        .saved-essay-name {
+            font-weight: 600;
+            color: #333;
+            font-size: 16px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        .saved-essay-date {
+            font-size: 13px;
+            color: #999;
+            white-space: nowrap;
+            margin-left: 8px;
+        }
+        .saved-essay-header-right {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            flex-shrink: 0;
+        }
+        .saved-essay-delete-btn {
+            background: none;
+            border: 1px solid #dc3545;
+            color: #dc3545;
+            padding: 6px 12px;
+            border-radius: 4px;
+            font-size: 13px;
+            cursor: pointer;
+            font-weight: 500;
+        }
+        .saved-essay-delete-btn:hover {
+            background: #dc3545;
+            color: white;
+        }
+        .saved-essay-download-btn {
+            background: #007bff;
+            color: white;
+            border: none;
+            padding: 8px 14px;
+            border-radius: 6px;
+            font-size: 14px;
+            cursor: pointer;
+            white-space: nowrap;
+            font-weight: 600;
+        }
+        .saved-essay-download-btn:hover {
+            background: #0056b3;
+        }
+
+        /* Collapsible content */
+        .saved-essay-content {
+            max-height: 0;
+            overflow: hidden;
+            transition: max-height 0.3s ease-out;
+            background: white;
+        }
+        .saved-essay-content-inner {
+            padding: 12px;
+        }
+
+        /* Empty / loading states */
+        .empty-state {
+            text-align: center;
+            padding: 60px 20px;
+            color: #999;
+        }
+        .empty-state p {
+            font-size: 18px;
+            margin-bottom: 8px;
+        }
+        .empty-state small {
+            font-size: 14px;
+        }
+        .loading-state {
+            text-align: center;
+            padding: 40px;
+            color: #666;
+        }
+
+        /* Highlight tooltip */
+        .account-highlight-tooltip {
+            position: fixed;
+            z-index: 3000;
+            background: white;
+            border: 1px solid #dee2e6;
+            border-radius: 8px;
+            box-shadow: 0 4px 16px rgba(0,0,0,0.15);
+            padding: 12px;
+            max-width: 300px;
+            font-size: 14px;
+        }
+    </style>
+</head>
+<body>
+    <div class="account-container">
+        <div class="account-header">
+            <div class="account-header-left">
+                <img src="/images/LMGM.svg" alt="LMGM">
+                <div>
+                    <h1>My Essays</h1>
+                    <a href="/" class="back-link">&larr; Back to Grading Tool</a>
+                </div>
+            </div>
+            <div class="account-user-menu">
+                <span id="userEmail">Loading...</span>
+                <button class="sign-out-btn" onclick="signOut()">Sign Out</button>
+            </div>
+        </div>
+
+        <div id="essaysContent">
+            <div class="loading-state">Loading your saved essays...</div>
+        </div>
+    </div>
+
+    <script src="/js/account.js"></script>
+</body>
+</html>

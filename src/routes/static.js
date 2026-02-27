@@ -19,6 +19,14 @@ router.get('/login', (req, res) => {
   res.sendFile(path.join(process.cwd(), 'public', 'login.html'));
 });
 
+// Account page (require authentication)
+router.get('/account', requireAuth, (req, res) => {
+  res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+  res.setHeader('Pragma', 'no-cache');
+  res.setHeader('Expires', '0');
+  res.sendFile(path.join(process.cwd(), 'public', 'account.html'));
+});
+
 // Serve the main grading interface (require authentication)
 router.get('/', requireAuth, (req, res) => {
   // Prevent caching of HTML to ensure users always get latest version
