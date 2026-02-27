@@ -916,6 +916,7 @@ function generateFeedbackSummary(scores, total, meta, teacherNotes, encouragemen
                       data-category="${category}"
                       placeholder="Add notes..."
                       rows="1"
+                      spellcheck="true"
                       style="flex: 1; min-height: 34px; border: 1px solid #ddd; border-radius: 4px; padding: 8px 10px; resize: none; font-family: inherit; font-size: 14px; line-height: 1.4; overflow-y: hidden; background: white; box-sizing: border-box; ${hasRationale ? 'text-decoration: line-through; opacity: 0.6;' : ''}">${escapeHtml(details.rationale || '')}</textarea>
             ${hasRationale ? `
             <button class="toggle-note-pdf-btn no-print"

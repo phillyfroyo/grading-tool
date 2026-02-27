@@ -12,6 +12,7 @@
     document.body.appendChild(tip);
 
     document.addEventListener('mouseenter', function(e) {
+        if (!e.target || !e.target.closest) return;
         const mark = e.target.closest('mark[data-category]');
         if (!mark || mark.closest('#editModal')) return;
         const correction = mark.dataset.correction || mark.dataset.message || '';
@@ -29,6 +30,7 @@
     }, true);
 
     document.addEventListener('mouseleave', function(e) {
+        if (!e.target || !e.target.closest) return;
         const mark = e.target.closest('mark[data-category]');
         if (!mark) return;
         tip.style.opacity = '0';
@@ -1275,6 +1277,7 @@ function getElementTextPosition(element) {
 // This catches clicks on ANY mark element with data-category, even if the
 // direct addEventListener was lost during innerHTML save/restore cycles.
 document.addEventListener('click', function(e) {
+    if (!e.target || !e.target.closest) return;
     const mark = e.target.closest('mark[data-category], mark[class*="highlight"]');
     if (!mark) return;
     // Only handle clicks inside essay containers, not inside the edit modal preview
