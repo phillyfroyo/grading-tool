@@ -648,7 +648,7 @@
             if (window.HighlightingModule) {
                 if (essayContainer) {
                     const highlights = essayContainer.querySelectorAll(
-                        'span[style*="background"], span[class*="highlight"], span[style*="color"], mark[data-type], mark.highlighted-segment'
+                        'span[style*="background"], span[class*="highlight"], span[style*="color"], mark[data-type], mark.highlighted-segment, mark[data-category]'
                     );
                     highlights.forEach(function (element) {
                         element.style.cursor = 'pointer';

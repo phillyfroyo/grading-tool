@@ -545,7 +545,7 @@ function rebuildHighlightBoundaries(oldMark, newStart, newEnd, container) {
         e.stopPropagation();
         editHighlight(this);
     });
-    newMark.dataset.hasClickListener = 'true';
+    newMark._hasLiveClickListener = true;
 
     // ── 7. Emit event for auto-save ──
     if (window.eventBus) {
@@ -615,8 +615,6 @@ function showHighlightEditModal(element, currentCategories) {
 
         // Reset resize flag
         modal.dataset.highlightResized = '';
-
-        renderResizePreview();
     }
 
     // COMPLETE modal reset to prevent any interference between highlights
@@ -636,6 +634,11 @@ function showHighlightEditModal(element, currentCategories) {
 
     // Set current categories for this specific edit session
     modal.dataset.selectedCategories = currentCategories.join(',');
+
+    // Now render the preview with correct categories set
+    if (highlightedTextDisplay) {
+        renderResizePreview();
+    }
 
     // Store reference to the element being edited (AFTER clearing state)
     modal.dataset.editingElement = element.id;
@@ -1059,13 +1062,13 @@ function migrateLegacyHighlights(container = document) {
             }
         }
 
-        // Ensure click handler is attached
-        if (!element.onclick && !element.dataset.hasClickListener) {
+        // Ensure click handler is attached (use JS expando, not data attribute)
+        if (!element._hasLiveClickListener) {
             element.addEventListener('click', function(e) {
                 e.stopPropagation();
                 editHighlight(this);
             });
-            element.dataset.hasClickListener = 'true';
+            element._hasLiveClickListener = true;
             element.style.cursor = 'pointer';
         }
     });
@@ -1088,13 +1091,16 @@ function ensureHighlightClickHandlers(container = document) {
             }
         }
 
-        if (!highlight.dataset.hasClickListener) {
+        // Use a JS-only expando (not a data attribute) to track live listeners.
+        // data-has-click-listener persists in saved HTML but the actual JS listener
+        // is lost on innerHTML restore, so we can't trust the data attribute.
+        if (!highlight._hasLiveClickListener) {
             highlight.addEventListener('click', function(e) {
                 e.stopPropagation();
                 e.preventDefault();
                 editHighlight(this);
             });
-            highlight.dataset.hasClickListener = 'true';
+            highlight._hasLiveClickListener = true;
             highlight.style.cursor = 'pointer';
             // Build tooltip showing both correction and explanation
             const correction = highlight.dataset.correction || highlight.dataset.message || '';
@@ -1181,6 +1187,20 @@ function getElementTextPosition(element) {
 }
 
 // Export functions for module usage
+// ── Delegated click handler (safety net for highlights that lost their listeners) ──
+// This catches clicks on ANY mark element with data-category, even if the
+// direct addEventListener was lost during innerHTML save/restore cycles.
+document.addEventListener('click', function(e) {
+    const mark = e.target.closest('mark[data-category], mark[class*="highlight"]');
+    if (!mark) return;
+    // Only handle clicks inside essay containers, not inside the edit modal preview
+    if (mark.closest('#editModal')) return;
+    if (!mark.closest('.formatted-essay-content')) return;
+    e.stopPropagation();
+    e.preventDefault();
+    editHighlight(mark);
+}, true);
+
 window.HighlightingModule = {
     applyHighlight,
     applyBatchHighlight,
