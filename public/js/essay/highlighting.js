@@ -224,6 +224,342 @@ function editBatchHighlight(element, essayIndex) {
     editHighlight(element);
 }
 
+// ── Resize-handle state (module-level) ──────────────────────────────────────
+let _resizeState = {
+    fullText: '',
+    elementStart: 0,
+    elementEnd: 0,
+    originalStart: 0,
+    originalEnd: 0,
+    container: null,
+    element: null,
+    isDragging: false,
+    activeHandle: null  // 'left' | 'right'
+};
+
+/**
+ * Escape HTML special characters
+ */
+function _escHTML(str) {
+    const d = document.createElement('div');
+    d.textContent = str;
+    return d.innerHTML;
+}
+
+/**
+ * Render the resizable preview inside #highlightedTextDisplay.
+ * Words in context are wrapped in <span class="resize-word" data-char-offset="N">.
+ * Drag handles appear at the edges of the highlighted region.
+ */
+function renderResizePreview() {
+    const display = document.getElementById('highlightedTextDisplay');
+    if (!display) return;
+
+    const { fullText, elementStart, elementEnd, element } = _resizeState;
+
+    // Use generous context — enough that off-screen chars are available for dragging
+    const CONTEXT = 300;
+    let ctxStart = Math.max(0, elementStart - CONTEXT);
+    let ctxEnd   = Math.min(fullText.length, elementEnd + CONTEXT);
+
+    const leadingText  = fullText.substring(ctxStart, elementStart);
+    const highlightTxt = fullText.substring(elementStart, elementEnd);
+    const trailingText = fullText.substring(elementEnd, ctxEnd);
+
+    // ── Category style map ──
+    const catStyles = {
+        grammar:    'background:rgba(255,140,0,0.3);color:#FF8C00;',
+        vocabulary: 'background:rgba(0,163,108,0.3);color:#00A36C;',
+        mechanics:  'background:#D3D3D3;color:#000;',
+        spelling:   'background:rgba(220,20,60,0.3);color:#DC143C;',
+        fluency:    'background:#87CEEB;color:#000;',
+        delete:     'text-decoration:line-through;color:#000;font-weight:bold;'
+    };
+
+    // ── Build style for the active highlight (use modal's live category selection) ──
+    const modal = document.getElementById('editModal');
+    const modalCats = modal && modal.dataset.selectedCategories
+        ? modal.dataset.selectedCategories.split(',').filter(c => c.trim()) : [];
+    const categories = modalCats.length > 0 ? modalCats
+        : (element ? (element.dataset.category || '').split(',').filter(c => c.trim()) : []);
+    const primaryCat = categories[0] || 'grammar';
+    let markStyle = catStyles[primaryCat] || '';
+
+    // Multi-category: add secondary category indicators (matches updateHighlightVisualStyling)
+    if (categories.length > 1) {
+        const secondaryCat = categories[1];
+        const secondaryColors = {
+            grammar: '#FF8C00', vocabulary: '#00A36C', mechanics: '#000',
+            spelling: '#DC143C', fluency: '#000', delete: '#000'
+        };
+        const secColor = secondaryColors[secondaryCat] || '#666';
+        markStyle += `border-bottom:2px dashed ${secColor};box-shadow:inset 0 0 0 1px ${secColor};`;
+    }
+
+    // ── Helper: wrap every character in a hit-target span ──
+    function wrapChars(text, baseOffset) {
+        if (!text) return '';
+        let html = '';
+        for (let i = 0; i < text.length; i++) {
+            html += `<span class="resize-word" data-char-offset="${baseOffset + i}">${_escHTML(text[i])}</span>`;
+        }
+        return html;
+    }
+
+    // ── Assemble HTML ──
+    let html = '';
+    if (ctxStart > 0) html += '<span style="color:#aaa;">\u2026</span>';
+    html += wrapChars(leadingText, ctxStart);
+    html += `<mark class="resizable-highlight" style="${markStyle} cursor:default;">`;
+    html += `<span class="highlight-handle highlight-handle-left highlight-handle-edge" title="Drag to resize"></span>`;
+    html += `<span class="highlight-handle highlight-handle-left highlight-handle-dot" title="Drag to resize"></span>`;
+    html += wrapChars(highlightTxt, elementStart);
+    html += `<span class="highlight-handle highlight-handle-right highlight-handle-dot" title="Drag to resize"></span>`;
+    html += `<span class="highlight-handle highlight-handle-right highlight-handle-edge" title="Drag to resize"></span>`;
+    html += `</mark>`;
+    html += wrapChars(trailingText, elementEnd);
+    if (ctxEnd < fullText.length) html += '<span style="color:#aaa;">\u2026</span>';
+
+    display.innerHTML = html;
+
+    // Scroll so the highlight is centered in view (deferred to ensure layout is computed,
+    // especially when modal was just made visible after page refresh)
+    requestAnimationFrame(() => {
+        const mark = display.querySelector('mark.resizable-highlight');
+        if (mark) {
+            const markCenter = mark.offsetLeft + mark.offsetWidth / 2;
+            display.scrollLeft = markCenter - display.clientWidth / 2;
+        }
+    });
+
+    setupResizeHandles();
+}
+
+/**
+ * Attach drag events to the two handle elements inside #highlightedTextDisplay.
+ */
+function setupResizeHandles() {
+    const display = document.getElementById('highlightedTextDisplay');
+    if (!display) return;
+
+    const leftHandles  = display.querySelectorAll('.highlight-handle-left');
+    const rightHandles = display.querySelectorAll('.highlight-handle-right');
+
+    function onStart(side, e) {
+        e.preventDefault();
+        _resizeState.isDragging = true;
+        _resizeState.activeHandle = side;
+        // Add dragging class to all elements on this side
+        display.querySelectorAll(`.highlight-handle-${side}`).forEach(el => el.classList.add('dragging'));
+        document.addEventListener('mousemove', onMove, true);
+        document.addEventListener('mouseup', onEnd, true);
+        document.addEventListener('touchmove', onTouchMove, { passive: false, capture: true });
+        document.addEventListener('touchend', onEnd, true);
+    }
+
+    function clientPos(e) {
+        if (e.touches && e.touches.length) return { x: e.touches[0].clientX, y: e.touches[0].clientY };
+        return { x: e.clientX, y: e.clientY };
+    }
+
+    let _scrollRAF = null;
+
+    function edgeScroll(e) {
+        // Gently scroll when cursor is within 30px of the display edges
+        const rect = display.getBoundingClientRect();
+        const { x } = clientPos(e);
+        const EDGE = 30;
+        const SPEED = 3;
+
+        if (x < rect.left + EDGE) {
+            display.scrollLeft -= SPEED;
+        } else if (x > rect.right - EDGE) {
+            display.scrollLeft += SPEED;
+        }
+    }
+
+    function findNearestWord(cursorX) {
+        // Find the .resize-word whose horizontal center is closest to cursorX
+        const words = display.querySelectorAll('.resize-word');
+        let best = null;
+        let bestDist = Infinity;
+        for (const w of words) {
+            const rect = w.getBoundingClientRect();
+            const center = rect.left + rect.width / 2;
+            const dist = Math.abs(cursorX - center);
+            if (dist < bestDist) {
+                bestDist = dist;
+                best = w;
+            }
+        }
+        return best;
+    }
+
+    function onMove(e) {
+        if (!_resizeState.isDragging) return;
+        const { x, y } = clientPos(e);
+
+        // Gentle edge scrolling
+        edgeScroll(e);
+
+        // Try elementFromPoint first (fast path), fall back to nearest by X
+        let el = document.elementFromPoint(x, y);
+        if (!el || !el.classList.contains('resize-word')) {
+            el = findNearestWord(x);
+        }
+        if (!el) return;
+
+        const wordOffset = parseInt(el.dataset.charOffset, 10);
+        const wordLen    = el.textContent.length;
+
+        if (_resizeState.activeHandle === 'left') {
+            const newStart = wordOffset;
+            if (newStart < _resizeState.elementEnd) {
+                _resizeState.elementStart = newStart;
+                renderResizePreview();
+            }
+        } else {
+            const newEnd = wordOffset + wordLen;
+            if (newEnd > _resizeState.elementStart) {
+                _resizeState.elementEnd = newEnd;
+                renderResizePreview();
+            }
+        }
+    }
+
+    function onTouchMove(e) {
+        e.preventDefault();
+        onMove(e);
+    }
+
+    function onEnd() {
+        _resizeState.isDragging = false;
+        display.querySelectorAll('.highlight-handle.dragging').forEach(el => el.classList.remove('dragging'));
+        document.removeEventListener('mousemove', onMove, true);
+        document.removeEventListener('mouseup', onEnd, true);
+        document.removeEventListener('touchmove', onTouchMove, true);
+        document.removeEventListener('touchend', onEnd, true);
+
+        // Mark as resized if boundaries changed
+        if (_resizeState.elementStart !== _resizeState.originalStart ||
+            _resizeState.elementEnd   !== _resizeState.originalEnd) {
+            const modal = document.getElementById('editModal');
+            if (modal) modal.dataset.highlightResized = 'true';
+        }
+    }
+
+    leftHandles.forEach(h => {
+        h.addEventListener('mousedown', (e) => onStart('left', e));
+        h.addEventListener('touchstart', (e) => { e.preventDefault(); onStart('left', e); }, { passive: false });
+    });
+    rightHandles.forEach(h => {
+        h.addEventListener('mousedown', (e) => onStart('right', e));
+        h.addEventListener('touchstart', (e) => { e.preventDefault(); onStart('right', e); }, { passive: false });
+    });
+}
+
+/**
+ * After user resizes a highlight, rebuild the <mark> in the actual essay DOM
+ * with the new text boundaries.
+ */
+function rebuildHighlightBoundaries(oldMark, newStart, newEnd, container) {
+    // ── 1. Gather data from old mark ──
+    const dataset = { ...oldMark.dataset };
+    const categories = (dataset.category || '').split(',').filter(c => c.trim());
+    const primaryCat = categories[0] || 'grammar';
+    const oldId = oldMark.id;
+
+    // ── 2. Unwrap old mark (replace with its childNodes) ──
+    const parent = oldMark.parentNode;
+    while (oldMark.firstChild) {
+        parent.insertBefore(oldMark.firstChild, oldMark);
+    }
+    parent.removeChild(oldMark);
+    parent.normalize();  // merge adjacent text nodes
+
+    // ── 3. Walk text nodes to locate new start/end positions ──
+    function findPosition(root, targetOffset) {
+        const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, null, false);
+        let charCount = 0;
+        let node;
+        while ((node = walker.nextNode())) {
+            const nodeLen = node.textContent.length;
+            if (charCount + nodeLen > targetOffset) {
+                return { node, offset: targetOffset - charCount };
+            }
+            charCount += nodeLen;
+        }
+        // Edge case: exact end of container
+        const walker2 = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, null, false);
+        let lastNode = null;
+        while ((node = walker2.nextNode())) lastNode = node;
+        if (lastNode) return { node: lastNode, offset: lastNode.textContent.length };
+        return null;
+    }
+
+    const startPos = findPosition(container, newStart);
+    const endPos   = findPosition(container, newEnd);
+    if (!startPos || !endPos) {
+        console.error('Could not find text positions for resized highlight');
+        return null;
+    }
+
+    // ── 4. Create range and wrap in new mark ──
+    const range = document.createRange();
+    range.setStart(startPos.node, startPos.offset);
+    range.setEnd(endPos.node, endPos.offset);
+
+    const newMark = document.createElement('mark');
+    newMark.id = oldId;
+    newMark.className = `highlight-${primaryCat}`;
+    newMark.style.cursor = 'pointer';
+
+    // Copy all data attributes
+    for (const [key, value] of Object.entries(dataset)) {
+        newMark.dataset[key] = value;
+    }
+    // Update original text to the new selection
+    newMark.dataset.originalText = range.toString();
+
+    try {
+        range.surroundContents(newMark);
+    } catch (err) {
+        console.log('surroundContents failed in resize, using extractContents');
+        const extracted = range.extractContents();
+        newMark.appendChild(extracted);
+        range.insertNode(newMark);
+    }
+
+    // ── 5. Re-apply visual styling ──
+    updateHighlightVisualStyling(newMark, primaryCat, categories);
+
+    // Build tooltip
+    const correction  = newMark.dataset.correction || '';
+    const explanation  = newMark.dataset.explanation || '';
+    let tooltip = `Correction: ${correction || 'None'}`;
+    tooltip += explanation ? `\nExplanation: ${explanation}` : '\nExplanation: None';
+    newMark.title = tooltip;
+
+    // ── 6. Re-attach click handler ──
+    newMark.addEventListener('click', function(e) {
+        e.stopPropagation();
+        editHighlight(this);
+    });
+    newMark.dataset.hasClickListener = 'true';
+
+    // ── 7. Emit event for auto-save ──
+    if (window.eventBus) {
+        window.eventBus.emit('highlight:updated', {
+            element: newMark,
+            categories,
+            correction: newMark.dataset.correction,
+            explanation: newMark.dataset.explanation
+        });
+    }
+
+    return newMark;
+}
+
 /**
  * Show highlight edit modal
  * @param {HTMLElement} element - Highlight element
@@ -250,10 +586,37 @@ function showHighlightEditModal(element, currentCategories) {
         return;
     }
 
-    // Display the highlighted text
+    // Display the highlighted text with surrounding context + resize handles
     if (highlightedTextDisplay) {
-        const originalText = element.dataset.originalText || element.textContent || '';
-        highlightedTextDisplay.textContent = originalText;
+        const container = element.closest('.formatted-essay-content') || element.parentElement;
+        const fullText = container.textContent || '';
+        const elementText = element.textContent || '';
+
+        // Compute position via Range (original reliable approach)
+        let elementStart = -1;
+        try {
+            const range = document.createRange();
+            range.selectNodeContents(container);
+            range.setEnd(element, 0);
+            elementStart = range.toString().length;
+        } catch (e) {
+            elementStart = fullText.indexOf(elementText);
+        }
+        const elementEnd = elementStart !== -1 ? elementStart + elementText.length : 0;
+
+        // Populate module-level state for resize
+        _resizeState.fullText      = fullText;
+        _resizeState.elementStart  = elementStart;
+        _resizeState.elementEnd    = elementEnd;
+        _resizeState.originalStart = elementStart;
+        _resizeState.originalEnd   = elementEnd;
+        _resizeState.container     = container;
+        _resizeState.element       = element;
+
+        // Reset resize flag
+        modal.dataset.highlightResized = '';
+
+        renderResizePreview();
     }
 
     // COMPLETE modal reset to prevent any interference between highlights
@@ -443,6 +806,22 @@ function showHighlightEditModal(element, currentCategories) {
                     });
                 }
 
+                // ── Resize: rebuild DOM boundaries if the user dragged handles ──
+                if (modal.dataset.highlightResized === 'true' && _resizeState.container) {
+                    console.log('🔄 Rebuilding highlight boundaries after resize');
+                    const newMark = rebuildHighlightBoundaries(
+                        element,
+                        _resizeState.elementStart,
+                        _resizeState.elementEnd,
+                        _resizeState.container
+                    );
+                    if (newMark) {
+                        // Update the editing reference so subsequent saves reference the new element
+                        modal.dataset.editingElement = newMark.id;
+                    }
+                    modal.dataset.highlightResized = '';
+                }
+
                 console.log('✅ Save completed');
             }
             modal.style.display = 'none';
@@ -491,6 +870,16 @@ function showHighlightEditModal(element, currentCategories) {
     modal.dataset.modalOpenTime = Date.now().toString();
     modal.style.display = 'block';
     modal.style.zIndex = '1000';
+
+    // Center the highlight in the preview now that the modal is visible and has layout
+    requestAnimationFrame(() => {
+        const htd = document.getElementById('highlightedTextDisplay');
+        const mark = htd && htd.querySelector('mark.resizable-highlight');
+        if (htd && mark) {
+            const markCenter = mark.offsetLeft + mark.offsetWidth / 2;
+            htd.scrollLeft = markCenter - htd.clientWidth / 2;
+        }
+    });
 
     // Ensure modal is visible and clickable
     const backdrop = modal.querySelector('.modal-content') || modal;
@@ -566,6 +955,11 @@ function toggleModalCategory(category) {
                 }
             }
         }
+    }
+
+    // Update the preview highlight color in real-time
+    if (_resizeState.element) {
+        renderResizePreview();
     }
 }
 
@@ -789,5 +1183,7 @@ window.HighlightingModule = {
     mapLegacyCategory,
     exportHighlightsData,
     importHighlightsData,
-    getElementTextPosition
+    getElementTextPosition,
+    renderResizePreview,
+    rebuildHighlightBoundaries
 };
