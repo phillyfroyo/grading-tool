@@ -820,7 +820,8 @@ function createHighlightsLegend(highlightsData) {
         if (highlight.correction &&
             highlight.correction.trim() !== '' &&
             !highlight.correction.includes('**no notes have been entered**')) {
-            feedbackHTML += `<div class="correction-text"><strong>Correction:</strong> ${highlight.correction}</div>`;
+            const safeCorr = highlight.correction.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/\n/g,'<br>');
+            feedbackHTML += `<div class="correction-text"><strong>Correction:</strong> ${safeCorr}</div>`;
         }
 
         // Add explanation if it exists and is meaningful (must be non-empty and different from correction)
@@ -830,7 +831,8 @@ function createHighlightsLegend(highlightsData) {
             !highlight.explanation.includes('**no notes have been entered**');
 
         if (hasExplanation) {
-            feedbackHTML += `<div class="correction-text"><strong>Explanation:</strong> ${highlight.explanation}</div>`;
+            const safeExpl = highlight.explanation.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/\n/g,'<br>');
+            feedbackHTML += `<div class="correction-text"><strong>Explanation:</strong> ${safeExpl}</div>`;
         }
 
 

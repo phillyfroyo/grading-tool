@@ -707,14 +707,16 @@ function createHighlightsLegendHTML(highlightsData) {
                 .replace(/</g, '&lt;')
                 .replace(/>/g, '&gt;')
                 .replace(/"/g, '&quot;')
-                .replace(/'/g, '&#039;');
+                .replace(/'/g, '&#039;')
+                .replace(/\n/g, '<br>');
 
             const safeExplanation = explanation
                 .replace(/&/g, '&amp;')
                 .replace(/</g, '&lt;')
                 .replace(/>/g, '&gt;')
                 .replace(/"/g, '&quot;')
-                .replace(/'/g, '&#039;');
+                .replace(/'/g, '&#039;')
+                .replace(/\n/g, '<br>');
 
             if (correction.trim() !== '' && !correction.includes('**no notes have been entered**')) {
                 feedbackHTML += `<div style="margin-top: 8px; font-style: italic; color: #555; padding-left: 20px;"><strong>Correction:</strong> ${safeCorrection}</div>`;
