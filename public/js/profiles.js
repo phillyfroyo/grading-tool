@@ -244,7 +244,7 @@ function createProfileFormHTML(profileId) {
         <h4>${title}</h4>
         <form id="${formId}" data-profile-id="${isNew ? '' : profileId}">
             <!-- Scrollable Content Area -->
-            <div style="max-height: 600px; overflow-y: auto; padding: 15px; border: 1px solid #e0e0e0; border-radius: 4px; margin-bottom: 15px; background: #fafafa;">
+            <div style="max-height: 600px; overflow-y: auto; padding: 15px 60px; border: 1px solid #e0e0e0; border-radius: 4px; margin-bottom: 15px; background: #fafafa;">
                 <div style="margin-bottom: 15px;">
                     <label for="profileName-${profileId}">Profile Name:</label>
                     <input type="text" id="profileName-${profileId}" name="name" required style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
@@ -265,28 +265,28 @@ function createProfileFormHTML(profileId) {
 
                 <div style="margin-bottom: 15px;">
                     <label for="profileVocab-${profileId}">Target Vocabulary (one per line):
-                        <span class="info-icon" title="Paste the vocab taught in class into the box below. GPT will take this into consideration when grading essays." style="display: inline-block; width: 20px; height: 20px; border-radius: 50%; background: lightgray; color: white; text-align: center; line-height: 20px; font-size: 14px; font-style: italic; cursor: help; margin-left: 5px;">i</span>
+                        <span class="info-icon" data-tooltip="Paste the vocab taught in class into the box below. GPT will take this into consideration when grading essays." style="display: inline-block; width: 20px; height: 20px; border-radius: 50%; background: lightgray; color: white; text-align: center; line-height: 20px; font-size: 14px; font-style: italic; cursor: pointer; margin-left: 5px; position: relative;">i</span>
                     </label>
                     <textarea id="profileVocab-${profileId}" name="vocabulary" rows="16" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px; resize: vertical; min-height: 320px; max-height: 800px;" placeholder="Enter vocabulary words, one per line"></textarea>
                 </div>
 
                 <div style="margin-bottom: 15px;">
                     <label for="profileGrammar-${profileId}">Target Grammar Structures (one per line):
-                        <span class="info-icon" title="Paste the grammar taught in class into the box below. GPT will take this into consideration when grading essays." style="display: inline-block; width: 20px; height: 20px; border-radius: 50%; background: lightgray; color: white; text-align: center; line-height: 20px; font-size: 14px; font-style: italic; cursor: help; margin-left: 5px;">i</span>
+                        <span class="info-icon" data-tooltip="Paste the grammar taught in class into the box below. GPT will take this into consideration when grading essays." style="display: inline-block; width: 20px; height: 20px; border-radius: 50%; background: lightgray; color: white; text-align: center; line-height: 20px; font-size: 14px; font-style: italic; cursor: pointer; margin-left: 5px; position: relative;">i</span>
                     </label>
                     <textarea id="profileGrammar-${profileId}" name="grammar" rows="16" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px; resize: vertical; min-height: 320px; max-height: 800px;" placeholder="Enter grammar structures, one per line"></textarea>
                 </div>
 
                 <div style="margin-bottom: 15px;">
                     <label for="profilePrompt-${profileId}">Custom Grading Prompt (optional):
-                        <span class="info-icon" title="In this section, paste the prompt provided to the students during the exam. GPT will take this into consideration when grading essays." style="display: inline-block; width: 20px; height: 20px; border-radius: 50%; background: lightgray; color: white; text-align: center; line-height: 20px; font-size: 14px; font-style: italic; cursor: help; margin-left: 5px;">i</span>
+                        <span class="info-icon" data-tooltip="In this section, paste the prompt provided to the students during the exam. GPT will take this into consideration when grading essays." style="display: inline-block; width: 20px; height: 20px; border-radius: 50%; background: lightgray; color: white; text-align: center; line-height: 20px; font-size: 14px; font-style: italic; cursor: pointer; margin-left: 5px; position: relative;">i</span>
                     </label>
                     <textarea id="profilePrompt-${profileId}" name="prompt" rows="12" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px; resize: vertical; min-height: 240px; max-height: 600px;" placeholder="Enter custom grading instructions (leave blank to use default)"></textarea>
                 </div>
 
                 <div style="margin-bottom: 15px;">
                     <label for="profileTemperature-${profileId}">Temperature: <span id="profileTemperatureValue-${profileId}">0</span>
-                        <span class="info-icon" title="Temperature control adjusts how harsh/merciful the grade output is relative to the grading rubric. To find the right temperature, we recommend testing a few essays that you've graded manually in the past and play around with different temperature settings until the app provides grades similar to how you grade manually." style="display: inline-block; width: 20px; height: 20px; border-radius: 50%; background: lightgray; color: white; text-align: center; line-height: 20px; font-size: 14px; font-style: italic; cursor: help; margin-left: 5px;">i</span>
+                        <span class="info-icon" data-tooltip="Temperature control adjusts how merciful/harsh the grade output is relative to the grading rubric. At a temperature of 0, the AI grades strictly to the rubric. Each increment of 0.5 will add or subtract 5 points out of 100. For example, if the AI returns a 50/100 and you set the temperature to 0.5, the algorithm adjusts it to 55/100. At a temperature of 3.0, that same essay becomes 80/100." style="display: inline-block; width: 20px; height: 20px; border-radius: 50%; background: lightgray; color: white; text-align: center; line-height: 20px; font-size: 14px; font-style: italic; cursor: pointer; margin-left: 5px; position: relative;">i</span>
                     </label>
                     <input type="range" id="profileTemperature-${profileId}" name="temperature" min="-5" max="5" step="0.5" value="0" style="width: 100%;" oninput="updateTemperatureDisplay('${profileId}', this.value)">
                     <div style="display: flex; justify-content: space-between; margin-top: 5px; color: #666; font-size: 12px;">
@@ -670,6 +670,29 @@ async function initializeProfiles() {
             updateProfileTemperatureDisplay(e.target.value);
         });
     }
+
+    // Click-to-show tooltips for .info-icon elements (replaces slow native title hover)
+    document.addEventListener('click', function(e) {
+        const icon = e.target.closest('.info-icon[data-tooltip]');
+
+        // Close any open tooltip if clicking elsewhere
+        const existing = document.querySelector('.info-tooltip-popup');
+        if (existing) existing.remove();
+
+        if (!icon) return;
+        e.preventDefault();
+        e.stopPropagation();
+
+        const popup = document.createElement('div');
+        popup.className = 'info-tooltip-popup';
+        popup.textContent = icon.dataset.tooltip;
+        popup.style.cssText =
+            'position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);' +
+            'background:#333;color:#fff;padding:14px 18px;border-radius:6px;font-size:14px;' +
+            'font-style:normal;font-weight:400;line-height:1.6;width:320px;z-index:10000;' +
+            'box-shadow:0 4px 12px rgba(0,0,0,0.2);pointer-events:auto;';
+        document.body.appendChild(popup);
+    });
 }
 
 /**
