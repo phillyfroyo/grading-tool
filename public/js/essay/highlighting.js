@@ -3,6 +3,45 @@
  * Handles text highlighting functionality for essays
  */
 
+// ── Instant custom tooltip (replaces slow native title tooltips) ──
+(function initHighlightTooltip() {
+    if (document.getElementById('highlight-tooltip')) return;
+    const tip = document.createElement('div');
+    tip.id = 'highlight-tooltip';
+    tip.style.cssText = 'position:fixed;z-index:10000;background:#333;color:#fff;padding:6px 10px;border-radius:6px;font-size:13px;line-height:1.4;max-width:300px;pointer-events:none;opacity:0;transition:opacity 0.1s;white-space:pre-wrap;box-shadow:0 2px 8px rgba(0,0,0,0.25);';
+    document.body.appendChild(tip);
+
+    document.addEventListener('mouseenter', function(e) {
+        const mark = e.target.closest('mark[data-category]');
+        if (!mark || mark.closest('#editModal')) return;
+        const correction = mark.dataset.correction || mark.dataset.message || '';
+        const explanation = mark.dataset.explanation || '';
+        if (!correction && !explanation) return;
+        let text = 'Correction: ' + (correction || 'None');
+        text += '\nExplanation: ' + (explanation || 'None');
+        tip.textContent = text;
+        tip.style.opacity = '1';
+        positionTip(e);
+    }, true);
+
+    document.addEventListener('mousemove', function(e) {
+        if (tip.style.opacity === '1') positionTip(e);
+    }, true);
+
+    document.addEventListener('mouseleave', function(e) {
+        const mark = e.target.closest('mark[data-category]');
+        if (!mark) return;
+        tip.style.opacity = '0';
+    }, true);
+
+    function positionTip(e) {
+        const x = e.clientX + 12;
+        const y = e.clientY + 16;
+        tip.style.left = Math.min(x, window.innerWidth - tip.offsetWidth - 8) + 'px';
+        tip.style.top = Math.min(y, window.innerHeight - tip.offsetHeight - 8) + 'px';
+    }
+})();
+
 /**
  * Get category data including color and display information
  * @param {string} category - Category name
@@ -33,16 +72,6 @@ function applyHighlight(range, text, category) {
         mark.dataset.category = category;
         mark.dataset.originalText = text;
         mark.style.cursor = 'pointer';
-        // Build tooltip showing both correction and explanation
-        const correction = mark.dataset.correction || mark.dataset.message || '';
-        const explanation = mark.dataset.explanation || '';
-        let tooltip = `Correction: ${correction || 'None'}`;
-        if (explanation) {
-            tooltip += `\nExplanation: ${explanation}`;
-        } else {
-            tooltip += `\nExplanation: None`;
-        }
-        mark.title = tooltip;
 
         // Add unique ID for modal reference
         mark.id = `highlight-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
@@ -104,16 +133,6 @@ function applyBatchHighlight(range, text, category, essayIndex) {
         mark.dataset.originalText = text;
         mark.dataset.essayIndex = essayIndex;
         mark.style.cursor = 'pointer';
-        // Build tooltip showing both correction and explanation
-        const correction = mark.dataset.correction || mark.dataset.message || '';
-        const explanation = mark.dataset.explanation || '';
-        let tooltip = `Correction: ${correction || 'None'}`;
-        if (explanation) {
-            tooltip += `\nExplanation: ${explanation}`;
-        } else {
-            tooltip += `\nExplanation: None`;
-        }
-        mark.title = tooltip;
 
         // Add unique ID for modal reference
         mark.id = `highlight-${essayIndex}-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
@@ -618,13 +637,6 @@ function rebuildHighlightBoundaries(oldMark, newStart, newEnd, container) {
     // ── 5. Re-apply visual styling ──
     updateHighlightVisualStyling(newMark, primaryCat, categories);
 
-    // Build tooltip
-    const correction  = newMark.dataset.correction || '';
-    const explanation  = newMark.dataset.explanation || '';
-    let tooltip = `Correction: ${correction || 'None'}`;
-    tooltip += explanation ? `\nExplanation: ${explanation}` : '\nExplanation: None';
-    newMark.title = tooltip;
-
     // ── 6. Re-attach click handler ──
     newMark.addEventListener('click', function(e) {
         e.stopPropagation();
@@ -875,16 +887,8 @@ function showHighlightEditModal(element, currentCategories) {
                     notes: element.dataset.notes
                 });
 
-                // Build tooltip showing both correction and explanation
-                const correction = element.dataset.correction || '';
-                const explanation = element.dataset.explanation || '';
-                let tooltip = `Correction: ${correction || 'None'}`;
-                if (explanation) {
-                    tooltip += `\nExplanation: ${explanation}`;
-                } else {
-                    tooltip += `\nExplanation: None`;
-                }
-                element.title = tooltip;
+                // Remove native title tooltip (custom instant tooltip reads data attributes directly)
+                element.removeAttribute('title');
 
                 // Update visual styling (pass all categories for multi-error styling)
                 console.log('🎨 Updating visual styling to:', selectedCategories);
@@ -1190,17 +1194,9 @@ function ensureHighlightClickHandlers(container = document) {
             });
             highlight._hasLiveClickListener = true;
             highlight.style.cursor = 'pointer';
-            // Build tooltip showing both correction and explanation
-            const correction = highlight.dataset.correction || highlight.dataset.message || '';
-            const explanation = highlight.dataset.explanation || '';
-            let tooltip = `Correction: ${correction || 'None'}`;
-            if (explanation) {
-                tooltip += `\nExplanation: ${explanation}`;
-            } else {
-                tooltip += `\nExplanation: None`;
-            }
-            highlight.title = tooltip;
         }
+        // Strip native title tooltip (custom instant tooltip reads data attributes)
+        if (highlight.hasAttribute('title')) highlight.removeAttribute('title');
     });
 }
 
