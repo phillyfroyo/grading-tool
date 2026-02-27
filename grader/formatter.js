@@ -714,7 +714,7 @@ function renderNestedHighlights(text, issues, segmentIndex, editable) {
     // Build style string with conditional properties
     let styleProps = `color: ${color}; text-decoration: ${textDecoration}; position: relative;`;
     if (bgColor && bgColor !== 'transparent') {
-      styleProps += ` background: ${bgColor}; padding: 2px 4px; border-radius: 2px; margin: 1px;`;
+      styleProps += ` background: ${bgColor}; padding: 2px 0; border-radius: 2px;`;
     }
 
     // Special styling adjustments for nested highlights
@@ -756,21 +756,7 @@ function renderNestedHighlights(text, issues, segmentIndex, editable) {
       notes = issueDesc || '';
     }
 
-    html = `<mark class="highlight-${issueCategory} highlight nested-highlight"
-                 data-type="${escapeHtml(issueCategory)}"
-                 data-category="${escapeHtml(fullCategory)}"
-                 data-correction="${escapeHtml(correction)}"
-                 data-explanation="${escapeHtml(explanation)}"
-                 data-message="${escapeHtml(issueDesc)}"
-                 data-notes="${escapeHtml(notes)}"
-                 data-original-text="${escapeHtml(text)}"
-                 data-nesting-level="${i}"
-                 ${coachingAttr}
-                 ${editableAttrs}
-                 style="${styleProps}; cursor: pointer;"
-                 title="${escapeHtml(tooltip)}">
-              ${html}
-            </mark>`;
+    html = `<mark class="highlight-${issueCategory} highlight nested-highlight" data-type="${escapeHtml(issueCategory)}" data-category="${escapeHtml(fullCategory)}" data-correction="${escapeHtml(correction)}" data-explanation="${escapeHtml(explanation)}" data-message="${escapeHtml(issueDesc)}" data-notes="${escapeHtml(notes)}" data-original-text="${escapeHtml(text)}" data-nesting-level="${i}" ${coachingAttr} ${editableAttrs} style="${styleProps}; cursor: pointer;" title="${escapeHtml(tooltip)}">${html}</mark>`;
   }
 
   return html;
@@ -794,7 +780,7 @@ function renderSingleHighlight(issue, text, segmentIndex, editable) {
   // Build style string with conditional properties
   let styleProps = `color: ${color}; text-decoration: ${textDecoration}; position: relative;`;
   if (bgColor && bgColor !== 'transparent') {
-    styleProps += ` background: ${bgColor}; padding: 2px 4px; border-radius: 2px;`;
+    styleProps += ` background: ${bgColor}; padding: 2px 0; border-radius: 2px;`;
   }
 
   // Special styling for delete category (strikethrough)
@@ -830,20 +816,7 @@ function renderSingleHighlight(issue, text, segmentIndex, editable) {
     notes = issueDesc || '';
   }
 
-  return `<mark class="highlight-${issueCategory} highlight"
-               data-type="${escapeHtml(issueCategory)}"
-               data-category="${escapeHtml(fullCategory)}"
-               data-correction="${escapeHtml(correction)}"
-               data-explanation="${escapeHtml(explanation)}"
-               data-message="${escapeHtml(issueDesc)}"
-               data-notes="${escapeHtml(notes)}"
-               data-original-text="${escapeHtml(text)}"
-               ${coachingAttr}
-               ${editableAttrs}
-               style="${styleProps}; cursor: pointer;"
-               title="${escapeHtml(tooltip)}">
-            ${escapeHtmlWithFormatting(text)}
-          </mark>`;
+  return `<mark class="highlight-${issueCategory} highlight" data-type="${escapeHtml(issueCategory)}" data-category="${escapeHtml(fullCategory)}" data-correction="${escapeHtml(correction)}" data-explanation="${escapeHtml(explanation)}" data-message="${escapeHtml(issueDesc)}" data-notes="${escapeHtml(notes)}" data-original-text="${escapeHtml(text)}" ${coachingAttr} ${editableAttrs} style="${styleProps}; cursor: pointer;" title="${escapeHtml(tooltip)}">${escapeHtmlWithFormatting(text)}</mark>`;
 }
 
 

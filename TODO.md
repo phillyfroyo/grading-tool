@@ -23,10 +23,8 @@ Fixed: Cross-paragraph highlights now split into linked `<mark>` elements sharin
 
 ---
 
-## 4. Adding/removing highlights can corrupt student text
-**The problem:** After adding or removing highlights, the student's original essay text sometimes gets altered — words may shift, whitespace may collapse, or line breaks may disappear in the color-coded essay view.
-
-**Expected behavior:** The student's original text should never be modified by the highlighting process. Highlights are a visual overlay — the underlying text must remain exactly as the student wrote it at all times.
+## ~~4. Adding/removing highlights can corrupt student text~~ DONE
+Fixed: Spurious spaces between highlighted text and adjacent punctuation (e.g. "to growth .") were caused by template literal whitespace inside `<mark>` tags in the formatter and horizontal CSS padding. Removed both.
 
 ---
 
