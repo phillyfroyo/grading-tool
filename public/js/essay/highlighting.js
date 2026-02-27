@@ -257,10 +257,14 @@ function renderResizePreview() {
 
     const { fullText, elementStart, elementEnd, element } = _resizeState;
 
-    // Use generous context — enough that off-screen chars are available for dragging
-    const CONTEXT = 300;
-    let ctxStart = Math.max(0, elementStart - CONTEXT);
-    let ctxEnd   = Math.min(fullText.length, elementEnd + CONTEXT);
+    // Lock context window on first render; keep it fixed during drag so text doesn't shift
+    if (_resizeState.ctxStart == null || !_resizeState.isDragging) {
+        const CONTEXT = 300;
+        _resizeState.ctxStart = Math.max(0, elementStart - CONTEXT);
+        _resizeState.ctxEnd   = Math.min(fullText.length, elementEnd + CONTEXT);
+    }
+    let ctxStart = _resizeState.ctxStart;
+    let ctxEnd   = _resizeState.ctxEnd;
 
     const leadingText  = fullText.substring(ctxStart, elementStart);
     const highlightTxt = fullText.substring(elementStart, elementEnd);
@@ -322,15 +326,16 @@ function renderResizePreview() {
 
     display.innerHTML = html;
 
-    // Scroll so the highlight is centered in view (deferred to ensure layout is computed,
-    // especially when modal was just made visible after page refresh)
-    requestAnimationFrame(() => {
-        const mark = display.querySelector('mark.resizable-highlight');
-        if (mark) {
-            const markCenter = mark.offsetLeft + mark.offsetWidth / 2;
-            display.scrollLeft = markCenter - display.clientWidth / 2;
-        }
-    });
+    // Center highlight in view, but skip during drag to prevent text motion
+    if (!_resizeState.isDragging) {
+        requestAnimationFrame(() => {
+            const mark = display.querySelector('mark.resizable-highlight');
+            if (mark) {
+                const markCenter = mark.offsetLeft + mark.offsetWidth / 2;
+                display.scrollLeft = markCenter - display.clientWidth / 2;
+            }
+        });
+    }
 
     setupResizeHandles();
 }
@@ -351,6 +356,17 @@ function setupResizeHandles() {
         _resizeState.activeHandle = side;
         // Add dragging class to all elements on this side
         display.querySelectorAll(`.highlight-handle-${side}`).forEach(el => el.classList.add('dragging'));
+        // Lock cursor to ew-resize on ALL elements, disable text selection and scrolling
+        if (!document.getElementById('drag-cursor-override')) {
+            const style = document.createElement('style');
+            style.id = 'drag-cursor-override';
+            style.textContent = '* { cursor: ew-resize !important; user-select: none !important; }';
+            document.head.appendChild(style);
+        }
+        // Lock scroll position instead of hiding scrollbar (prevents layout shift)
+        _resizeState._lockedScrollLeft = display.scrollLeft;
+        _resizeState._scrollLock = () => { display.scrollLeft = _resizeState._lockedScrollLeft; };
+        display.addEventListener('scroll', _resizeState._scrollLock);
         document.addEventListener('mousemove', onMove, true);
         document.addEventListener('mouseup', onEnd, true);
         document.addEventListener('touchmove', onTouchMove, { passive: false, capture: true });
@@ -399,9 +415,6 @@ function setupResizeHandles() {
         if (!_resizeState.isDragging) return;
         const { x, y } = clientPos(e);
 
-        // Gentle edge scrolling
-        edgeScroll(e);
-
         // Try elementFromPoint first (fast path), fall back to nearest by X
         let el = document.elementFromPoint(x, y);
         if (!el || !el.classList.contains('resize-word')) {
@@ -435,6 +448,13 @@ function setupResizeHandles() {
     function onEnd() {
         _resizeState.isDragging = false;
         display.querySelectorAll('.highlight-handle.dragging').forEach(el => el.classList.remove('dragging'));
+        // Restore normal cursor, text selection, and scrolling
+        const overrideStyle = document.getElementById('drag-cursor-override');
+        if (overrideStyle) overrideStyle.remove();
+        if (_resizeState._scrollLock) {
+            display.removeEventListener('scroll', _resizeState._scrollLock);
+            _resizeState._scrollLock = null;
+        }
         document.removeEventListener('mousemove', onMove, true);
         document.removeEventListener('mouseup', onEnd, true);
         document.removeEventListener('touchmove', onTouchMove, true);
@@ -456,6 +476,71 @@ function setupResizeHandles() {
         h.addEventListener('mousedown', (e) => onStart('right', e));
         h.addEventListener('touchstart', (e) => { e.preventDefault(); onStart('right', e); }, { passive: false });
     });
+
+    // Restore active-side dot indicator after re-render
+    if (_resizeState.keyboardSide) {
+        display.querySelectorAll('.highlight-handle-dot').forEach(d => d.style.opacity = '0.4');
+        display.querySelectorAll(`.highlight-handle-${_resizeState.keyboardSide}.highlight-handle-dot`).forEach(d => d.style.opacity = '1');
+    }
+
+    // ── Keyboard arrow-key support ──
+    // Click the highlight to activate a side, then use arrow keys to adjust by 1 char.
+    const mark = display.querySelector('mark.resizable-highlight');
+    if (mark) {
+        mark.style.cursor = 'pointer';
+        mark.addEventListener('mousedown', (e) => {
+            // Ignore if this mousedown is on a handle (let drag handle it)
+            if (e.target.closest('.highlight-handle')) return;
+            e.preventDefault();
+            // Determine which side based on click position within the mark
+            const rect = mark.getBoundingClientRect();
+            const clickX = e.clientX - rect.left;
+            const side = clickX < rect.width / 2 ? 'left' : 'right';
+            _resizeState.keyboardSide = side;
+            // Visual indicator: highlight the active dot
+            display.querySelectorAll('.highlight-handle-dot').forEach(d => d.style.opacity = '0.4');
+            display.querySelectorAll(`.highlight-handle-${side}.highlight-handle-dot`).forEach(d => d.style.opacity = '1');
+        });
+    }
+
+    // Attach keydown on document with capture to intercept before scroll
+    if (!document._highlightKeyResizeAttached) {
+        document.addEventListener('keydown', (e) => {
+            if (!_resizeState.keyboardSide) return;
+            if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return;
+            // Don't intercept if focus is in a textarea or input
+            if (e.target.tagName === 'TEXTAREA' || e.target.tagName === 'INPUT') return;
+            // Only act when the edit modal is visible
+            const m = document.getElementById('editModal');
+            if (!m || m.style.display === 'none') return;
+            e.preventDefault();
+            e.stopPropagation();
+
+            const side = _resizeState.keyboardSide;
+            const delta = e.key === 'ArrowLeft' ? -1 : 1;
+
+            if (side === 'left') {
+                const newStart = _resizeState.elementStart + delta;
+                if (newStart >= 0 && newStart < _resizeState.elementEnd) {
+                    _resizeState.elementStart = newStart;
+                }
+            } else {
+                const newEnd = _resizeState.elementEnd + delta;
+                if (newEnd > _resizeState.elementStart && newEnd <= _resizeState.fullText.length) {
+                    _resizeState.elementEnd = newEnd;
+                }
+            }
+
+            renderResizePreview();
+
+            // Mark as resized if boundaries changed
+            if (_resizeState.elementStart !== _resizeState.originalStart ||
+                _resizeState.elementEnd   !== _resizeState.originalEnd) {
+                if (m) m.dataset.highlightResized = 'true';
+            }
+        }, true);  // capture phase — fires before the scrollable div handles it
+        document._highlightKeyResizeAttached = true;
+    }
 }
 
 /**
@@ -612,6 +697,9 @@ function showHighlightEditModal(element, currentCategories) {
         _resizeState.originalEnd   = elementEnd;
         _resizeState.container     = container;
         _resizeState.element       = element;
+        _resizeState.ctxStart      = null;
+        _resizeState.ctxEnd        = null;
+        _resizeState.keyboardSide  = 'right';
 
         // Reset resize flag
         modal.dataset.highlightResized = '';
