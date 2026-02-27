@@ -266,14 +266,14 @@ function renderResizePreview() {
     const highlightTxt = fullText.substring(elementStart, elementEnd);
     const trailingText = fullText.substring(elementEnd, ctxEnd);
 
-    // ── Category style map ──
+    // ── Category style map (modal preview: black text, category-colored background) ──
     const catStyles = {
-        grammar:    'background:rgba(255,140,0,0.3);color:#FF8C00;',
-        vocabulary: 'background:rgba(0,163,108,0.3);color:#00A36C;',
+        grammar:    'background:rgba(255,140,0,0.3);color:#000;',
+        vocabulary: 'background:rgba(0,163,108,0.3);color:#000;',
         mechanics:  'background:#D3D3D3;color:#000;',
-        spelling:   'background:rgba(220,20,60,0.3);color:#DC143C;',
+        spelling:   'background:rgba(220,20,60,0.3);color:#000;',
         fluency:    'background:#87CEEB;color:#000;',
-        delete:     'text-decoration:line-through;color:#000;font-weight:bold;'
+        delete:     'background:rgba(0,0,0,0.15);text-decoration:line-through;color:#000;font-weight:bold;'
     };
 
     // ── Build style for the active highlight (use modal's live category selection) ──
