@@ -711,6 +711,16 @@ function showHighlightEditModal(element, currentCategories) {
         explanationTextarea.value = currentExplanation;
     }
 
+    // Attach auto-resize input listeners (one-time setup)
+    [correctionTextarea, explanationTextarea].forEach(ta => {
+        if (!ta || ta.dataset.autoResizeAttached) return;
+        ta.addEventListener('input', () => {
+            ta.style.height = 'auto';
+            ta.style.height = ta.scrollHeight + 'px';
+        });
+        ta.dataset.autoResizeAttached = 'true';
+    });
+
     // SIMPLIFIED APPROACH: Modal is display-only, category selection triggers immediate auto-save
     // Add handlers for all modal buttons - one-time setup to prevent duplicates
 
@@ -871,7 +881,7 @@ function showHighlightEditModal(element, currentCategories) {
     modal.style.display = 'block';
     modal.style.zIndex = '1000';
 
-    // Center the highlight in the preview now that the modal is visible and has layout
+    // Center the highlight and auto-size textareas now that the modal is visible
     requestAnimationFrame(() => {
         const htd = document.getElementById('highlightedTextDisplay');
         const mark = htd && htd.querySelector('mark.resizable-highlight');
@@ -879,6 +889,12 @@ function showHighlightEditModal(element, currentCategories) {
             const markCenter = mark.offsetLeft + mark.offsetWidth / 2;
             htd.scrollLeft = markCenter - htd.clientWidth / 2;
         }
+        // Auto-resize textareas to fit existing content
+        [document.getElementById('editCorrection'), document.getElementById('editExplanation')].forEach(ta => {
+            if (!ta) return;
+            ta.style.height = 'auto';
+            ta.style.height = ta.scrollHeight + 'px';
+        });
     });
 
     // Ensure modal is visible and clickable

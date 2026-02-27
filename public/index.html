@@ -252,12 +252,12 @@
 
     <!-- Modal for Editing Highlights -->
     <div id="editModal" class="modal">
-        <div class="modal-content" style="width: 800px; max-width: 90vw;">
-            <div class="modal-header" style="cursor: move;">
+        <div class="modal-content" style="width: 800px; max-width: 90vw; max-height: 80vh; display: flex; flex-direction: column;">
+            <div class="modal-header" style="cursor: move; flex-shrink: 0;">
                 <h3 class="modal-title" style="font-size: 20px;">Edit Highlight</h3>
                 <button class="modal-close-btn" style="width: 36px; height: 36px; font-size: 20px;">×</button>
             </div>
-            <div class="modal-body" style="padding: 24px;">
+            <div class="modal-body" style="padding: 24px; overflow-y: auto; flex: 1; min-height: 0;">
                 <!-- Display highlighted text -->
                 <div style="margin-bottom: 16px; padding: 12px; background: #f8f9fa; border-radius: 8px; border-left: 4px solid #667eea;">
                     <label style="font-size: 14px; font-weight: bold; color: #495057; display: block; margin-bottom: 4px;">Highlighted Text:</label>
@@ -272,10 +272,10 @@
                 </div>
 
                 <label for="editCorrection" style="font-size: 14px; font-weight: bold; margin-top: 16px; margin-bottom: 6px; display: block;">Correction:</label>
-                <textarea id="editCorrection" rows="2" style="width: 100%; padding: 12px; border: 2px solid #e9ecef; border-radius: 8px; font-size: 16px; line-height: 1.5;" placeholder="What should this be corrected to?"></textarea>
+                <textarea id="editCorrection" rows="1" style="width: 100%; padding: 8px 12px; border: 2px solid #e9ecef; border-radius: 8px; font-size: 16px; line-height: 1.5; resize: none; overflow: hidden; box-sizing: border-box;" placeholder="What should this be corrected to?"></textarea>
 
                 <label for="editExplanation" style="font-size: 14px; font-weight: bold; margin-top: 12px; margin-bottom: 6px; display: block;">Explanation:</label>
-                <textarea id="editExplanation" rows="3" style="width: 100%; padding: 12px; border: 2px solid #e9ecef; border-radius: 8px; font-size: 16px; line-height: 1.5;" placeholder="Why is this incorrect? (optional)"></textarea>
+                <textarea id="editExplanation" rows="1" style="width: 100%; padding: 8px 12px; border: 2px solid #e9ecef; border-radius: 8px; font-size: 16px; line-height: 1.5; resize: none; overflow: hidden; box-sizing: border-box;" placeholder="Why is this incorrect? (optional)"></textarea>
 
                 <div style="margin-top: 16px; text-align: right;">
                     <button class="modal-save-btn" style="background: #28a745; color: white; border: none; padding: 10px 20px; border-radius: 6px; cursor: pointer; margin-right: 10px; font-size: 15px; font-weight: 600;">Save</button>
