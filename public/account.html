@@ -8,101 +8,186 @@
     <link rel="stylesheet" href="/css/main.css?v=7">
     <link rel="stylesheet" href="/css/components.css?v=22">
     <style>
+        /* Override main.css body centering — account page scrolls naturally */
         body {
-            background: #f5f5f5;
-            margin: 0;
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-        }
-        .account-container {
-            max-width: 1100px;
-            margin: 0 auto;
-            padding: 20px;
+            display: block;
+            align-items: initial;
+            justify-content: initial;
+            padding: 20px 15px;
         }
 
-        /* Header */
-        .account-header {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            margin-bottom: 24px;
-            padding: 12px 0;
+        .account-container {
+            max-width: 1050px;
+            width: calc(100% - 30px);
+            background: white;
+            padding: 25px 30px 30px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            margin: 0 auto;
         }
-        .account-header-left {
-            display: flex;
-            align-items: center;
-            gap: 16px;
+
+        /* Header — mirrors main page app-header */
+        .app-header {
+            position: relative;
+            text-align: center;
+            margin-bottom: 0;
         }
-        .account-header-left img {
-            height: 50px;
-        }
-        .account-header-left h1 {
-            font-size: 22px;
-            margin: 0;
-            color: #333;
-        }
+
+        /* Back link — top left, symmetrical with email on right */
         .back-link {
+            position: absolute;
+            top: 1px;
+            left: 1px;
             color: #007bff;
             text-decoration: none;
-            font-size: 14px;
+            font-size: 12px;
+            padding: 4px 8px;
+            background: #f8f9fa;
+            border-radius: 4px;
+            border: 1px solid #dee2e6;
         }
         .back-link:hover {
-            text-decoration: underline;
+            background: #e9ecef;
+            text-decoration: none;
         }
-        .account-user-menu {
-            display: flex;
-            align-items: center;
-            gap: 12px;
-            font-size: 13px;
-            color: #666;
+
+        /* User menu — top right, matches main page */
+        .user-menu {
+            position: absolute;
+            top: 1px;
+            right: 1px;
         }
-        .sign-out-btn {
-            color: #dc3545;
-            background: none;
-            border: 1px solid #dc3545;
-            padding: 4px 12px;
-            border-radius: 4px;
+        .user-email {
             cursor: pointer;
-            font-size: 13px;
+            font-size: 12px;
+            color: #666;
+            padding: 4px 8px;
+            background: #f8f9fa;
+            border-radius: 4px;
+            border: 1px solid #dee2e6;
         }
-        .sign-out-btn:hover {
-            background: #dc3545;
-            color: white;
+        .user-email:hover {
+            background: #e9ecef;
+        }
+        .user-dropdown {
+            display: none;
+            position: absolute;
+            top: 100%;
+            right: 0;
+            background: white;
+            border: 1px solid #dee2e6;
+            border-radius: 4px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            z-index: 1000;
+            min-width: 150px;
+            margin-top: 4px;
+        }
+        .user-dropdown a,
+        .user-dropdown button {
+            display: block;
+            width: 100%;
+            padding: 12px 16px;
+            border: none;
+            background: none;
+            text-align: left;
+            cursor: pointer;
+            font-size: 14px;
+            text-decoration: none;
+            box-sizing: border-box;
+        }
+        .user-dropdown a {
+            color: #333;
+            border-bottom: 1px solid #eee;
+        }
+        .user-dropdown a:hover,
+        .user-dropdown button:hover {
+            background: #f8f9fa;
+        }
+        .user-dropdown .sign-out-btn {
+            color: #dc3545;
+            border: none;
+            border-radius: 0;
+            padding: 12px 16px;
+            font-size: 14px;
+            background: none;
+        }
+
+        /* Horizontal rule — matches tab-buttons border */
+        .account-divider {
+            border: none;
+            border-top: 2px solid #e9ecef;
+            margin: 16px 0 20px;
+        }
+
+        /* Page title */
+        .account-title {
+            font-size: 28px;
+            margin: 0 0 20px;
+            color: #333;
         }
 
         /* Profile group */
         .profile-group {
-            margin-bottom: 28px;
+            margin-bottom: 16px;
+            border: 1px solid #dee2e6;
+            border-radius: 6px;
+            overflow: hidden;
         }
         .profile-group-header {
             font-size: 16px;
             font-weight: 600;
-            color: #495057;
-            margin-bottom: 10px;
-            padding: 8px 14px;
-            background: #e9ecef;
-            border-radius: 6px;
+            color: #333;
+            padding: 12px 16px;
+            background: linear-gradient(135deg, #f8f9fa, #e9ecef);
+            border-left: 4px solid #007bff;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            user-select: none;
+            transition: background 0.15s;
+        }
+        .profile-group-header:hover {
+            background: linear-gradient(135deg, #e9ecef, #dee2e6);
+        }
+        .profile-group-arrow {
+            font-size: 11px;
+            color: #999;
+            transition: transform 0.25s;
+            display: inline-block;
+        }
+        .profile-group-arrow.open {
+            transform: rotate(180deg);
+        }
+        .profile-group-label {
+            flex: 1;
+        }
+        .profile-group-count {
+            font-size: 13px;
+            font-weight: 400;
+            color: #999;
+        }
+        .profile-group-body {
+            max-height: 0;
+            overflow: hidden;
+            transition: max-height 0.3s ease-out;
         }
 
-        /* Essay rows — matches batch-processing.js student-row style */
+        /* Essay rows — nested inside profile group */
         .saved-essay-row {
-            border: 2px solid #ddd;
-            margin: 10px 0;
-            border-radius: 6px;
-            overflow: hidden;
+            border-top: 1px solid #eee;
             background: white;
         }
         .saved-essay-header {
-            padding: 12px 18px;
+            padding: 10px 16px;
             background: #f8f9fa;
             display: flex;
             align-items: center;
             justify-content: space-between;
-            font-size: 15px;
-            font-weight: 500;
-            min-height: 40px;
-            border-bottom: 1px solid #ddd;
+            min-height: 38px;
+            border-bottom: 1px solid #eee;
             cursor: pointer;
-            transition: background-color 0.2s;
+            transition: background-color 0.15s;
             user-select: none;
         }
         .saved-essay-header:hover {
@@ -116,15 +201,17 @@
             min-width: 0;
         }
         .saved-essay-arrow {
-            font-size: 14px;
-            transition: transform 0.3s;
+            font-size: 12px;
+            color: #999;
+            transition: transform 0.25s;
             display: inline-block;
         }
         .saved-essay-arrow.open {
             transform: rotate(180deg);
         }
         .saved-essay-status {
-            font-size: 18px;
+            color: #28a745;
+            font-size: 16px;
         }
         .saved-essay-name {
             font-weight: 600;
@@ -138,41 +225,27 @@
             font-size: 13px;
             color: #999;
             white-space: nowrap;
-            margin-left: 8px;
+            margin-left: 6px;
         }
         .saved-essay-header-right {
             display: flex;
             align-items: center;
-            gap: 12px;
+            gap: 8px;
             flex-shrink: 0;
         }
         .saved-essay-delete-btn {
             background: none;
-            border: 1px solid #dc3545;
-            color: #dc3545;
-            padding: 6px 12px;
+            border: 1px solid #ccc;
+            color: #999;
+            padding: 4px 10px;
             border-radius: 4px;
-            font-size: 13px;
+            font-size: 12px;
             cursor: pointer;
-            font-weight: 500;
+            transition: all 0.15s;
         }
         .saved-essay-delete-btn:hover {
-            background: #dc3545;
-            color: white;
-        }
-        .saved-essay-download-btn {
-            background: #007bff;
-            color: white;
-            border: none;
-            padding: 8px 14px;
-            border-radius: 6px;
-            font-size: 14px;
-            cursor: pointer;
-            white-space: nowrap;
-            font-weight: 600;
-        }
-        .saved-essay-download-btn:hover {
-            background: #0056b3;
+            border-color: #dc3545;
+            color: #dc3545;
         }
 
         /* Collapsible content */
@@ -183,7 +256,7 @@
             background: white;
         }
         .saved-essay-content-inner {
-            padding: 12px;
+            padding: 16px;
         }
 
         /* Empty / loading states */
@@ -193,16 +266,24 @@
             color: #999;
         }
         .empty-state p {
-            font-size: 18px;
+            font-size: 20px;
             margin-bottom: 8px;
         }
         .empty-state small {
-            font-size: 14px;
+            font-size: 15px;
         }
         .loading-state {
             text-align: center;
             padding: 40px;
             color: #666;
+            font-size: 16px;
+        }
+        .no-essays-placeholder {
+            padding: 14px 18px;
+            color: #aaa;
+            font-size: 14px;
+            font-style: italic;
+            border-top: 1px solid #eee;
         }
 
         /* Highlight tooltip */
@@ -217,28 +298,180 @@
             max-width: 300px;
             font-size: 14px;
         }
+
+        /* Edit mode styles */
+        .saved-essay-row.editing {
+            border-left: 3px solid #007bff;
+        }
+        .saved-essay-edit-btn {
+            background: none;
+            border: 1px solid #ccc;
+            color: #999;
+            padding: 4px 10px;
+            border-radius: 4px;
+            font-size: 12px;
+            cursor: pointer;
+            transition: all 0.15s;
+        }
+        .saved-essay-edit-btn:hover {
+            border-color: #007bff;
+            color: #007bff;
+        }
+        .saved-essay-save-btn {
+            background: #28a745;
+            border: 1px solid #28a745;
+            color: white;
+            padding: 4px 10px;
+            border-radius: 4px;
+            font-size: 12px;
+            cursor: pointer;
+            transition: all 0.15s;
+            font-weight: 600;
+        }
+        .saved-essay-save-btn:hover {
+            background: #218838;
+        }
+        .saved-essay-cancel-btn {
+            background: none;
+            border: 1px solid #ccc;
+            color: #666;
+            padding: 4px 10px;
+            border-radius: 4px;
+            font-size: 12px;
+            cursor: pointer;
+            transition: all 0.15s;
+        }
+        .saved-essay-cancel-btn:hover {
+            border-color: #dc3545;
+            color: #dc3545;
+        }
+        .edit-category-bar {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 6px;
+            padding: 10px 16px;
+            background: #f0f4ff;
+            border-bottom: 1px solid #dee2e6;
+        }
+        .edit-category-bar .category-btn {
+            font-size: 12px !important;
+            padding: 5px 10px !important;
+        }
+        .edit-status-msg {
+            font-size: 12px;
+            color: #666;
+            margin-left: auto;
+        }
+        .edit-feedback {
+            font-size: 12px;
+            padding: 4px 10px;
+            border-radius: 4px;
+            animation: fadeIn 0.3s;
+        }
+        .edit-feedback.success {
+            color: #155724;
+            background: #d4edda;
+        }
+        .edit-feedback.error {
+            color: #721c24;
+            background: #f8d7da;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
     </style>
 </head>
 <body>
     <div class="account-container">
-        <div class="account-header">
-            <div class="account-header-left">
-                <img src="/images/LMGM.svg" alt="LMGM">
-                <div>
-                    <h1>My Essays</h1>
-                    <a href="/" class="back-link">&larr; Back to Grading Tool</a>
+        <!-- App header — same structure as main page -->
+        <div class="app-header">
+            <a href="/" class="back-link">&larr; Grading Tool</a>
+
+            <img src="/images/LMGM.svg" alt="LMGM - Lean Mean Grading Machine">
+
+            <!-- User menu with dropdown — matches main page -->
+            <div class="user-menu">
+                <div class="user-email" id="userEmail" onclick="toggleUserDropdown()">Loading...</div>
+                <div class="user-dropdown" id="userDropdown">
+                    <a href="/">Grading Tool</a>
+                    <button class="sign-out-btn" onclick="signOut()">Sign Out</button>
                 </div>
-            </div>
-            <div class="account-user-menu">
-                <span id="userEmail">Loading...</span>
-                <button class="sign-out-btn" onclick="signOut()">Sign Out</button>
             </div>
         </div>
 
+        <!-- Horizontal line — matches main page tab border -->
+        <hr class="account-divider">
+
+        <!-- Page title -->
+        <h1 class="account-title">My Essays</h1>
+
+        <!-- Essay content -->
         <div id="essaysContent">
             <div class="loading-state">Loading your saved essays...</div>
         </div>
     </div>
+
+    <!-- Modal for Teacher Notes -->
+    <div id="teacherNotesModal" class="modal">
+        <div class="modal-content" style="width: 700px; max-width: 90vw;">
+            <div class="modal-header" style="cursor: move;">
+                <h3 class="modal-title" style="font-size: 26px;">Edit Teacher Notes</h3>
+                <button class="modal-close-btn" style="width: 42px; height: 42px; font-size: 22px;">×</button>
+            </div>
+            <div class="modal-body" style="padding: 32px;">
+                <textarea id="teacherNotesText" rows="6" spellcheck="true" style="width: 100%; padding: 12px; border: 2px solid #e9ecef; border-radius: 8px; font-size: 16px; line-height: 1.5;" placeholder="Enter teacher notes..."></textarea>
+                <div style="margin-top: 20px; text-align: right;">
+                    <button class="modal-save-btn" style="background: #28a745; color: white; border: none; padding: 12px 22px; border-radius: 6px; cursor: pointer; margin-right: 10px; font-size: 17px; font-weight: 600;">Save</button>
+                    <button class="modal-cancel-btn" style="background: #6c757d; color: white; border: none; padding: 12px 22px; border-radius: 6px; cursor: pointer; font-size: 17px; font-weight: 600;">Cancel</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal for Editing Highlights -->
+    <div id="editModal" class="modal">
+        <div class="modal-content" style="width: 800px; max-width: 90vw; max-height: 80vh; display: flex; flex-direction: column;">
+            <div class="modal-header" style="cursor: move; flex-shrink: 0;">
+                <h3 class="modal-title" style="font-size: 20px;">Edit Highlight</h3>
+                <button class="modal-close-btn" style="width: 36px; height: 36px; font-size: 20px;">×</button>
+            </div>
+            <div class="modal-body" style="padding: 24px; overflow-y: auto; flex: 1; min-height: 0;">
+                <!-- Display highlighted text -->
+                <div style="margin-bottom: 16px; padding: 12px; background: #f8f9fa; border-radius: 8px; border-left: 4px solid #667eea;">
+                    <label style="font-size: 14px; font-weight: bold; color: #495057; display: block; margin-bottom: 4px;">Highlighted Text:</label>
+                    <div id="highlightedTextDisplay" style="font-size: 15px; color: #212529; line-height: 1.5;"></div>
+                </div>
+
+                <label style="font-size: 14px; font-weight: bold; margin-bottom: 6px; display: block;">Categories:</label>
+                <div id="modalCategoryButtons" style="margin: 8px 0; display: flex; flex-wrap: wrap; gap: 8px;"></div>
+
+                <label for="editCorrection" style="font-size: 14px; font-weight: bold; margin-top: 16px; margin-bottom: 6px; display: block;">Correction:</label>
+                <textarea id="editCorrection" rows="1" spellcheck="true" style="width: 100%; padding: 8px 12px; border: 2px solid #e9ecef; border-radius: 8px; font-size: 16px; line-height: 1.5; resize: none; overflow: hidden; box-sizing: border-box;" placeholder="What should this be corrected to?"></textarea>
+
+                <label for="editExplanation" style="font-size: 14px; font-weight: bold; margin-top: 12px; margin-bottom: 6px; display: block;">Explanation:</label>
+                <textarea id="editExplanation" rows="1" spellcheck="true" style="width: 100%; padding: 8px 12px; border: 2px solid #e9ecef; border-radius: 8px; font-size: 16px; line-height: 1.5; resize: none; overflow: hidden; box-sizing: border-box;" placeholder="Why is this incorrect? (optional)"></textarea>
+
+                <div style="margin-top: 16px; text-align: right;">
+                    <button class="modal-save-btn" style="background: #28a745; color: white; border: none; padding: 10px 20px; border-radius: 6px; cursor: pointer; margin-right: 10px; font-size: 15px; font-weight: 600;">Save</button>
+                    <button class="modal-remove-btn" style="background: #dc3545; color: white; border: none; padding: 10px 20px; border-radius: 6px; cursor: pointer; margin-right: 10px; font-size: 15px; font-weight: 600;">Remove Highlight</button>
+                    <button class="modal-cancel-btn" style="background: #6c757d; color: white; border: none; padding: 10px 20px; border-radius: 6px; cursor: pointer; font-size: 15px; font-weight: 600;">Cancel</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Editing modules (order matters — core first, then UI, then essay) -->
+    <script type="module" src="/js/core/logger.js"></script>
+    <script type="module" src="/js/core/eventBus.js"></script>
+    <script src="/js/ui/modals.js"></script>
+    <script src="/js/ui/draggable-modal.js"></script>
+    <script src="/js/ui/editing-functions.js"></script>
+    <script src="/js/essay/text-selection.js"></script>
+    <script src="/js/essay/category-selection.js"></script>
+    <script src="/js/essay/highlighting.js"></script>
+    <script src="/js/essay/essay-editing-main.js"></script>
 
     <script src="/js/account.js"></script>
 </body>
