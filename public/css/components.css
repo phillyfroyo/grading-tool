@@ -357,6 +357,23 @@
     transform: translateY(-2px);
 }
 
+/* Explanation suggestion buttons */
+.explanation-suggestion-btn {
+    background: #f0f4ff;
+    border: 1px solid #c5d0e6;
+    border-radius: 14px;
+    padding: 4px 12px;
+    font-size: 13px;
+    color: #495057;
+    cursor: pointer;
+    transition: all 0.15s;
+    line-height: 1.4;
+}
+.explanation-suggestion-btn:hover {
+    background: #dee6f7;
+    border-color: #8ea4d2;
+}
+
 /* Modal action buttons */
 .modal-save-btn,
 .modal-cancel-btn {

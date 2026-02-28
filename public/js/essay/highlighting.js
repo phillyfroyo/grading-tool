@@ -990,6 +990,9 @@ function showHighlightEditModal(element, currentCategories) {
         explanationTextarea.value = currentExplanation;
     }
 
+    // Show explanation suggestions based on selected categories
+    updateExplanationSuggestions();
+
     // Attach auto-resize input listeners (one-time setup)
     [correctionTextarea, explanationTextarea].forEach(ta => {
         if (!ta || ta.dataset.autoResizeAttached) return;
@@ -1209,6 +1212,100 @@ function showHighlightEditModal(element, currentCategories) {
  * Toggle category selection in modal
  * @param {string} category - Category to toggle
  */
+/**
+ * Explanation auto-suggestions keyed by category.
+ * Each category maps to an array of suggestion strings.
+ */
+const EXPLANATION_SUGGESTIONS = {
+    mechanics: [
+        'Run-on sentence, add a period.',
+        'Add a comma after introductory word or phrase.',
+        'Capitalize the proper noun.',
+        'Use "an" before a vowel sound.',
+        'Remove spaces around the apostrophe in contractions.'
+    ],
+    grammar: [
+        'Subject-verb agreement: plural subject needs plural verb.',
+        'Use past tense for past actions.',
+        'Missing verb — add "am/is/are".',
+        'Use "to" + base form of the verb.',
+        'Correct pronoun usage.'
+    ],
+    fluency: [
+        'I do not understand this sentence.',
+        'More natural phrasing.',
+        'Confusing sentence, please rewrite.',
+        'Incomplete thought.',
+        'Use the comparative form.'
+    ],
+    vocabulary: [
+        'Use the correct word form (noun/adjective/verb).',
+        'Wrong word choice.',
+        'Spanish cognate — use the English form.',
+        'Not a real English word.',
+        'Better word choice.'
+    ],
+    spelling: [
+        'Common misspelling.',
+        'Wrong word — sounds similar but different meaning.'
+    ],
+    delete: [
+        'Unnecessary word — remove it.',
+        'Not a word.'
+    ]
+};
+
+/**
+ * Update the explanation suggestions shown below the explanation textarea
+ * based on the currently selected categories in the edit modal.
+ */
+function updateExplanationSuggestions() {
+    const modal = document.getElementById('editModal');
+    if (!modal) return;
+
+    var container = document.getElementById('explanationSuggestions');
+    if (!container) return;
+
+    var selectedCategories = modal.dataset.selectedCategories
+        ? modal.dataset.selectedCategories.split(',').filter(function (c) { return c.trim(); })
+        : [];
+
+    // Collect suggestions from all selected categories
+    var suggestions = [];
+    selectedCategories.forEach(function (cat) {
+        if (EXPLANATION_SUGGESTIONS[cat]) {
+            EXPLANATION_SUGGESTIONS[cat].forEach(function (s) {
+                if (suggestions.indexOf(s) === -1) suggestions.push(s);
+            });
+        }
+    });
+
+    if (suggestions.length === 0) {
+        container.style.display = 'none';
+        container.innerHTML = '';
+        return;
+    }
+
+    container.style.display = 'flex';
+    container.innerHTML = suggestions.map(function (s) {
+        return '<button type="button" class="explanation-suggestion-btn">' +
+            s + '</button>';
+    }).join('');
+
+    // Attach click handlers
+    container.querySelectorAll('.explanation-suggestion-btn').forEach(function (btn) {
+        btn.addEventListener('click', function () {
+            var ta = document.getElementById('editExplanation');
+            if (ta) {
+                ta.value = this.textContent;
+                ta.style.height = 'auto';
+                ta.style.height = ta.scrollHeight + 'px';
+                ta.focus();
+            }
+        });
+    });
+}
+
 function toggleModalCategory(category) {
     const modal = document.getElementById('editModal');
     const selectedCategories = modal.dataset.selectedCategories ? modal.dataset.selectedCategories.split(',').filter(c => c.trim()) : [];
@@ -1272,6 +1369,9 @@ function toggleModalCategory(category) {
     if (_resizeState.element) {
         renderResizePreview();
     }
+
+    // Update explanation suggestions for new category selection
+    updateExplanationSuggestions();
 }
 
 /**

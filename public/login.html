@@ -132,12 +132,14 @@
             <div style="font-weight: 600; margin-bottom: 8px; font-size: 18px;">LMGM Version 1.6 Updates - Jan/Feb 2026, Final Exams</div>
             <ul style="margin: 0; padding-left: 18px; line-height: 1.6;">
                 <li>Your grading sessions now auto-save — close the tab and come back later, everything will be right where you left it</li>
-                <li>Compacted the highlight editing modal</li>
-                <li>Drag handles to resize highlights directly in the edit modal — expand or contract by character</li>
-                <li>Keyboard arrow keys to fine-tune highlight boundaries one character at a time</li>
-                <li>Instant hover tooltips on highlights — see correction and explanation without opening the modal</li>
-                <li>Spell check enabled in all teacher note fields — corrections, explanations, and category notes</li>
-                <li>Improved info tooltips in class profiles — click to view, clearer temperature explanation</li>
+                <li>Added explanation auto-suggestions when editing error highlights to avoid typing common explanations out every time</li>
+                <li>You can now edit error highlight length after clicking/creating a highlight, a much needed feature!</li>
+                <li>Use your keyboard &lt; &gt; arrows to change highlight length after clicking/creating a highlight</li>
+                <li>Redesigned the 'edit highlight' modal, it looks much better!</li>
+                <li>Hover over a highlight to see the correction/explanation</li>
+                <li>Added spellcheck to all teacher-text fields. Sweet!!!</li>
+                <li>Added info tooltips (click here &gt; <span class="info-icon" data-tooltip="An info tooltip is a small popup that appears when you click this icon next to a field, explaining what that field does." style="display: inline-block; width: 20px; height: 20px; border-radius: 50%; background: lightgray; color: white; text-align: center; line-height: 20px; font-size: 14px; font-style: italic; cursor: pointer; margin: 0 2px; position: relative; vertical-align: middle;">i</span>) when creating/editing class profiles</li>
+                <li>Save essays to your account (beta) — graded essays can now be saved and viewed on your "My Essays" page</li>
             </ul>
 
             <div style="font-weight: 600; margin-bottom: 8px; margin-top: 16px; font-size: 18px;">LMGM Version 1.5 Updates - Jan/Feb 2026, Midterm Exams</div>
@@ -156,6 +158,25 @@
     </div>
 
     <script>
+        // Info-icon tooltip handler (same style as profile modals)
+        document.addEventListener('click', function(e) {
+            var icon = e.target.closest('.info-icon[data-tooltip]');
+            var existing = document.querySelector('.info-tooltip-popup');
+            if (existing) existing.remove();
+            if (!icon) return;
+            e.preventDefault();
+            e.stopPropagation();
+            var popup = document.createElement('div');
+            popup.className = 'info-tooltip-popup';
+            popup.textContent = icon.dataset.tooltip;
+            popup.style.cssText =
+                'position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);' +
+                'background:#333;color:#fff;padding:14px 18px;border-radius:6px;font-size:14px;' +
+                'font-style:normal;font-weight:400;line-height:1.6;width:320px;z-index:10000;' +
+                'box-shadow:0 4px 12px rgba(0,0,0,0.2);pointer-events:auto;';
+            document.body.appendChild(popup);
+        });
+
         // Check if already authenticated and redirect
         fetch('/auth/status', {
             method: 'GET',
