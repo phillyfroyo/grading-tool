@@ -1243,12 +1243,35 @@ async function saveEssayToAccount(btn, essayIndex) {
             }
         }
 
-        // Get class profile ID from the active tab's dropdown
+        // Get class profile ID (stored at grading time in essayData)
         let classProfileId = null;
-        const activeTab = document.querySelector('.tab-content.active');
-        if (activeTab) {
-            const profileSelect = activeTab.querySelector('select[name="classProfile"]');
-            if (profileSelect) classProfileId = profileSelect.value || null;
+        console.log('[SAVE_ESSAY] Looking for classProfile...');
+        console.log('[SAVE_ESSAY]   essayDataObj.originalData:', essayDataObj?.originalData);
+        console.log('[SAVE_ESSAY]   essayDataObj.originalData.classProfile:', essayDataObj?.originalData?.classProfile);
+        console.log('[SAVE_ESSAY]   currentBatchData.originalData keys:', window.currentBatchData?.originalData ? Object.keys(window.currentBatchData.originalData) : 'N/A');
+        console.log('[SAVE_ESSAY]   currentBatchData.originalData.classProfile:', window.currentBatchData?.originalData?.classProfile);
+        // 1. From the essay's own data (set at grading time)
+        if (essayDataObj?.originalData?.classProfile) {
+            classProfileId = essayDataObj.originalData.classProfile;
+        }
+        // 2. From currentBatchData (set during grading)
+        if (!classProfileId && window.currentBatchData?.originalData?.classProfile) {
+            classProfileId = window.currentBatchData.originalData.classProfile;
+        }
+        // 3. Fallback: read the dropdowns directly
+        if (!classProfileId) {
+            const gptSelect = document.getElementById('classProfile');
+            const claudeSelect = document.getElementById('claudeClassProfile');
+            classProfileId = (gptSelect && gptSelect.value) || (claudeSelect && claudeSelect.value) || null;
+        }
+        console.log('[SAVE_ESSAY] classProfileId:', classProfileId, 'source:', essayDataObj?.originalData?.classProfile ? 'essayData' : window.currentBatchData?.originalData?.classProfile ? 'batchData' : 'dropdown');
+
+        // If no class profile found, ask user to select one
+        if (!classProfileId) {
+            alert('Class profile not found for this essay. Please select the correct class profile at the top of the page and try again.');
+            btn.disabled = false;
+            btn.textContent = originalText;
+            return;
         }
 
         // POST to API
@@ -1268,9 +1291,12 @@ async function saveEssayToAccount(btn, essayIndex) {
         if (result.success) {
             btn.textContent = 'Saved!';
             btn.style.background = '#6c757d';
-            btn.style.cursor = 'default';
-            btn.onmouseover = null;
-            btn.onmouseout = null;
+            // Re-enable after 2 seconds so user can save again if needed
+            setTimeout(function () {
+                btn.disabled = false;
+                btn.textContent = 'Save Essay';
+                btn.style.background = '#28a745';
+            }, 2000);
         } else {
             throw new Error(result.error || 'Save failed');
         }

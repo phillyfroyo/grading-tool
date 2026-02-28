@@ -26,12 +26,14 @@ document.addEventListener('DOMContentLoaded', async function () {
 
 async function loadProfiles() {
     try {
-        var resp = await fetch('/profiles', { credentials: 'include' });
+        var resp = await fetch('/api/profiles', { credentials: 'include' });
+        console.log('[ACCOUNT] Profiles response status:', resp.status);
         var data = await resp.json();
-        if (Array.isArray(data)) {
-            data.forEach(function (p) { profileNames[p.id] = { name: p.name, cefrLevel: p.cefrLevel }; });
-        }
+        console.log('[ACCOUNT] Profiles data:', data);
+        var list = Array.isArray(data) ? data : data.profiles || [];
+        list.forEach(function (p) { profileNames[p.id] = { name: p.name, cefrLevel: p.cefrLevel }; });
     } catch (e) { console.error('[ACCOUNT] Profiles error:', e); }
+    console.log('[ACCOUNT] Loaded profiles:', Object.keys(profileNames).length);
 }
 
 async function loadEssays() {
@@ -47,7 +49,42 @@ function renderEssays() {
     var container = document.getElementById('essaysContent');
     if (!container) return;
 
-    if (allEssays.length === 0) {
+    // Group essays by classProfileId
+    var groups = {};
+    var noProfile = [];
+    allEssays.forEach(function (essay) {
+        var pid = essay.classProfileId;
+        if (pid) {
+            if (!groups[pid]) groups[pid] = [];
+            groups[pid].push(essay);
+        } else {
+            noProfile.push(essay);
+        }
+    });
+
+    // Start with every known profile (even those with 0 essays)
+    var html = '';
+    Object.keys(profileNames).forEach(function (profileId) {
+        var profile = profileNames[profileId];
+        var label = profile.name + ' (' + profile.cefrLevel + ')';
+        var essays = groups[profileId] || [];
+        html += renderProfileGroup(label, essays);
+    });
+
+    // Render essays whose profileId doesn't match any known profile
+    Object.keys(groups).forEach(function (profileId) {
+        if (!profileNames[profileId]) {
+            html += renderProfileGroup('Unknown Profile', groups[profileId]);
+        }
+    });
+
+    // Render essays with no profile
+    if (noProfile.length > 0) {
+        html += renderProfileGroup('No Class Profile', noProfile);
+    }
+
+    // If no profiles exist and no essays, show empty state
+    if (!html) {
         container.innerHTML =
             '<div class="empty-state">' +
             '<p>No saved essays yet</p>' +
@@ -56,34 +93,18 @@ function renderEssays() {
         return;
     }
 
-    // Group by classProfileId
-    var groups = {};
-    var noProfile = [];
-    allEssays.forEach(function (essay) {
-        if (essay.classProfileId) {
-            if (!groups[essay.classProfileId]) groups[essay.classProfileId] = [];
-            groups[essay.classProfileId].push(essay);
-        } else {
-            noProfile.push(essay);
-        }
-    });
-
-    var html = '';
-    Object.keys(groups).forEach(function (profileId) {
-        var profile = profileNames[profileId];
-        var label = profile ? profile.name + ' (' + profile.cefrLevel + ')' : 'Unknown Profile';
-        html += renderProfileGroup(label, groups[profileId]);
-    });
-    if (noProfile.length > 0) {
-        html += renderProfileGroup('No Class Profile', noProfile);
-    }
-
     container.innerHTML = html;
 }
 
 function renderProfileGroup(label, essays) {
     var html = '<div class="profile-group">';
     html += '<div class="profile-group-header">' + esc(label) + ' &mdash; ' + essays.length + ' essay' + (essays.length !== 1 ? 's' : '') + '</div>';
+
+    if (essays.length === 0) {
+        html += '<div style="padding: 12px 18px; color: #999; font-size: 14px; font-style: italic;">No saved essays yet</div>';
+        html += '</div>';
+        return html;
+    }
 
     essays.forEach(function (essay, idx) {
         var date = new Date(essay.createdAt);

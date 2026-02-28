@@ -611,7 +611,8 @@ async function processEssayChunk(chunkData, globalOffset) {
                                 },
                                 originalData: {
                                     ...chunkData.essays[data.index],
-                                    index: globalResultIndex
+                                    index: globalResultIndex,
+                                    classProfile: chunkData.classProfile || null
                                 }
                             };
                         }
@@ -756,7 +757,8 @@ async function streamBatchGrading(batchData) {
                                 },
                                 originalData: {
                                     ...batchData.essays[data.index],
-                                    index: data.index
+                                    index: data.index,
+                                    classProfile: batchData.classProfile || null
                                 }
                             };
 

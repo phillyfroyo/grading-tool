@@ -357,7 +357,8 @@ function displayBatchResults(batchResult, originalData) {
                     essay: essay,
                     originalData: {
                         ...essayFromOriginal,
-                        index: index
+                        index: index,
+                        classProfile: originalData.classProfile || null
                     }
                 };
             }
@@ -939,7 +940,8 @@ async function retryEssay(index) {
                     studentText: essay.studentText,
                     studentName: essay.studentName,
                     studentNickname: essay.studentNickname,
-                    index: index
+                    index: index,
+                    classProfile: batchData.classProfile || null
                 }
             };
 
