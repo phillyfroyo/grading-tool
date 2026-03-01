@@ -1,35 +1,31 @@
 # Grading Tool - TODO
 
-> Last updated: 2026-02-27
+> Last updated: 2026-02-28
 
 ---
 
-## ~~1. Spell check in user-added notes~~ DONE
-Fixed: Enabled browser-native `spellcheck="true"` on all teacher-facing textareas.
+## 1. Copy button in edit highlight modal
+Add a copy icon/button to the edit highlight modal to copy the highlighted student text to the clipboard.
 
 ---
 
-## 2. Auto-suggested explanations per error type
-**Current behavior:** The grader manually types the explanation for every error, even though many errors of the same type use very similar or identical explanations (e.g., most "subject-verb agreement" errors get a similar explanation).
-
-**Proposed feature:** When the user selects an error type from the dropdown, show a list of **pre-filled explanation suggestions** (either hardcoded common explanations, or populated from previously used explanations for that error type). The grader can pick one with a click or still type a custom explanation. This would save a lot of repetitive typing.
+## 2. Keyboard highlight resize blocked by focused textbox
+In the edit highlight modal, the < > keyboard keys for changing highlight length don't work when a textbox is selected (expected behavior). But clicking on the highlight in the preview doesn't deselect the textbox — only clicking blank space outside the textbox does. Fix it so that clicking the highlight deselects the textbox and selects the highlight, allowing < > keys to work immediately.
 
 ---
 
-## ~~3. Highlights across formatting gaps don't render + formatting is lost~~ DONE
-Fixed: Cross-paragraph highlights now split into linked `<mark>` elements sharing a `data-highlight-group` ID. Clicking, saving, removing, and resizing all operate on the full group. Highlights tab, content section, and PDF export deduplicate grouped marks. Tooltip now always shows "Correction: None / Explanation: None" for highlights with no notes.
-
-**Also fixed:** Multi-line corrections/explanations (e.g. multiple correction options separated by newlines) now preserve line breaks in both the on-screen highlights legend and the PDF export. Added HTML entity escaping to PDF export for safety.
+## 3. Score colors don't update when manually changing grades
+When the app returns grades, score colors reflect the value — red for low, yellow for mid, green for high. But when manually editing a score (e.g., changing 3/15 to 15/15), the color stays the same. The color should recalculate based on the new value.
 
 ---
 
-## ~~4. Adding/removing highlights can corrupt student text~~ DONE
-Fixed: Spurious spaces between highlighted text and adjacent punctuation (e.g. "to growth .") were caused by template literal whitespace inside `<mark>` tags in the formatter and horizontal CSS padding. Removed both.
+## 4. Dial in the /account page and save essay feature
+The save essay feature is in beta. Improve the /account page — editing UX, display polish, and reliability.
 
 ---
 
-## ~~5. Overlapping highlight logic — highlights are not independent~~ DONE
-Fixed: Removing a highlight now unwraps its child nodes instead of replacing with flat text, preserving any nested marks from overlapping highlights.
+## 5. Nearby highlights visible in edit highlight modal text window
+Make nearby/overlapping highlights visible within the text preview window of the edit highlight modal. This unlocks useful new features for managing different highlights that are close by or overlapping.
 
 ---
 
