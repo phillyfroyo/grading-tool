@@ -4,26 +4,76 @@
 
 ---
 
-## ✅ FIXED: Auto-save only saves 2 of 34 essays
+## ✅ FIXED: Auto-save only saves 2 of N essays (batched streaming)
 
 **Reported:** 2026-03-01
-**Fixed:** 2026-04-07 (branch: `april-2026`)
+**Fixed:** 2026-04-08 (branch: `april-2026`)
 **Severity:** Critical — data loss in production
+**Verified:** 2026-04-08 — graded 6 essays, refreshed, all 6 restored correctly
 
-**Root cause confirmed:** The data was actually being saved correctly all along via `essaySnapshots` and `currentBatchData` (both unconditional in `buildPayload`). The visible "lost essays" symptom was caused by `renderedHTML` only containing entries for essays the user had expanded (gated on `innerHTML !== 'Loading formatted result...'`). On restore, `displayBatchResults()` rebuilds all 34 student rows from `currentBatchData`, but the 32 collapsed essays show "Loading formatted result..." inside their dropdowns until expanded — at which point `loadEssayDetails()` correctly re-fetches from `/format` because `window.essayData_${i}` is re-injected from the saved snapshots.
+**Root cause (two bugs, one symptom):**
+
+1. **`processBatchResultQueue()` fired `saveImmediately` between chunks.** Batch grading uses `streamBatchGradingSimple` which processes essays in chunks of 2 (`CHUNK_SIZE = 2` in `form-handling.js`). Each chunk's results go through `batchResultQueue`, which is drained by `processBatchResultQueue` on a 3-second stagger. After chunk 0-1's 2 results displayed (~6s), the queue emptied and fired `saveImmediately` thinking the batch was done. But chunks 2-5 hadn't started yet (chunks are sequential). The queue processor had no concept of chunk boundaries — "queue empty" ≠ "batch done."
+
+2. **`buildPayload()`'s reconstruction fallback was sticky.** When that premature save ran, `window.currentBatchData` was still `null` (no chunk had set it). The fallback at `auto-save.js:447` reconstructed a 2-essay `currentBatchData` from `essayData_0` and `essayData_1`, **then wrote it back to `window.currentBatchData`**. From that point forward, every subsequent save saw `currentBatchData.results=2` and saved only 2 essays. Even worse: the post-stream assignment at `form-handling.js:315` (`if (!window.currentBatchData) ...`) was then skipped because the stale 2-essay version was there, so the full 6-essay `streamResult` was never written back.
+
+The diagnostic log that pinpointed this:
+```
+[AutoSaveDiag] chunk 0-1 done: chunkResult.results=2, allResults=2
+[AutoSaveDiag] firing saveImmediately (post-queue-drain +2s)
+[AutoSaveDiag] buildPayload entry: currentBatchData.results=null, essayData_* globals=2
+[AutoSave] buildPayload: reconstructing currentBatchData from essayData globals
+[AutoSaveDiag] chunk 2-3 done: chunkResult.results=2, allResults=4
+[AutoSaveDiag] buildPayload entry: currentBatchData.results=2, essayData_* globals=4  ← frozen!
+[AutoSaveDiag] streaming done: streamResult.results=6, currentBatchData already set=true (len=2)
+[AutoSaveDiag] MISMATCH: ... streamResult has len=6 ... Save will use the pre-existing value!
+```
 
 **Secondary bug also fixed:** `countEssayDataGlobals()` had a gap-detection bug — it broke at the first missing `essayData_*` slot, which would truncate the count whenever a failed essay left a gap (since `batch-processing.js:354` only sets globals for `essay.success === true`). Replaced with a full scan that returns `highestIndex + 1`.
 
-**Changes (all in `public/js/grading/auto-save.js`):**
-1. Rewrote `countEssayDataGlobals()` to scan all 50 slots without breaking on gaps.
-2. Removed the noisy per-essay `[AutoSave] buildPayload essay N: hasContent=...` log.
-3. Added a single sanity-check log at the end of `buildPayload()` that warns loudly if `essaySnapshots < resultCount` (the only condition that means real pre-persistence data loss).
+**Changes:**
 
-**Test plan:**
-- Grade a small batch (3-5 essays), expand none, refresh — confirm all rows visible and clicking any expands + lazy-loads from `/format`.
-- Grade and expand 1-2 essays, refresh — confirm expanded ones show instant rendered HTML, collapsed ones lazy-load.
-- Larger batch (15-30 essays) to confirm scaling.
-- Devtools console after save should show: `[AutoSave] buildPayload: resultCount=N, essaySnapshots=N, renderedHTML=M (rendered cache is expected to be ≤ snapshots; collapsed essays lazy-load on expand)`
+*`public/js/ui/form-handling.js`:*
+1. Removed the `saveImmediately` call from `processBatchResultQueue()`. The post-stream save at `handleGradingFormSubmission` (+2s after `streamBatchGradingSimple` resolves) is the single authoritative save trigger.
+2. In `streamBatchGradingSimple()`, set `window.currentBatchData = { batchResult: { results: allResults, ... }, originalData: batchData }` incrementally after each chunk completes. This way any debounced save firing mid-batch sees the latest known state and never triggers the reconstruction fallback.
+3. Also set `currentBatchData` in the small-batch path (`totalEssays <= CHUNK_SIZE`) for consistency.
+4. Added `[AutoSaveDiag]` logs at streaming start, per-chunk completion, streaming done, save trigger source.
+
+*`public/js/grading/auto-save.js`:*
+5. Made the `buildPayload()` reconstruction fallback **non-sticky** — it now builds a local `batchDataForPayload` variable for the current save only, instead of writing back to `window.currentBatchData`. Global stays null until streaming legitimately assigns it.
+6. Rewrote `countEssayDataGlobals()` to scan all 50 slots without breaking on gaps.
+7. Added `source` parameter to `doSave()` so every save is tagged with its trigger origin (`saveImmediately`, `debouncedSave`, `retry`).
+8. Added `[AutoSaveDiag]` log at `buildPayload` entry showing `currentBatchData.results` count and `essayData_*` globals count.
+9. Added sanity-check log at end of `buildPayload()` that warns loudly if `essaySnapshots < resultCount`.
+
+*Console noise cleanup (see commit for full list):* stripped chatty boot-time logs from `index.html`, `tab-management.js`, `user-menu.js`, `form-handling.js`, `ui-interactions-main.js`, `grading-display-main.js`, `profiles.js`.
+
+**Note:** `[AutoSaveDiag]` logs are intentionally left in place for now. Strip them in a later cleanup pass once the intermittent edit-blocking issue below is either resolved or confirmed unrelated.
+
+---
+
+## 🟡 INTERMITTENT: Category Breakdown not editable post-restore (seen once)
+
+**Observed:** 2026-04-08, once, not reproducible on retry
+**Severity:** Low — intermittent, user unblocked on second try
+
+**Symptom:** After grading 6 essays and refreshing, the Category Breakdown section (score inputs, +/− arrows, feedback textareas) was not editable for essays 5 & 6 specifically (indices 4 and 5 — the last chunk). Teacher notes and the color-coded essay body were editable for all 6 essays. A subsequent fresh grading + refresh did not reproduce.
+
+**Suspected cause:** Timing race between `processBatchResultQueue` (3s staggered `loadEssayDetails` calls) and the post-stream `saveImmediately` at stream_done + 2s. For a 6-essay batch, the queue drain takes ~18s but the save fires ~2s after streaming ends. The last 2 essays (indices 4, 5) are the most likely to still be mid-`loadEssayDetails` → mid-`/format` fetch → mid-`setupBatchEditableElements` when the save captures their `innerHTML`. If captured while the loading spinner is still showing or the score-input HTML hasn't been injected yet, the saved HTML has no editable inputs, so restore has nothing to attach listeners to.
+
+**Why only Category Breakdown:** the score inputs and category feedback textareas live inside the async-fetched `/format` response. The teacher notes and color-coded essay are rendered by a different code path and may be in the HTML earlier in the load sequence.
+
+**If it reproduces:** check devtools → Elements tab → expand a broken essay's grade detail → inspect a score input. Key questions:
+- Does `.editable-score` or `.score-input` exist in the DOM at all?
+- Is there any content under `batch-essay-${i}` or just a loading spinner?
+- Does `window.essayData_${i}` exist with the full grading data?
+
+If the DOM has no score inputs but the snapshot has the full data, the save caught the essay mid-load. Fix direction: gate the post-stream save on queue-drain completion, OR re-run `loadEssayDetails` for essays whose restored HTML contains a loading spinner.
+
+**Key files:**
+- `public/js/ui/form-handling.js` — `processBatchResultQueue()` (3s stagger, line ~896) and post-stream save at line ~339
+- `public/js/grading/batch-processing.js` — `loadEssayDetails()` (line ~413)
+- `public/js/grading/auto-save.js` — `buildPayload()` renderedHTML capture (line ~476) and `loadAndRestore()` HTML injection (line ~142)
 
 ---
 

@@ -11,12 +11,10 @@ let profiles = [];
  */
 async function loadProfilesData() {
     try {
-        console.log('🔄 Loading profiles data...');
         const response = await fetch('/api/profiles?' + Date.now(), {
             method: 'GET',
             credentials: 'include'
         }); // Add cache buster
-        console.log('[PROFILES] Response status:', response.status, response.statusText);
 
         if (!response.ok) {
             const errorText = await response.text();
@@ -25,11 +23,7 @@ async function loadProfilesData() {
         }
 
         const data = await response.json();
-        console.log('[PROFILES] Raw API response:', data);
-        console.log('[PROFILES] data.profiles exists?', !!data.profiles);
-        console.log('[PROFILES] data.profiles length:', data.profiles ? data.profiles.length : 'undefined');
         profiles = data.profiles || [];
-        console.log('📊 Loaded profiles:', profiles.length);
         updateProfileDropdown();
     } catch (error) {
         console.error('[PROFILES] Error loading profiles:', error);

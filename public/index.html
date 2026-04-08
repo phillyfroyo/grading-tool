@@ -417,8 +417,6 @@
         }
 
         function debugSwitchTab(tabName) {
-            console.log('DEBUG: Switching to tab:', tabName);
-
             // Remove active from all
             document.querySelectorAll('.tab-content').forEach(tab => {
                 tab.classList.remove('active');
@@ -433,35 +431,29 @@
 
             if (selectedTab) {
                 selectedTab.classList.add('active');
-                console.log('DEBUG: Activated tab:', selectedTab.id);
             } else {
-                console.log('DEBUG: Could not find tab:', tabName + '-content');
+                console.warn('Could not find tab:', tabName + '-content');
             }
 
             if (selectedButton) {
                 selectedButton.classList.add('active');
-                console.log('DEBUG: Activated button');
             } else {
-                console.log('DEBUG: Could not find button');
+                console.warn('Could not find button for tab:', tabName);
             }
         }
 
         // Initialize when DOM is ready
         document.addEventListener('DOMContentLoaded', function() {
-            console.log('DEBUG: DOM loaded, setting up tabs');
-
             // Add event listeners
             document.querySelectorAll('.tab-button').forEach(button => {
                 button.addEventListener('click', function() {
                     const tabName = this.getAttribute('data-tab');
-                    console.log('DEBUG: Button clicked:', tabName);
                     debugSwitchTab(tabName);
                 });
             });
 
             // Initialize first tab
             debugSwitchTab('gpt-grader');
-            console.log('DEBUG: Tab system initialized');
         });
     </script>
 
@@ -528,8 +520,6 @@
                 return;
             }
 
-            console.log('🚀 Initializing hybrid modular application...');
-
             // Initialize UI Interactions (includes tab management, modals, forms, etc.)
             if (window.UIInteractionsModule) {
                 window.UIInteractionsModule.initializeUIInteractions();
@@ -563,21 +553,6 @@
                 await window.AutoSaveModule.loadAndRestore();
             }
 
-            console.log('✅ Hybrid modular application initialized');
-            console.log('📊 Module status:', {
-                ui: !!window.UIInteractionsModule,
-                grading: !!window.GradingDisplayModule,
-                formHandling: !!window.FormHandlingModule,
-                essay: !!window.EssayEditingModule,
-                textSelection: !!window.TextSelectionModule,
-                highlighting: !!window.HighlightingModule,
-                categorySelection: !!window.CategorySelectionModule,
-                batchProcessing: !!window.BatchProcessingModule,
-                displayUtils: !!window.DisplayUtilsModule,
-                modalManager: !!window.ModalManager,
-                profiles: !!window.ProfilesModule,
-                autoSave: !!window.AutoSaveModule
-            });
         }
 
         // Use legacy initialization since we're in a hybrid mode

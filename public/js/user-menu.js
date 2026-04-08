@@ -20,21 +20,17 @@ document.addEventListener('DOMContentLoaded', function() {
     // Handle manage profiles button directly
     const manageBtn = document.getElementById('manageProfilesBtn');
     if (manageBtn) {
-        console.log('[USER_MENU] Manage profiles button found, adding direct handler');
         manageBtn.addEventListener('click', function(e) {
-            console.log('[USER_MENU] Manage profiles button clicked! Opening modal...');
             e.preventDefault();
             e.stopPropagation();
 
             // Open modal directly
             const modal = document.getElementById('profileManagementModal');
             if (modal) {
-                console.log('[USER_MENU] Modal found, showing...');
                 modal.style.display = 'block';
 
                 // Load profiles list
                 if (window.ProfilesModule && window.ProfilesModule.loadProfilesList) {
-                    console.log('[USER_MENU] Loading profiles list...');
                     window.ProfilesModule.loadProfilesList();
                 } else {
                     console.error('[USER_MENU] ProfilesModule or loadProfilesList not found');
@@ -53,26 +49,17 @@ document.addEventListener('DOMContentLoaded', function() {
  */
 async function loadUserInfo() {
     try {
-        console.log('[USER_MENU] Fetching auth status...');
         const response = await fetch('/auth/status', {
             method: 'GET',
             credentials: 'include'
         });
-        console.log('[USER_MENU] Auth status response:', response.status, response.statusText);
 
         const data = await response.json();
-        console.log('[USER_MENU] Auth status data:', data);
-        console.log('[USER_MENU] data.authenticated:', data.authenticated);
-        console.log('[USER_MENU] data.user:', data.user);
-
         const userEmailElement = document.getElementById('userEmail');
 
         if (data.authenticated && data.user) {
-            console.log('[USER_MENU] User authenticated:', data.user.email);
             userEmailElement.textContent = data.user.email;
         } else {
-            console.log('[USER_MENU] User not authenticated or no user data');
-            console.log('[USER_MENU] authenticated:', data.authenticated, 'user:', data.user);
             userEmailElement.textContent = 'Not logged in';
             userEmailElement.style.color = '#dc3545';
         }

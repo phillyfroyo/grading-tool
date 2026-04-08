@@ -83,7 +83,7 @@
         clearDebounce();
         hasPendingChanges = true;
         updateBannerStatus('Saving\u2026', 'ok');
-        return doSave();
+        return doSave('saveImmediately');
     }
 
     /**
@@ -92,7 +92,7 @@
     function debouncedSave() {
         clearDebounce();
         hasPendingChanges = true;
-        debounceTimer = setTimeout(() => doSave(), DEBOUNCE_MS);
+        debounceTimer = setTimeout(() => doSave('debouncedSave'), DEBOUNCE_MS);
     }
 
     /**
@@ -395,7 +395,7 @@
         retryTimer = setTimeout(() => {
             retryTimer = null;
             hasPendingChanges = true;
-            doSave();
+            doSave('retry');
         }, 10000);
     }
 
@@ -425,6 +425,15 @@
      * @param {boolean} omitHTML - If true, skip rendered HTML to keep payload small.
      */
     function buildPayload(omitHTML) {
+        // Diagnostic: snapshot the state that buildPayload sees on entry
+        const dbgCBDCount = window.currentBatchData?.batchResult?.results?.length;
+        const dbgGlobalsCount = Object.keys(window).filter(k => /^essayData_\d+$/.test(k)).length;
+        console.log(
+            `[AutoSaveDiag] buildPayload entry: ` +
+            `currentBatchData.results=${dbgCBDCount ?? 'null'}, ` +
+            `essayData_* globals=${dbgGlobalsCount}`
+        );
+
         // Determine essay count from currentBatchData OR by scanning essayData_* globals
         const resultCount = window.currentBatchData?.batchResult?.results?.length
             || countEssayDataGlobals();
@@ -434,9 +443,14 @@
             return null;
         }
 
-        // If currentBatchData is missing, reconstruct it from essayData_* globals
-        if (!window.currentBatchData) {
-            console.log('[AutoSave] buildPayload: reconstructing currentBatchData from essayData globals');
+        // If currentBatchData is missing, reconstruct a local copy from
+        // essayData_* globals for THIS save only. Do NOT write it back to
+        // window.currentBatchData — doing so used to corrupt the global during
+        // in-progress streaming, freezing it at a partial count and skipping
+        // the authoritative post-stream assignment in handleGradingFormSubmission.
+        let batchDataForPayload = window.currentBatchData;
+        if (!batchDataForPayload) {
+            console.log('[AutoSave] buildPayload: reconstructing local batchData from essayData globals (not persisting to window)');
             const results = [];
             const essays = [];
             for (let i = 0; i < resultCount; i++) {
@@ -446,7 +460,7 @@
                     essays.push(ed.originalData);
                 }
             }
-            window.currentBatchData = {
+            batchDataForPayload = {
                 batchResult: { results, totalEssays: results.length },
                 originalData: { essays }
             };
@@ -523,7 +537,7 @@
         }
 
         const sessionData = {
-            currentBatchData: window.currentBatchData,
+            currentBatchData: batchDataForPayload,
             essaySnapshots,
             renderedHTML,
             highlightsTabHTML,
@@ -562,21 +576,23 @@
 
     /**
      * Execute a save if not already saving.
+     * @param {string} source - Label identifying the caller (for diagnostics).
      */
-    async function doSave() {
+    async function doSave(source) {
+        source = source || 'unknown';
         if (isSaving || isRestoring) {
-            console.log('[AutoSave] doSave: skipped (isSaving=' + isSaving + ', isRestoring=' + isRestoring + ')');
+            console.log(`[AutoSaveDiag] doSave[${source}]: skipped (isSaving=${isSaving}, isRestoring=${isRestoring})`);
             return;
         }
         const payload = buildPayload();
         if (!payload) {
-            console.log('[AutoSave] doSave: no payload to save');
+            console.log(`[AutoSaveDiag] doSave[${source}]: no payload to save`);
             return;
         }
 
         isSaving = true;
         try {
-            console.log('[AutoSave] Saving session…');
+            console.log(`[AutoSave] Saving session via ${source}…`);
             const resp = await fetch('/api/grading-session', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
