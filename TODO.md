@@ -1,28 +1,50 @@
 # Grading Tool - TODO
 
-> Last updated: 2026-03-01
+> Last updated: 2026-04-07
 
 ---
 
-## 🔴 PRODUCTION BUG: Auto-save only saves 2 of 34 essays
+## ✅ FIXED: Auto-save only saves 2 of 34 essays
 
 **Reported:** 2026-03-01
+**Fixed:** 2026-04-07 (branch: `april-2026`)
 **Severity:** Critical — data loss in production
 
-**Problem:** Graded a full class of 34 essays, finished them all. Returned the next morning and auto-save had only preserved 2 essays, not the full batch.
+**Root cause confirmed:** The data was actually being saved correctly all along via `essaySnapshots` and `currentBatchData` (both unconditional in `buildPayload`). The visible "lost essays" symptom was caused by `renderedHTML` only containing entries for essays the user had expanded (gated on `innerHTML !== 'Loading formatted result...'`). On restore, `displayBatchResults()` rebuilds all 34 student rows from `currentBatchData`, but the 32 collapsed essays show "Loading formatted result..." inside their dropdowns until expanded — at which point `loadEssayDetails()` correctly re-fetches from `/format` because `window.essayData_${i}` is re-injected from the saved snapshots.
 
-**Evidence from production logs:**
-- `[AutoSave] renderedHTML keys: Array(2) lengths: Array(2)` — only 2 essays captured in `renderedHTML` during `buildPayload()`
-- `buildPayload essay 0: hasContent=true, length=48874`
-- `buildPayload essay 1: hasContent=true, length=40644`
-- Only essays 0 and 1 were saved; essays 2–33 were lost.
+**Secondary bug also fixed:** `countEssayDataGlobals()` had a gap-detection bug — it broke at the first missing `essayData_*` slot, which would truncate the count whenever a failed essay left a gap (since `batch-processing.js:354` only sets globals for `essay.success === true`). Replaced with a full scan that returns `highestIndex + 1`.
 
-**Likely cause:** In `auto-save.js` `buildPayload()`, the loop iterates `resultCount` times looking for `document.getElementById('batch-essay-${i}')` elements with non-empty `innerHTML`. The grade detail dropdowns use `max-height: 0; overflow: hidden` (collapsed by default). The DOM elements exist but the content inside (`batch-essay-${i}`) may only get populated when the dropdown is opened via `toggleTab()`. So at save time, only the 2 essays the user had expanded contained rendered HTML — the other 32 had `"Loading formatted result..."` as their innerHTML and were skipped by the `hasContent` check.
+**Changes (all in `public/js/grading/auto-save.js`):**
+1. Rewrote `countEssayDataGlobals()` to scan all 50 slots without breaking on gaps.
+2. Removed the noisy per-essay `[AutoSave] buildPayload essay N: hasContent=...` log.
+3. Added a single sanity-check log at the end of `buildPayload()` that warns loudly if `essaySnapshots < resultCount` (the only condition that means real pre-persistence data loss).
+
+**Test plan:**
+- Grade a small batch (3-5 essays), expand none, refresh — confirm all rows visible and clicking any expands + lazy-loads from `/format`.
+- Grade and expand 1-2 essays, refresh — confirm expanded ones show instant rendered HTML, collapsed ones lazy-load.
+- Larger batch (15-30 essays) to confirm scaling.
+- Devtools console after save should show: `[AutoSave] buildPayload: resultCount=N, essaySnapshots=N, renderedHTML=M (rendered cache is expected to be ≤ snapshots; collapsed essays lazy-load on expand)`
+
+---
+
+## 🟡 LATENT BUG: Score override edits lost when essay is collapsed before save
+
+**Discovered:** 2026-04-07 (while investigating the auto-save bug)
+**Severity:** Low — narrow edge case, but real data loss when triggered
+
+**Problem:** If a user (1) edits a score on an expanded essay, (2) collapses that essay, (3) waits for the debounced save to fire, then (4) refreshes the page — the score override silently drops on restore.
+
+**Why:** `applyScoreOverrides()` in `auto-save.js:836` runs at restore time and tries to find the score input via `container.querySelector('.score-input[data-category="..."]')`. But for collapsed essays, the `batch-essay-${i}` div still contains "Loading formatted result..." at restore time, so the score input doesn't exist yet. The query returns null and the override is dropped without warning.
+
+**Possible fixes:**
+- Defer per-essay score override application until that essay is expanded (hook into `loadEssayDetails`).
+- OR, store pending overrides in a module-level map keyed by essay index, and apply them inside the `loadEssayDetails` success callback.
+- OR, just log a warning when the input lookup fails so we at least know it happened.
 
 **Key files:**
-- `public/js/grading/auto-save.js` — `buildPayload()` (line ~468): checks `div.innerHTML.trim() !== 'Loading formatted result...'`
-- `public/js/grading/display-utils.js` — `createStudentRowHTML()` (line ~187): initial content is `"Loading formatted result..."`
-- The `essaySnapshots` (window globals `essayData_*`) should still contain the data even if the HTML wasn't rendered — need to verify if restore can work from snapshots alone without `renderedHTML`
+- `public/js/grading/auto-save.js` — `applyScoreOverrides()` (line ~836)
+- `public/js/grading/single-result.js` — `setupBatchEditableElements()` (line ~181, populates `batchGradingData` lazily on expand)
+- `public/js/grading/batch-processing.js` — `loadEssayDetails()` (line ~413, the lazy-load entry point)
 
 ---
 

@@ -408,14 +408,16 @@
 
     /**
      * Count how many essayData_* globals exist (scan up to 50).
+     * Returns highest filled index + 1, so the iteration range in buildPayload
+     * spans the full batch even when failed essays leave gaps in the sequence
+     * (batch-processing.js only sets essayData_* for essay.success === true).
      */
     function countEssayDataGlobals() {
-        let count = 0;
+        let highestIndex = -1;
         for (let i = 0; i < 50; i++) {
-            if (window[`essayData_${i}`]) count = i + 1;
-            else if (count > 0) break; // stop at first gap after finding some
+            if (window[`essayData_${i}`]) highestIndex = i;
         }
-        return count;
+        return highestIndex + 1;
     }
 
     /**
@@ -472,7 +474,6 @@
                 if (hasContent) {
                     renderedHTML[i] = div.innerHTML;
                 }
-                console.log(`[AutoSave] buildPayload essay ${i}: hasContent=${hasContent}, length=${div ? div.innerHTML.length : 0}`);
 
                 // Save highlights tab content ("Manage Highlights" standalone tab)
                 const hlTabDiv = document.getElementById(`highlights-tab-content-${i}`);
@@ -531,6 +532,27 @@
             completedEssays,
             removeAllStates,
         };
+
+        // Sanity check: essaySnapshots is the source of truth for restore.
+        // renderedHTML is a display cache (only populated for expanded essays)
+        // and is expected to be smaller. Warn loudly if snapshots diverges from
+        // resultCount, which would indicate real data loss before persistence.
+        const snapshotCount = Object.keys(essaySnapshots).length;
+        const renderedCount = Object.keys(renderedHTML).length;
+        if (snapshotCount < resultCount) {
+            console.warn(
+                `[AutoSave] buildPayload: snapshot/result MISMATCH — ` +
+                `resultCount=${resultCount}, essaySnapshots=${snapshotCount}, ` +
+                `renderedHTML=${renderedCount}. ` +
+                `Some essay data is missing from window.essayData_* globals and will not persist.`
+            );
+        } else {
+            console.log(
+                `[AutoSave] buildPayload: resultCount=${resultCount}, ` +
+                `essaySnapshots=${snapshotCount}, renderedHTML=${renderedCount} ` +
+                `(rendered cache is expected to be ≤ snapshots; collapsed essays lazy-load on expand)`
+            );
+        }
 
         return {
             activeTab: activeTabName,
