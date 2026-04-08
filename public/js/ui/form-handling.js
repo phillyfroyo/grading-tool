@@ -163,6 +163,12 @@ async function handleGradingFormSubmission(e) {
     // Determine error element ID based on form
     const errorElementId = formId === 'claudeGradingForm' ? 'claudeClassProfileError' : 'classProfileError';
 
+    // Mark grading as in progress so a page reload mid-grading will show
+    // the "interrupted" variant of the restore modal. Cleared in finally.
+    if (window.AutoSaveModule) {
+        window.AutoSaveModule.markGradingStarted();
+    }
+
     try {
         if (studentTexts.length === 1) {
             // Single essay grading - validate requirements first
@@ -249,9 +255,14 @@ async function handleGradingFormSubmission(e) {
                     console.error('Neither BatchProcessingModule nor GradingDisplayModule available');
                 }
 
-                // Auto-save after single essay grading completes
+                // Auto-save after single essay grading completes, then
+                // lock the form so the user can't accidentally submit a
+                // new batch on top of the saved session.
                 if (window.AutoSaveModule) {
-                    setTimeout(() => window.AutoSaveModule.saveImmediately(), 1000);
+                    setTimeout(() => {
+                        window.AutoSaveModule.saveImmediately();
+                        window.AutoSaveModule.setFormLocked(true);
+                    }, 1000);
                 }
             } else {
                 // Update progress UI to show failure for single essay
@@ -301,14 +312,30 @@ async function handleGradingFormSubmission(e) {
                 window.BatchProcessingModule.displayBatchProgress(batchData);
             }
 
+            // Reset the format-call tracker so the post-stream save can
+            // wait until every essay's /format call has completed before
+            // snapshotting renderedHTML. See TODO.md: "INTERMITTENT:
+            // Category Breakdown not editable post-restore".
+            if (window.BatchProcessingModule?.resetFormatCallTracking) {
+                window.BatchProcessingModule.resetFormatCallTracking(batchData.essays.length);
+            }
+
             // Use streaming batch endpoint for better UX (essays return progressively)
-            console.log('🎯 CALLING STREAMING BATCH GRADING WITH:', batchData);
+            console.log(`[AutoSaveDiag] streaming start: ${batchData.essays.length} essays submitted`);
 
             // Store original batch data globally for retry functionality
             window.originalBatchDataForRetry = batchData;
 
             try {
                 const streamResult = await streamBatchGradingSimple(batchData);
+
+                const preExisting = !!window.currentBatchData;
+                const preExistingCount = window.currentBatchData?.batchResult?.results?.length;
+                const streamCount = streamResult?.results?.length;
+                console.log(
+                    `[AutoSaveDiag] streaming done: streamResult.results=${streamCount}, ` +
+                    `currentBatchData already set=${preExisting} (len=${preExistingCount ?? 'n/a'})`
+                );
 
                 // Ensure window.currentBatchData is set after streaming completes
                 // (streaming displays results individually via queue, skipping displayBatchResults)
@@ -317,11 +344,41 @@ async function handleGradingFormSubmission(e) {
                         batchResult: streamResult,
                         originalData: batchData
                     };
+                    console.log(`[AutoSaveDiag] assigned currentBatchData from streamResult (len=${streamCount})`);
+                } else if (preExisting && preExistingCount !== streamCount) {
+                    console.warn(
+                        `[AutoSaveDiag] MISMATCH: currentBatchData was already set with len=${preExistingCount} ` +
+                        `but streamResult has len=${streamCount}. Save will use the pre-existing value!`
+                    );
                 }
 
-                // Auto-save after streaming batch completes
+                // Auto-save after streaming batch completes. We must wait
+                // until every essay's /format call has finished, otherwise
+                // the save will snapshot loading-spinner placeholders for
+                // essays that are still mid-load — which then can't be
+                // edited after a page refresh. See TODO.md.
                 if (window.AutoSaveModule) {
-                    setTimeout(() => window.AutoSaveModule.saveImmediately(), 2000);
+                    (async () => {
+                        console.log(`[AutoSaveDiag] waiting for /format calls before save...`);
+                        if (window.BatchProcessingModule?.waitForAllFormatCalls) {
+                            const result = await window.BatchProcessingModule.waitForAllFormatCalls();
+                            console.log(
+                                `[AutoSaveDiag] /format wait done: ${result.done}/${result.expected}, ` +
+                                `completed=${result.completed}`
+                            );
+                        }
+                        // Extra 300ms buffer for the 200ms setTimeout inside
+                        // loadEssayDetails that wires up setupBatchEditableElements
+                        // after the fetch resolves. Without this buffer the save
+                        // could capture HTML that is structurally correct but not
+                        // yet event-wired (restore will rewire it anyway, so this
+                        // is just belt-and-suspenders).
+                        await new Promise(r => setTimeout(r, 300));
+                        console.log(`[AutoSaveDiag] firing saveImmediately (post-format-complete)`);
+                        window.AutoSaveModule.saveImmediately();
+                        window.AutoSaveModule.showClearButton('Grading complete');
+                        window.AutoSaveModule.setFormLocked(true);
+                    })();
                 }
             } catch (streamError) {
                 console.error('Streaming failed, using fallback:', streamError);
@@ -341,6 +398,14 @@ async function handleGradingFormSubmission(e) {
         if (window.TabManagementModule) {
             window.TabManagementModule.enableAllTabs();
         }
+
+        // Clear the in-progress flag. The next save (which already fires at
+        // stream_done+2s on success, or is unneeded on failure) will persist
+        // the cleared state. On failure we leave any partial saved session
+        // alone — the user will see it on next refresh as "interrupted".
+        if (window.AutoSaveModule) {
+            window.AutoSaveModule.markGradingFinished();
+        }
     }
 }
 
@@ -348,13 +413,9 @@ async function handleGradingFormSubmission(e) {
  * Setup main grading form functionality
  */
 function setupMainGrading() {
-    console.log('Setting up main grading functionality');
-
-    // Set up form submission
     const gradingForm = document.getElementById('gradingForm');
     if (gradingForm) {
         gradingForm.addEventListener('submit', handleGradingFormSubmission);
-        console.log('Main grading form listener added');
     } else {
         console.warn('Main grading form not found');
     }
@@ -364,13 +425,10 @@ function setupMainGrading() {
  * Setup Claude grading functionality
  */
 function setupClaudeGrading() {
-    console.log('Setting up Claude grading functionality');
-
     // Set up form submission (using the same handler as GPT, it detects which form)
     const claudeGradingForm = document.getElementById('claudeGradingForm');
     if (claudeGradingForm) {
         claudeGradingForm.addEventListener('submit', handleGradingFormSubmission);
-        console.log('Claude grading form listener added');
     } else {
         console.warn('Claude grading form not found');
     }
@@ -380,16 +438,11 @@ function setupClaudeGrading() {
  * Setup manual grading functionality
  */
 function setupManualGrading() {
-    console.log('Setting up manual grading functionality');
-
-    // Set up form submission
     const manualForm = document.getElementById('manualGradingForm');
     if (manualForm) {
         manualForm.addEventListener('submit', handleManualGradingSubmission);
-        console.log('Manual grading form listener added');
-    } else {
-        console.warn('Manual grading form not found');
     }
+    // Note: manual grading form is optional; no warning when missing
 }
 
 
@@ -452,7 +505,13 @@ async function streamBatchGradingSimple(batchData) {
 
     // If batch is small enough, process in single request
     if (totalEssays <= CHUNK_SIZE) {
-        return processEssayChunk(batchData, 0);
+        const smallResult = await processEssayChunk(batchData, 0);
+        // Keep currentBatchData in sync so any save firing here sees the truth.
+        window.currentBatchData = {
+            batchResult: smallResult,
+            originalData: batchData
+        };
+        return smallResult;
     }
 
     // Large batch - split into chunks and process sequentially
@@ -476,6 +535,22 @@ async function streamBatchGradingSimple(batchData) {
             if (chunkResult.results) {
                 allResults = allResults.concat(chunkResult.results);
             }
+            console.log(
+                `[AutoSaveDiag] chunk ${chunkStart}-${chunkEnd - 1} done: ` +
+                `chunkResult.results=${chunkResult?.results?.length}, allResults=${allResults.length}`
+            );
+
+            // Update currentBatchData incrementally so any save firing mid-batch
+            // (debounced from user edits, etc.) sees the latest known results
+            // instead of triggering the buildPayload reconstruction fallback.
+            window.currentBatchData = {
+                batchResult: {
+                    success: true,
+                    results: allResults,
+                    totalEssays: totalEssays
+                },
+                originalData: batchData
+            };
 
             processedCount = chunkEnd;
 
@@ -896,13 +971,22 @@ function setupFormValidation() {
 function processBatchResultQueue() {
     if (!window.batchResultQueue || window.batchResultQueue.length === 0) {
         window.batchQueueProcessor = null;
-        // Auto-save after all queued results have been processed
-        if (window.AutoSaveModule) {
-            setTimeout(() => window.AutoSaveModule.saveImmediately(), 2000);
-        }
+        // Note: we used to fire saveImmediately here when the queue drained,
+        // but the queue drains between chunks in a chunked batch (since chunks
+        // are sequential and the queue processor runs on a 3s stagger),
+        // causing partial-state saves that corrupted currentBatchData via the
+        // buildPayload reconstruction fallback. The authoritative post-batch
+        // save now lives in handleGradingFormSubmission, fired 2s after
+        // streamBatchGradingSimple fully resolves.
         return;
     }
 
+    // Stagger was previously 3000ms which made the post-stream save wait
+    // up to N × 3s for all essays to trigger their /format call. Since
+    // dropdowns are collapsed by default, the user doesn't actually see
+    // the staggered "pop-in" effect — it was cosmetic for a UX that
+    // doesn't apply. 100ms is fast enough to let /format calls fire in
+    // near-parallel without overwhelming the DOM.
     window.batchQueueProcessor = setTimeout(() => {
         const data = window.batchResultQueue.shift();
 
@@ -920,7 +1004,7 @@ function processBatchResultQueue() {
 
         // Continue processing queue
         processBatchResultQueue();
-    }, 3000); // 3-second delay
+    }, 100); // 100ms — fast, collapsed dropdowns make staggering moot
 }
 
 // Export functions for module usage

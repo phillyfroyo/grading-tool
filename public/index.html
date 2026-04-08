@@ -347,6 +347,25 @@
         </div>
     </div>
 
+    <!-- Restore Session Modal (non-dismissible) -->
+    <div id="restoreSessionModal" class="modal" style="display: none;">
+        <div class="modal-content" style="max-width: 480px;">
+            <div class="modal-header">
+                <h3 class="modal-title" id="restoreSessionTitle">You have graded essays from your last session</h3>
+                <!-- No close button: user must pick an option -->
+            </div>
+            <div class="modal-body">
+                <div id="restoreSessionMessage" style="margin-bottom: 20px; padding: 12px; background: #e8f4f8; border: 1px solid #b8daff; border-radius: 4px; color: #004085; line-height: 1.5;">
+                    <!-- Message inserted by JS -->
+                </div>
+                <div class="modal-actions" style="display: flex; gap: 10px; justify-content: flex-end;">
+                    <button id="restoreSessionDiscardBtn" style="background: #6c757d; color: white; border: none; padding: 10px 18px; border-radius: 4px; cursor: pointer; font-weight: 500;">Discard and start fresh</button>
+                    <button id="restoreSessionKeepBtn" style="background: #28a745; color: white; border: none; padding: 10px 18px; border-radius: 4px; cursor: pointer; font-weight: 600;">Keep reviewing saved essays</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- Test function for manual grading -->
     <script>
         function testManualGrading() {
@@ -417,8 +436,6 @@
         }
 
         function debugSwitchTab(tabName) {
-            console.log('DEBUG: Switching to tab:', tabName);
-
             // Remove active from all
             document.querySelectorAll('.tab-content').forEach(tab => {
                 tab.classList.remove('active');
@@ -433,35 +450,29 @@
 
             if (selectedTab) {
                 selectedTab.classList.add('active');
-                console.log('DEBUG: Activated tab:', selectedTab.id);
             } else {
-                console.log('DEBUG: Could not find tab:', tabName + '-content');
+                console.warn('Could not find tab:', tabName + '-content');
             }
 
             if (selectedButton) {
                 selectedButton.classList.add('active');
-                console.log('DEBUG: Activated button');
             } else {
-                console.log('DEBUG: Could not find button');
+                console.warn('Could not find button for tab:', tabName);
             }
         }
 
         // Initialize when DOM is ready
         document.addEventListener('DOMContentLoaded', function() {
-            console.log('DEBUG: DOM loaded, setting up tabs');
-
             // Add event listeners
             document.querySelectorAll('.tab-button').forEach(button => {
                 button.addEventListener('click', function() {
                     const tabName = this.getAttribute('data-tab');
-                    console.log('DEBUG: Button clicked:', tabName);
                     debugSwitchTab(tabName);
                 });
             });
 
             // Initialize first tab
             debugSwitchTab('gpt-grader');
-            console.log('DEBUG: Tab system initialized');
         });
     </script>
 
@@ -528,8 +539,6 @@
                 return;
             }
 
-            console.log('🚀 Initializing hybrid modular application...');
-
             // Initialize UI Interactions (includes tab management, modals, forms, etc.)
             if (window.UIInteractionsModule) {
                 window.UIInteractionsModule.initializeUIInteractions();
@@ -557,27 +566,14 @@
                 window.ProfilesModule.initializeProfiles();
             }
 
-            // Initialize auto-save and restore any saved session
+            // Initialize auto-save and prompt the user to restore or discard
+            // any saved session. A non-dismissible modal appears if a session
+            // exists on the server; otherwise the fresh form stays as-is.
             if (window.AutoSaveModule) {
                 window.AutoSaveModule.initialize();
-                await window.AutoSaveModule.loadAndRestore();
+                await window.AutoSaveModule.promptRestoreIfSaved();
             }
 
-            console.log('✅ Hybrid modular application initialized');
-            console.log('📊 Module status:', {
-                ui: !!window.UIInteractionsModule,
-                grading: !!window.GradingDisplayModule,
-                formHandling: !!window.FormHandlingModule,
-                essay: !!window.EssayEditingModule,
-                textSelection: !!window.TextSelectionModule,
-                highlighting: !!window.HighlightingModule,
-                categorySelection: !!window.CategorySelectionModule,
-                batchProcessing: !!window.BatchProcessingModule,
-                displayUtils: !!window.DisplayUtilsModule,
-                modalManager: !!window.ModalManager,
-                profiles: !!window.ProfilesModule,
-                autoSave: !!window.AutoSaveModule
-            });
         }
 
         // Use legacy initialization since we're in a hybrid mode

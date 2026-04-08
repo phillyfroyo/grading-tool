@@ -7,8 +7,6 @@
  * Initialize UI interactions
  */
 function initializeUIInteractions() {
-    console.log('🔧 Initializing UI interactions...');
-
     // Set up tab switching
     if (window.TabManagementModule) {
         window.TabManagementModule.setupTabSwitching();
@@ -35,8 +33,6 @@ function initializeUIInteractions() {
     if (window.EditingFunctionsModule) {
         window.EditingFunctionsModule.setupEditableElements();
     }
-
-    console.log('✅ UI interactions initialized');
 }
 
 /**

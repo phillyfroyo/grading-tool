@@ -12,6 +12,81 @@ let processingQueue = {
     nextInQueue: 2
 };
 
+// Track /format call completion so the post-stream auto-save can wait
+// until all essays have finished their Stage 2 (/format call) before
+// snapshotting renderedHTML. Without this, the save can capture essays
+// mid-load ("Brewing thoughts..." placeholder) instead of real rendered
+// content, leaving the Category Breakdown uneditable on restore.
+// See TODO.md: "INTERMITTENT: Category Breakdown not editable post-restore".
+let formatCallsExpected = 0;
+let formatCallsDoneIndices = new Set();
+
+/**
+ * Reset format-call tracking at the start of a new grading run.
+ * @param {number} expectedCount - Number of essays in the batch.
+ */
+function resetFormatCallTracking(expectedCount) {
+    formatCallsExpected = expectedCount;
+    formatCallsDoneIndices = new Set();
+    console.log(`[BatchProcessing] format-call tracking reset: expected=${expectedCount}`);
+}
+
+/**
+ * Mark an essay's /format call as complete. Idempotent per index — safe
+ * to call multiple times from different code paths (loadEssayDetails
+ * success/error branches AND updateEssayStatus failure path).
+ * @param {number} index - Essay index (global, not chunk-local).
+ * @param {string} reason - Short label for debugging (e.g., 'loaded', 'fetch-error').
+ */
+function markFormatCallComplete(index, reason) {
+    if (formatCallsDoneIndices.has(index)) return;
+    formatCallsDoneIndices.add(index);
+    console.log(
+        `[BatchProcessing] format-call complete: index=${index} reason=${reason} ` +
+        `(${formatCallsDoneIndices.size}/${formatCallsExpected})`
+    );
+}
+
+/**
+ * Wait until all /format calls for the current batch have completed
+ * (success OR failure), or until the timeout elapses.
+ * Resolves with { completed, done, expected } — never rejects.
+ * @param {number} timeoutMs - Max time to wait before resolving early.
+ */
+function waitForAllFormatCalls(timeoutMs = 60000) {
+    return new Promise(resolve => {
+        if (formatCallsExpected === 0) {
+            resolve({ completed: true, done: 0, expected: 0 });
+            return;
+        }
+        const startTime = Date.now();
+        const check = () => {
+            if (formatCallsDoneIndices.size >= formatCallsExpected) {
+                resolve({
+                    completed: true,
+                    done: formatCallsDoneIndices.size,
+                    expected: formatCallsExpected
+                });
+                return;
+            }
+            if (Date.now() - startTime > timeoutMs) {
+                console.warn(
+                    `[BatchProcessing] waitForAllFormatCalls timed out: ` +
+                    `${formatCallsDoneIndices.size}/${formatCallsExpected} done`
+                );
+                resolve({
+                    completed: false,
+                    done: formatCallsDoneIndices.size,
+                    expected: formatCallsExpected
+                });
+                return;
+            }
+            setTimeout(check, 100);
+        };
+        check();
+    });
+}
+
 /**
  * Get a random Claude-style loading message
  */
@@ -261,6 +336,11 @@ function updateEssayStatus(index, success, error = null) {
             </div>
             ${error ? `<div style="font-size: 11px; color: #666; margin-top: 4px;">${error}</div>` : ''}
         `;
+        // Failed essays will never run loadEssayDetails — mark them done
+        // here so waitForAllFormatCalls doesn't hang on missing completions.
+        // Safe to call even if loadEssayDetails's error branches already
+        // marked it: markFormatCallComplete is idempotent per index.
+        markFormatCallComplete(index, 'essay-failed');
     }
 
     // Activate next essay in queue if there is one
@@ -460,6 +540,7 @@ function loadEssayDetails(index) {
 
             // Release lock - loading complete
             essayLoadingLock[index] = false;
+            markFormatCallComplete(index, 'loaded');
 
             // IMMEDIATE verification: confirm content loaded into correct div
             const verifyDiv = document.getElementById(`batch-essay-${index}`);
@@ -617,6 +698,7 @@ function loadEssayDetails(index) {
             } else {
                 // Release lock on formatting error
                 essayLoadingLock[index] = false;
+                markFormatCallComplete(index, 'format-error');
                 const errorHTML = window.DisplayUtilsModule ?
                     window.DisplayUtilsModule.createErrorHTML('Error formatting essay', formatted.error) :
                     '<div class="error">Error formatting essay</div>';
@@ -627,6 +709,7 @@ function loadEssayDetails(index) {
         .catch(error => {
             // Release lock on fetch error
             essayLoadingLock[index] = false;
+            markFormatCallComplete(index, 'fetch-error');
             console.error(`❌ Essay ${index} fetch error:`, error);
             const errorHTML = window.DisplayUtilsModule ?
                 window.DisplayUtilsModule.createErrorHTML('Error loading essay details', error.message) :
@@ -973,5 +1056,8 @@ window.BatchProcessingModule = {
     setupBatchProcessing,
     restoreBatchCompletionStatus,
     clearBatchCompletionStatus,
-    retryEssay
+    retryEssay,
+    resetFormatCallTracking,
+    markFormatCallComplete,
+    waitForAllFormatCalls
 };

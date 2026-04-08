@@ -615,8 +615,6 @@ function clearResults() {
  * Initialize grading display system
  */
 function initializeGradingDisplay() {
-    console.log('🔧 Initializing grading display system...');
-
     // Setup batch processing if available
     if (window.BatchProcessingModule) {
         window.BatchProcessingModule.setupBatchProcessing();
@@ -624,13 +622,8 @@ function initializeGradingDisplay() {
 
     // Restore any saved state
     if (window.SingleResultModule) {
-        const savedState = window.SingleResultModule.restoreGradingState();
-        if (savedState) {
-            console.log('📝 Restored saved grading state');
-        }
+        window.SingleResultModule.restoreGradingState();
     }
-
-    console.log('✅ Grading display system initialized');
 }
 
 /**

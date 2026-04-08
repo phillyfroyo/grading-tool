@@ -8,8 +8,6 @@
  * @param {string} tabName - Name of the tab to switch to
  */
 function switchTab(tabName) {
-    console.log('🔄 Switching to tab:', tabName);
-
     // Clean up any leftover debug elements
     const existingDebugDiv = document.getElementById('debug-message');
     if (existingDebugDiv) {
@@ -22,34 +20,28 @@ function switchTab(tabName) {
 
     allTabs.forEach(tab => {
         tab.classList.remove('active');
-        console.log('Removed active from tab:', tab.id);
     });
 
     allButtons.forEach(btn => {
         btn.classList.remove('active');
-        console.log('Removed active from button:', btn.textContent.trim());
     });
 
     // Show selected tab content and activate button
     const targetId = tabName + '-content';
-    console.log('Looking for tab with ID:', targetId);
     const selectedTab = document.getElementById(targetId);
 
     if (selectedTab) {
         selectedTab.classList.add('active');
-        console.log('✅ Activated tab:', selectedTab.id);
     } else {
         console.error('❌ Could not find tab with ID:', targetId);
     }
 
     // Add active class to selected tab button
     const buttonSelector = `.tab-button[data-tab="${tabName}"]`;
-    console.log('Looking for button with selector:', buttonSelector);
     const selectedButton = document.querySelector(buttonSelector);
 
     if (selectedButton) {
         selectedButton.classList.add('active');
-        console.log('✅ Activated button for tab:', tabName);
     } else {
         console.error('❌ Could not find button with selector:', buttonSelector);
     }
