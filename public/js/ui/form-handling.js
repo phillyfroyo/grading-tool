@@ -163,6 +163,12 @@ async function handleGradingFormSubmission(e) {
     // Determine error element ID based on form
     const errorElementId = formId === 'claudeGradingForm' ? 'claudeClassProfileError' : 'classProfileError';
 
+    // Mark grading as in progress so a page reload mid-grading will show
+    // the "interrupted" variant of the restore modal. Cleared in finally.
+    if (window.AutoSaveModule) {
+        window.AutoSaveModule.markGradingStarted();
+    }
+
     try {
         if (studentTexts.length === 1) {
             // Single essay grading - validate requirements first
@@ -249,9 +255,14 @@ async function handleGradingFormSubmission(e) {
                     console.error('Neither BatchProcessingModule nor GradingDisplayModule available');
                 }
 
-                // Auto-save after single essay grading completes
+                // Auto-save after single essay grading completes, then
+                // lock the form so the user can't accidentally submit a
+                // new batch on top of the saved session.
                 if (window.AutoSaveModule) {
-                    setTimeout(() => window.AutoSaveModule.saveImmediately(), 1000);
+                    setTimeout(() => {
+                        window.AutoSaveModule.saveImmediately();
+                        window.AutoSaveModule.setFormLocked(true);
+                    }, 1000);
                 }
             } else {
                 // Update progress UI to show failure for single essay
@@ -333,11 +344,17 @@ async function handleGradingFormSubmission(e) {
                     );
                 }
 
-                // Auto-save after streaming batch completes
+                // Auto-save after streaming batch completes, then show the
+                // "Clear & Start Fresh" banner and lock the form so the user
+                // can't accidentally submit a new batch on top of the saved
+                // session. The inline lock message points users at this
+                // banner, so it MUST be visible when the form is locked.
                 if (window.AutoSaveModule) {
                     setTimeout(() => {
                         console.log(`[AutoSaveDiag] firing saveImmediately (post-stream +2s)`);
                         window.AutoSaveModule.saveImmediately();
+                        window.AutoSaveModule.showClearButton('Grading complete');
+                        window.AutoSaveModule.setFormLocked(true);
                     }, 2000);
                 }
             } catch (streamError) {
@@ -357,6 +374,14 @@ async function handleGradingFormSubmission(e) {
         // Re-enable all tabs after grading completes
         if (window.TabManagementModule) {
             window.TabManagementModule.enableAllTabs();
+        }
+
+        // Clear the in-progress flag. The next save (which already fires at
+        // stream_done+2s on success, or is unneeded on failure) will persist
+        // the cleared state. On failure we leave any partial saved session
+        // alone — the user will see it on next refresh as "interrupted".
+        if (window.AutoSaveModule) {
+            window.AutoSaveModule.markGradingFinished();
         }
     }
 }

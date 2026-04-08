@@ -52,12 +52,12 @@ The diagnostic log that pinpointed this:
 
 ---
 
-## 🟡 INTERMITTENT: Category Breakdown not editable post-restore (seen once)
+## 🟡 INTERMITTENT: Category Breakdown not editable post-restore (reproduced twice)
 
-**Observed:** 2026-04-08, once, not reproducible on retry
-**Severity:** Low — intermittent, user unblocked on second try
+**Observed:** 2026-04-08 (twice, same session)
+**Severity:** Low-medium — reproduces intermittently, user can work around by not refreshing
 
-**Symptom:** After grading 6 essays and refreshing, the Category Breakdown section (score inputs, +/− arrows, feedback textareas) was not editable for essays 5 & 6 specifically (indices 4 and 5 — the last chunk). Teacher notes and the color-coded essay body were editable for all 6 essays. A subsequent fresh grading + refresh did not reproduce.
+**Symptom:** After grading 6 essays and refreshing, the Category Breakdown section (score inputs, +/− arrows, feedback textareas) was not editable for essays 5 & 6 specifically (indices 4 and 5 — the last chunk). Teacher notes and the color-coded essay body were editable for all 6 essays. First observed, not reproduced on second retry, then reproduced again on a third run. So it's a real bug with a timing-dependent trigger, not a ghost.
 
 **Suspected cause:** Timing race between `processBatchResultQueue` (3s staggered `loadEssayDetails` calls) and the post-stream `saveImmediately` at stream_done + 2s. For a 6-essay batch, the queue drain takes ~18s but the save fires ~2s after streaming ends. The last 2 essays (indices 4, 5) are the most likely to still be mid-`loadEssayDetails` → mid-`/format` fetch → mid-`setupBatchEditableElements` when the save captures their `innerHTML`. If captured while the loading spinner is still showing or the score-input HTML hasn't been injected yet, the saved HTML has no editable inputs, so restore has nothing to attach listeners to.
 

@@ -13,6 +13,8 @@
     let initialized = false;
     let lastSuccessfulSaveTime = 0;
     let hasPendingChanges = false;
+    let gradingInProgress = false;
+    let formLocked = false;
     const DEBOUNCE_MS = 2500;
 
     // --- Public API ---
@@ -93,6 +95,209 @@
         clearDebounce();
         hasPendingChanges = true;
         debounceTimer = setTimeout(() => doSave('debouncedSave'), DEBOUNCE_MS);
+    }
+
+    /**
+     * Mark that a grading operation has started. Sets the in-memory
+     * gradingInProgress flag so that the next save (which happens
+     * incrementally as each chunk completes) persists the flag. If the
+     * user refreshes mid-grading, the restore modal shows its
+     * "interrupted" variant.
+     *
+     * We intentionally do NOT fire an immediate save here: until the first
+     * chunk completes there's no essay data to save, and firing an empty
+     * save would just overwrite any legitimate prior session on the server.
+     */
+    function markGradingStarted() {
+        gradingInProgress = true;
+    }
+
+    /**
+     * Mark that a grading operation has finished (success OR failure).
+     * Clears the gradingInProgress flag. The next save will persist the
+     * cleared state.
+     */
+    function markGradingFinished() {
+        gradingInProgress = false;
+    }
+
+    /**
+     * Lock or unlock the grading forms. When locked:
+     *   - Essay entry headers (name/nickname inputs) and text areas are hidden.
+     *   - Grade, Add Another Essay, and essay counter controls are disabled.
+     *   - An inline message appears next to the grade button pointing users
+     *     at the "Clear & Start Fresh" banner button.
+     * Applied to BOTH the GPT and Claude grading forms.
+     *
+     * @param {boolean} locked
+     */
+    function setFormLocked(locked) {
+        formLocked = locked;
+        const formIds = ['gradingForm', 'claudeGradingForm'];
+        const inlineMessageText =
+            "You have saved graded essays below. Click 'Clear & Start Fresh' at the top to grade more essays.";
+
+        formIds.forEach(formId => {
+            const form = document.getElementById(formId);
+            if (!form) return;
+
+            // Hide or show essay-header rows (name/nickname) and textareas.
+            // We toggle the entire .essay-entry so the collapse is clean and
+            // there are no orphan name fields floating without content below.
+            form.querySelectorAll('.essay-entry').forEach(entry => {
+                entry.style.display = locked ? 'none' : '';
+            });
+
+            // Disable or enable submit + add-another + remove buttons.
+            const gradeBtn = form.querySelector('button[type="submit"]');
+            if (gradeBtn) {
+                gradeBtn.disabled = locked;
+                gradeBtn.style.opacity = locked ? '0.5' : '';
+                gradeBtn.style.cursor = locked ? 'not-allowed' : '';
+            }
+
+            const addBtn = form.querySelector('#addEssayBtn, [id$="EssayBtn"]');
+            if (addBtn) {
+                addBtn.disabled = locked;
+                addBtn.style.opacity = locked ? '0.5' : '';
+                addBtn.style.cursor = locked ? 'not-allowed' : '';
+            }
+
+            // Essay count input and its arrow overlays
+            const countInput = form.querySelector('#essayCountInput, [id$="EssayCountInput"]');
+            if (countInput) {
+                countInput.disabled = locked;
+                countInput.style.opacity = locked ? '0.5' : '';
+            }
+            form.querySelectorAll('.essay-counter-arrow').forEach(arrow => {
+                arrow.style.pointerEvents = locked ? 'none' : '';
+                arrow.style.opacity = locked ? '0.5' : '';
+            });
+
+            // Remove-essay buttons inside each entry (covered by entry hide,
+            // but belt-and-suspenders in case an entry is ever shown again).
+            form.querySelectorAll('.remove-essay-btn').forEach(btn => {
+                btn.disabled = locked;
+            });
+
+            // Insert or remove the inline message next to the grade button.
+            const existingMsg = form.querySelector('.auto-save-lock-message');
+            if (locked) {
+                if (!existingMsg) {
+                    const msg = document.createElement('div');
+                    msg.className = 'auto-save-lock-message';
+                    msg.textContent = inlineMessageText;
+                    msg.style.cssText =
+                        'display: inline-block; margin-left: 12px; padding: 6px 10px;' +
+                        'color: #666; font-size: 13px; font-style: italic;' +
+                        'max-width: 360px; vertical-align: middle; line-height: 1.4;';
+                    // Place it inside .essay-controls next to the buttons
+                    const controls = form.querySelector('.essay-controls') || gradeBtn?.parentElement;
+                    if (controls) {
+                        controls.appendChild(msg);
+                    }
+                }
+            } else {
+                if (existingMsg) existingMsg.remove();
+            }
+        });
+    }
+
+    /**
+     * Fetch the session existence + metadata WITHOUT running the full restore.
+     * Used by promptRestoreIfSaved to decide whether to show the modal.
+     * Returns { exists: boolean, essayCount: number, gradingInProgress: boolean }
+     * or null on fetch error.
+     */
+    async function peekSavedSession() {
+        try {
+            const resp = await fetch('/api/grading-session');
+            if (!resp.ok) return { exists: false };
+            const data = await resp.json();
+            if (!data.exists) return { exists: false };
+            const sessionData = data.sessionData || {};
+            const results = sessionData.currentBatchData?.batchResult?.results;
+            const essayCount = Array.isArray(results) ? results.length : 0;
+            return {
+                exists: true,
+                essayCount,
+                gradingInProgress: !!sessionData.gradingInProgress
+            };
+        } catch (err) {
+            console.warn('[AutoSave] peekSavedSession failed:', err);
+            return null;
+        }
+    }
+
+    /**
+     * Page-load entry point. Checks the server for a saved session and,
+     * if one exists, shows a non-dismissible modal asking the user whether
+     * to keep or discard the saved work.
+     *   - Keep  → run loadAndRestore() + setFormLocked(true).
+     *   - Discard → run clearSavedSession().
+     * If no saved session exists, this is a no-op (fresh form stays as-is).
+     */
+    async function promptRestoreIfSaved() {
+        const peek = await peekSavedSession();
+        if (!peek || !peek.exists) {
+            return false;
+        }
+
+        // Build the modal copy based on whether the session was interrupted.
+        const modal = document.getElementById('restoreSessionModal');
+        const titleEl = document.getElementById('restoreSessionTitle');
+        const messageEl = document.getElementById('restoreSessionMessage');
+        const keepBtn = document.getElementById('restoreSessionKeepBtn');
+        const discardBtn = document.getElementById('restoreSessionDiscardBtn');
+
+        if (!modal || !titleEl || !messageEl || !keepBtn || !discardBtn) {
+            console.error('[AutoSave] restoreSessionModal elements missing; falling back to silent restore');
+            await loadAndRestore();
+            setFormLocked(true);
+            return true;
+        }
+
+        const essayWord = peek.essayCount === 1 ? 'essay' : 'essays';
+        if (peek.gradingInProgress) {
+            titleEl.textContent = 'Your last grading session was interrupted';
+            messageEl.textContent =
+                `${peek.essayCount} ${essayWord} ${peek.essayCount === 1 ? 'was' : 'were'} saved before the interruption. ` +
+                `Would you like to keep them or start fresh?`;
+        } else {
+            titleEl.textContent = 'You have graded essays from your last session';
+            messageEl.textContent =
+                `${peek.essayCount} ${essayWord} from your previous session ${peek.essayCount === 1 ? 'was' : 'were'} auto-saved. ` +
+                `What would you like to do?`;
+        }
+
+        // Show the modal. Not registered with ModalManager, so ESC and
+        // backdrop click do nothing. User MUST pick a button.
+        modal.style.display = 'block';
+
+        // Wait for the user's choice via a promise that only resolves on click.
+        return new Promise((resolve) => {
+            const cleanup = () => {
+                keepBtn.removeEventListener('click', onKeep);
+                discardBtn.removeEventListener('click', onDiscard);
+                modal.style.display = 'none';
+            };
+
+            const onKeep = async () => {
+                cleanup();
+                await loadAndRestore();
+                setFormLocked(true);
+                resolve(true);
+            };
+
+            const onDiscard = async () => {
+                cleanup();
+                await clearSavedSession();
+                resolve(false);
+            };
+
+            keepBtn.addEventListener('click', onKeep);
+            discardBtn.addEventListener('click', onDiscard);
+        });
     }
 
     /**
@@ -236,6 +441,11 @@
      */
     async function clearSavedSession() {
         clearDebounce();
+
+        // Unlock form and clear the grading-in-progress flag so the next
+        // save doesn't re-persist a stale interrupted state.
+        gradingInProgress = false;
+        setFormLocked(false);
 
         try {
             await fetch('/api/grading-session', { method: 'DELETE' });
@@ -545,6 +755,7 @@
             scoreOverrides,
             completedEssays,
             removeAllStates,
+            gradingInProgress,
         };
 
         // Sanity check: essaySnapshots is the source of truth for restore.
@@ -907,7 +1118,11 @@
         saveImmediately,
         debouncedSave,
         loadAndRestore,
+        promptRestoreIfSaved,
         clearSavedSession,
         showClearButton,
+        setFormLocked,
+        markGradingStarted,
+        markGradingFinished,
     };
 })();
