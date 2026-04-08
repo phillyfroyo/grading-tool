@@ -52,28 +52,29 @@ The diagnostic log that pinpointed this:
 
 ---
 
-## 🟡 INTERMITTENT: Category Breakdown not editable post-restore (reproduced twice)
+## ✅ FIXED: Category Breakdown not editable post-restore
 
-**Observed:** 2026-04-08 (twice, same session)
-**Severity:** Low-medium — reproduces intermittently, user can work around by not refreshing
+**Reported:** 2026-04-08 (reproduced twice, same session)
+**Fixed:** 2026-04-08 (commit c03d961 on `april-2026`)
+**Verified:** 2026-04-08 — tested with 6-essay batch AND 25-essay batch, all essays editable post-refresh in both runs.
 
-**Symptom:** After grading 6 essays and refreshing, the Category Breakdown section (score inputs, +/− arrows, feedback textareas) was not editable for essays 5 & 6 specifically (indices 4 and 5 — the last chunk). Teacher notes and the color-coded essay body were editable for all 6 essays. First observed, not reproduced on second retry, then reproduced again on a third run. So it's a real bug with a timing-dependent trigger, not a ghost.
+**Root cause confirmed via network-tab inspection of a failing save:**
+```
+renderedHTML[0..3] → real content (~42KB each, "grading-summary" HTML)
+renderedHTML[4]    → "💪 Working hard..."
+renderedHTML[5]    → "☕ Brewing thoughts..."
+```
 
-**Suspected cause:** Timing race between `processBatchResultQueue` (3s staggered `loadEssayDetails` calls) and the post-stream `saveImmediately` at stream_done + 2s. For a 6-essay batch, the queue drain takes ~18s but the save fires ~2s after streaming ends. The last 2 essays (indices 4, 5) are the most likely to still be mid-`loadEssayDetails` → mid-`/format` fetch → mid-`setupBatchEditableElements` when the save captures their `innerHTML`. If captured while the loading spinner is still showing or the score-input HTML hasn't been injected yet, the saved HTML has no editable inputs, so restore has nothing to attach listeners to.
+The saved `renderedHTML` for essays 4 & 5 contained Claude loading-message placeholders, not real rendered HTML. On restore, those placeholder strings were injected into `batch-essay-${i}`, leaving the Category Breakdown section with no editable score inputs for `reattachHandlers` to wire up.
 
-**Why only Category Breakdown:** the score inputs and category feedback textareas live inside the async-fetched `/format` response. The teacher notes and color-coded essay are rendered by a different code path and may be in the HTML earlier in the load sequence.
+Why: the grading flow has two stages. Stage 1 (AI grading via SSE) populates `window.essayData_${i}`. Stage 2 (`/format` API call) renders the HTML into the DOM. Stage 2 was triggered lazily by `processBatchResultQueue` on a 3-second per-essay stagger, so when the post-stream save fired `setTimeout(2000)` after streaming ended, essays late in the queue were still mid-`/format` fetch. Their `batch-essay-${i}` div still showed the loading placeholder from `loadEssayDetails:436`, and the save captured that.
 
-**If it reproduces:** check devtools → Elements tab → expand a broken essay's grade detail → inspect a score input. Key questions:
-- Does `.editable-score` or `.score-input` exist in the DOM at all?
-- Is there any content under `batch-essay-${i}` or just a loading spinner?
-- Does `window.essayData_${i}` exist with the full grading data?
-
-If the DOM has no score inputs but the snapshot has the full data, the save caught the essay mid-load. Fix direction: gate the post-stream save on queue-drain completion, OR re-run `loadEssayDetails` for essays whose restored HTML contains a loading spinner.
-
-**Key files:**
-- `public/js/ui/form-handling.js` — `processBatchResultQueue()` (3s stagger, line ~896) and post-stream save at line ~339
-- `public/js/grading/batch-processing.js` — `loadEssayDetails()` (line ~413)
-- `public/js/grading/auto-save.js` — `buildPayload()` renderedHTML capture (line ~476) and `loadAndRestore()` HTML injection (line ~142)
+**Fix (commit c03d961):**
+1. Added `formatCallsExpected` counter and `formatCallsDoneIndices` Set in `batch-processing.js` to track per-batch Stage 2 completions.
+2. `markFormatCallComplete(index, reason)` is idempotent per index (Set-based) and called from every completion path: `loadEssayDetails` success/format-error/fetch-error, plus `updateEssayStatus` failure path for essays that never reach `loadEssayDetails`.
+3. `waitForAllFormatCalls(timeoutMs = 60000)` polls every 100ms and resolves when all expected completions are in (or at 60s timeout as a safety — never rejects).
+4. The post-stream save in `handleGradingFormSubmission` now awaits `waitForAllFormatCalls()` instead of firing on a hardcoded 2s timer. Plus a 300ms buffer for the internal 200ms setTimeout inside `loadEssayDetails` that wires up `setupBatchEditableElements`.
+5. Reduced `processBatchResultQueue` stagger from 3000ms → 100ms. The 3s stagger was cosmetic for a UX that doesn't apply (dropdowns are collapsed by default, so users don't see the staggered "pop-in"). At 100ms, `/format` calls fire in near-parallel and the waiter resolves quickly.
 
 ---
 
