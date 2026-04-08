@@ -312,6 +312,14 @@ async function handleGradingFormSubmission(e) {
                 window.BatchProcessingModule.displayBatchProgress(batchData);
             }
 
+            // Reset the format-call tracker so the post-stream save can
+            // wait until every essay's /format call has completed before
+            // snapshotting renderedHTML. See TODO.md: "INTERMITTENT:
+            // Category Breakdown not editable post-restore".
+            if (window.BatchProcessingModule?.resetFormatCallTracking) {
+                window.BatchProcessingModule.resetFormatCallTracking(batchData.essays.length);
+            }
+
             // Use streaming batch endpoint for better UX (essays return progressively)
             console.log(`[AutoSaveDiag] streaming start: ${batchData.essays.length} essays submitted`);
 
@@ -344,18 +352,33 @@ async function handleGradingFormSubmission(e) {
                     );
                 }
 
-                // Auto-save after streaming batch completes, then show the
-                // "Clear & Start Fresh" banner and lock the form so the user
-                // can't accidentally submit a new batch on top of the saved
-                // session. The inline lock message points users at this
-                // banner, so it MUST be visible when the form is locked.
+                // Auto-save after streaming batch completes. We must wait
+                // until every essay's /format call has finished, otherwise
+                // the save will snapshot loading-spinner placeholders for
+                // essays that are still mid-load — which then can't be
+                // edited after a page refresh. See TODO.md.
                 if (window.AutoSaveModule) {
-                    setTimeout(() => {
-                        console.log(`[AutoSaveDiag] firing saveImmediately (post-stream +2s)`);
+                    (async () => {
+                        console.log(`[AutoSaveDiag] waiting for /format calls before save...`);
+                        if (window.BatchProcessingModule?.waitForAllFormatCalls) {
+                            const result = await window.BatchProcessingModule.waitForAllFormatCalls();
+                            console.log(
+                                `[AutoSaveDiag] /format wait done: ${result.done}/${result.expected}, ` +
+                                `completed=${result.completed}`
+                            );
+                        }
+                        // Extra 300ms buffer for the 200ms setTimeout inside
+                        // loadEssayDetails that wires up setupBatchEditableElements
+                        // after the fetch resolves. Without this buffer the save
+                        // could capture HTML that is structurally correct but not
+                        // yet event-wired (restore will rewire it anyway, so this
+                        // is just belt-and-suspenders).
+                        await new Promise(r => setTimeout(r, 300));
+                        console.log(`[AutoSaveDiag] firing saveImmediately (post-format-complete)`);
                         window.AutoSaveModule.saveImmediately();
                         window.AutoSaveModule.showClearButton('Grading complete');
                         window.AutoSaveModule.setFormLocked(true);
-                    }, 2000);
+                    })();
                 }
             } catch (streamError) {
                 console.error('Streaming failed, using fallback:', streamError);
@@ -958,6 +981,12 @@ function processBatchResultQueue() {
         return;
     }
 
+    // Stagger was previously 3000ms which made the post-stream save wait
+    // up to N × 3s for all essays to trigger their /format call. Since
+    // dropdowns are collapsed by default, the user doesn't actually see
+    // the staggered "pop-in" effect — it was cosmetic for a UX that
+    // doesn't apply. 100ms is fast enough to let /format calls fire in
+    // near-parallel without overwhelming the DOM.
     window.batchQueueProcessor = setTimeout(() => {
         const data = window.batchResultQueue.shift();
 
@@ -975,7 +1004,7 @@ function processBatchResultQueue() {
 
         // Continue processing queue
         processBatchResultQueue();
-    }, 3000); // 3-second delay
+    }, 100); // 100ms — fast, collapsed dropdowns make staggering moot
 }
 
 // Export functions for module usage
