@@ -79,10 +79,6 @@ function registerUIServices() {
         return window.FormHandlingModule;
     }, ['modalManager', 'httpService']);
 
-    // Keyboard Shortcuts Service
-    container.register('keyboardShortcuts', () => {
-        return window.KeyboardShortcutsModule;
-    }, ['eventBus']);
 }
 
 /**
