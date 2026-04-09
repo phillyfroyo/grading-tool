@@ -1202,9 +1202,11 @@ function showHighlightEditModal(element, currentCategories) {
         backdrop.style.zIndex = '1001';
     }
 
-    // Make modal draggable if draggable modal functionality is available
-    if (window.DraggableModal && window.DraggableModal.makeDraggable) {
-        window.DraggableModal.makeDraggable('editModal');
+    // Make modal draggable via ModalManager (the edit highlight modal is
+    // managed independently from ModalManager's openModal flow, so we
+    // need to call makeDraggable explicitly here).
+    if (window.ModalManager && window.ModalManager.makeDraggable) {
+        window.ModalManager.makeDraggable(modal);
     }
 }
 
