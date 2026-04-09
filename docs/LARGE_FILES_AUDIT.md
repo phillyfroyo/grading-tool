@@ -2,7 +2,7 @@
 
 > Generated: 2026-04-09
 > Purpose: Identify refactoring candidates and potential code quality issues ahead of any integration or acquisition discussions.
-> Total source files over 400 lines: **28**
+> Total source files over 400 lines: **21** (was 28; 7 deleted as dead code on 2026-04-09)
 
 ---
 
@@ -26,7 +26,7 @@
 
 | Lines | File | Priority | Notes |
 |------:|------|----------|-------|
-| 822 | `public/js/profiles.js` | Medium | Class profile CRUD, form handling, dropdown management. **Known bug: `updateTemperatureDisplay` is declared twice (lines 66 and 89)** — second declaration silently overrides the first in browser script mode. |
+| 822 | `public/js/profiles.js` | Medium | Class profile CRUD, form handling, dropdown management. Duplicate function bug fixed 2026-04-09 (see action items below). Next refactor target — foundation for planned syllabus upload feature. |
 | 564 | `public/js/account.js` | Low | Account page logic (saved essays, display, editing). |
 | 459 | `public/js/essay-management.js` | Low | Essay counter controls, add/remove essay fields, student name progressive display. |
 | ~~676~~ | ~~`public/js/core/monitoring.js`~~ | Deleted | Deleted 2026-04-09. Entirely dead code — `ApplicationMonitor` class loaded as ES6 module but `initialize()` never called (only caller was `main.js` which is never loaded by any HTML page). None of its 20+ methods were ever invoked. |
