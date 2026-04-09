@@ -244,31 +244,6 @@ function displayManualGradingResultsBasic(result) {
 }
 
 /**
- * Clear manual grading results
- */
-function clearManualResults() {
-    const resultsDiv = document.getElementById('manualResults');
-    if (resultsDiv) {
-        resultsDiv.innerHTML = '';
-        resultsDiv.style.display = 'none';
-    }
-}
-
-/**
- * Export manual results to PDF
- */
-function exportManualResults() {
-    if (typeof window.PDFExportModule !== 'undefined' && window.PDFExportModule.exportManualToPDF) {
-        window.PDFExportModule.exportManualToPDF();
-    } else if (typeof window.PDFExportModule !== 'undefined' && window.PDFExportModule.exportToPDF) {
-        // Fallback to regular export if manual export not available
-        window.PDFExportModule.exportToPDF();
-    } else {
-        alert('PDF export functionality is not available.');
-    }
-}
-
-/**
  * Helper function to count words in text
  * @param {string} text - Text to count words in
  * @returns {number} Word count
@@ -458,8 +433,6 @@ window.ManualGradingModule = {
     displayManualGradingResults,
     createManualEssayHTML,
     displayManualGradingResultsBasic,
-    clearManualResults,
-    exportManualResults,
     countWords,
     getScoreColor,
     escapeHtml,

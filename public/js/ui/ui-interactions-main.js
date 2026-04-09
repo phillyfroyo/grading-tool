@@ -186,8 +186,10 @@ function displayManualGradingResults(result) {
  * Clear manual grading results
  */
 function clearManualResults() {
-    if (window.ManualGradingModule) {
-        window.ManualGradingModule.clearManualResults();
+    const resultsDiv = document.getElementById('manualResults');
+    if (resultsDiv) {
+        resultsDiv.innerHTML = '';
+        resultsDiv.style.display = 'none';
     }
 }
 
@@ -195,8 +197,10 @@ function clearManualResults() {
  * Export manual results to PDF
  */
 function exportManualResults() {
-    if (window.ManualGradingModule) {
-        window.ManualGradingModule.exportManualResults();
+    if (window.PDFExportModule && window.PDFExportModule.exportManualToPDF) {
+        window.PDFExportModule.exportManualToPDF();
+    } else if (window.PDFExportModule && window.PDFExportModule.exportToPDF) {
+        window.PDFExportModule.exportToPDF();
     }
 }
 

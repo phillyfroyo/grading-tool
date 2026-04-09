@@ -20,8 +20,7 @@
 | 709 | `public/js/grading/grading-display-main.js` | Low | Thin wrapper/coordinator that delegates to BatchProcessingModule, SingleResultModule, etc. Size is mostly from legacy backward-compatibility exports. |
 | 601 | `public/js/ui/editing-functions.js` | Medium | Inline editing logic for scores, feedback textareas, arrow buttons. |
 | 576 | `public/js/grading/single-result.js` | Medium | Single essay display + batch editable elements setup. The batch-specific logic could move to batch-processing.js. |
-| 471 | `public/js/ui/manual-grading.js` | High | **Possible duplication with `public/js/grading/manual.js` (450 lines).** Two files with near-identical names — likely an incomplete refactor or a copy that diverged. Needs investigation. |
-| 450 | `public/js/grading/manual.js` | High | See above. One of these two files may be dead code. |
+| 444 | `public/js/ui/manual-grading.js` | Low | Was 471 lines. Cleaned 2026-04-09: removed 2 dead exports (`clearManualResults`, `exportManualResults`). Kept fallback/error-path functions as legitimate safety nets. |
 
 ## Frontend — Other
 
@@ -59,7 +58,7 @@
 ## Summary of Action Items
 
 ### Investigate immediately
-- [x] **`manual-grading.js` vs `manual.js`** — investigated 2026-04-09. `manual-grading.js` is the legacy procedural version, `manual.js` is the newer ES6 class-based replacement. Both load simultaneously; the legacy file is still actively referenced by `editing-functions.js` and `ui-interactions-main.js` via `window.ManualGradingModule`. Deleting requires migrating all callers to `ManualGradingManager` and testing manual grading end-to-end. **Deferred to a dedicated refactoring session.**
+- [x] **`manual-grading.js` vs `manual.js`** — resolved 2026-04-09. Deep investigation revealed `manual.js` (450 lines, ES6 `ManualGradingManager` class) was **entirely dead code** — `initialize()` was never called anywhere, so none of its 18 methods ever ran at runtime. The legacy `manual-grading.js` was the only active file. Fix: deleted `manual.js` entirely, removed its script tag from `index.html`, cleaned 2 dead exports from `manual-grading.js`, and inlined the wrapper implementations in `ui-interactions-main.js` so existing callers in `event-delegation.js` still work. Net: **-477 lines** of dead code removed.
 - [x] **`profiles.js` duplicate function** — fixed 2026-04-09. `updateTemperatureDisplay` was declared at line 66 (1 arg) and again at line 89 (2 args). The second silently overrode the first in browser script mode, causing two callers (lines 135, 147) to pass a temperature value as a `profileId` — a live bug where the temperature display silently failed to update on profile selection. Fix: removed the dead first declaration, switched the two broken callers to use `updateProfileTemperatureDisplay` which correctly handles the no-profileId case.
 
 ### Refactor candidates (when time allows)
