@@ -60,18 +60,7 @@ function updateProfileDropdown() {
 }
 
 /**
- * Update temperature display value
- * @param {number} value - Temperature value
- */
-function updateTemperatureDisplay(value) {
-    const element = document.getElementById('temperatureValue');
-    if (element) {
-        element.textContent = value;
-    }
-}
-
-/**
- * Update profile temperature display value
+ * Update profile temperature display value.
  * @param {number} value - Temperature value
  * @param {string} profileId - Profile ID for targeting specific display element
  */
@@ -84,7 +73,10 @@ function updateProfileTemperatureDisplay(value, profileId = '') {
 }
 
 /**
- * Update temperature display when slider changes (for modal forms)
+ * Update temperature display when slider changes (for inline oninput handlers
+ * in profile modal forms, e.g. oninput="updateTemperatureDisplay('abc', this.value)").
+ * @param {string} profileId - Profile ID
+ * @param {number} value - Temperature value
  */
 function updateTemperatureDisplay(profileId, value) {
     const elementId = `profileTemperatureValue-${profileId}`;
@@ -140,7 +132,7 @@ function handleProfileSelectionChange() {
                 if (temperatureSlider) {
                     temperatureSlider.value = selectedProfile.temperature;
                 }
-                updateTemperatureDisplay(selectedProfile.temperature);
+                updateProfileTemperatureDisplay(selectedProfile.temperature);
             }
         } else {
             // No profile selected, show prompt field and temperature slider
@@ -152,7 +144,7 @@ function handleProfileSelectionChange() {
             if (temperatureContainer) temperatureContainer.style.display = 'block';
             if (temperatureSlider) {
                 temperatureSlider.value = 0;
-                updateTemperatureDisplay(0);
+                updateProfileTemperatureDisplay(0);
             }
         }
     });
