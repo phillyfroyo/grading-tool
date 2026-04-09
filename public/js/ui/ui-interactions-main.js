@@ -12,10 +12,9 @@ function initializeUIInteractions() {
         window.TabManagementModule.setupTabSwitching();
     }
 
-    // Initialize modal manager
-    if (window.ModalManager) {
-        window.ModalManager.initialize();
-    }
+    // Note: ModalManager self-initializes in modals.js via DOMContentLoaded.
+    // A duplicate initialize() call here was causing all modals to register
+    // twice in the console. Removed 2026-04-09.
 
     // Set up keyboard shortcuts
     if (window.KeyboardShortcutsModule) {

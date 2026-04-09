@@ -39,15 +39,10 @@ export function registerServices() {
  * Register core services
  */
 function registerCoreServices() {
-    // Event Bus Service
-    container.register('eventBus', () => {
-        return eventBus;
-    }, []);
-
-    // Logger Service
-    container.register('logger', () => {
-        return { createLogger };
-    }, []);
+    // Note: eventBus and logger are already registered by
+    // dependency-container.js at import time. Re-registering here
+    // caused "Service X is already registered. Overriding." warnings.
+    // Removed 2026-04-09.
 
     // Event Delegation Service
     container.register('eventDelegation', () => {
