@@ -67,6 +67,13 @@
 - [ ] **`form-handling.js` (1,025 lines)** — extract streaming/chunking/queue logic into a dedicated streaming module.
 - [ ] **`modals.js` (925 lines)** — extract per-modal handlers (teacher notes, edit highlight, confirmation) into separate files, keep ModalManager as a thin coordinator.
 
+### Deleted in cleanup session (2026-04-09)
+- [x] **`public/main.js` (269 lines)** — dead entry point for an unused Vite-bundled architecture. Not loaded by any HTML page, not imported by any JS file, `window.App` never referenced externally.
+- [x] **`public/js/essay-editing.js.backup` (516 lines)** — old copy from before modular refactor. Not loaded anywhere.
+- [x] **`public/js/grading-display.js.backup` (451 lines)** — same.
+- [x] **`public/js/ui-interactions.js.backup` (1,273 lines)** — same.
+- [x] **`.claude/settings.local 2.json`, `docs/CLAUDE_TOKEN_USAGE 2.md`, `grader/grader-claude 2.js`** — file-sync duplicate artifacts from Feb 2026. Untracked, never committed.
+
 ### Low priority (clean but large)
 - [ ] `auto-save.js`, `batch-processing.js`, `grading-display-main.js` — recently refactored, well-structured, large due to legitimate feature scope. Monitor but no immediate action needed.
 - [ ] Backend `src/core/` files — individually reasonable in size, clean separation of concerns. No refactor needed unless adding major features.
