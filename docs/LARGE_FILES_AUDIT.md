@@ -29,8 +29,8 @@
 | 822 | `public/js/profiles.js` | Medium | Class profile CRUD, form handling, dropdown management. **Known bug: `updateTemperatureDisplay` is declared twice (lines 66 and 89)** — second declaration silently overrides the first in browser script mode. |
 | 564 | `public/js/account.js` | Low | Account page logic (saved essays, display, editing). |
 | 459 | `public/js/essay-management.js` | Low | Essay counter controls, add/remove essay fields, student name progressive display. |
-| 676 | `public/js/core/monitoring.js` | Medium | May contain observability/logging infrastructure that overlaps with the logger in service-registry. Worth checking if this is actively used or vestigial. |
-| 591 | `public/js/core/error-handler.js` | Medium | Error handling utilities. Worth checking overlap with the error modal in modals.js. |
+| ~~676~~ | ~~`public/js/core/monitoring.js`~~ | Deleted | Deleted 2026-04-09. Entirely dead code — `ApplicationMonitor` class loaded as ES6 module but `initialize()` never called (only caller was `main.js` which is never loaded by any HTML page). None of its 20+ methods were ever invoked. |
+| ~~591~~ | ~~`public/js/core/error-handler.js`~~ | Deleted | Deleted 2026-04-09. Same situation — `ErrorHandler` class loaded but never initialized. Window globals (`reportError`, `reportCriticalError`, `wrapFunction`) exposed but never called anywhere in the codebase. |
 
 ## Frontend — HTML/CSS
 
