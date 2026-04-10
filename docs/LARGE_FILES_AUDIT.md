@@ -12,7 +12,7 @@
 | Lines | File | Priority | Notes |
 |------:|------|----------|-------|
 | 1,938 | `public/js/pdf-export.js` | Medium | Was 2,348 lines. Cleaned 2026-04-10: deleted two dead export pipelines (createFallbackPDF chain, createManualExportContent pipeline, removeInteractiveElements) superseded by the openPrintDialog browser-print approach. Remaining active code is well-structured but `openPrintDialog` (585 lines) and `enhanceContentForPDF` (632 lines) are candidates for future splitting. |
-| 1,654 | `public/js/essay/highlighting.js` | High | Second largest. Complex interactive feature (click-to-highlight, edit modal, category management) in one monolithic file. |
+| 1,599 | `public/js/essay/highlighting.js` | Low | Was 1,654 lines. Cleaned 2026-04-10: removed 2 dead functions (`removeHighlightFromModal`, `getHighlightsByCategory`), stripped 23 emoji debug console.logs. 95% of code is active. `showHighlightEditModal` (392 lines) is a future candidate for internal splitting. |
 | 1,239 | `public/js/grading/display-utils.js` | Low | Was 1,311 lines. Cleaned 2026-04-10: removed 4 dead HTML factories (`createSuccessHTML`, `createWarningHTML`, `createInfoHTML`, `formatColoredScore`), stripped debug logs from `saveEssayToAccount`. Mostly active code — highlights management, student rows, batch results. |
 | 1,128 | `public/js/grading/auto-save.js` | Low | Recently refactored (April 2026). Well-structured but large due to feature scope. |
 | 1,062 | `public/js/grading/batch-processing.js` | Low | Recently updated (April 2026). Well-structured. |
@@ -83,6 +83,7 @@
 | `display-utils.js` | 1,311 | 1,239 | 72 | Dead HTML factories (`createSuccessHTML`, `createWarningHTML`, `createInfoHTML`, `formatColoredScore`), debug logs in `saveEssayToAccount` |
 | `pdf-export.js` | 2,348 | 1,938 | 410 | Two dead export pipelines (createFallbackPDF chain, createManualExportContent pipeline, removeInteractiveElements) |
 | `form-handling.js` | 1,025 | 837 | 188 | Deprecated `streamBatchGrading` (170 lines), dead `updateManualScore` placeholder |
+| `highlighting.js` | 1,654 | 1,599 | 55 | Dead functions (`removeHighlightFromModal`, `getHighlightsByCategory`), 23 emoji debug console.logs |
 
 ### Bugs fixed during cleanup
 
@@ -91,7 +92,7 @@
 - **`service-registry.js` double registration** — `eventBus` and `logger` registered in both `dependency-container.js` and `service-registry.js`. Removed the duplicate.
 - **`draggable-modal.js` removal broke edit highlight dragging** — the edit highlight modal was managed outside ModalManager, so its draggability depended on the deleted file. Fixed by calling `ModalManager.makeDraggable(modal)` directly in `highlighting.js`.
 
-### Total lines removed: **~5,830**
+### Total lines removed: **~6,480**
 
 ---
 
@@ -101,10 +102,8 @@
 - All "Next targets" have been cleaned. Remaining work is heavy refactors (see below).
 
 ### Heavy refactors (dedicated sessions)
-- [ ] **`pdf-export.js` (2,348 lines)** — split into logical sections. High risk, core feature.
-- [ ] **`highlighting.js` (1,654 lines)** — extract modal handling, category management. High risk, core feature.
-- [ ] **`display-utils.js` (1,311 lines)** — split HTML generators by concern.
-- [ ] **`form-handling.js` (1,025 lines)** — extract streaming/chunking logic.
+- [ ] **`pdf-export.js` (1,938 lines)** — `openPrintDialog` (585 lines) and `enhanceContentForPDF` (632 lines) are candidates for internal function splitting. Dead code removed; remaining is all active.
+- [ ] **`highlighting.js` (1,599 lines)** — `showHighlightEditModal` (392 lines) could be split into subfunctions (button setup, category rendering, save logic, resize init). Dead code removed; remaining is 95% active.
 
 ### Low priority (clean, no action needed)
 - `auto-save.js`, `batch-processing.js`, `grading-display-main.js` — recently refactored, well-structured.

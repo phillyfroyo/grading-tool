@@ -184,7 +184,6 @@ function applyHighlight(range, text, category) {
         const removeAllCheckbox = document.getElementById('highlights-content-remove-all');
         if (removeAllCheckbox && removeAllCheckbox.checked) {
             mark.dataset.excludeFromPdf = 'true';
-            console.log('🚫 Auto-excluding new highlight from PDF (checkbox is checked)');
         }
 
         // Apply visual styling
@@ -200,7 +199,6 @@ function applyHighlight(range, text, category) {
         try {
             range.surroundContents(mark);
         } catch (surroundError) {
-            console.log('🔄 surroundContents failed, using cross-block highlight method');
             const primaryMark = applyHighlightAcrossBlocks(range, mark, function(e) {
                 e.stopPropagation();
                 // Always open modal for the primary (first) mark in the group
@@ -252,7 +250,6 @@ function applyBatchHighlight(range, text, category, essayIndex) {
         const removeAllCheckbox = document.getElementById(`highlights-tab-${essayIndex}-remove-all`);
         if (removeAllCheckbox && removeAllCheckbox.checked) {
             mark.dataset.excludeFromPdf = 'true';
-            console.log(`🚫 Auto-excluding new highlight from PDF for essay ${essayIndex} (checkbox is checked)`);
         }
 
         // Apply visual styling
@@ -268,7 +265,6 @@ function applyBatchHighlight(range, text, category, essayIndex) {
         try {
             range.surroundContents(mark);
         } catch (surroundError) {
-            console.log('🔄 surroundContents failed, using cross-block highlight method');
             const primaryMark = applyHighlightAcrossBlocks(range, mark, function(e) {
                 e.stopPropagation();
                 const groupId = this.dataset.highlightGroup;
@@ -767,7 +763,6 @@ function rebuildHighlightBoundaries(oldMark, newStart, newEnd, container) {
         });
         newMark._hasLiveClickListener = true;
     } catch (err) {
-        console.log('surroundContents failed in resize, using cross-block method');
         // Use cross-block helper for resized highlight that still spans blocks
         const primaryMark = applyHighlightAcrossBlocks(range, newMark, function(e) {
             e.stopPropagation();
@@ -818,12 +813,10 @@ function rebuildHighlightBoundaries(oldMark, newStart, newEnd, container) {
  * @param {Array} currentCategories - Current categories
  */
 function showHighlightEditModal(element, currentCategories) {
-    console.log('📝 Opening highlight edit modal for element:', element);
 
     // Ensure element has an ID
     if (!element.id) {
         element.id = `highlight-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
-        console.log('🆔 Generated ID for element:', element.id);
     }
 
     // Use the new modal manager
@@ -918,7 +911,6 @@ function showHighlightEditModal(element, currentCategories) {
 
     // Store reference to the element being edited (AFTER clearing state)
     modal.dataset.editingElement = element.id;
-    console.log('✅ Stored editing element ID:', element.id);
 
     // Clear any previous category button states
     modal.querySelectorAll('.modal-category-btn').forEach(btn => {
@@ -1024,7 +1016,6 @@ function showHighlightEditModal(element, currentCategories) {
             const selectedCategories = modal.dataset.selectedCategories ? modal.dataset.selectedCategories.split(',').filter(c => c.trim()) : [];
 
             if (element && selectedCategories.length > 0) {
-                console.log('💾 Saving highlight with categories:', selectedCategories);
 
                 // Save categories to element (update both data-category and data-type for compatibility)
                 element.dataset.category = selectedCategories.join(',');
@@ -1039,45 +1030,27 @@ function showHighlightEditModal(element, currentCategories) {
                 const correctionTextarea = document.getElementById('editCorrection');
                 const explanationTextarea = document.getElementById('editExplanation');
 
-                console.log('🔍 Save Debug - Textarea Elements:', {
-                    correctionTextarea: correctionTextarea,
-                    correctionValue: correctionTextarea?.value,
-                    correctionValueLength: correctionTextarea?.value?.length,
-                    explanationTextarea: explanationTextarea,
-                    explanationValue: explanationTextarea?.value,
-                    explanationValueLength: explanationTextarea?.value?.length
-                });
 
                 if (correctionTextarea) {
                     element.dataset.correction = correctionTextarea.value;
                     element.dataset.message = correctionTextarea.value; // backwards compatibility
-                    console.log('💾 Saved correction:', correctionTextarea.value);
                 }
                 if (explanationTextarea) {
                     element.dataset.explanation = explanationTextarea.value;
                     element.dataset.notes = explanationTextarea.value || correctionTextarea.value; // backwards compatibility
-                    console.log('💾 Saved explanation:', explanationTextarea.value);
                 }
 
-                console.log('📦 Final dataset values:', {
-                    correction: element.dataset.correction,
-                    explanation: element.dataset.explanation,
-                    message: element.dataset.message,
-                    notes: element.dataset.notes
-                });
 
                 // Remove native title tooltip (custom instant tooltip reads data attributes directly)
                 element.removeAttribute('title');
 
                 // Update visual styling (pass all categories for multi-error styling)
-                console.log('🎨 Updating visual styling to:', selectedCategories);
                 if (window.HighlightingModule && window.HighlightingModule.updateHighlightVisualStyling) {
                     window.HighlightingModule.updateHighlightVisualStyling(element, selectedCategories[0], selectedCategories);
                 } else {
                     // Direct call as fallback
                     updateHighlightVisualStyling(element, selectedCategories[0], selectedCategories);
                 }
-                console.log('🎨 Style after update:', element.style.cssText);
 
                 // Propagate to group siblings if this is a grouped highlight
                 const groupId = element.dataset.highlightGroup;
@@ -1105,7 +1078,6 @@ function showHighlightEditModal(element, currentCategories) {
 
                 // Emit event for highlights section to refresh
                 if (window.eventBus) {
-                    console.log('Emitting highlight:updated event from highlighting.js');
                     window.eventBus.emit('highlight:updated', {
                         element,
                         categories: selectedCategories,
@@ -1116,7 +1088,6 @@ function showHighlightEditModal(element, currentCategories) {
 
                 // ── Resize: rebuild DOM boundaries if the user dragged handles ──
                 if (modal.dataset.highlightResized === 'true' && _resizeState.container) {
-                    console.log('🔄 Rebuilding highlight boundaries after resize');
                     const newMark = rebuildHighlightBoundaries(
                         element,
                         _resizeState.elementStart,
@@ -1130,7 +1101,6 @@ function showHighlightEditModal(element, currentCategories) {
                     modal.dataset.highlightResized = '';
                 }
 
-                console.log('✅ Save completed');
             }
             modal.style.display = 'none';
 
@@ -1144,7 +1114,6 @@ function showHighlightEditModal(element, currentCategories) {
             } else if (window.clearSelection) {
                 window.clearSelection();
             }
-            console.log('🧹 Cleared selection after highlight save');
         });
         saveButton.dataset.simpleHandlerAttached = 'true';
     }
@@ -1157,7 +1126,6 @@ function showHighlightEditModal(element, currentCategories) {
             const element = document.getElementById(elementId);
             if (element) {
                 removeHighlight(element);
-                console.log('🗑️ Highlight removed');
             }
             modal.style.display = 'none';
         });
@@ -1174,7 +1142,6 @@ function showHighlightEditModal(element, currentCategories) {
     }
 
     // Show the modal using direct display method (highlighting modal has custom logic)
-    console.log('📱 Opening highlight edit modal');
     modal.dataset.modalOpenTime = Date.now().toString();
     modal.style.display = 'block';
     modal.style.zIndex = '1000';
@@ -1325,7 +1292,6 @@ function toggleModalCategory(category) {
 
     // Update categories in modal state only - do NOT auto-save or close
     // The user will manually click Save when ready
-    console.log('🎯 Category toggled, modal remains open for notes editing');
 
     // Update button styles
     const categoryBtn = modal.querySelector(`[data-category="${category}"]`);
@@ -1424,33 +1390,12 @@ function removeHighlight(element) {
 }
 
 /**
- * Remove highlight from the modal (called by remove button)
- * @deprecated Use ModalManager.removeHighlight() instead
- */
-function removeHighlightFromModal() {
-    console.warn('removeHighlightFromModal is deprecated. Use ModalManager.removeHighlight() instead.');
-    if (window.ModalManager) {
-        window.ModalManager.removeHighlight('editHighlight');
-    }
-}
-
-/**
  * Get all highlights in a container
  * @param {HTMLElement} container - Container element
  * @returns {Array} Array of highlight elements
  */
 function getAllHighlights(container = document) {
     return Array.from(container.querySelectorAll('mark[data-category]'));
-}
-
-/**
- * Get highlights by category
- * @param {string} category - Category to filter by
- * @param {HTMLElement} container - Container element
- * @returns {Array} Array of highlight elements
- */
-function getHighlightsByCategory(category, container = document) {
-    return Array.from(container.querySelectorAll(`mark[data-category="${category}"]`));
 }
 
 /**
@@ -1582,7 +1527,6 @@ function importHighlightsData(highlightsData, container = document) {
     highlightsData.forEach(data => {
         // Implementation would need to find text positions and apply highlights
         // This is complex and would require text range calculation
-        console.log('Importing highlight:', data);
     });
 }
 
@@ -1641,10 +1585,8 @@ window.HighlightingModule = {
     editBatchHighlight,
     showHighlightEditModal,
     removeHighlight,
-    removeHighlightFromModal,
     toggleModalCategory,
     getAllHighlights,
-    getHighlightsByCategory,
     clearAllHighlights,
     migrateLegacyHighlights,
     ensureHighlightClickHandlers,
