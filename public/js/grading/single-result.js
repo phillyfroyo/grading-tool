@@ -16,13 +16,8 @@ let batchGradingData = {};
  * @param {Object} originalData - The original form data
  */
 function displayResults(gradingResult, originalData) {
-    console.log('🎯 DISPLAY RESULTS CALLED');
-    console.log('Grading result:', gradingResult);
-    console.log('Original data:', originalData);
-
     // Clear any batch data when displaying single results
     batchGradingData = {};
-    console.log('🧹 Cleared batch grading data for single essay display');
 
     const resultsDiv = document.getElementById('results');
     if (!resultsDiv) return;
@@ -33,7 +28,6 @@ function displayResults(gradingResult, originalData) {
         '<div class="loading">Formatting essay...</div>';
     resultsDiv.style.display = 'block';
 
-    console.log('📤 MAKING FORMAT REQUEST...');
     // Format the essay with color coding
     fetch('/format', {
         method: 'POST',
@@ -47,12 +41,8 @@ function displayResults(gradingResult, originalData) {
             editable: true
         })
     })
-    .then(response => {
-        console.log('📥 FORMAT RESPONSE STATUS:', response.status);
-        return response.json();
-    })
+    .then(response => response.json())
     .then(formatted => {
-        console.log('✅ FORMAT RESPONSE RECEIVED:', formatted);
         const studentName = originalData.studentName || 'Student';
 
         const essayHTML = window.DisplayUtilsModule ?
@@ -96,7 +86,6 @@ function setupEditableElements(gradingResult, originalData) {
     currentGradingData = { ...gradingResult };
     currentOriginalData = { ...originalData };
 
-    console.log('🔧 Setting up editable elements for single essay');
 
     // Add listeners for score inputs (only if not already added)
     document.querySelectorAll('.editable-score:not([data-listener-added])').forEach(input => {
@@ -106,8 +95,6 @@ function setupEditableElements(gradingResult, originalData) {
             const category = this.dataset.category;
             const newPoints = parseFloat(this.value) || 0;
             const maxPoints = parseFloat(this.max) || 15;
-
-            console.log('📝 Single essay score changed:', { category, newPoints });
 
             // Validate range
             if (newPoints < 0) this.value = 0;
@@ -151,8 +138,6 @@ function setupEditableElements(gradingResult, originalData) {
 
                     // Trigger input event to let existing listeners handle the update
                     input.dispatchEvent(new Event('input'));
-
-                    console.log('⬆️⬇️ Arrow clicked, new value:', newValue);
                 }
             }
         });
@@ -218,8 +203,6 @@ function setupBatchEditableElements(gradingResult, originalData, essayIndex) {
                     const newPoints = parseFloat(this.value) || 0;
                     const maxPoints = parseFloat(this.max) || 15;
 
-                    console.log('📝 Batch essay score changed:', { essayIndex: currentEssayIndex, category, newPoints });
-
                     // Validate range
                     if (newPoints < 0) this.value = 0;
                     if (newPoints > maxPoints) this.value = maxPoints;
@@ -265,8 +248,6 @@ function setupBatchEditableElements(gradingResult, originalData, essayIndex) {
 
                         // Trigger input event to let existing listeners handle the update
                         input.dispatchEvent(new Event('input'));
-
-                        console.log(`⬆️⬇️ Arrow clicked for essay ${essayIndex}, new value:`, newValue);
                     }
                 }
             });
@@ -315,21 +296,14 @@ function setupBatchEditableElements(gradingResult, originalData, essayIndex) {
 function updateTotalScore(essayIndex = null) {
     let gradingData;
 
-    console.log('🔄 updateTotalScore called with essayIndex:', essayIndex);
-
     // Determine which data to use based on whether this is batch or single
     if (essayIndex !== null && batchGradingData[essayIndex]) {
         gradingData = batchGradingData[essayIndex].gradingData;
-        console.log('📊 Using batch grading data for essay', essayIndex);
     } else {
         gradingData = currentGradingData;
-        console.log('📊 Using single grading data');
     }
 
-    if (!gradingData || !gradingData.scores) {
-        console.warn('⚠️ No grading data available');
-        return;
-    }
+    if (!gradingData || !gradingData.scores) return;
 
     let totalPoints = 0;
     let totalMaxPoints = 0;
@@ -338,8 +312,6 @@ function updateTotalScore(essayIndex = null) {
         totalPoints += score.points || 0;
         totalMaxPoints += score.out_of || 0;
     });
-
-    console.log('📈 Calculated totals:', { totalPoints, totalMaxPoints });
 
     // Update stored data
     if (gradingData.total) {
@@ -488,61 +460,6 @@ function clearGradingState() {
 }
 
 /**
- * Export current grading data
- * @returns {Object} Exportable grading data
- */
-function exportGradingData() {
-    return {
-        gradingData: currentGradingData,
-        originalData: currentOriginalData,
-        highlights: window.HighlightingModule ?
-            window.HighlightingModule.exportHighlightsData() : [],
-        timestamp: Date.now()
-    };
-}
-
-/**
- * Import grading data
- * @param {Object} data - Grading data to import
- */
-function importGradingData(data) {
-    if (data.gradingData && data.originalData) {
-        displayResults(data.gradingData, data.originalData);
-
-        // Import highlights if available
-        if (data.highlights && window.HighlightingModule) {
-            setTimeout(() => {
-                window.HighlightingModule.importHighlightsData(data.highlights);
-            }, 500);
-        }
-    }
-}
-
-/**
- * Validate grading data integrity
- * @param {Object} gradingData - Grading data to validate
- * @returns {boolean} True if valid
- */
-function validateGradingData(gradingData) {
-    if (!gradingData || typeof gradingData !== 'object') return false;
-
-    // Check for required properties
-    if (!gradingData.scores || typeof gradingData.scores !== 'object') return false;
-
-    // Validate scores structure
-    for (const [category, score] of Object.entries(gradingData.scores)) {
-        if (!score || typeof score.points !== 'number' || typeof score.out_of !== 'number') {
-            return false;
-        }
-        if (score.points < 0 || score.points > score.out_of) {
-            return false;
-        }
-    }
-
-    return true;
-}
-
-/**
  * Fallback implementation for createSingleEssayHTML
  */
 function createSingleEssayHTMLFallback(studentName, formatted) {
@@ -569,9 +486,5 @@ window.SingleResultModule = {
     saveGradingState,
     restoreGradingState,
     clearGradingState,
-    exportGradingData,
-    importGradingData,
-    validateGradingData,
-    // Expose batch data for debugging
     getBatchGradingData: () => batchGradingData
 };
