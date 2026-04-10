@@ -114,36 +114,6 @@ function editStat(element, statType) {
 }
 
 /**
- * Edit transitions
- * @param {HTMLElement} element - Transitions element
- */
-function editTransitions(element) {
-    if (window.EditingFunctionsModule) {
-        window.EditingFunctionsModule.editTransitions(element);
-    }
-}
-
-/**
- * Edit vocabulary
- * @param {HTMLElement} element - Vocabulary element
- */
-function editVocabulary(element) {
-    if (window.EditingFunctionsModule) {
-        window.EditingFunctionsModule.editVocabulary(element);
-    }
-}
-
-/**
- * Edit grammar
- * @param {HTMLElement} element - Grammar element
- */
-function editGrammar(element) {
-    if (window.EditingFunctionsModule) {
-        window.EditingFunctionsModule.editGrammar(element);
-    }
-}
-
-/**
  * Handle manual grading form submission
  * @param {Event} e - Form submission event
  */
@@ -335,9 +305,6 @@ window.closeEditModal = closeEditModal;
 window.saveEditModal = saveEditModal;
 window.editTeacherNotes = editTeacherNotes;
 window.editStat = editStat;
-window.editTransitions = editTransitions;
-window.editVocabulary = editVocabulary;
-window.editGrammar = editGrammar;
 window.updateManualScore = updateManualScore;
 window.clearManualForm = clearManualForm;
 window.displayManualGradingResults = displayManualGradingResults;
@@ -368,9 +335,6 @@ window.UIInteractionsModule = {
     // Editing functions
     editTeacherNotes,
     editStat,
-    editTransitions,
-    editVocabulary,
-    editGrammar,
 
     // Form handling
     handleManualGradingSubmission,

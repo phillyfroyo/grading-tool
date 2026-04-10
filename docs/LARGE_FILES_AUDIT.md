@@ -3,7 +3,7 @@
 > Generated: 2026-04-09
 > Last updated: 2026-04-10
 > Purpose: Identify refactoring candidates and potential code quality issues ahead of any integration or acquisition discussions.
-> Total source files over 400 lines: **17** (was 28; 11 deleted or reduced below threshold)
+> Total source files over 400 lines: **17** (was 28; 11 deleted or reduced below threshold as of 2026-04-10)
 
 ---
 
@@ -19,7 +19,7 @@
 | 1,025 | `public/js/ui/form-handling.js` | Medium | Handles form submission for single and batch grading, streaming SSE, chunking, queue processing. The streaming/chunking logic could be its own module. |
 | 709 | `public/js/grading/grading-display-main.js` | Low | Thin wrapper/coordinator. Size is mostly from legacy backward-compatibility exports. |
 | 662 | `public/js/ui/modals.js` | Low | Was 925 lines. Cleaned 2026-04-10: removed dead editHighlight modal code (managed by highlighting.js), dead profile modal code (managed by event-delegation.js/profiles.js), dead eventBus listeners, dead exports. Now contains only teacherNotes, error, and confirmation modal handlers. |
-| 601 | `public/js/ui/editing-functions.js` | Medium | Inline editing logic for scores, feedback textareas, arrow buttons. |
+| 464 | `public/js/ui/editing-functions.js` | Low | Was 601 lines. Cleaned 2026-04-10: removed 4 dead functions (`editTransitions`, `editVocabulary`, `editGrammar`, `createInlineEditor`) — all exported but never called. |
 | 576 | `public/js/grading/single-result.js` | Medium | Single essay display + batch editable elements setup. The batch-specific logic could move to batch-processing.js. |
 
 ## Frontend — Other
@@ -78,6 +78,7 @@
 | `profiles.js` | 822 | 628 | 194 | Dead legacy modal form system, duplicate temperature function, debug logs |
 | `modals.js` | 925 | 662 | 263 | Dead editHighlight/profile modal code, dead eventBus listeners, dead exports |
 | `manual-grading.js` | 471 | 444 | 27 | Dead exports (`clearManualResults`, `exportManualResults`) |
+| `editing-functions.js` | 601 | 464 | 137 | Dead functions (`editTransitions`, `editVocabulary`, `editGrammar`, `createInlineEditor`) |
 
 ### Bugs fixed during cleanup
 
@@ -86,14 +87,13 @@
 - **`service-registry.js` double registration** — `eventBus` and `logger` registered in both `dependency-container.js` and `service-registry.js`. Removed the duplicate.
 - **`draggable-modal.js` removal broke edit highlight dragging** — the edit highlight modal was managed outside ModalManager, so its draggability depended on the deleted file. Fixed by calling `ModalManager.makeDraggable(modal)` directly in `highlighting.js`.
 
-### Total lines removed: **~4,930**
+### Total lines removed: **~5,070**
 
 ---
 
 ## Remaining Refactor Candidates (by priority)
 
 ### Next targets
-- [ ] **`editing-functions.js` (601 lines)** — investigate for dead code patterns similar to what we found in other files.
 - [ ] **`single-result.js` (576 lines)** — batch-specific logic could consolidate with `batch-processing.js`.
 
 ### Heavy refactors (dedicated sessions)
