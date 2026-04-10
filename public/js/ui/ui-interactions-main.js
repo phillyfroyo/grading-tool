@@ -124,15 +124,6 @@ function handleManualGradingSubmission(e) {
 }
 
 /**
- * Update manual score display
- */
-function updateManualScore() {
-    if (window.FormHandlingModule) {
-        window.FormHandlingModule.updateManualScore();
-    }
-}
-
-/**
  * Clear manual form
  */
 function clearManualForm() {
@@ -305,7 +296,6 @@ window.closeEditModal = closeEditModal;
 window.saveEditModal = saveEditModal;
 window.editTeacherNotes = editTeacherNotes;
 window.editStat = editStat;
-window.updateManualScore = updateManualScore;
 window.clearManualForm = clearManualForm;
 window.displayManualGradingResults = displayManualGradingResults;
 window.testManualGrading = testManualGrading;
@@ -338,7 +328,6 @@ window.UIInteractionsModule = {
 
     // Form handling
     handleManualGradingSubmission,
-    updateManualScore,
     clearManualForm,
 
     // Manual grading

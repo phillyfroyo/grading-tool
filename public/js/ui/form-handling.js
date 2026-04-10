@@ -26,7 +26,6 @@ function hideInlineError(elementId) {
  */
 async function handleManualGradingSubmission(e) {
     e.preventDefault();
-    console.log('🎯 MANUAL GRADING FORM SUBMITTED!');
 
     const formData = new FormData(e.target);
     const studentName = formData.get('studentName') || 'Student';
@@ -484,16 +483,6 @@ function validateForm(form) {
 }
 
 /**
- * Update manual score (placeholder for future functionality)
- * @param {string} category - Score category
- * @param {number} score - New score value
- */
-function updateManualScore(category, score) {
-    console.log(`Updating manual score for ${category}: ${score}`);
-    // Implementation for manual score updates would go here
-}
-
-/**
  * Stream batch grading using Server-Sent Events
  * CHUNKING: Splits large batches into chunks to avoid SSE connection timeouts
  * Vercel appears to have ~5 minute SSE connection limit, so we chunk to stay under
@@ -749,181 +738,6 @@ async function processEssayChunk(chunkData, globalOffset) {
 }
 
 /**
- * Stream batch grading using Server-Sent Events for real-time results (DEPRECATED - complex version)
- * @param {Object} batchData - The batch data to process
- */
-async function streamBatchGrading(batchData) {
-    console.log('🎯 STARTING STREAMING BATCH GRADING');
-
-    return new Promise(async (resolve, reject) => {
-        let processedResults = [];
-        let hasStarted = false;
-
-        try {
-            // First, initiate the batch grading via POST to get a session ID
-            console.log('📋 Initializing streaming session with data:', batchData);
-            const initResponse = await fetch('/api/grade-batch-stream/init', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify(batchData)
-            });
-
-            if (!initResponse.ok) {
-                throw new Error(`Failed to initialize streaming: ${initResponse.status}`);
-            }
-
-            const { sessionId } = await initResponse.json();
-            console.log('📋 Got session ID:', sessionId);
-
-            // Now connect to the streaming endpoint with the session ID
-            const eventSource = new EventSource(`/api/grade-batch-stream/${sessionId}`);
-
-            // Add timeout detection - if we don't receive ANY message for 90 seconds, assume timeout
-            let lastMessageTime = Date.now();
-            const TIMEOUT_MS = 90000; // 90 seconds
-
-            const timeoutChecker = setInterval(() => {
-                const timeSinceLastMessage = Date.now() - lastMessageTime;
-                if (timeSinceLastMessage > TIMEOUT_MS) {
-                    console.error(`⏱️ TIMEOUT DETECTED: No message received for ${(timeSinceLastMessage / 1000).toFixed(1)}s`);
-                    console.error('🔴 This indicates the Vercel serverless function likely timed out');
-                    clearInterval(timeoutChecker);
-                    eventSource.close();
-                    reject(new Error(`Server timeout - no response for ${(timeSinceLastMessage / 1000).toFixed(1)} seconds. This usually indicates the Vercel function execution limit was reached.`));
-                }
-            }, 10000); // Check every 10 seconds
-
-        eventSource.onmessage = function(event) {
-            lastMessageTime = Date.now(); // Reset timeout timer
-            try {
-                const data = JSON.parse(event.data);
-                console.log('📨 Received streaming message:', data);
-
-                switch (data.type) {
-                    case 'start':
-                        hasStarted = true;
-                        console.log('✅ Streaming started');
-                        break;
-
-                    case 'processing':
-                        console.log(`🔄 Processing essay ${data.index + 1}/${data.total}`);
-                        break;
-
-                    case 'result':
-                        console.log(`✅ Received result for essay ${data.index}`);
-
-                        // Update the UI immediately for this essay
-                        if (window.BatchProcessingModule) {
-                            window.BatchProcessingModule.updateEssayStatus(data.index, data.success, data.error);
-                        }
-
-                        // Store the result
-                        processedResults[data.index] = data;
-
-                        // Store essay data for expansion
-                        if (data.success && batchData.essays[data.index]) {
-                            window[`essayData_${data.index}`] = {
-                                essay: {
-                                    success: true,
-                                    result: data.result,
-                                    studentName: data.studentName || batchData.essays[data.index].studentName
-                                },
-                                originalData: {
-                                    ...batchData.essays[data.index],
-                                    index: data.index,
-                                    classProfile: batchData.classProfile || null
-                                }
-                            };
-
-                            // Pre-load the essay content immediately so users can click and view it right away
-                            console.log(`🔄 Pre-loading essay content for immediate access: ${data.index}`);
-                            if (window.BatchProcessingModule && window.BatchProcessingModule.loadEssayDetails) {
-                                window.BatchProcessingModule.loadEssayDetails(data.index);
-                            }
-                        }
-                        break;
-
-                    case 'complete':
-                        console.log('🎉 Streaming complete');
-                        if (data.totalTimeSeconds) {
-                            console.log(`⏱️ Server reported total time: ${data.totalTimeSeconds}s`);
-                        }
-                        clearInterval(timeoutChecker); // Clear timeout checker on successful completion
-
-                        // Create final batch result object
-                        const finalBatchResult = {
-                            success: true,
-                            totalEssays: batchData.essays.length,
-                            results: processedResults.filter(r => r !== undefined).map(r => ({
-                                success: r.success,
-                                error: r.error,
-                                result: r.result,
-                                studentName: r.studentName
-                            }))
-                        };
-
-                        // Only rebuild UI if essays weren't already pre-loaded
-                        const alreadyLoaded = document.querySelector('.formatted-essay-content[data-essay-index="0"]');
-                        if (!alreadyLoaded && window.BatchProcessingModule) {
-                            console.log('🔄 UI not pre-loaded, rebuilding with batch results...');
-                            window.BatchProcessingModule.displayBatchResults(finalBatchResult, batchData);
-                        } else {
-                            console.log('✅ Essays already pre-loaded and interactive, skipping UI rebuild');
-                        }
-
-                        resolve(finalBatchResult);
-                        break;
-
-                    case 'error':
-                        console.error('❌ Streaming error:', data.error);
-                        if (window.BatchProcessingModule && data.index !== undefined) {
-                            window.BatchProcessingModule.updateEssayStatus(data.index, false, data.error);
-                        }
-                        break;
-
-                    default:
-                        console.warn('Unknown message type:', data.type);
-                }
-            } catch (error) {
-                console.error('Error parsing streaming message:', error);
-            }
-        };
-
-            eventSource.onerror = function(error) {
-                console.error('EventSource error:', error);
-                eventSource.close();
-
-                if (!hasStarted) {
-                    // If streaming never started, fall back to regular batch processing
-                    console.log('🔄 Falling back to regular batch processing');
-                    fallbackToBatchProcessing(batchData).then(resolve).catch(reject);
-                } else {
-                    reject(error);
-                }
-            };
-
-            // Set a timeout to prevent hanging
-            setTimeout(() => {
-                if (eventSource.readyState !== EventSource.CLOSED) {
-                    console.warn('⏰ Streaming timeout, closing connection');
-                    eventSource.close();
-                    if (!hasStarted) {
-                        fallbackToBatchProcessing(batchData).then(resolve).catch(reject);
-                    }
-                }
-            }, 300000); // 5 minute timeout
-
-        } catch (error) {
-            console.error('Error setting up streaming:', error);
-            // Fallback to regular batch processing
-            fallbackToBatchProcessing(batchData).then(resolve).catch(reject);
-        }
-    });
-}
-
-/**
  * Fallback to regular batch processing if streaming fails
  * @param {Object} batchData - The batch data to process
  */
@@ -1014,11 +828,9 @@ window.FormHandlingModule = {
     setupMainGrading,
     setupClaudeGrading,
     setupManualGrading,
-    updateManualScore,
     clearManualForm,
     validateForm,
     setupFormValidation,
-    streamBatchGrading,
     streamBatchGradingSimple,
     processEssayChunk,
     fallbackToBatchProcessing,
