@@ -313,66 +313,6 @@ function createErrorHTML(message = 'An error occurred', details = '') {
 }
 
 /**
- * Create success message HTML
- * @param {string} message - Success message
- * @returns {string} HTML string for success display
- */
-function createSuccessHTML(message = 'Operation completed successfully') {
-    return `
-        <div class="success-display" style="background: #d4edda; color: #155724; padding: 15px; border-radius: 4px; border: 1px solid #c3e6cb; margin: 20px 0;">
-            <h3 style="margin-top: 0;">Success</h3>
-            <p>${message}</p>
-        </div>
-    `;
-}
-
-/**
- * Create warning message HTML
- * @param {string} message - Warning message
- * @returns {string} HTML string for warning display
- */
-function createWarningHTML(message = 'Warning') {
-    return `
-        <div class="warning-display" style="background: #fff3cd; color: #856404; padding: 15px; border-radius: 4px; border: 1px solid #ffeaa7; margin: 20px 0;">
-            <h3 style="margin-top: 0;">Warning</h3>
-            <p>${message}</p>
-        </div>
-    `;
-}
-
-/**
- * Create info message HTML
- * @param {string} message - Info message
- * @returns {string} HTML string for info display
- */
-function createInfoHTML(message = 'Information') {
-    return `
-        <div class="info-display" style="background: #d1ecf1; color: #0c5460; padding: 15px; border-radius: 4px; border: 1px solid #bee5eb; margin: 20px 0;">
-            <h3 style="margin-top: 0;">Information</h3>
-            <p>${message}</p>
-        </div>
-    `;
-}
-
-/**
- * Format score with color coding
- * @param {number} score - Score value
- * @param {number} maxScore - Maximum possible score
- * @returns {string} HTML string with color-coded score
- */
-function formatColoredScore(score, maxScore) {
-    const percentage = Math.round((score / maxScore) * 100);
-    let color = '#dc3545'; // Red
-
-    if (percentage >= 90) color = '#28a745'; // Green
-    else if (percentage >= 80) color = '#20c997'; // Teal
-    else if (percentage >= 70) color = '#ffc107'; // Yellow
-    else if (percentage >= 60) color = '#fd7e14'; // Orange
-
-    return `<span style="color: ${color}; font-weight: bold;">${score}/${maxScore} (${percentage}%)</span>`;
-}
-
-/**
  * Create collapsible highlights and corrections section for UI
  * @param {number|string} essayIndex - Optional essay index for batch processing
  * @returns {string} HTML string for highlights section
@@ -445,10 +385,6 @@ window.DisplayUtilsModule = {
     createBatchResultsHTML,
     createLoadingSpinner,
     createErrorHTML,
-    createSuccessHTML,
-    createWarningHTML,
-    createInfoHTML,
-    formatColoredScore,
     createHighlightsLegendHTML,
     setupTogglePDFListeners,
     setupRemoveAllCheckbox
@@ -1171,8 +1107,6 @@ window.toggleHighlightsSection = toggleHighlightsSection;
  * @param {number} essayIndex - Essay index (0 for single, N for batch)
  */
 async function saveEssayToAccount(btn, essayIndex) {
-    console.log('[SAVE_ESSAY] Save button clicked for essay index:', essayIndex);
-
     // Prevent double-clicks
     if (btn.disabled) return;
     btn.disabled = true;
@@ -1245,11 +1179,6 @@ async function saveEssayToAccount(btn, essayIndex) {
 
         // Get class profile ID (stored at grading time in essayData)
         let classProfileId = null;
-        console.log('[SAVE_ESSAY] Looking for classProfile...');
-        console.log('[SAVE_ESSAY]   essayDataObj.originalData:', essayDataObj?.originalData);
-        console.log('[SAVE_ESSAY]   essayDataObj.originalData.classProfile:', essayDataObj?.originalData?.classProfile);
-        console.log('[SAVE_ESSAY]   currentBatchData.originalData keys:', window.currentBatchData?.originalData ? Object.keys(window.currentBatchData.originalData) : 'N/A');
-        console.log('[SAVE_ESSAY]   currentBatchData.originalData.classProfile:', window.currentBatchData?.originalData?.classProfile);
         // 1. From the essay's own data (set at grading time)
         if (essayDataObj?.originalData?.classProfile) {
             classProfileId = essayDataObj.originalData.classProfile;
@@ -1264,7 +1193,6 @@ async function saveEssayToAccount(btn, essayIndex) {
             const claudeSelect = document.getElementById('claudeClassProfile');
             classProfileId = (gptSelect && gptSelect.value) || (claudeSelect && claudeSelect.value) || null;
         }
-        console.log('[SAVE_ESSAY] classProfileId:', classProfileId, 'source:', essayDataObj?.originalData?.classProfile ? 'essayData' : window.currentBatchData?.originalData?.classProfile ? 'batchData' : 'dropdown');
 
         // If no class profile found, ask user to select one
         if (!classProfileId) {

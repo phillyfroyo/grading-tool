@@ -13,7 +13,7 @@
 |------:|------|----------|-------|
 | 2,348 | `public/js/pdf-export.js` | High | Largest file in the codebase by far. Likely extractable into smaller helpers (page layout, header/footer, content rendering, etc.). |
 | 1,654 | `public/js/essay/highlighting.js` | High | Second largest. Complex interactive feature (click-to-highlight, edit modal, category management) in one monolithic file. |
-| 1,311 | `public/js/grading/display-utils.js` | Medium | HTML generation helpers for batch results, student rows, loading spinners, error displays. Could split by concern. |
+| 1,239 | `public/js/grading/display-utils.js` | Low | Was 1,311 lines. Cleaned 2026-04-10: removed 4 dead HTML factories (`createSuccessHTML`, `createWarningHTML`, `createInfoHTML`, `formatColoredScore`), stripped debug logs from `saveEssayToAccount`. Mostly active code — highlights management, student rows, batch results. |
 | 1,128 | `public/js/grading/auto-save.js` | Low | Recently refactored (April 2026). Well-structured but large due to feature scope. |
 | 1,062 | `public/js/grading/batch-processing.js` | Low | Recently updated (April 2026). Well-structured. |
 | 1,025 | `public/js/ui/form-handling.js` | Medium | Handles form submission for single and batch grading, streaming SSE, chunking, queue processing. The streaming/chunking logic could be its own module. |
@@ -80,6 +80,7 @@
 | `manual-grading.js` | 471 | 444 | 27 | Dead exports (`clearManualResults`, `exportManualResults`) |
 | `editing-functions.js` | 601 | 464 | 137 | Dead functions (`editTransitions`, `editVocabulary`, `editGrammar`, `createInlineEditor`) |
 | `single-result.js` | 576 | 489 | 87 | Dead exports (`exportGradingData`, `importGradingData`, `validateGradingData`), 20 debug console.logs |
+| `display-utils.js` | 1,311 | 1,239 | 72 | Dead HTML factories (`createSuccessHTML`, `createWarningHTML`, `createInfoHTML`, `formatColoredScore`), debug logs in `saveEssayToAccount` |
 
 ### Bugs fixed during cleanup
 
@@ -88,7 +89,7 @@
 - **`service-registry.js` double registration** — `eventBus` and `logger` registered in both `dependency-container.js` and `service-registry.js`. Removed the duplicate.
 - **`draggable-modal.js` removal broke edit highlight dragging** — the edit highlight modal was managed outside ModalManager, so its draggability depended on the deleted file. Fixed by calling `ModalManager.makeDraggable(modal)` directly in `highlighting.js`.
 
-### Total lines removed: **~5,160**
+### Total lines removed: **~5,230**
 
 ---
 
