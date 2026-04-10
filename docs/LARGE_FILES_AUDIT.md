@@ -1,8 +1,9 @@
 # Large Files Audit — Files Over 400 Lines
 
 > Generated: 2026-04-09
+> Last updated: 2026-04-10
 > Purpose: Identify refactoring candidates and potential code quality issues ahead of any integration or acquisition discussions.
-> Total source files over 400 lines: **21** (was 28; 7 deleted as dead code on 2026-04-09)
+> Total source files over 400 lines: **17** (was 28; 11 deleted or reduced below threshold)
 
 ---
 
@@ -13,41 +14,39 @@
 | 2,348 | `public/js/pdf-export.js` | High | Largest file in the codebase by far. Likely extractable into smaller helpers (page layout, header/footer, content rendering, etc.). |
 | 1,654 | `public/js/essay/highlighting.js` | High | Second largest. Complex interactive feature (click-to-highlight, edit modal, category management) in one monolithic file. |
 | 1,311 | `public/js/grading/display-utils.js` | Medium | HTML generation helpers for batch results, student rows, loading spinners, error displays. Could split by concern. |
-| 1,128 | `public/js/grading/auto-save.js` | Low | Recently refactored (April 2026). Includes save/restore logic, form lock/unlock, restore modal orchestration, banner UI. Well-structured but large due to feature scope. |
-| 1,062 | `public/js/grading/batch-processing.js` | Low | Recently updated (April 2026). Handles batch display, essay loading, format-call tracking, student completion. Could extract format-call tracking into its own module. |
+| 1,128 | `public/js/grading/auto-save.js` | Low | Recently refactored (April 2026). Well-structured but large due to feature scope. |
+| 1,062 | `public/js/grading/batch-processing.js` | Low | Recently updated (April 2026). Well-structured. |
 | 1,025 | `public/js/ui/form-handling.js` | Medium | Handles form submission for single and batch grading, streaming SSE, chunking, queue processing. The streaming/chunking logic could be its own module. |
-| 925 | `public/js/ui/modals.js` | Medium | ModalManager class with handlers for teacher notes, edit highlights, error, confirmation. Each modal handler could be a separate file. |
-| 709 | `public/js/grading/grading-display-main.js` | Low | Thin wrapper/coordinator that delegates to BatchProcessingModule, SingleResultModule, etc. Size is mostly from legacy backward-compatibility exports. |
+| 709 | `public/js/grading/grading-display-main.js` | Low | Thin wrapper/coordinator. Size is mostly from legacy backward-compatibility exports. |
+| 662 | `public/js/ui/modals.js` | Low | Was 925 lines. Cleaned 2026-04-10: removed dead editHighlight modal code (managed by highlighting.js), dead profile modal code (managed by event-delegation.js/profiles.js), dead eventBus listeners, dead exports. Now contains only teacherNotes, error, and confirmation modal handlers. |
 | 601 | `public/js/ui/editing-functions.js` | Medium | Inline editing logic for scores, feedback textareas, arrow buttons. |
 | 576 | `public/js/grading/single-result.js` | Medium | Single essay display + batch editable elements setup. The batch-specific logic could move to batch-processing.js. |
-| 444 | `public/js/ui/manual-grading.js` | Low | Was 471 lines. Cleaned 2026-04-09: removed 2 dead exports (`clearManualResults`, `exportManualResults`). Kept fallback/error-path functions as legitimate safety nets. |
 
 ## Frontend — Other
 
 | Lines | File | Priority | Notes |
 |------:|------|----------|-------|
-| 822 | `public/js/profiles.js` | Medium | Class profile CRUD, form handling, dropdown management. Duplicate function bug fixed 2026-04-09 (see action items below). Next refactor target — foundation for planned syllabus upload feature. |
+| 628 | `public/js/profiles.js` | Low | Was 822 lines. Cleaned 2026-04-10: removed dead legacy modal form system (showProfileForm, hideProfileForm, handleProfileFormSubmission — DOM elements no longer exist), consolidated temperature display functions, cleaned debug logs. Ready for syllabus upload feature. |
 | 564 | `public/js/account.js` | Low | Account page logic (saved essays, display, editing). |
 | 459 | `public/js/essay-management.js` | Low | Essay counter controls, add/remove essay fields, student name progressive display. |
-| ~~676~~ | ~~`public/js/core/monitoring.js`~~ | Deleted | Deleted 2026-04-09. Entirely dead code — `ApplicationMonitor` class loaded as ES6 module but `initialize()` never called (only caller was `main.js` which is never loaded by any HTML page). None of its 20+ methods were ever invoked. |
-| ~~591~~ | ~~`public/js/core/error-handler.js`~~ | Deleted | Deleted 2026-04-09. Same situation — `ErrorHandler` class loaded but never initialized. Window globals (`reportError`, `reportCriticalError`, `wrapFunction`) exposed but never called anywhere in the codebase. |
+| 444 | `public/js/ui/manual-grading.js` | Low | Was 471 lines. Cleaned 2026-04-09: removed 2 dead exports. |
 
 ## Frontend — HTML/CSS
 
 | Lines | File | Priority | Notes |
 |------:|------|----------|-------|
-| 818 | `public/css/components.css` | Low | Single stylesheet for all components. Could split by feature area (modals, forms, grading, highlights) but not urgent. |
-| 587 | `public/index.html` | Low | Main app page. Contains inline scripts for tab switching and app initialization. The inline scripts could move to a dedicated init module. |
+| 818 | `public/css/components.css` | Low | Single stylesheet. Could split by feature area but not urgent. |
+| 587 | `public/index.html` | Low | Main app page. Inline scripts could move to a dedicated init module. |
 | 479 | `public/account.html` | Low | Account/saved essays page. |
 
 ## Backend
 
 | Lines | File | Priority | Notes |
 |------:|------|----------|-------|
-| 1,090 | `grader/formatter.js` | Medium | The `/format` endpoint logic that renders grading JSON into HTML. Large because it handles multiple output sections (rubric, corrections, highlights, teacher notes). Could split by section. |
-| 848 | `src/controllers/gradingController.js` | Medium | Handles grading API routes (single, batch, streaming). The streaming SSE logic is complex and could be extracted. |
-| 844 | `src/core/DTOs.js` | Low | Data Transfer Objects. Size is from having many DTO classes — each is small individually. |
-| 794 | `src/core/Validation.js` | Low | Validation rules. Same pattern — many small validators add up. |
+| 1,090 | `grader/formatter.js` | Medium | The `/format` endpoint logic. Could split by output section (rubric, corrections, highlights, teacher notes). |
+| 848 | `src/controllers/gradingController.js` | Medium | Grading API routes (single, batch, streaming). The streaming SSE logic could be extracted. |
+| 844 | `src/core/DTOs.js` | Low | Many small DTO classes. Individually reasonable. |
+| 794 | `src/core/Validation.js` | Low | Many small validators. |
 | 758 | `src/core/EventSystem.js` | Low | Event bus implementation. Self-contained. |
 | 687 | `src/core/Repository.js` | Low | Database access layer via Prisma. |
 | 622 | `src/core/ResponseFormatter.js` | Low | API response formatting utilities. |
@@ -55,25 +54,55 @@
 
 ---
 
-## Summary of Action Items
+## Completed Work
 
-### Investigate immediately
-- [x] **`manual-grading.js` vs `manual.js`** — resolved 2026-04-09. Deep investigation revealed `manual.js` (450 lines, ES6 `ManualGradingManager` class) was **entirely dead code** — `initialize()` was never called anywhere, so none of its 18 methods ever ran at runtime. The legacy `manual-grading.js` was the only active file. Fix: deleted `manual.js` entirely, removed its script tag from `index.html`, cleaned 2 dead exports from `manual-grading.js`, and inlined the wrapper implementations in `ui-interactions-main.js` so existing callers in `event-delegation.js` still work. Net: **-477 lines** of dead code removed.
-- [x] **`profiles.js` duplicate function** — fixed 2026-04-09. `updateTemperatureDisplay` was declared at line 66 (1 arg) and again at line 89 (2 args). The second silently overrode the first in browser script mode, causing two callers (lines 135, 147) to pass a temperature value as a `profileId` — a live bug where the temperature display silently failed to update on profile selection. Fix: removed the dead first declaration, switched the two broken callers to use `updateProfileTemperatureDisplay` which correctly handles the no-profileId case.
+### Files deleted (2026-04-09 — 2026-04-10)
 
-### Refactor candidates (when time allows)
-- [ ] **`pdf-export.js` (2,348 lines)** — split into logical sections (page setup, header/footer, content blocks, export triggers).
-- [ ] **`highlighting.js` (1,654 lines)** — extract modal handling, category management, and click handlers into separate modules.
-- [ ] **`form-handling.js` (1,025 lines)** — extract streaming/chunking/queue logic into a dedicated streaming module.
-- [ ] **`modals.js` (925 lines)** — extract per-modal handlers (teacher notes, edit highlight, confirmation) into separate files, keep ModalManager as a thin coordinator.
+| File | Lines | Reason |
+|------|------:|--------|
+| `public/js/grading/manual.js` | 450 | Dead code — `ManualGradingManager` class never initialized. |
+| `public/js/core/monitoring.js` | 676 | Dead code — `ApplicationMonitor` never initialized. |
+| `public/js/core/error-handler.js` | 591 | Dead code — `ErrorHandler` never initialized. |
+| `public/main.js` | 269 | Dead entry point for unused Vite architecture. |
+| `public/js/ui/keyboard-shortcuts.js` | 42 | All functions were empty disabled stubs. |
+| `public/js/ui/draggable-modal.js` | 128 | Duplicate of `modals.js` `makeDraggable()`. |
+| `public/js/essay-editing.js.backup` | 516 | Pre-refactor backup. |
+| `public/js/grading-display.js.backup` | 451 | Pre-refactor backup. |
+| `public/js/ui-interactions.js.backup` | 1,273 | Pre-refactor backup. |
+| 3 file-sync duplicates | ~30 | `.claude/settings.local 2.json`, `docs/CLAUDE_TOKEN_USAGE 2.md`, `grader/grader-claude 2.js` |
 
-### Deleted in cleanup session (2026-04-09)
-- [x] **`public/main.js` (269 lines)** — dead entry point for an unused Vite-bundled architecture. Not loaded by any HTML page, not imported by any JS file, `window.App` never referenced externally.
-- [x] **`public/js/essay-editing.js.backup` (516 lines)** — old copy from before modular refactor. Not loaded anywhere.
-- [x] **`public/js/grading-display.js.backup` (451 lines)** — same.
-- [x] **`public/js/ui-interactions.js.backup` (1,273 lines)** — same.
-- [x] **`.claude/settings.local 2.json`, `docs/CLAUDE_TOKEN_USAGE 2.md`, `grader/grader-claude 2.js`** — file-sync duplicate artifacts from Feb 2026. Untracked, never committed.
+### Files cleaned (2026-04-09 — 2026-04-10)
 
-### Low priority (clean but large)
-- [ ] `auto-save.js`, `batch-processing.js`, `grading-display-main.js` — recently refactored, well-structured, large due to legitimate feature scope. Monitor but no immediate action needed.
-- [ ] Backend `src/core/` files — individually reasonable in size, clean separation of concerns. No refactor needed unless adding major features.
+| File | Before | After | Removed | What was removed |
+|------|-------:|------:|--------:|------------------|
+| `profiles.js` | 822 | 628 | 194 | Dead legacy modal form system, duplicate temperature function, debug logs |
+| `modals.js` | 925 | 662 | 263 | Dead editHighlight/profile modal code, dead eventBus listeners, dead exports |
+| `manual-grading.js` | 471 | 444 | 27 | Dead exports (`clearManualResults`, `exportManualResults`) |
+
+### Bugs fixed during cleanup
+
+- **`profiles.js` duplicate `updateTemperatureDisplay`** — second declaration silently overrode the first, causing temperature display to fail on profile selection. Fixed by consolidating into one function.
+- **`modals.js` dual initialization** — `ModalManager.initialize()` was called twice per page load (from `modals.js` self-init AND `ui-interactions-main.js`). Removed the duplicate call.
+- **`service-registry.js` double registration** — `eventBus` and `logger` registered in both `dependency-container.js` and `service-registry.js`. Removed the duplicate.
+- **`draggable-modal.js` removal broke edit highlight dragging** — the edit highlight modal was managed outside ModalManager, so its draggability depended on the deleted file. Fixed by calling `ModalManager.makeDraggable(modal)` directly in `highlighting.js`.
+
+### Total lines removed: **~4,930**
+
+---
+
+## Remaining Refactor Candidates (by priority)
+
+### Next targets
+- [ ] **`editing-functions.js` (601 lines)** — investigate for dead code patterns similar to what we found in other files.
+- [ ] **`single-result.js` (576 lines)** — batch-specific logic could consolidate with `batch-processing.js`.
+
+### Heavy refactors (dedicated sessions)
+- [ ] **`pdf-export.js` (2,348 lines)** — split into logical sections. High risk, core feature.
+- [ ] **`highlighting.js` (1,654 lines)** — extract modal handling, category management. High risk, core feature.
+- [ ] **`display-utils.js` (1,311 lines)** — split HTML generators by concern.
+- [ ] **`form-handling.js` (1,025 lines)** — extract streaming/chunking logic.
+
+### Low priority (clean, no action needed)
+- `auto-save.js`, `batch-processing.js`, `grading-display-main.js` — recently refactored, well-structured.
+- Backend `src/core/` files — individually reasonable, clean separation of concerns.
+- HTML/CSS files — functional, not urgent.
