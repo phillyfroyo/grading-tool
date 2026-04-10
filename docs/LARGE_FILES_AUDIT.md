@@ -11,7 +11,7 @@
 
 | Lines | File | Priority | Notes |
 |------:|------|----------|-------|
-| 2,348 | `public/js/pdf-export.js` | High | Largest file in the codebase by far. Likely extractable into smaller helpers (page layout, header/footer, content rendering, etc.). |
+| 1,938 | `public/js/pdf-export.js` | Medium | Was 2,348 lines. Cleaned 2026-04-10: deleted two dead export pipelines (createFallbackPDF chain, createManualExportContent pipeline, removeInteractiveElements) superseded by the openPrintDialog browser-print approach. Remaining active code is well-structured but `openPrintDialog` (585 lines) and `enhanceContentForPDF` (632 lines) are candidates for future splitting. |
 | 1,654 | `public/js/essay/highlighting.js` | High | Second largest. Complex interactive feature (click-to-highlight, edit modal, category management) in one monolithic file. |
 | 1,239 | `public/js/grading/display-utils.js` | Low | Was 1,311 lines. Cleaned 2026-04-10: removed 4 dead HTML factories (`createSuccessHTML`, `createWarningHTML`, `createInfoHTML`, `formatColoredScore`), stripped debug logs from `saveEssayToAccount`. Mostly active code — highlights management, student rows, batch results. |
 | 1,128 | `public/js/grading/auto-save.js` | Low | Recently refactored (April 2026). Well-structured but large due to feature scope. |
@@ -81,6 +81,8 @@
 | `editing-functions.js` | 601 | 464 | 137 | Dead functions (`editTransitions`, `editVocabulary`, `editGrammar`, `createInlineEditor`) |
 | `single-result.js` | 576 | 489 | 87 | Dead exports (`exportGradingData`, `importGradingData`, `validateGradingData`), 20 debug console.logs |
 | `display-utils.js` | 1,311 | 1,239 | 72 | Dead HTML factories (`createSuccessHTML`, `createWarningHTML`, `createInfoHTML`, `formatColoredScore`), debug logs in `saveEssayToAccount` |
+| `pdf-export.js` | 2,348 | 1,938 | 410 | Two dead export pipelines (createFallbackPDF chain, createManualExportContent pipeline, removeInteractiveElements) |
+| `form-handling.js` | 1,025 | 837 | 188 | Deprecated `streamBatchGrading` (170 lines), dead `updateManualScore` placeholder |
 
 ### Bugs fixed during cleanup
 
@@ -89,7 +91,7 @@
 - **`service-registry.js` double registration** — `eventBus` and `logger` registered in both `dependency-container.js` and `service-registry.js`. Removed the duplicate.
 - **`draggable-modal.js` removal broke edit highlight dragging** — the edit highlight modal was managed outside ModalManager, so its draggability depended on the deleted file. Fixed by calling `ModalManager.makeDraggable(modal)` directly in `highlighting.js`.
 
-### Total lines removed: **~5,230**
+### Total lines removed: **~5,830**
 
 ---
 
