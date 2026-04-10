@@ -32,7 +32,6 @@ class ModalManager {
      * Register all available modals
      */
     registerModals() {
-        // Teacher Notes Modal
         this.registerModal('teacherNotes', {
             element: document.getElementById('teacherNotesModal'),
             handlers: {
@@ -40,36 +39,15 @@ class ModalManager {
             }
         });
 
-        // Edit Highlight Modal - DISABLED: Uses independent management in highlighting.js
-        // this.registerModal('editHighlight', {
-        //     element: document.getElementById('editModal'),
-        //     handlers: {
-        //         open: this.openEditModal.bind(this),
-        //         close: this.closeEditModal.bind(this),
-        //         save: this.saveEditModal.bind(this)
-        //     }
-        // });
-
-        // Error Modal
         this.registerModal('error', {
             element: document.getElementById('errorModal'),
-            handlers: {
-                // No open handler to avoid recursion - openErrorModal handles this directly
-                // No close handler to avoid recursion
-            }
+            handlers: {}
         });
 
-        // Confirmation Modal
         this.registerModal('confirmation', {
             element: document.getElementById('confirmationModal'),
-            handlers: {
-                // No open handler to avoid recursion
-                // No close handler to avoid recursion
-            }
+            handlers: {}
         });
-
-        // Profile Management Modal - handled directly in event delegation to avoid conflicts
-        // Not registering with modal manager to prevent recursion issues
     }
 
     /**
@@ -96,9 +74,9 @@ class ModalManager {
             closeBtn.addEventListener('click', () => this.closeModal(modalId));
         }
 
-        // Set up save button if it exists (skip for editHighlight modal - it has custom handling)
+        // Set up save button if it exists
         const saveBtn = config.element.querySelector('.modal-save-btn');
-        if (saveBtn && modalId !== 'editHighlight') {
+        if (saveBtn) {
             saveBtn.addEventListener('click', () => this.saveModal(modalId));
         }
 
@@ -108,44 +86,19 @@ class ModalManager {
             cancelBtn.addEventListener('click', () => this.closeModal(modalId));
         }
 
-        // Set up remove button if it exists (for highlight modal)
-        const removeBtn = config.element.querySelector('.modal-remove-btn');
-        if (removeBtn) {
-            removeBtn.addEventListener('click', () => this.removeHighlight(modalId));
-        }
-
         logger.debug(`Registered modal: ${modalId}`);
     }
 
     /**
-     * Set up event bus listeners
+     * Set up event bus listeners.
+     * Note: previously registered listeners for modal:open/close/save,
+     * teacher-notes:open, and highlight:edit, but none of those events
+     * were ever emitted — all callers use direct method calls instead.
+     * Kept as a hook point in case event-driven modal control is needed
+     * in the future.
      */
     setupEventListeners() {
-        eventBus.on('modal:open', (data) => {
-            this.openModal(data.modalId, data.config);
-        });
-
-        eventBus.on('modal:close', (data) => {
-            if (data.modalId) {
-                this.closeModal(data.modalId);
-            } else {
-                this.closeActiveModal();
-            }
-        });
-
-        eventBus.on('modal:save', (data) => {
-            this.saveModal(data.modalId || this.activeModal);
-        });
-
-        // Teacher notes specific events
-        eventBus.on('teacher-notes:open', (data) => {
-            this.openTeacherNotesModal(data.element);
-        });
-
-        // Edit highlight specific events
-        eventBus.on('highlight:edit', (data) => {
-            this.openEditModal(data.element, data.category, data.notes);
-        });
+        // Currently empty — all modal operations use direct method calls.
     }
 
     /**
@@ -310,35 +263,6 @@ class ModalManager {
         }, 100);
 
         return true;
-    }
-
-    /**
-     * Remove highlight for edit modal
-     * @param {string} modalId - Modal identifier
-     */
-    removeHighlight(modalId) {
-        const modal = this.modals.get(modalId);
-        if (!modal) {
-            logger.error(`Modal not found: ${modalId}`);
-            return false;
-        }
-
-        logger.info(`Removing highlight from modal: ${modalId}`);
-
-        if (modalId === 'editHighlight') {
-            const elementId = modal.element.dataset.editingElement;
-            if (elementId && window.HighlightingModule) {
-                const element = document.getElementById(elementId);
-                if (element) {
-                    window.HighlightingModule.removeHighlight(element);
-                    this.closeModal(modalId);
-                    return true;
-                }
-            }
-        }
-
-        logger.warn(`Could not remove highlight for modal: ${modalId}`);
-        return false;
     }
 
     /**
@@ -545,194 +469,10 @@ class ModalManager {
         logger.info('Teacher notes saved');
     }
 
-    /**
-     * Open edit highlight modal
-     * @param {HTMLElement} element - Element to edit
-     * @param {string} category - Current category
-     * @param {string} notes - Current notes
-     */
-    openEditModal(element, category = '', notes = '') {
-        const modal = this.modals.get('editHighlight');
-        if (!modal) return;
-
-        const categorySelect = document.getElementById('editCategory');
-        const correctionTextArea = document.getElementById('editCorrection');
-        const explanationTextArea = document.getElementById('editExplanation');
-
-        if (categorySelect) {
-            categorySelect.value = category || element.dataset.category || 'grammar';
-        }
-
-        // Handle both old 'notes' field and new 'correction/explanation' fields
-        const correction = element.dataset.correction || element.dataset.message || notes || '';
-        const explanation = element.dataset.explanation || ''; // Don't fall back to notes - that contains correction
-
-        if (correctionTextArea) {
-            correctionTextArea.value = correction;
-        }
-        if (explanationTextArea) {
-            explanationTextArea.value = explanation;
-        }
-
-        modal.element.dataset.editingElement = element.id;
-        this.openModal('editHighlight', { targetElement: element, category, correction, explanation });
-    }
-
-    /**
-     * Close edit modal
-     */
-    closeEditModal() {
-        const modal = this.modals.get('editHighlight');
-        if (!modal) {
-            logger.error('Edit modal not found');
-            return false;
-        }
-
-        logger.info('Closing edit modal');
-
-        // Clear modal state to prevent interference between edits
-        const modalElement = modal.element;
-        modalElement.dataset.selectedCategories = '';
-        modalElement.dataset.editingElement = '';
-
-        // Reset all category button states
-        modalElement.querySelectorAll('.modal-category-btn').forEach(btn => {
-            btn.classList.remove('modal-category-selected');
-            const category = btn.dataset.category;
-            const isMechanics = category === 'mechanics';
-            const isFluency = category === 'fluency';
-
-            // Reset to default visual state
-            if (isMechanics || isFluency) {
-                btn.style.backgroundColor = btn.dataset.defaultColor || '#D3D3D3';
-                btn.style.color = 'black';
-            } else {
-                btn.style.backgroundColor = 'transparent';
-                btn.style.color = btn.dataset.defaultColor || '#FF8C00';
-            }
-
-            // Remove any checkmarks
-            const checkmark = btn.querySelector('.checkmark');
-            if (checkmark) {
-                checkmark.remove();
-            }
-        });
-
-        // Clear correction and explanation textareas
-        const correctionTextArea = document.getElementById('editCorrection');
-        const explanationTextArea = document.getElementById('editExplanation');
-        if (correctionTextArea) {
-            correctionTextArea.value = '';
-        }
-        if (explanationTextArea) {
-            explanationTextArea.value = '';
-        }
-
-        // Hide the modal directly without calling handlers to avoid recursion
-        modal.element.style.display = 'none';
-        modal.data = {};
-
-        // Clean up drag listeners
-        if (modal.element._dragCleanup) {
-            modal.element._dragCleanup();
-        }
-
-        // Update active modal
-        if (this.activeModal === 'editHighlight') {
-            this.activeModal = null;
-        }
-
-        eventBus.emit('modal:closed', { modalId: 'editHighlight' });
-        return true;
-    }
-
-    /**
-     * Save edit modal changes
-     */
-    saveEditModal() {
-        const modal = this.modals.get('editHighlight');
-        const modalElement = document.getElementById('editModal');
-        const correctionTextArea = document.getElementById('editCorrection');
-        const explanationTextArea = document.getElementById('editExplanation');
-
-        // Get selected categories from modal data
-        const selectedCategories = modalElement?.dataset?.selectedCategories || '';
-        const categories = selectedCategories ? selectedCategories.split(',').filter(c => c.trim()) : [];
-        const correction = correctionTextArea?.value || '';
-        const explanation = explanationTextArea?.value || '';
-
-        logger.debug('Saving highlight edit:', { categories, correction, explanation });
-
-        const elementId = modal?.element.dataset?.editingElement;
-        if (elementId) {
-            const element = document.getElementById(elementId);
-            if (element) {
-                // Store multiple categories
-                element.dataset.category = categories.join(',');
-                element.dataset.correction = correction;
-                element.dataset.explanation = explanation;
-
-                // Also set message and notes for backwards compatibility
-                element.dataset.message = correction;
-                element.dataset.notes = explanation || correction;
-
-                // Update visual styling (use first category as primary)
-                const primaryCategory = categories[0] || 'grammar';
-                if (window.HighlightingModule) {
-                    window.HighlightingModule.updateHighlightVisualStyling(element, primaryCategory);
-                }
-
-                console.log('Emitting highlight:updated event', {
-                    element,
-                    categories,
-                    correction,
-                    explanation
-                });
-
-                eventBus.emit('highlight:updated', {
-                    element,
-                    categories,
-                    correction,
-                    explanation
-                });
-
-                logger.debug('Updated highlight element:', element);
-            } else {
-                logger.error('Could not find element to update:', elementId);
-            }
-        } else {
-            logger.error('No element ID stored for editing');
-        }
-
-        this.closeEditModal();
-    }
-
-    /**
-     * Open profile modal
-     */
-    openProfileModal(config = {}) {
-        logger.info('Opening profile management modal');
-
-        // Load and display profiles list when opening
-        if (window.ProfilesModule) {
-            window.ProfilesModule.loadProfilesList();
-        }
-
-        // Open the modal using the base functionality
-        this.openModal('profileManagement', config);
-    }
-
-    /**
-     * Close profile modal
-     */
-    closeProfileModal() {
-        // Just hide the modal directly to avoid circular reference
-        const modal = document.getElementById('profileManagementModal');
-        if (modal) {
-            modal.style.display = 'none';
-            this.activeModal = null;
-        }
-    }
+    // Note: editHighlight modal (open/close/save/remove) and profileManagement
+    // modal (open/close) were removed 2026-04-10. Both are managed independently:
+    //   - editHighlight: highlighting.js showHighlightEditModal()
+    //   - profileManagement: event-delegation.js + profiles.js
 
     /**
      * Open error modal with message
@@ -914,13 +654,10 @@ if (typeof window !== 'undefined') {
     window.ModalManager = modalManager;
     window.ModalManagementModule = modalManager; // Add compatibility alias
 
-    // Legacy function exports
+    // Legacy function exports (used by event-delegation.js, editing-functions.js, profiles.js)
     window.openTeacherNotesModal = (element) => modalManager.openTeacherNotesModal(element);
     window.closeTeacherNotesModal = () => modalManager.closeTeacherNotesModal();
     window.saveTeacherNotes = () => modalManager.saveTeacherNotes();
-    // Edit modal functions disabled - handled independently in highlighting.js
-    window.closeEditModal = () => console.log('Edit modal close handled by highlighting.js');
-    window.saveEditModal = () => console.log('Edit modal save handled by highlighting.js');
     window.showError = (message, title) => modalManager.showError(message, title);
     window.showConfirmation = (message, onYes, onNo, title) => modalManager.showConfirmation(message, onYes, onNo, title);
 }
