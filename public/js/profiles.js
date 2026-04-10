@@ -60,9 +60,10 @@ function updateProfileDropdown() {
 }
 
 /**
- * Update profile temperature display value.
+ * Update the temperature display value for a profile slider.
  * @param {number} value - Temperature value
- * @param {string} profileId - Profile ID for targeting specific display element
+ * @param {string} profileId - Profile ID for targeting specific display element.
+ *   If empty, targets the generic '#profileTemperatureValue' element.
  */
 function updateProfileTemperatureDisplay(value, profileId = '') {
     const elementId = profileId ? `profileTemperatureValue-${profileId}` : 'profileTemperatureValue';
@@ -73,17 +74,12 @@ function updateProfileTemperatureDisplay(value, profileId = '') {
 }
 
 /**
- * Update temperature display when slider changes (for inline oninput handlers
- * in profile modal forms, e.g. oninput="updateTemperatureDisplay('abc', this.value)").
- * @param {string} profileId - Profile ID
- * @param {number} value - Temperature value
+ * Wrapper for inline oninput handlers in profile form HTML templates,
+ * e.g. oninput="updateTemperatureDisplay('abc', this.value)".
+ * Arg order is (profileId, value) to match the inline handler convention.
  */
 function updateTemperatureDisplay(profileId, value) {
-    const elementId = `profileTemperatureValue-${profileId}`;
-    const element = document.getElementById(elementId);
-    if (element) {
-        element.textContent = value;
-    }
+    updateProfileTemperatureDisplay(value, profileId);
 }
 
 /**
@@ -359,51 +355,6 @@ function hideProfileEditForm(profileId) {
 }
 
 /**
- * Show profile form for creating or editing a profile
- * @param {string} profileId - Profile ID to edit, or null for new profile
- */
-function showProfileForm(profileId = null) {
-    const form = document.getElementById('profileForm');
-    const formElement = document.getElementById('profileFormElement');
-    const formTitle = document.getElementById('profileFormTitle');
-
-    if (!form || !formElement) return;
-
-    if (profileId) {
-        const profile = profiles.find(p => p.id === profileId);
-        if (profile) {
-            document.getElementById('profileName').value = profile.name;
-            document.getElementById('profileCefr').value = profile.cefrLevel;
-            document.getElementById('profileVocab').value = profile.vocabulary ? profile.vocabulary.join('\n') : '';
-            document.getElementById('profileGrammar').value = profile.grammar ? profile.grammar.join('\n') : '';
-            document.getElementById('profilePrompt').value = profile.prompt || '';
-            document.getElementById('profileTemperature').value = profile.temperature || 0;
-            updateProfileTemperatureDisplay(profile.temperature || 0);
-            formElement.dataset.profileId = profileId;
-            if (formTitle) formTitle.textContent = 'Edit Profile';
-        }
-    } else {
-        // Clear form for new profile
-        formElement.reset();
-        updateProfileTemperatureDisplay(0);
-        delete formElement.dataset.profileId;
-        if (formTitle) formTitle.textContent = 'Add New Profile';
-    }
-
-    form.style.display = 'block';
-}
-
-/**
- * Hide profile form
- */
-function hideProfileForm() {
-    const form = document.getElementById('profileForm');
-    if (form) {
-        form.style.display = 'none';
-    }
-}
-
-/**
  * Close the profile management modal
  */
 function closeProfileManagementModal() {
@@ -544,7 +495,6 @@ async function saveProfileData(profileData, profileId, form) {
         const url = profileId ? `/api/profiles/${profileId}` : '/api/profiles';
         const method = profileId ? 'PUT' : 'POST';
 
-        console.log('[PROFILES] Saving profile:', method, url, profileData);
         const response = await fetch(url, {
             method: method,
             credentials: 'include',
@@ -554,17 +504,13 @@ async function saveProfileData(profileData, profileId, form) {
             body: JSON.stringify(profileData)
         });
 
-        console.log('[PROFILES] Save response status:', response.status, response.statusText);
         if (response.ok) {
             const savedProfile = await response.json();
-            console.log('✅ Profile saved successfully:', savedProfile);
 
             // Validate that the profile was actually saved
             if (!savedProfile || !savedProfile.id) {
                 throw new Error('Profile save response is missing expected data');
             }
-
-            console.log('📊 Current profiles array before update:', profiles);
 
             // Update the local profiles array
             if (profileId) {
@@ -576,17 +522,9 @@ async function saveProfileData(profileData, profileId, form) {
                 profiles.push(savedProfile);
             }
 
-            console.log('📊 Current profiles array after update:', profiles);
-
-            // Update dropdown only (avoid circular refresh)
+            // Update dropdown and list UI
             updateProfileDropdown();
-
-            // Refresh the profiles list UI to show the changes
             loadProfilesList();
-
-            // Note: Skip server reload since database is unavailable on Vercel
-            // The profiles array has already been updated with the saved profile data
-            console.log('[PROFILES] Profile confirmed in local array (database unavailable)');
 
             // Hide the form only after confirming save
             if (profileId) {
@@ -643,20 +581,6 @@ async function initializeProfiles() {
     // Set up profile modal handlers
     setupProfileModalHandlers();
 
-    // Set up profile form submission handler (legacy modal form)
-    const profileForm = document.getElementById('profileFormElement');
-    if (profileForm) {
-        profileForm.addEventListener('submit', handleProfileFormSubmission);
-    }
-
-    // Set up temperature slider for legacy modal form
-    const profileTempSlider = document.getElementById('profileTemperature');
-    if (profileTempSlider) {
-        profileTempSlider.addEventListener('input', function(e) {
-            updateProfileTemperatureDisplay(e.target.value);
-        });
-    }
-
     // Click-to-show tooltips for .info-icon elements (replaces slow native title hover)
     document.addEventListener('click', function(e) {
         const icon = e.target.closest('.info-icon[data-tooltip]');
@@ -681,112 +605,6 @@ async function initializeProfiles() {
     });
 }
 
-/**
- * Handle profile form submission
- * @param {Event} e - Form submission event
- */
-async function handleProfileFormSubmission(e) {
-    e.preventDefault();
-
-    const formData = new FormData(e.target);
-    const profileId = e.target.dataset.profileId;
-
-    const profileData = {
-        name: formData.get('name'),
-        cefrLevel: formData.get('cefrLevel'),
-        vocabulary: formData.get('vocabulary').split('\n').filter(item => item.trim()),
-        grammar: formData.get('grammar').split('\n').filter(item => item.trim()),
-        prompt: formData.get('prompt'),
-        temperature: (() => {
-            const temp = parseFloat(formData.get('temperature'));
-            return (isNaN(temp) || !isFinite(temp)) ? 0 : temp;
-        })()
-    };
-
-    try {
-        const url = profileId ? `/api/profiles/${profileId}` : '/api/profiles';
-        const method = profileId ? 'PUT' : 'POST';
-
-        const response = await fetch(url, {
-            method: method,
-            credentials: 'include',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify(profileData)
-        });
-
-        if (response.ok) {
-            const savedProfile = await response.json();
-            console.log('✅ Profile saved successfully:', savedProfile);
-            console.log('📊 Current profiles array before update:', profiles);
-
-            // Update the local profiles array immediately for UI feedback
-            if (profileId) {
-                const profileIndex = profiles.findIndex(p => p.id === profileId);
-                console.log('📍 Looking for profile to update:', profileId, 'at index:', profileIndex);
-                if (profileIndex !== -1) {
-                    console.log('📍 Before update:', profiles[profileIndex].name, profiles[profileIndex].temperature);
-                    profiles[profileIndex] = savedProfile;
-                    console.log('📍 After update:', profiles[profileIndex].name, profiles[profileIndex].temperature);
-                    console.log('🔄 Updated local profiles array with saved data');
-                }
-            } else {
-                profiles.push(savedProfile);
-            }
-
-            console.log('📊 Current profiles array after update:', profiles);
-            console.log('🔄 Refreshing UI components...');
-
-            // Reload profiles from server to ensure sync
-            await loadProfilesData();
-
-            loadProfilesList();
-            updateProfileDropdown();
-
-            // If editing an existing profile, show the saved data in form and close after delay
-            if (profileId) {
-                console.log('🔄 Using saved profile data to refresh form:', savedProfile);
-                document.getElementById('profileName').value = savedProfile.name;
-                document.getElementById('profileCefr').value = savedProfile.cefrLevel;
-                document.getElementById('profileVocab').value = savedProfile.vocabulary.join('\n');
-                document.getElementById('profileGrammar').value = savedProfile.grammar.join('\n');
-                document.getElementById('profilePrompt').value = savedProfile.prompt || '';
-                document.getElementById('profileTemperature').value = savedProfile.temperature || 0;
-                updateProfileTemperatureDisplay(savedProfile.temperature || 0);
-
-                // Close the form after a short delay to show the updated values
-                setTimeout(() => {
-                    hideProfileForm();
-                    console.log('✅ Profile edit form closed');
-                }, 1000);
-            } else {
-                // For new profiles, close the form immediately
-                hideProfileForm();
-            }
-        } else {
-            console.error('❌ Profile save failed:', response.status, response.statusText);
-            const errorText = await response.text();
-            console.error('[PROFILES] Error response body:', errorText);
-            try {
-                const errorData = JSON.parse(errorText);
-                console.error('[PROFILES] Parsed error:', errorData);
-                if (errorData.redirect === '/login') {
-                    console.error('[PROFILES] Authentication required - redirecting to login');
-                    window.location.href = '/login';
-                    return;
-                }
-                showError('Error saving profile: ' + (errorData.error || errorData.message || response.status), 'Save Error');
-            } catch {
-                showError('Error saving profile: ' + response.status, 'Save Error');
-            }
-        }
-    } catch (error) {
-        console.error('❌ Profile save error:', error);
-        showError('Error saving profile: ' + error.message, 'Save Error');
-    }
-}
-
 // Export functions for use in other modules
 window.ProfilesModule = {
     loadProfilesData,
@@ -794,19 +612,15 @@ window.ProfilesModule = {
     updateTemperatureDisplay,
     updateProfileTemperatureDisplay,
     loadProfilesList,
-    showProfileForm,
-    hideProfileForm,
     deleteProfile,
     initializeProfiles,
     getProfiles: () => profiles
 };
 
-// Make updateTemperatureDisplay available globally for inline handlers
+// Make functions available globally for inline onclick/oninput handlers
+// in profile form HTML templates generated by createProfileFormHTML()
+// and loadProfilesList().
 window.updateTemperatureDisplay = updateTemperatureDisplay;
-
-// Make functions available globally for onclick handlers
-window.showProfileForm = showProfileForm;
-window.hideProfileForm = hideProfileForm;
 window.deleteProfile = deleteProfile;
 window.showAddNewProfileForm = showAddNewProfileForm;
 window.hideAddNewProfileForm = hideAddNewProfileForm;

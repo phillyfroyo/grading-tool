@@ -104,14 +104,6 @@ class EventDelegation {
         }
 
         // Profile management
-        if (target.onclick?.toString().includes('showProfileForm')) {
-            event.preventDefault();
-            const match = target.onclick.toString().match(/showProfileForm\('([^']+)'\)/);
-            const profileId = match ? match[1] : undefined;
-            this.handleShowProfileForm(profileId);
-            return;
-        }
-
         if (target.onclick?.toString().includes('deleteProfile')) {
             event.preventDefault();
             const match = target.onclick.toString().match(/deleteProfile\('([^']+)'\)/);
@@ -285,14 +277,6 @@ class EventDelegation {
             toggleStudentDetails(index);
         } else {
             logger.warn('toggleStudentDetails function not found');
-        }
-    }
-
-    handleShowProfileForm(profileId) {
-        if (typeof showProfileForm === 'function') {
-            showProfileForm(profileId);
-        } else {
-            logger.warn('showProfileForm function not found');
         }
     }
 
