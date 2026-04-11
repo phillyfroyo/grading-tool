@@ -246,6 +246,20 @@ function createProfileFormHTML(profileId) {
                 </div>
 
                 <div style="margin-bottom: 15px;">
+                    <label for="profileSyllabus-${profileId}">Paste your complete syllabus below and we'll extract the class vocab and grammar:
+                        <span class="info-icon" data-tooltip="Paste a full syllabus (or a range of units) into this box and click Extract. GPT will parse out the vocabulary and grammar structures and populate the boxes below. You can review and edit the results before saving. This box is a one-shot tool — its contents are not saved with the profile." style="display: inline-block; width: 20px; height: 20px; border-radius: 50%; background: lightgray; color: white; text-align: center; line-height: 20px; font-size: 14px; font-style: italic; cursor: pointer; margin-left: 5px; position: relative;">i</span>
+                    </label>
+                    <div style="margin: 4px 0 8px 0; font-size: 13px; color: #666; font-style: italic;">
+                        Note: Our syllabi PDFs have a quirk — dragging to highlight multiple units will sometimes silently skip sections. If your extracted vocab or grammar looks incomplete, try pasting one section at a time into the text box.
+                    </div>
+                    <textarea id="profileSyllabus-${profileId}" name="syllabusPaste" rows="10" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px; resize: vertical; min-height: 200px; max-height: 500px;" placeholder="Paste your syllabus here, then click Extract below..."></textarea>
+                    <div style="margin-top: 8px; display: flex; align-items: center; gap: 12px;">
+                        <button type="button" id="profileExtractBtn-${profileId}" onclick="handleSyllabusExtract('${profileId}')" style="background: #0066cc; color: white; border: none; padding: 8px 16px; border-radius: 4px; cursor: pointer; font-size: 14px;">Extract vocab and grammar</button>
+                        <span id="profileExtractStatus-${profileId}" style="font-size: 13px; color: #666;"></span>
+                    </div>
+                </div>
+
+                <div style="margin-bottom: 15px;">
                     <label for="profileVocab-${profileId}">Target Vocabulary (one per line or comma-separated):
                         <span class="info-icon" data-tooltip="Paste the vocab taught in class into the box below. One word per line OR comma-separated — both work. GPT will take this into consideration when grading essays." style="display: inline-block; width: 20px; height: 20px; border-radius: 50%; background: lightgray; color: white; text-align: center; line-height: 20px; font-size: 14px; font-style: italic; cursor: pointer; margin-left: 5px; position: relative;">i</span>
                     </label>
@@ -430,6 +444,97 @@ function setupProfileFormHandlers() {
     forms.forEach(form => {
         form.addEventListener('submit', handleNewProfileFormSubmission);
     });
+}
+
+/**
+ * Handle the "Extract vocab and grammar" button on the class profile form.
+ *
+ * Sends the pasted syllabus text to POST /api/profiles/extract-syllabus,
+ * then populates the vocabulary and grammar textareas with the result
+ * (joined with newlines so the existing parser handles them correctly).
+ *
+ * If either textarea already has content, confirms with the user before
+ * overwriting.
+ *
+ * @param {string} profileId - The profile ID suffix used in form field IDs
+ */
+async function handleSyllabusExtract(profileId) {
+    const syllabusTextarea = document.getElementById(`profileSyllabus-${profileId}`);
+    const vocabTextarea = document.getElementById(`profileVocab-${profileId}`);
+    const grammarTextarea = document.getElementById(`profileGrammar-${profileId}`);
+    const button = document.getElementById(`profileExtractBtn-${profileId}`);
+    const status = document.getElementById(`profileExtractStatus-${profileId}`);
+
+    if (!syllabusTextarea || !vocabTextarea || !grammarTextarea || !button || !status) {
+        console.error('[SYLLABUS_EXTRACT] Missing DOM elements for profile', profileId);
+        return;
+    }
+
+    const syllabusText = syllabusTextarea.value.trim();
+    if (!syllabusText) {
+        status.textContent = 'Please paste your syllabus text first.';
+        status.style.color = '#c00';
+        return;
+    }
+
+    // If either textarea already has content, confirm before overwriting.
+    const hasExistingContent = vocabTextarea.value.trim() || grammarTextarea.value.trim();
+    if (hasExistingContent) {
+        const confirmed = await new Promise((resolve) => {
+            showConfirmation(
+                'Extracting will replace the current vocabulary and grammar in this profile. Continue?',
+                () => resolve(true),
+                () => resolve(false),
+                'Replace existing vocab and grammar?'
+            );
+        });
+        if (!confirmed) return;
+    }
+
+    // Run the extraction.
+    button.disabled = true;
+    button.style.cursor = 'not-allowed';
+    button.style.opacity = '0.6';
+    const originalButtonText = button.textContent;
+    button.textContent = 'Extracting...';
+    status.textContent = 'GPT is parsing your syllabus — this takes a few seconds.';
+    status.style.color = '#666';
+
+    try {
+        const response = await fetch('/api/profiles/extract-syllabus', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            credentials: 'include',
+            body: JSON.stringify({ syllabusText }),
+        });
+
+        if (!response.ok) {
+            const errBody = await response.json().catch(() => ({}));
+            throw new Error(errBody.error || `HTTP ${response.status}`);
+        }
+
+        const data = await response.json();
+        const vocabulary = Array.isArray(data.vocabulary) ? data.vocabulary : [];
+        const grammar = Array.isArray(data.grammar) ? data.grammar : [];
+
+        // Populate the textareas. Join with newlines so each item is on its own
+        // line — the form-submission parser (split on newlines + commas for vocab,
+        // newlines + semicolons for grammar) will handle these correctly on save.
+        vocabTextarea.value = vocabulary.join('\n');
+        grammarTextarea.value = grammar.join('\n');
+
+        status.textContent = `Extracted ${vocabulary.length} vocab items and ${grammar.length} grammar structures. Review below and save when ready.`;
+        status.style.color = '#0a7b0a';
+    } catch (err) {
+        console.error('[SYLLABUS_EXTRACT] Extraction failed:', err);
+        status.textContent = `Extraction failed: ${err.message}. Your existing vocab and grammar were not changed.`;
+        status.style.color = '#c00';
+    } finally {
+        button.disabled = false;
+        button.style.cursor = 'pointer';
+        button.style.opacity = '1';
+        button.textContent = originalButtonText;
+    }
 }
 
 /**
@@ -721,3 +826,4 @@ window.hideAddNewProfileForm = hideAddNewProfileForm;
 window.toggleProfileEditForm = toggleProfileEditForm;
 window.hideProfileEditForm = hideProfileEditForm;
 window.closeProfileManagementModal = closeProfileManagementModal;
+window.handleSyllabusExtract = handleSyllabusExtract;

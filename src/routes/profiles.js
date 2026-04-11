@@ -8,7 +8,8 @@ import {
   handleGetProfiles,
   handleCreateProfile,
   handleUpdateProfile,
-  handleDeleteProfile
+  handleDeleteProfile,
+  handleExtractSyllabus
 } from '../controllers/profileController.js';
 
 const router = express.Router();
@@ -18,5 +19,8 @@ router.get('/api/profiles', requireAuth, asyncHandler(handleGetProfiles));
 router.post('/api/profiles', requireAuth, asyncHandler(handleCreateProfile));
 router.put('/api/profiles/:id', requireAuth, asyncHandler(handleUpdateProfile));
 router.delete('/api/profiles/:id', requireAuth, asyncHandler(handleDeleteProfile));
+
+// Syllabus extraction (for populating vocab and grammar from pasted syllabus text)
+router.post('/api/profiles/extract-syllabus', requireAuth, asyncHandler(handleExtractSyllabus));
 
 export default router;

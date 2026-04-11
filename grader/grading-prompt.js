@@ -1,6 +1,16 @@
 // grader/grading-prompt.js
 // STEP 2: RUBRIC-BASED GRADING
 
+/**
+ * Strip organizational header lines (lines starting with "#") from a vocab
+ * or grammar list. See grader-simple.js stripHeaders() for the full rationale;
+ * this is a local copy so grading-prompt.js stays import-free.
+ */
+function stripHeaders(list) {
+  if (!Array.isArray(list)) return [];
+  return list.filter(item => typeof item === 'string' && !item.trim().startsWith('#'));
+}
+
 export function buildGradingPrompt(rubric, classProfile, cefrLevel, studentText, errorDetectionResults, studentNickname) {
   const levelInfo = rubric.cefr_levels[cefrLevel] || rubric.cefr_levels['C1'];
   const categories = Object.keys(rubric.categories);
@@ -19,11 +29,17 @@ export function buildGradingPrompt(rubric, classProfile, cefrLevel, studentText,
   const topCategories = sortedErrors.slice(0, 2).map(([cat]) => cat).join(' and ');
   const hasMultipleIssues = sortedErrors.length > 1;
 
+  // Strip organizational header lines (# UNIT X, ## Category) from the lists
+  // before using them in the grading prompt. Headers are for teacher readability
+  // in the profile UI; they are not real vocab/grammar items.
+  const cleanVocab = stripHeaders(classProfile.vocabulary);
+  const cleanGrammar = stripHeaders(classProfile.grammar);
+
   // Only include class-list metric lines when the class profile actually specifies them.
   // When empty, we omit these lines entirely so GPT cannot pattern-match "none" or "0"
   // into a rationale like "no class vocabulary used".
-  const hasClassVocabulary = classProfile.vocabulary.length > 0;
-  const hasClassGrammar = classProfile.grammar.length > 0;
+  const hasClassVocabulary = cleanVocab.length > 0;
+  const hasClassGrammar = cleanGrammar.length > 0;
 
   const classMetricsLines = [];
   if (hasClassVocabulary) {
@@ -76,10 +92,10 @@ ${classProfile.prompt || 'No specific prompt provided'}
 - Word count: **See assignment prompt above for specific word count requirement**
 - Transition words: ${rubric.layout_rules.transition_words_min} minimum
 ${hasClassVocabulary
-  ? `- Class vocabulary to look for: ${classProfile.vocabulary.join(', ')}`
+  ? `- Class vocabulary to look for: ${cleanVocab.join(', ')}`
   : `- Class vocabulary: NOT SPECIFIED for this class. Grade the "vocabulary" category based ONLY on the correctness, appropriateness, and variety of the vocabulary the student actually used in their essay. Do NOT mention class vocabulary, a class word list, or whether the student used class vocabulary anywhere in the rationale or feedback. Do NOT say things like "no class vocabulary used" or "class vocabulary not applied".`}
 ${hasClassGrammar
-  ? `- Grammar structures to look for: ${classProfile.grammar.join(', ')}`
+  ? `- Grammar structures to look for: ${cleanGrammar.join(', ')}`
   : `- Grammar structures: NOT SPECIFIED for this class. Grade the "grammar" category based ONLY on the correctness of the grammar the student actually used in their essay. Do NOT mention target grammar structures, a class grammar list, or whether the student used class grammar anywhere in the rationale or feedback. Do NOT say things like "no class grammar structures used" or "target structures not applied".`}
 
 ## SCORING RULES:

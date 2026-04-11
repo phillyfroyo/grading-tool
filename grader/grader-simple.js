@@ -68,6 +68,26 @@ function countWords(text) {
 }
 
 /**
+ * Strip organizational header lines from a vocab or grammar list.
+ *
+ * The syllabus-extraction feature produces lists that may contain UNIT headers
+ * and category subheaders prefixed with "# " or "## " (markdown-style), which
+ * help teachers visually organize the profile textareas. Those header lines
+ * must be filtered out before the list is sent to GPT for grading, since they
+ * are not actual vocabulary/grammar items.
+ *
+ * Safe for profiles that don't use headers — they're just arrays of strings,
+ * and no real vocab or grammar item starts with "#".
+ *
+ * @param {string[]} list
+ * @returns {string[]}
+ */
+function stripHeaders(list) {
+  if (!Array.isArray(list)) return [];
+  return list.filter(item => typeof item === 'string' && !item.trim().startsWith('#'));
+}
+
+/**
  * Count metrics separately (deterministic, low temperature)
  * Word count is now algorithmic for perfect consistency
  *
@@ -81,20 +101,26 @@ async function countMetrics(classProfile, studentText) {
   const wordCount = countWords(studentText);
   console.log(`📊 Algorithmic word count: ${wordCount}`);
 
-  const hasClassVocabulary = classProfile.vocabulary.length > 0;
-  const hasClassGrammar = classProfile.grammar.length > 0;
+  // Strip organizational header lines (# UNIT X, ## Category) from the lists
+  // before using them for grading. Headers are for teacher readability only;
+  // they are not real vocab/grammar items.
+  const cleanVocab = stripHeaders(classProfile.vocabulary);
+  const cleanGrammar = stripHeaders(classProfile.grammar);
+
+  const hasClassVocabulary = cleanVocab.length > 0;
+  const hasClassGrammar = cleanGrammar.length > 0;
 
   // Build the prompt sections conditionally based on what the class profile specifies.
   const classVocabSection = hasClassVocabulary
-    ? `CLASS VOCABULARY (${classProfile.vocabulary.length} items):
-${classProfile.vocabulary.join(', ')}
+    ? `CLASS VOCABULARY (${cleanVocab.length} items):
+${cleanVocab.join(', ')}
 
 `
     : '';
 
   const classGrammarSection = hasClassGrammar
-    ? `CLASS GRAMMAR STRUCTURES (${classProfile.grammar.length} items):
-${classProfile.grammar.join(', ')}
+    ? `CLASS GRAMMAR STRUCTURES (${cleanGrammar.length} items):
+${cleanGrammar.join(', ')}
 
 `
     : '';
