@@ -389,7 +389,9 @@ async function handleGradingFormSubmission(e) {
  * Setup main grading form functionality
  */
 function setupMainGrading() {
-    const gradingForm = document.getElementById('gradingForm');
+    const gradingForm = window.TabStore
+        ? window.TabStore.activeQuery('#gradingForm')
+        : document.getElementById('gradingForm');
     if (gradingForm) {
         gradingForm.addEventListener('submit', handleGradingFormSubmission);
     } else {

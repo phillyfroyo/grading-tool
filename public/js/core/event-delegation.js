@@ -236,7 +236,8 @@ class EventDelegation {
         // Determine which export function to call based on current tab/context
         const isManualTab = document.querySelector('.tab-button[data-tab="manual-grader"]')?.classList.contains('active');
         const hasManualResults = document.getElementById('manualResults')?.innerHTML.trim();
-        const hasMainResults = document.getElementById('results')?.innerHTML.trim();
+        const mainResults = window.TabStore ? window.TabStore.activeQuery('#results') : document.getElementById('results');
+        const hasMainResults = mainResults?.innerHTML.trim();
 
         console.log('Manual tab active:', isManualTab);
         console.log('Has manual results:', !!hasManualResults);

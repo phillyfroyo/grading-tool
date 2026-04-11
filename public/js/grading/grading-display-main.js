@@ -574,7 +574,7 @@ function createBatchResultsHTML(batchResult, successCount, failureCount) {
  * @param {string} message - Loading message
  */
 function showLoading(message = 'Loading...') {
-    const resultsDiv = document.getElementById('results');
+    const resultsDiv = window.TabStore ? window.TabStore.activeQuery('#results') : document.getElementById('results');
     if (resultsDiv) {
         const loadingHTML = window.DisplayUtilsModule ?
             window.DisplayUtilsModule.createLoadingSpinner(message) :
@@ -590,7 +590,7 @@ function showLoading(message = 'Loading...') {
  * @param {string} details - Error details
  */
 function showError(message, details = '') {
-    const resultsDiv = document.getElementById('results');
+    const resultsDiv = window.TabStore ? window.TabStore.activeQuery('#results') : document.getElementById('results');
     if (resultsDiv) {
         const errorHTML = window.DisplayUtilsModule ?
             window.DisplayUtilsModule.createErrorHTML(message, details) :
@@ -604,7 +604,7 @@ function showError(message, details = '') {
  * Clear results display
  */
 function clearResults() {
-    const resultsDiv = document.getElementById('results');
+    const resultsDiv = window.TabStore ? window.TabStore.activeQuery('#results') : document.getElementById('results');
     if (resultsDiv) {
         resultsDiv.innerHTML = '';
         resultsDiv.style.display = 'none';

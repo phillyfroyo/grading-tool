@@ -19,7 +19,7 @@ function displayResults(gradingResult, originalData) {
     // Clear any batch data when displaying single results
     batchGradingData = {};
 
-    const resultsDiv = document.getElementById('results');
+    const resultsDiv = window.TabStore ? window.TabStore.activeQuery('#results') : document.getElementById('results');
     if (!resultsDiv) return;
 
     // Show loading state

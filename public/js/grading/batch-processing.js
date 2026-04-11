@@ -259,7 +259,9 @@ function displayBatchProgress(batchData) {
     // Set up rotating loading message for the first essay only
     // Start with "Processing..." then switch to funny messages after 3 seconds
     if (batchData.essays.length > 0) {
-        const firstEssayMessageElement = document.getElementById('processing-message-0');
+        const firstEssayMessageElement = window.TabStore
+            ? window.TabStore.activeQuery('#processing-message-0')
+            : document.getElementById('processing-message-0');
         if (firstEssayMessageElement) {
             // After 3 seconds, start rotating funny messages
             setTimeout(() => {
@@ -288,7 +290,9 @@ function displayBatchProgress(batchData) {
  * @param {string} error - Error message if failed
  */
 function updateEssayStatus(index, success, error = null) {
-    const statusElement = document.getElementById(`student-status-${index}`);
+    const statusElement = window.TabStore
+        ? window.TabStore.activeQuery(`#student-status-${index}`)
+        : document.getElementById(`student-status-${index}`);
     if (!statusElement) return;
 
     // Clear the loading message timer when the first essay status is updated
@@ -308,7 +312,9 @@ function updateEssayStatus(index, success, error = null) {
         `;
 
         // Enable the download button for successful essays
-        const studentRow = document.getElementById(`student-row-${index}`);
+        const studentRow = window.TabStore
+            ? window.TabStore.activeQuery(`#student-row-${index}`)
+            : document.getElementById(`student-row-${index}`);
         if (studentRow) {
             const downloadBtn = studentRow.querySelector('button[onclick*="downloadIndividualEssay"]');
             if (downloadBtn) {
@@ -345,7 +351,9 @@ function updateEssayStatus(index, success, error = null) {
     // Activate next essay in queue if there is one
     if (processingQueue.nextInQueue < processingQueue.totalEssays) {
         const nextIndex = processingQueue.nextInQueue;
-        const nextStatusElement = document.getElementById(`student-status-${nextIndex}`);
+        const nextStatusElement = window.TabStore
+            ? window.TabStore.activeQuery(`#student-status-${nextIndex}`)
+            : document.getElementById(`student-status-${nextIndex}`);
 
         if (nextStatusElement) {
             // Update from "In queue" to "Processing..."
@@ -396,7 +404,10 @@ function displayBatchResults(batchResult, originalData) {
 
     // Capture checkbox states BEFORE replacing HTML
     const checkboxStates = {};
-    document.querySelectorAll('.remove-all-checkbox').forEach(checkbox => {
+    const preReplaceCheckboxes = window.TabStore
+        ? window.TabStore.activeQueryAll('.remove-all-checkbox')
+        : document.querySelectorAll('.remove-all-checkbox');
+    preReplaceCheckboxes.forEach(checkbox => {
         const contentId = checkbox.dataset.contentId;
         if (contentId && checkbox.checked) {
             checkboxStates[contentId] = true;
@@ -414,7 +425,9 @@ function displayBatchResults(batchResult, originalData) {
     // Restore checkbox states AFTER HTML is replaced
     setTimeout(() => {
         Object.entries(checkboxStates).forEach(([contentId, isChecked]) => {
-            const checkbox = document.querySelector(`.remove-all-checkbox[data-content-id="${contentId}"]`);
+            const checkbox = window.TabStore
+                ? window.TabStore.activeQuery(`.remove-all-checkbox[data-content-id="${contentId}"]`)
+                : document.querySelector(`.remove-all-checkbox[data-content-id="${contentId}"]`);
             if (checkbox && isChecked) {
                 checkbox.checked = true;
                 localStorage.setItem(`removeAllFromPDF_${contentId}`, 'true');
@@ -454,8 +467,12 @@ function displayBatchResults(batchResult, originalData) {
  * @param {number} index - Student index
  */
 function toggleStudentDetails(index) {
-    const detailsDiv = document.getElementById(`student-details-${index}`);
-    const arrow = document.getElementById(`student-arrow-${index}`);
+    const detailsDiv = window.TabStore
+        ? window.TabStore.activeQuery(`#student-details-${index}`)
+        : document.getElementById(`student-details-${index}`);
+    const arrow = window.TabStore
+        ? window.TabStore.activeQuery(`#student-arrow-${index}`)
+        : document.getElementById(`student-arrow-${index}`);
 
     if (!detailsDiv) return;
 
@@ -489,7 +506,9 @@ const essayLoadingLock = {};
  * @param {number} index - Essay index
  */
 function loadEssayDetails(index) {
-    const essayDiv = document.getElementById(`batch-essay-${index}`);
+    const essayDiv = window.TabStore
+        ? window.TabStore.activeQuery(`#batch-essay-${index}`)
+        : document.getElementById(`batch-essay-${index}`);
 
     if (!essayDiv || !window[`essayData_${index}`]) return;
 
@@ -541,7 +560,9 @@ function loadEssayDetails(index) {
             markFormatCallComplete(index, 'loaded');
 
             // IMMEDIATE verification: confirm content loaded into correct div
-            const verifyDiv = document.getElementById(`batch-essay-${index}`);
+            const verifyDiv = window.TabStore
+                ? window.TabStore.activeQuery(`#batch-essay-${index}`)
+                : document.getElementById(`batch-essay-${index}`);
             const verifyContent = verifyDiv?.querySelector(`.formatted-essay-content[data-essay-index="${index}"]`);
             if (!verifyContent) {
                 console.error(`❌ Essay ${index} content verification FAILED - content did not load correctly`);
@@ -553,7 +574,9 @@ function loadEssayDetails(index) {
             // Initialize essay editing for this batch item AFTER content is loaded
                 setTimeout(() => {
                     // Initialize text selection
-                    const essayContentDiv = document.querySelector(`.formatted-essay-content[data-essay-index="${index}"]`);
+                    const essayContentDiv = window.TabStore
+                        ? window.TabStore.activeQuery(`.formatted-essay-content[data-essay-index="${index}"]`)
+                        : document.querySelector(`.formatted-essay-content[data-essay-index="${index}"]`);
                     if (essayContentDiv) {
                         essayContentDiv.addEventListener('mouseup', (e) => {
                             // Get current selection to check if user is actually selecting text
@@ -587,7 +610,9 @@ function loadEssayDetails(index) {
                     }
 
                     // Initialize category buttons
-                    const categoryButtons = document.querySelectorAll(`#categoryButtons-${index} .category-btn`);
+                    const categoryButtons = window.TabStore
+                        ? window.TabStore.activeQueryAll(`#categoryButtons-${index} .category-btn`)
+                        : document.querySelectorAll(`#categoryButtons-${index} .category-btn`);
 
                     categoryButtons.forEach(btn => {
                         btn.addEventListener('click', function(e) {
@@ -605,7 +630,9 @@ function loadEssayDetails(index) {
 
                     // Initialize existing highlights
                     if (window.HighlightingModule) {
-                        const essayContainer = document.getElementById(`batch-essay-${index}`);
+                        const essayContainer = window.TabStore
+                            ? window.TabStore.activeQuery(`#batch-essay-${index}`)
+                            : document.getElementById(`batch-essay-${index}`);
                         if (essayContainer) {
                             // Check for both span and mark elements from GPT highlighting
                             const gptHighlights = essayContainer.querySelectorAll('span[style*="background"], span[class*="highlight"], span[style*="color"], mark[data-type], mark.highlighted-segment');
@@ -688,7 +715,9 @@ function loadEssayDetails(index) {
                     }
 
                     // Adjust height after all content is loaded
-                    const detailsDiv = document.getElementById(`student-details-${index}`);
+                    const detailsDiv = window.TabStore
+                        ? window.TabStore.activeQuery(`#student-details-${index}`)
+                        : document.getElementById(`student-details-${index}`);
                     if (detailsDiv && detailsDiv.style.maxHeight !== '0px') {
                         detailsDiv.style.maxHeight = detailsDiv.scrollHeight + 'px';
                     }
@@ -768,7 +797,9 @@ function downloadAllEssays() {
  * @param {boolean} completed - Whether to mark as completed
  */
 function markStudentComplete(index, completed = true) {
-    const checkbox = document.querySelector(`.mark-complete-checkbox[data-student-index="${index}"]`);
+    const checkbox = window.TabStore
+        ? window.TabStore.activeQuery(`.mark-complete-checkbox[data-student-index="${index}"]`)
+        : document.querySelector(`.mark-complete-checkbox[data-student-index="${index}"]`);
     if (checkbox) {
         checkbox.checked = completed;
 
@@ -791,7 +822,9 @@ function markStudentComplete(index, completed = true) {
  * @returns {Object} Completion statistics
  */
 function getBatchCompletionStatus() {
-    const checkboxes = document.querySelectorAll('.mark-complete-checkbox');
+    const checkboxes = window.TabStore
+        ? window.TabStore.activeQueryAll('.mark-complete-checkbox')
+        : document.querySelectorAll('.mark-complete-checkbox');
     const total = checkboxes.length;
     const completed = Array.from(checkboxes).filter(cb => cb.checked).length;
 
@@ -808,7 +841,9 @@ function getBatchCompletionStatus() {
  */
 function updateBatchProgress() {
     const status = getBatchCompletionStatus();
-    const progressElement = document.getElementById('batchProgress');
+    const progressElement = window.TabStore
+        ? window.TabStore.activeQuery('#batchProgress')
+        : document.getElementById('batchProgress');
 
     if (progressElement) {
         progressElement.innerHTML = `
@@ -865,7 +900,10 @@ function restoreBatchCompletionStatus() {
  */
 function clearBatchCompletionStatus() {
     localStorage.removeItem('batchCompletion');
-    document.querySelectorAll('.mark-complete-checkbox').forEach(checkbox => {
+    const clearCheckboxes = window.TabStore
+        ? window.TabStore.activeQueryAll('.mark-complete-checkbox')
+        : document.querySelectorAll('.mark-complete-checkbox');
+    clearCheckboxes.forEach(checkbox => {
         checkbox.checked = false;
     });
     updateBatchProgress();
@@ -914,7 +952,9 @@ function createBatchEssayHTMLFallback(formatted, index) {
  * @param {number} index - Student index
  */
 function adjustStudentDetailHeight(index) {
-    const detailsDiv = document.getElementById(`student-details-${index}`);
+    const detailsDiv = window.TabStore
+        ? window.TabStore.activeQuery(`#student-details-${index}`)
+        : document.getElementById(`student-details-${index}`);
     if (detailsDiv && detailsDiv.style.maxHeight !== '0px' && detailsDiv.style.maxHeight !== '') {
         // Only adjust if currently expanded
         setTimeout(() => {
@@ -973,7 +1013,9 @@ async function retryEssay(index) {
     const essay = batchData.essays[index];
 
     // Update UI to show retrying
-    const statusElement = document.getElementById(`student-status-${index}`);
+    const statusElement = window.TabStore
+        ? window.TabStore.activeQuery(`#student-status-${index}`)
+        : document.getElementById(`student-status-${index}`);
     if (statusElement) {
         statusElement.innerHTML = `
             <div class="loading-spinner" style="width: 24px; height: 24px; border: 3px solid #f3f3f3; border-top: 3px solid #007bff; border-radius: 50%; animation: spin 1s linear infinite;"></div>

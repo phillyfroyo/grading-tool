@@ -7,7 +7,7 @@
  * Export single essay to PDF
  */
 function exportToPDF() {
-    const resultsDiv = document.getElementById('results');
+    const resultsDiv = window.TabStore ? window.TabStore.activeQuery('#results') : document.getElementById('results');
     if (!resultsDiv || resultsDiv.style.display === 'none' || !resultsDiv.innerHTML.trim()) {
         alert('No results to export. Please grade an essay first.');
         return;

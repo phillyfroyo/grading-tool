@@ -178,7 +178,9 @@ function clearSelection(essayIndex) {
  * @param {string} message - Status message
  */
 function updateSelectionStatus(message) {
-    const statusElement = document.getElementById('selectionStatus');
+    const statusElement = window.TabStore
+        ? window.TabStore.activeQuery('#selectionStatus')
+        : document.getElementById('selectionStatus');
     if (statusElement) {
         statusElement.textContent = message;
     }
@@ -190,7 +192,9 @@ function updateSelectionStatus(message) {
  * @param {string} message - Status message
  */
 function updateBatchSelectionStatus(essayIndex, message) {
-    const statusElement = document.getElementById(`selectionStatus-${essayIndex}`);
+    const statusElement = window.TabStore
+        ? window.TabStore.activeQuery(`#selectionStatus-${essayIndex}`)
+        : document.getElementById(`selectionStatus-${essayIndex}`);
     if (statusElement) {
         statusElement.textContent = message;
     }

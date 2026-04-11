@@ -1115,14 +1115,22 @@ async function saveEssayToAccount(btn, essayIndex) {
 
     try {
         // Get rendered HTML from DOM
+        // Look within the active tab pane first — batch-essay-N and
+        // essayContainer are children of the per-tab results div.
         let renderedHTML = '';
-        const batchDiv = document.getElementById(`batch-essay-${essayIndex}`);
-        const singleContainer = document.getElementById('essayContainer');
+        const batchDiv = window.TabStore
+            ? window.TabStore.activeQuery(`#batch-essay-${essayIndex}`)
+            : document.getElementById(`batch-essay-${essayIndex}`);
+        const singleContainer = window.TabStore
+            ? window.TabStore.activeQuery('#essayContainer')
+            : document.getElementById('essayContainer');
         if (batchDiv) {
             renderedHTML = batchDiv.innerHTML;
         } else if (singleContainer) {
             // For single essay, grab the results div content
-            const resultsDiv = document.getElementById('results');
+            const resultsDiv = window.TabStore
+                ? window.TabStore.activeQuery('#results')
+                : document.getElementById('results');
             if (resultsDiv) renderedHTML = resultsDiv.innerHTML;
         }
 
@@ -1189,7 +1197,9 @@ async function saveEssayToAccount(btn, essayIndex) {
         }
         // 3. Fallback: read the dropdown directly
         if (!classProfileId) {
-            const gptSelect = document.getElementById('classProfile');
+            const gptSelect = window.TabStore
+                ? window.TabStore.activeQuery('#classProfile')
+                : document.getElementById('classProfile');
             classProfileId = (gptSelect && gptSelect.value) || null;
         }
 

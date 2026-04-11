@@ -11,7 +11,7 @@ let essayCount = 1;
  * @param {number} count - Number of essays to add (default: 1)
  */
 function addAnotherEssay(count = 1) {
-    const container = document.getElementById('essaysContainer');
+    const container = window.TabStore ? window.TabStore.activeQuery('#essaysContainer') : document.getElementById('essaysContainer');
     if (!container) return;
 
     // Ensure count is a positive integer
@@ -53,11 +53,19 @@ function addAnotherEssay(count = 1) {
 }
 
 /**
- * Remove an essay by index
+ * Remove an essay by index.
+ *
+ * Called from inline onclick handlers on the Remove button. At the moment
+ * of click, the user must be interacting with the active tab (the only
+ * visible one), so scoping the query to TabStore.activeQuery correctly
+ * finds the essay row belonging to the current tab even with multi-tab.
+ *
  * @param {number} index - Essay index to remove
  */
 function removeEssay(index) {
-    const essayToRemove = document.querySelector(`[data-essay-index="${index}"]`);
+    const essayToRemove = window.TabStore
+        ? window.TabStore.activeQuery(`[data-essay-index="${index}"]`)
+        : document.querySelector(`[data-essay-index="${index}"]`);
     if (essayToRemove) {
         essayToRemove.remove();
         // Renumber remaining essays
@@ -67,10 +75,12 @@ function removeEssay(index) {
 }
 
 /**
- * Renumber essays after removal
+ * Renumber essays after removal. Operates on the active tab only.
  */
 function renumberEssays() {
-    const essays = document.querySelectorAll('.essay-entry');
+    const essays = window.TabStore
+        ? window.TabStore.activeQueryAll('.essay-entry')
+        : document.querySelectorAll('.essay-entry');
     essays.forEach((essay, index) => {
         essay.setAttribute('data-essay-index', index);
         const label = essay.querySelector('label');
@@ -86,10 +96,13 @@ function renumberEssays() {
 }
 
 /**
- * Update visibility of remove buttons based on essay count
+ * Update visibility of remove buttons based on essay count.
+ * Operates on the active tab only.
  */
 function updateRemoveButtons() {
-    const essays = document.querySelectorAll('.essay-entry');
+    const essays = window.TabStore
+        ? window.TabStore.activeQueryAll('.essay-entry')
+        : document.querySelectorAll('.essay-entry');
     const showRemoveButtons = essays.length > 1;
 
     essays.forEach(essay => {
@@ -105,7 +118,9 @@ function updateRemoveButtons() {
  * @param {Array} essays - Array of essay objects
  */
 function displayStudentNamesProgressively(essays) {
-    const progressiveNamesContainer = document.getElementById('progressive-names');
+    const progressiveNamesContainer = window.TabStore
+        ? window.TabStore.activeQuery('#progressive-names')
+        : document.getElementById('progressive-names');
     if (!progressiveNamesContainer) return;
 
     essays.forEach((essay, index) => {
@@ -217,8 +232,8 @@ function setupEssayManagement() {
     updateRemoveButtons();
 
     // Add event listener for adding essays with count
-    const addEssayBtn = document.getElementById('addEssayBtn');
-    const essayCountInput = document.getElementById('essayCountInput');
+    const addEssayBtn = window.TabStore ? window.TabStore.activeQuery('#addEssayBtn') : document.getElementById('addEssayBtn');
+    const essayCountInput = window.TabStore ? window.TabStore.activeQuery('#essayCountInput') : document.getElementById('essayCountInput');
 
     if (addEssayBtn && essayCountInput) {
         addEssayBtn.addEventListener('click', () => {
@@ -227,13 +242,21 @@ function setupEssayManagement() {
         });
     }
 
-    // Add listeners for arrow click areas
-    document.querySelectorAll('.essay-counter-arrow').forEach(arrow => {
+    // Add listeners for arrow click areas.
+    // At init time there is one tab, so scoping to the active pane resolves
+    // to the same arrows document.querySelectorAll would find. Phase 5 will
+    // re-run this wiring for each dynamically-created tab.
+    const arrows = window.TabStore
+        ? window.TabStore.activeQueryAll('.essay-counter-arrow')
+        : document.querySelectorAll('.essay-counter-arrow');
+    arrows.forEach(arrow => {
         arrow.addEventListener('click', function(e) {
             e.stopPropagation();
             e.preventDefault();
 
-            const input = document.getElementById(this.dataset.target);
+            const input = window.TabStore
+                ? window.TabStore.activeQuery(`#${this.dataset.target}`)
+                : document.getElementById(this.dataset.target);
             if (input) {
                 const currentValue = parseInt(input.value) || 1;
                 const max = parseInt(input.max) || 50;

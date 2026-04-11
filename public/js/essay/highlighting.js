@@ -203,7 +203,9 @@ function applyHighlight(range, text, category) {
                 e.stopPropagation();
                 // Always open modal for the primary (first) mark in the group
                 const groupId = this.dataset.highlightGroup;
-                const first = document.querySelector(`mark[data-highlight-group="${groupId}"]`);
+                const first = window.TabStore
+                    ? window.TabStore.activeQuery(`mark[data-highlight-group="${groupId}"]`)
+                    : document.querySelector(`mark[data-highlight-group="${groupId}"]`);
                 editHighlight(first || this);
             });
             if (primaryMark) {
@@ -268,7 +270,9 @@ function applyBatchHighlight(range, text, category, essayIndex) {
             const primaryMark = applyHighlightAcrossBlocks(range, mark, function(e) {
                 e.stopPropagation();
                 const groupId = this.dataset.highlightGroup;
-                const first = document.querySelector(`mark[data-highlight-group="${groupId}"]`);
+                const first = window.TabStore
+                    ? window.TabStore.activeQuery(`mark[data-highlight-group="${groupId}"]`)
+                    : document.querySelector(`mark[data-highlight-group="${groupId}"]`);
                 editBatchHighlight(first || this, essayIndex);
             });
             if (primaryMark) {
@@ -689,7 +693,9 @@ function rebuildHighlightBoundaries(oldMark, newStart, newEnd, container) {
 
     // ── 2. Unwrap old mark (and all group siblings if grouped) ──
     if (oldGroupId) {
-        const groupMarks = document.querySelectorAll(`mark[data-highlight-group="${oldGroupId}"]`);
+        const groupMarks = window.TabStore
+            ? window.TabStore.activeQueryAll(`mark[data-highlight-group="${oldGroupId}"]`)
+            : document.querySelectorAll(`mark[data-highlight-group="${oldGroupId}"]`);
         groupMarks.forEach(m => {
             const p = m.parentNode;
             while (m.firstChild) {
@@ -767,7 +773,9 @@ function rebuildHighlightBoundaries(oldMark, newStart, newEnd, container) {
         const primaryMark = applyHighlightAcrossBlocks(range, newMark, function(e) {
             e.stopPropagation();
             const gid = this.dataset.highlightGroup;
-            const first = document.querySelector(`mark[data-highlight-group="${gid}"]`);
+            const first = window.TabStore
+                ? window.TabStore.activeQuery(`mark[data-highlight-group="${gid}"]`)
+                : document.querySelector(`mark[data-highlight-group="${gid}"]`);
             editHighlight(first || this);
         });
         if (primaryMark) {
@@ -775,7 +783,10 @@ function rebuildHighlightBoundaries(oldMark, newStart, newEnd, container) {
             // Propagate styling to siblings
             const gid = primaryMark.dataset.highlightGroup;
             if (gid) {
-                document.querySelectorAll(`mark[data-highlight-group="${gid}"]`).forEach(sib => {
+                const siblingMarks = window.TabStore
+                    ? window.TabStore.activeQueryAll(`mark[data-highlight-group="${gid}"]`)
+                    : document.querySelectorAll(`mark[data-highlight-group="${gid}"]`);
+                siblingMarks.forEach(sib => {
                     if (sib !== primaryMark) {
                         updateHighlightVisualStyling(sib, primaryCat, categories);
                     }
@@ -841,7 +852,9 @@ function showHighlightEditModal(element, currentCategories) {
         let firstMark = element;
         let lastMark = element;
         if (groupId) {
-            const groupMarks = Array.from(document.querySelectorAll(`mark[data-highlight-group="${groupId}"]`));
+            const groupMarks = Array.from(window.TabStore
+                ? window.TabStore.activeQueryAll(`mark[data-highlight-group="${groupId}"]`)
+                : document.querySelectorAll(`mark[data-highlight-group="${groupId}"]`));
             if (groupMarks.length > 0) {
                 firstMark = groupMarks[0];
                 lastMark = groupMarks[groupMarks.length - 1];
@@ -1055,7 +1068,9 @@ function showHighlightEditModal(element, currentCategories) {
                 // Propagate to group siblings if this is a grouped highlight
                 const groupId = element.dataset.highlightGroup;
                 if (groupId) {
-                    const siblings = document.querySelectorAll(`mark[data-highlight-group="${groupId}"]`);
+                    const siblings = window.TabStore
+                        ? window.TabStore.activeQueryAll(`mark[data-highlight-group="${groupId}"]`)
+                        : document.querySelectorAll(`mark[data-highlight-group="${groupId}"]`);
                     siblings.forEach(sib => {
                         if (sib === element) return;
                         // Copy data attributes (except originalText which stays per-segment)
@@ -1351,7 +1366,9 @@ function removeHighlight(element) {
         // If this mark belongs to a group, remove ALL marks in the group
         const groupId = element.dataset.highlightGroup;
         if (groupId) {
-            const groupMarks = document.querySelectorAll(`mark[data-highlight-group="${groupId}"]`);
+            const groupMarks = window.TabStore
+                ? window.TabStore.activeQueryAll(`mark[data-highlight-group="${groupId}"]`)
+                : document.querySelectorAll(`mark[data-highlight-group="${groupId}"]`);
             const fullText = Array.from(groupMarks).map(m => m.textContent).join('\n\n');
             groupMarks.forEach(m => {
                 if (m.parentNode) {
@@ -1431,7 +1448,9 @@ function migrateLegacyHighlights(container = document) {
                 e.stopPropagation();
                 const gid = this.dataset.highlightGroup;
                 if (gid) {
-                    const primary = document.querySelector(`mark[data-highlight-group="${gid}"]`);
+                    const primary = window.TabStore
+                        ? window.TabStore.activeQuery(`mark[data-highlight-group="${gid}"]`)
+                        : document.querySelector(`mark[data-highlight-group="${gid}"]`);
                     editHighlight(primary || this);
                 } else {
                     editHighlight(this);
@@ -1470,7 +1489,9 @@ function ensureHighlightClickHandlers(container = document) {
                 // For grouped highlights, always open modal for the primary mark
                 const gid = this.dataset.highlightGroup;
                 if (gid) {
-                    const primary = document.querySelector(`mark[data-highlight-group="${gid}"]`);
+                    const primary = window.TabStore
+                        ? window.TabStore.activeQuery(`mark[data-highlight-group="${gid}"]`)
+                        : document.querySelector(`mark[data-highlight-group="${gid}"]`);
                     editHighlight(primary || this);
                 } else {
                     editHighlight(this);
@@ -1569,7 +1590,9 @@ document.addEventListener('click', function(e) {
     // For grouped highlights, always open modal for the primary (first) mark
     const groupId = mark.dataset.highlightGroup;
     if (groupId) {
-        const primary = document.querySelector(`mark[data-highlight-group="${groupId}"]`);
+        const primary = window.TabStore
+            ? window.TabStore.activeQuery(`mark[data-highlight-group="${groupId}"]`)
+            : document.querySelector(`mark[data-highlight-group="${groupId}"]`);
         editHighlight(primary || mark);
     } else {
         editHighlight(mark);

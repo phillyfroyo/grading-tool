@@ -35,7 +35,7 @@ async function loadProfilesData() {
  */
 function updateProfileDropdown() {
     // Update GPT tab dropdown
-    const select = document.getElementById('classProfile');
+    const select = window.TabStore ? window.TabStore.activeQuery('#classProfile') : document.getElementById('classProfile');
     if (select) {
         select.innerHTML = '<option value="">Select a class profile...</option>';
         profiles.forEach(profile => {
@@ -74,15 +74,19 @@ function updateTemperatureDisplay(profileId, value) {
  * Handle profile selection change
  */
 function handleProfileSelectionChange() {
-    const profileSelect = document.getElementById('classProfile');
+    const profileSelect = window.TabStore ? window.TabStore.activeQuery('#classProfile') : document.getElementById('classProfile');
     if (!profileSelect) return;
 
     profileSelect.addEventListener('change', function(e) {
         const selectedProfileId = e.target.value;
-        const promptTextarea = document.getElementById('prompt');
+        // These elements are historical — they were removed from the grading
+        // form in an earlier refactor but the lookup code remains defensively.
+        // Routing through activeQuery keeps the pattern consistent; they still
+        // resolve to null (since the elements are not in the DOM).
+        const promptTextarea = window.TabStore ? window.TabStore.activeQuery('#prompt') : document.getElementById('prompt');
         const promptContainer = document.querySelector('label[for="prompt"]')?.parentElement;
-        const temperatureContainer = document.getElementById('temperatureContainer');
-        const temperatureSlider = document.getElementById('temperature');
+        const temperatureContainer = window.TabStore ? window.TabStore.activeQuery('#temperatureContainer') : document.getElementById('temperatureContainer');
+        const temperatureSlider = window.TabStore ? window.TabStore.activeQuery('#temperature') : document.getElementById('temperature');
 
         if (selectedProfileId) {
             const selectedProfile = profiles.find(p => p.id === selectedProfileId);
