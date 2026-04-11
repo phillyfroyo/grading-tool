@@ -19,14 +19,27 @@ export function buildGradingPrompt(rubric, classProfile, cefrLevel, studentText,
   const topCategories = sortedErrors.slice(0, 2).map(([cat]) => cat).join(' and ');
   const hasMultipleIssues = sortedErrors.length > 1;
 
+  // Only include class-list metric lines when the class profile actually specifies them.
+  // When empty, we omit these lines entirely so GPT cannot pattern-match "none" or "0"
+  // into a rationale like "no class vocabulary used".
+  const hasClassVocabulary = classProfile.vocabulary.length > 0;
+  const hasClassGrammar = classProfile.grammar.length > 0;
+
+  const classMetricsLines = [];
+  if (hasClassVocabulary) {
+    classMetricsLines.push(`CLASS VOCABULARY MATCHES: ${errorDetectionResults.class_vocabulary_used?.length || 0}`);
+  }
+  if (hasClassGrammar) {
+    classMetricsLines.push(`CLASS GRAMMAR STRUCTURES MATCHED: ${errorDetectionResults.grammar_structures_used?.join(', ') || 'none'}`);
+  }
+  const classMetricsBlock = classMetricsLines.length > 0 ? '\n' + classMetricsLines.join('\n') : '';
+
   return `You are an expert ESL writing grader. Grade according to the rubric.
 
 ## YOUR JOB
 Assign accurate scores based on the rubric. Errors are already detected. Provide feedback according to the actual essay quality.
 
-ERRORS PROVIDED: ${errorDetectionResults.inline_issues.length} total errors found
-VOCABULARY COUNT: ${errorDetectionResults.vocabulary_count || 0}
-GRAMMAR STRUCTURES: ${errorDetectionResults.grammar_structures_used?.join(', ') || 'none'}
+ERRORS PROVIDED: ${errorDetectionResults.inline_issues.length} total errors found${classMetricsBlock}
 
 ## GRADING MINDSET
 - Follow the rubric objectively while maintaining a supportive tone
@@ -62,8 +75,12 @@ ${classProfile.prompt || 'No specific prompt provided'}
 ## REQUIREMENTS:
 - Word count: **See assignment prompt above for specific word count requirement**
 - Transition words: ${rubric.layout_rules.transition_words_min} minimum
-${classProfile.vocabulary.length > 0 ? `- Class vocabulary to look for: ${classProfile.vocabulary.join(', ')}` : '- Class vocabulary: Not specified (grade vocabulary correctness only)'}
-${classProfile.grammar.length > 0 ? `- Grammar structures to look for: ${classProfile.grammar.join(', ')}` : '- Grammar structures: Not specified (grade grammar correctness only)'}
+${hasClassVocabulary
+  ? `- Class vocabulary to look for: ${classProfile.vocabulary.join(', ')}`
+  : `- Class vocabulary: NOT SPECIFIED for this class. Grade the "vocabulary" category based ONLY on the correctness, appropriateness, and variety of the vocabulary the student actually used in their essay. Do NOT mention class vocabulary, a class word list, or whether the student used class vocabulary anywhere in the rationale or feedback. Do NOT say things like "no class vocabulary used" or "class vocabulary not applied".`}
+${hasClassGrammar
+  ? `- Grammar structures to look for: ${classProfile.grammar.join(', ')}`
+  : `- Grammar structures: NOT SPECIFIED for this class. Grade the "grammar" category based ONLY on the correctness of the grammar the student actually used in their essay. Do NOT mention target grammar structures, a class grammar list, or whether the student used class grammar anywhere in the rationale or feedback. Do NOT say things like "no class grammar structures used" or "target structures not applied".`}
 
 ## SCORING RULES:
 - Follow rubric bands precisely

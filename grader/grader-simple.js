@@ -70,29 +70,50 @@ function countWords(text) {
 /**
  * Count metrics separately (deterministic, low temperature)
  * Word count is now algorithmic for perfect consistency
+ *
+ * When the class profile does not specify vocabulary or grammar lists, we omit
+ * those sections from the prompt entirely so GPT cannot invent matches against
+ * an empty list. The returned object still includes empty arrays for those
+ * fields so downstream display/formatting code continues to work unchanged.
  */
 async function countMetrics(classProfile, studentText) {
   // Calculate word count algorithmically (100% accurate)
   const wordCount = countWords(studentText);
   console.log(`📊 Algorithmic word count: ${wordCount}`);
 
-  const prompt = `Count the following metrics in this essay. Be precise and deterministic.
+  const hasClassVocabulary = classProfile.vocabulary.length > 0;
+  const hasClassGrammar = classProfile.grammar.length > 0;
 
-CLASS VOCABULARY (${classProfile.vocabulary.length} items):
+  // Build the prompt sections conditionally based on what the class profile specifies.
+  const classVocabSection = hasClassVocabulary
+    ? `CLASS VOCABULARY (${classProfile.vocabulary.length} items):
 ${classProfile.vocabulary.join(', ')}
 
-GRAMMAR STRUCTURES:
+`
+    : '';
+
+  const classGrammarSection = hasClassGrammar
+    ? `CLASS GRAMMAR STRUCTURES (${classProfile.grammar.length} items):
 ${classProfile.grammar.join(', ')}
 
-Return JSON:
-{
-  "paragraph_count": <number>,
-  "sentence_count": <number>,
-  "class_vocabulary_used": ["word1", "word2"],
-  "grammar_structures_used": ["structure1", "structure2"],
-  "transition_words_found": ["however", "moreover"]
-}
+`
+    : '';
 
+  // Build the JSON schema GPT should return — only include class-list fields when relevant.
+  const jsonFields = [
+    '  "paragraph_count": <number>',
+    '  "sentence_count": <number>',
+  ];
+  if (hasClassVocabulary) {
+    jsonFields.push('  "class_vocabulary_used": ["word1", "word2"]');
+  }
+  if (hasClassGrammar) {
+    jsonFields.push('  "grammar_structures_used": ["structure1", "structure2"]');
+  }
+  jsonFields.push('  "transition_words_found": ["however", "moreover"]');
+
+  const matchingInstructions = (hasClassVocabulary || hasClassGrammar)
+    ? `
 Count exact matches (case-insensitive). For vocabulary, also count:
 - Prefixes/suffixes (un-, re-, dis-, -able, -ive, -ness, -ment, -tion)
 - Verb conjugations (negotiate → negotiating, negotiated, negotiates)
@@ -102,7 +123,16 @@ Count exact matches (case-insensitive). For vocabulary, also count:
 - Possessive forms (company's, companies')
 - British vs American spelling (organise/organize, colour/color)
 - Misspelled versions that are recognizable
+`
+    : '';
 
+  const prompt = `Count the following metrics in this essay. Be precise and deterministic.
+
+${classVocabSection}${classGrammarSection}Return JSON:
+{
+${jsonFields.join(',\n')}
+}
+${matchingInstructions}
 STUDENT TEXT:
 """${studentText}"""`;
 
@@ -116,14 +146,16 @@ STUDENT TEXT:
 
     const gptMetrics = JSON.parse(response.choices[0].message.content);
 
-    // Combine algorithmic word count with GPT metrics
+    // Combine algorithmic word count with GPT metrics.
+    // When class profile fields are unspecified, force empty arrays regardless of
+    // what GPT returned — downstream UI expects arrays and we don't want phantom matches.
     return {
       word_count: wordCount,
       paragraph_count: gptMetrics.paragraph_count,
       sentence_count: gptMetrics.sentence_count,
-      class_vocabulary_used: gptMetrics.class_vocabulary_used,
-      grammar_structures_used: gptMetrics.grammar_structures_used,
-      transition_words_found: gptMetrics.transition_words_found
+      class_vocabulary_used: hasClassVocabulary ? (gptMetrics.class_vocabulary_used || []) : [],
+      grammar_structures_used: hasClassGrammar ? (gptMetrics.grammar_structures_used || []) : [],
+      transition_words_found: gptMetrics.transition_words_found || []
     };
   } catch (error) {
     console.error("❌ Error counting metrics:", error.message);
