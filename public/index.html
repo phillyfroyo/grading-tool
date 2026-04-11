@@ -113,7 +113,10 @@
         </div>
 
         <!-- GPT Powered Grader Tab Content -->
-        <div class="tab-content" id="gpt-grader-content">
+        <!-- tab-pane class + data-tab-id is the Phase 3 multi-tab wrapper;
+             the tab-content class is legacy from the old provider-tab system
+             and will be removed in Phase 5 when the tab UI is rebuilt. -->
+        <div class="tab-content tab-pane" id="gpt-grader-content" data-tab-id="tab-1">
             <form id="gradingForm">
                 <div class="form-group">
                     <label for="classProfile">Class Profile:</label>

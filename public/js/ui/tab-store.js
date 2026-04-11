@@ -356,6 +356,69 @@
     // the initial tab is implicit to their existing behavior.
     create();
 
+    /**
+     * Return the DOM element for the active tab's pane (the
+     * `<div class="tab-pane" data-tab-id="...">` container).
+     *
+     * Returns null if no active tab or if the pane element is not present
+     * in the DOM (for example, during early module init before index.html
+     * has been fully parsed).
+     *
+     * Used by code that needs to scope a querySelector to the currently-
+     * visible grading form rather than searching the whole document.
+     */
+    function activePane() {
+        if (activeTabId === null) return null;
+        return document.querySelector(`.tab-pane[data-tab-id="${activeTabId}"]`);
+    }
+
+    /**
+     * Scoped querySelector that searches within the active tab's pane first,
+     * falling back to a document-wide search if the pane can't be found or
+     * doesn't contain a match.
+     *
+     * This is the preferred way to look up tab-scoped elements like
+     * `#results`, `#gradingForm`, `#classProfile`, etc. during the
+     * multi-tab migration:
+     *
+     *   const resultsDiv = window.TabStore.activeQuery('#results');
+     *
+     * The fallback to `document.querySelector` keeps the app working if
+     * anything unexpected happens with the tab pane (e.g. during tests
+     * that mount the grading form outside the normal index.html layout).
+     *
+     * @param {string} selector - CSS selector
+     * @returns {Element|null}
+     */
+    function activeQuery(selector) {
+        const pane = activePane();
+        if (pane) {
+            const found = pane.querySelector(selector);
+            if (found) return found;
+        }
+        return document.querySelector(selector);
+    }
+
+    /**
+     * Scoped querySelectorAll equivalent of activeQuery().
+     *
+     * Returns a NodeList of matches within the active tab's pane. Unlike
+     * activeQuery(), this does NOT fall back to document-wide search if
+     * the pane has no matches — an empty NodeList is returned instead.
+     * Document-wide fallback on querySelectorAll would be dangerous
+     * (could return elements from other tabs) so we refuse to guess.
+     *
+     * @param {string} selector - CSS selector
+     * @returns {NodeList}
+     */
+    function activeQueryAll(selector) {
+        const pane = activePane();
+        if (pane) return pane.querySelectorAll(selector);
+        // No pane: search the whole document. This is a best-effort
+        // fallback that matches the activeQuery() single-element behavior.
+        return document.querySelectorAll(selector);
+    }
+
     // Expose the API on window.
     window.TabStore = {
         create,
@@ -370,5 +433,8 @@
         serialize,
         deserialize,
         clear,
+        activePane,
+        activeQuery,
+        activeQueryAll,
     };
 })();
