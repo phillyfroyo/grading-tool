@@ -1887,7 +1887,9 @@ function exportIndividualEssay(essayData) {
     const studentName = essay.studentName || 'Student';
 
     // Find the specific essay container in the batch results
-    const essayContainer = document.getElementById(`batch-essay-${originalData.index || 0}`);
+    const essayContainer = window.TabStore
+        ? window.TabStore.activeQuery(`#batch-essay-${originalData.index || 0}`)
+        : document.getElementById(`batch-essay-${originalData.index || 0}`);
 
     if (!essayContainer || !essayContainer.innerHTML.trim()) {
         console.error('❌ Essay container not found or empty');

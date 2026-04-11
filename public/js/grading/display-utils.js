@@ -417,7 +417,9 @@ function toggleHighlightsSection(contentId) {
             const match = contentId.match(/highlights-content-(\d+)/);
             if (match) {
                 const essayIndex = match[1];
-                const studentDetails = document.getElementById(`student-details-${essayIndex}`);
+                const studentDetails = window.TabStore
+                    ? window.TabStore.activeQuery(`#student-details-${essayIndex}`)
+                    : document.getElementById(`student-details-${essayIndex}`);
                 if (studentDetails && studentDetails.style.maxHeight !== '0px') {
                     studentDetails.style.maxHeight = studentDetails.scrollHeight + 2000 + 'px';
                 }
@@ -432,7 +434,9 @@ function toggleHighlightsSection(contentId) {
         const match = contentId.match(/highlights-content-(\d+)/);
         if (match) {
             const essayIndex = match[1];
-            const studentDetails = document.getElementById(`student-details-${essayIndex}`);
+            const studentDetails = window.TabStore
+                ? window.TabStore.activeQuery(`#student-details-${essayIndex}`)
+                : document.getElementById(`student-details-${essayIndex}`);
             if (studentDetails && studentDetails.style.maxHeight !== '0px') {
                 setTimeout(() => {
                     studentDetails.style.maxHeight = studentDetails.scrollHeight + 'px';
@@ -557,7 +561,9 @@ function populateHighlightsContent(contentId) {
                 const match = contentId.match(/highlights-content-(\d+)/);
                 if (match) {
                     const essayIndex = match[1];
-                    const studentDetails = document.getElementById(`student-details-${essayIndex}`);
+                    const studentDetails = window.TabStore
+                        ? window.TabStore.activeQuery(`#student-details-${essayIndex}`)
+                        : document.getElementById(`student-details-${essayIndex}`);
                     if (studentDetails && studentDetails.style.maxHeight !== '0px') {
                         const newHeight = studentDetails.scrollHeight + 2000;
                         studentDetails.style.maxHeight = newHeight + 'px';
@@ -767,7 +773,9 @@ function refreshHighlightsSection(contentId) {
             const match = contentId.match(/highlights-content-(\d+)/);
             if (match) {
                 const essayIndex = match[1];
-                const studentDetails = document.getElementById(`student-details-${essayIndex}`);
+                const studentDetails = window.TabStore
+                    ? window.TabStore.activeQuery(`#student-details-${essayIndex}`)
+                    : document.getElementById(`student-details-${essayIndex}`);
                 if (studentDetails && studentDetails.style.maxHeight !== '0px') {
                     studentDetails.style.maxHeight = studentDetails.scrollHeight + 2000 + 'px';
                 }

@@ -346,7 +346,9 @@
             if (sessionData.renderedHTML) {
                 Object.entries(sessionData.renderedHTML).forEach(([indexStr, html]) => {
                     const idx = parseInt(indexStr, 10);
-                    const essayDiv = document.getElementById(`batch-essay-${idx}`);
+                    const essayDiv = window.TabStore
+                        ? window.TabStore.activeQuery(`#batch-essay-${idx}`)
+                        : document.getElementById(`batch-essay-${idx}`);
                     if (essayDiv && html) {
                         essayDiv.innerHTML = html;
                         // Re-attach interactive handlers for this essay
@@ -358,7 +360,9 @@
             // 4b. Inject saved highlights tab HTML
             if (sessionData.highlightsTabHTML) {
                 Object.entries(sessionData.highlightsTabHTML).forEach(([indexStr, html]) => {
-                    const hlTabDiv = document.getElementById(`highlights-tab-content-${indexStr}`);
+                    const hlTabDiv = window.TabStore
+                        ? window.TabStore.activeQuery(`#highlights-tab-content-${indexStr}`)
+                        : document.getElementById(`highlights-tab-content-${indexStr}`);
                     if (hlTabDiv && html) {
                         hlTabDiv.innerHTML = html;
                         hlTabDiv.dataset.loaded = 'true';
@@ -370,7 +374,9 @@
             // 4c. Inject saved highlights content (grade-details section)
             if (sessionData.highlightsContentHTML) {
                 Object.entries(sessionData.highlightsContentHTML).forEach(([indexStr, html]) => {
-                    const hlInner = document.getElementById(`highlights-content-${indexStr}-inner`);
+                    const hlInner = window.TabStore
+                        ? window.TabStore.activeQuery(`#highlights-content-${indexStr}-inner`)
+                        : document.getElementById(`highlights-content-${indexStr}-inner`);
                     if (hlInner && html) {
                         hlInner.innerHTML = html;
                         hlInner.dataset.populated = 'true';
@@ -692,20 +698,26 @@
         const highlightsContentHTML = {};
         if (!omitHTML) {
             for (let i = 0; i < resultCount; i++) {
-                const div = document.getElementById(`batch-essay-${i}`);
+                const div = window.TabStore
+                    ? window.TabStore.activeQuery(`#batch-essay-${i}`)
+                    : document.getElementById(`batch-essay-${i}`);
                 const hasContent = div && div.innerHTML.trim() && div.innerHTML.trim() !== 'Loading formatted result...';
                 if (hasContent) {
                     renderedHTML[i] = div.innerHTML;
                 }
 
                 // Save highlights tab content ("Manage Highlights" standalone tab)
-                const hlTabDiv = document.getElementById(`highlights-tab-content-${i}`);
+                const hlTabDiv = window.TabStore
+                    ? window.TabStore.activeQuery(`#highlights-tab-content-${i}`)
+                    : document.getElementById(`highlights-tab-content-${i}`);
                 if (hlTabDiv && hlTabDiv.dataset.loaded === 'true' && hlTabDiv.innerHTML.trim() && hlTabDiv.innerHTML.trim() !== 'Loading highlights...') {
                     highlightsTabHTML[i] = hlTabDiv.innerHTML;
                 }
 
                 // Save highlights content within grade-details section
-                const hlContentInner = document.getElementById(`highlights-content-${i}-inner`);
+                const hlContentInner = window.TabStore
+                    ? window.TabStore.activeQuery(`#highlights-content-${i}-inner`)
+                    : document.getElementById(`highlights-content-${i}-inner`);
                 if (hlContentInner && hlContentInner.dataset.populated === 'true' && hlContentInner.innerHTML.trim()) {
                     highlightsContentHTML[i] = hlContentInner.innerHTML;
                 }
@@ -724,7 +736,9 @@
         // Gather mark-complete checkbox states
         const completedEssays = {};
         for (let i = 0; i < resultCount; i++) {
-            const cb = document.querySelector(`.mark-complete-checkbox[data-student-index="${i}"]`);
+            const cb = window.TabStore
+                ? window.TabStore.activeQuery(`.mark-complete-checkbox[data-student-index="${i}"]`)
+                : document.querySelector(`.mark-complete-checkbox[data-student-index="${i}"]`);
             if (cb && cb.checked) {
                 completedEssays[i] = true;
             }
@@ -734,12 +748,16 @@
         const removeAllStates = {};
         for (let i = 0; i < resultCount; i++) {
             // Highlights tab remove-all checkbox
-            const hlTabCb = document.getElementById(`highlights-tab-${i}-remove-all`);
+            const hlTabCb = window.TabStore
+                ? window.TabStore.activeQuery(`#highlights-tab-${i}-remove-all`)
+                : document.getElementById(`highlights-tab-${i}-remove-all`);
             if (hlTabCb && hlTabCb.checked) {
                 removeAllStates[`highlights-tab-content-${i}`] = true;
             }
             // Grade-details highlights remove-all checkbox
-            const hlContentCb = document.getElementById(`highlights-content-${i}-remove-all`);
+            const hlContentCb = window.TabStore
+                ? window.TabStore.activeQuery(`#highlights-content-${i}-remove-all`)
+                : document.getElementById(`highlights-content-${i}-remove-all`);
             if (hlContentCb && hlContentCb.checked) {
                 removeAllStates[`highlights-content-${i}`] = true;
             }
@@ -839,7 +857,9 @@
             // Strip "already initialized" data attributes from injected HTML.
             // Event listeners don't survive innerHTML injection, but these marker
             // attributes do — causing setup functions to skip re-attaching listeners.
-            const essayContainer = document.getElementById(`batch-essay-${index}`);
+            const essayContainer = window.TabStore
+                ? window.TabStore.activeQuery(`#batch-essay-${index}`)
+                : document.getElementById(`batch-essay-${index}`);
             if (essayContainer) {
                 essayContainer.removeAttribute('data-listeners-attached');
                 essayContainer.querySelectorAll('[data-listener-added]').forEach(
@@ -851,9 +871,9 @@
             }
 
             // Text selection handler
-            const essayContentDiv = document.querySelector(
-                `.formatted-essay-content[data-essay-index="${index}"]`
-            );
+            const essayContentDiv = window.TabStore
+                ? window.TabStore.activeQuery(`.formatted-essay-content[data-essay-index="${index}"]`)
+                : document.querySelector(`.formatted-essay-content[data-essay-index="${index}"]`);
             if (essayContentDiv) {
                 essayContentDiv.addEventListener('mouseup', function (e) {
                     const selection = window.getSelection();
@@ -982,7 +1002,9 @@
 
             // Setup remove-all checkbox
             if (type === 'tab') {
-                const checkbox = document.getElementById(`highlights-tab-${index}-remove-all`);
+                const checkbox = window.TabStore
+                    ? window.TabStore.activeQuery(`#highlights-tab-${index}-remove-all`)
+                    : document.getElementById(`highlights-tab-${index}-remove-all`);
                 if (checkbox) {
                     checkbox.removeAttribute('data-setup-complete');
                     // setupRemoveAllCheckboxForTab is declared at global scope in grading-display-main.js
@@ -1089,7 +1111,9 @@
 
             Object.entries(data.gradingData.scores).forEach(([category, scoreData]) => {
                 // Find score input for this essay/category
-                const container = document.getElementById(`batch-essay-${essayIndex}`);
+                const container = window.TabStore
+                    ? window.TabStore.activeQuery(`#batch-essay-${essayIndex}`)
+                    : document.getElementById(`batch-essay-${essayIndex}`);
                 if (!container) return;
 
                 const input = container.querySelector(

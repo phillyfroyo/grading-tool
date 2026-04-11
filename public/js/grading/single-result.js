@@ -177,7 +177,9 @@ function setupBatchEditableElements(gradingResult, originalData, essayIndex) {
     };
 
     // Add listeners for score inputs within the specific essay container
-    const essayContainer = document.getElementById(`batch-essay-${essayIndex}`);
+    const essayContainer = window.TabStore
+        ? window.TabStore.activeQuery(`#batch-essay-${essayIndex}`)
+        : document.getElementById(`batch-essay-${essayIndex}`);
     if (essayContainer) {
         // Check if we've already set up listeners for this container
         if (essayContainer.dataset.listenersAttached === 'true') {
@@ -323,11 +325,15 @@ function updateTotalScore(essayIndex = null) {
     let overallScoreElement;
     if (essayIndex !== null) {
         // For batch processing, find the overall score within the specific essay container
-        const essayContainer = document.getElementById(`batch-essay-${essayIndex}`);
+        const essayContainer = window.TabStore
+            ? window.TabStore.activeQuery(`#batch-essay-${essayIndex}`)
+            : document.getElementById(`batch-essay-${essayIndex}`);
         overallScoreElement = essayContainer ? essayContainer.querySelector('.overall-score') : null;
     } else {
-        // For single essays, use the global selector
-        overallScoreElement = document.querySelector('.overall-score');
+        // For single essays, scope to the active tab pane
+        overallScoreElement = window.TabStore
+            ? window.TabStore.activeQuery('.overall-score')
+            : document.querySelector('.overall-score');
     }
 
     if (overallScoreElement) {
@@ -354,10 +360,14 @@ function updateCategoryPercentages(essayIndex = null) {
 
     if (!gradingData || !gradingData.scores) return;
 
-    // Update percentages for the appropriate container
-    let container = document;
+    // Update percentages for the appropriate container.
+    // Default to the active tab pane so single-essay updates stay scoped.
+    let container = (window.TabStore && window.TabStore.activePane()) || document;
     if (essayIndex !== null) {
-        container = document.getElementById(`batch-essay-${essayIndex}`) || document;
+        const essayContainer = window.TabStore
+            ? window.TabStore.activeQuery(`#batch-essay-${essayIndex}`)
+            : document.getElementById(`batch-essay-${essayIndex}`);
+        container = essayContainer || container;
     }
 
     container.querySelectorAll('.editable-score').forEach(input => {

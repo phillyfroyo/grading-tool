@@ -66,8 +66,10 @@ function toggleStudentDetails(index) {
  * @param {number} index - Student index
  */
 function toggleTab(tabId, index) {
-    const tab = document.getElementById(tabId);
-    const arrow = document.getElementById(`${tabId}-arrow`);
+    const tab = window.TabStore ? window.TabStore.activeQuery(`#${tabId}`) : document.getElementById(tabId);
+    const arrow = window.TabStore
+        ? window.TabStore.activeQuery(`#${tabId}-arrow`)
+        : document.getElementById(`${tabId}-arrow`);
 
     if (!tab) {
         console.error('❌ Tab element not found:', tabId);
@@ -116,14 +118,18 @@ function toggleTab(tabId, index) {
  * @param {number} index - Essay index
  */
 function loadHighlightsTab(index) {
-    const contentDiv = document.getElementById(`highlights-tab-content-${index}`);
+    const contentDiv = window.TabStore
+        ? window.TabStore.activeQuery(`#highlights-tab-content-${index}`)
+        : document.getElementById(`highlights-tab-content-${index}`);
     if (!contentDiv) return;
 
     // Check if already loaded
     if (contentDiv.dataset.loaded === 'true') return;
 
     // Get essay container to extract highlights
-    const essayContainer = document.querySelector(`.formatted-essay-content[data-essay-index="${index}"]`);
+    const essayContainer = window.TabStore
+        ? window.TabStore.activeQuery(`.formatted-essay-content[data-essay-index="${index}"]`)
+        : document.querySelector(`.formatted-essay-content[data-essay-index="${index}"]`);
     if (!essayContainer) {
         // Essay details not loaded yet - load them first, then populate highlights
         console.log(`📄 Essay content not loaded for index ${index}, loading now...`);
@@ -246,7 +252,9 @@ function loadHighlightsTab(index) {
         }
 
         // Setup remove-all checkbox listener
-        const checkbox = document.getElementById(`highlights-tab-${index}-remove-all`);
+        const checkbox = window.TabStore
+            ? window.TabStore.activeQuery(`#highlights-tab-${index}-remove-all`)
+            : document.getElementById(`highlights-tab-${index}-remove-all`);
         if (checkbox) {
             setupRemoveAllCheckboxForTab(checkbox, contentDiv);
         }
@@ -299,7 +307,9 @@ function setupRemoveAllCheckboxForTab(checkbox, contentDiv) {
 
         toggleButtons.forEach(button => {
             const elementId = button.dataset.elementId;
-            const highlightElement = document.getElementById(elementId);
+            const highlightElement = window.TabStore
+                ? window.TabStore.activeQuery(`#${elementId}`)
+                : document.getElementById(elementId);
 
             if (highlightElement) {
                 highlightElement.dataset.excludeFromPdf = 'true';
@@ -329,7 +339,9 @@ function setupRemoveAllCheckboxForTab(checkbox, contentDiv) {
 
         toggleButtons.forEach(button => {
             const elementId = button.dataset.elementId;
-            const highlightElement = document.getElementById(elementId);
+            const highlightElement = window.TabStore
+                ? window.TabStore.activeQuery(`#${elementId}`)
+                : document.getElementById(elementId);
 
             if (!highlightElement) return;
 
@@ -373,8 +385,12 @@ function setupRemoveAllCheckboxForTab(checkbox, contentDiv) {
  * @param {number} index - Essay index
  */
 function refreshHighlightsTab(index) {
-    const contentDiv = document.getElementById(`highlights-tab-content-${index}`);
-    const tab = document.getElementById(`highlights-tab-${index}`);
+    const contentDiv = window.TabStore
+        ? window.TabStore.activeQuery(`#highlights-tab-content-${index}`)
+        : document.getElementById(`highlights-tab-content-${index}`);
+    const tab = window.TabStore
+        ? window.TabStore.activeQuery(`#highlights-tab-${index}`)
+        : document.getElementById(`highlights-tab-${index}`);
 
     if (!contentDiv) {
         return;
@@ -412,7 +428,9 @@ function setupHighlightChangeListeners() {
     window.eventBus.on('highlight:updated', (data) => {
         // Refresh all highlights tabs (check for multiple essays)
         for (let i = 0; i < 50; i++) {
-            const contentDiv = document.getElementById(`highlights-tab-content-${i}`);
+            const contentDiv = window.TabStore
+                ? window.TabStore.activeQuery(`#highlights-tab-content-${i}`)
+                : document.getElementById(`highlights-tab-content-${i}`);
             if (contentDiv) {
                 refreshHighlightsTab(i);
             }
@@ -423,7 +441,9 @@ function setupHighlightChangeListeners() {
     window.eventBus.on('highlight:removed', (data) => {
         // Refresh all highlights tabs
         for (let i = 0; i < 50; i++) {
-            const contentDiv = document.getElementById(`highlights-tab-content-${i}`);
+            const contentDiv = window.TabStore
+                ? window.TabStore.activeQuery(`#highlights-tab-content-${i}`)
+                : document.getElementById(`highlights-tab-content-${i}`);
             if (contentDiv) {
                 refreshHighlightsTab(i);
             }

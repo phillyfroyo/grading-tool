@@ -249,7 +249,9 @@ function applyBatchHighlight(range, text, category, essayIndex) {
         mark.id = `highlight-${essayIndex}-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
 
         // Check if "remove all from PDF" checkbox is checked and auto-exclude if so
-        const removeAllCheckbox = document.getElementById(`highlights-tab-${essayIndex}-remove-all`);
+        const removeAllCheckbox = window.TabStore
+            ? window.TabStore.activeQuery(`#highlights-tab-${essayIndex}-remove-all`)
+            : document.getElementById(`highlights-tab-${essayIndex}-remove-all`);
         if (removeAllCheckbox && removeAllCheckbox.checked) {
             mark.dataset.excludeFromPdf = 'true';
         }
