@@ -272,9 +272,7 @@ function setupEssayManagement() {
  * @param {Array} essays - Array of essays
  */
 function updateLoadingDisplay(essays) {
-    // Find elements in the active tab
-    const activeTab = document.querySelector('.tab-content.active');
-    const loadingDiv = activeTab ? activeTab.querySelector('#loading') : document.getElementById('loading');
+    const loadingDiv = window.TabStore ? window.TabStore.activeQuery('#loading') : document.getElementById('loading');
     if (!loadingDiv) return;
 
     if (essays.length === 1) {
@@ -287,13 +285,15 @@ function updateLoadingDisplay(essays) {
     }
 
     loadingDiv.style.display = 'block';
-    const resultsDiv = activeTab ? activeTab.querySelector('#results') : document.getElementById('results');
+    const resultsDiv = window.TabStore ? window.TabStore.activeQuery('#results') : document.getElementById('results');
     if (resultsDiv) {
         resultsDiv.style.display = 'none';
     }
 
     // Disable the grade button in the active form
-    const gradeButton = activeTab ? activeTab.querySelector('button[type="submit"]') : document.getElementById('gradeButton');
+    const gradeButton = window.TabStore
+        ? window.TabStore.activeQuery('button[type="submit"]')
+        : document.getElementById('gradeButton');
     if (gradeButton) {
         gradeButton.disabled = true;
     }
@@ -303,14 +303,14 @@ function updateLoadingDisplay(essays) {
  * Reset loading state
  */
 function resetLoadingState() {
-    // Find elements in the active tab
-    const activeTab = document.querySelector('.tab-content.active');
-    const loadingDiv = activeTab ? activeTab.querySelector('#loading') : document.getElementById('loading');
+    const loadingDiv = window.TabStore ? window.TabStore.activeQuery('#loading') : document.getElementById('loading');
     if (loadingDiv) {
         loadingDiv.style.display = 'none';
     }
 
-    const gradeButton = activeTab ? activeTab.querySelector('button[type="submit"]') : document.getElementById('gradeButton');
+    const gradeButton = window.TabStore
+        ? window.TabStore.activeQuery('button[type="submit"]')
+        : document.getElementById('gradeButton');
     if (gradeButton) {
         gradeButton.disabled = false;
     }
