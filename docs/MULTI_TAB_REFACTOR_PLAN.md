@@ -2,7 +2,7 @@
 
 > **Branch**: `april-2026-tabs`
 > **Started**: 2026-04-11
-> **Status**: Phase 1 in progress
+> **Status**: Phase 1 complete ✓ — ready to start Phase 2
 > **Estimate**: 5–7 focused sessions
 
 ## The feature
@@ -51,15 +51,19 @@ During active grading, only the currently-grading tab can submit. Other tabs' "G
 
 Each phase ends with a clean commit. Any phase boundary is a valid stopping point.
 
-### Phase 1: Claude removal — ~440 lines deleted
-- [ ] Delete `grader/grader-claude.js` (~350 lines)
-- [ ] Remove claude-grader tab content from `public/index.html` (~60 lines)
-- [ ] Remove provider-switching branches in `src/services/gradingService.js`
-- [ ] Remove Claude-related logic in `public/js/ui/form-handling.js`
-- [ ] Simplify `disableInactiveTab` in `public/js/ui/tab-management.js` (no more provider switching)
-- [ ] Remove any Claude references in `src/controllers/gradingController.js`
-- [ ] Clean up Claude references in auto-save form reset
-- [ ] Verify single-essay and batch grading still work end-to-end
+### Phase 1: Claude removal — 615 lines deleted ✓ COMPLETE (commit cc91614)
+- [x] Delete `grader/grader-claude.js` (354 lines)
+- [x] Remove claude-grader tab content from `public/index.html` (60+ lines) — also fixed a latent duplicate-ID bug where both tabs had `id="loading"` and `id="results"`
+- [x] Remove provider-switching branches in `src/services/gradingService.js`
+- [x] Remove Claude-related logic in `public/js/ui/form-handling.js` (setupClaudeGrading, formId/provider detection, disableInactiveTab/enableAllTabs callers)
+- [x] Delete `disableInactiveTab` and `enableAllTabs` entirely from `public/js/ui/tab-management.js` (they were provider-specific; Phase 6 will reintroduce multi-tab lock/unlock with different names)
+- [x] Remove `provider` field from all 5 `gradeEssayUnified` call sites and all `req.body` destructures in `src/controllers/gradingController.js`, plus drop from `streamingSessions` state
+- [x] Drop `claudeGradingForm` from auto-save form-iteration arrays
+- [x] Rename `getClaudeLoadingMessage` → `getLoadingMessage`, `window.claudeMessageTimer` → `window.loadingMessageTimer` (they were always themed loading messages, not Claude-API-coupled)
+- [x] Remove `claudeClassProfile` dropdown fallback from display-utils and updateProfileDropdown
+- [x] Delete the Claude half of essay-management.js (claudeEssayCount, addClaudeEssay, removeClaudeEssay, renumberClaudeEssays, updateClaudeRemoveButtons + setup wiring)
+- [x] Remove Claude-specific CSS rules from components.css
+- [ ] Verify single-essay and batch grading still work end-to-end (manual test — user to confirm)
 
 ### Phase 2: TabStore module — ~200 lines new
 - [ ] Create `public/js/ui/tab-store.js` with the core API:
