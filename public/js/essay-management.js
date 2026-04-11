@@ -34,6 +34,7 @@ function addAnotherEssay(count = 1) {
                        style="padding: 10px; border: 2px solid #ddd; border-radius: 6px; width: 220px; font-size: 16px; height: 42px; box-sizing: border-box;">
                 <input type="text" class="student-nickname" placeholder="Nickname (optional)"
                        style="padding: 10px; border: 2px solid #ddd; border-radius: 6px; width: 150px; font-size: 16px; height: 42px; box-sizing: border-box;">
+                <span class="info-icon" data-tooltip="Customizes the teacher notes to start with the student's name. Leave blank for notes without a name prefix." style="display: inline-block; width: 20px; height: 20px; border-radius: 50%; background: lightgray; color: white; text-align: center; line-height: 20px; font-size: 14px; font-style: italic; cursor: pointer; position: relative; flex-shrink: 0;">i</span>
                 <button type="button" class="remove-essay-btn" onclick="removeEssay(${newIndex})"
                         style="background: #dc3545; color: white; border: none; padding: 5px 10px; border-radius: 4px; cursor: pointer;">
                     Remove
@@ -236,6 +237,7 @@ function addClaudeEssay(count = 1) {
                        style="padding: 10px; border: 2px solid #ddd; border-radius: 6px; width: 220px; font-size: 16px; height: 42px; box-sizing: border-box;">
                 <input type="text" class="student-nickname" placeholder="Nickname (optional)"
                        style="padding: 10px; border: 2px solid #ddd; border-radius: 6px; width: 150px; font-size: 16px; height: 42px; box-sizing: border-box;">
+                <span class="info-icon" data-tooltip="Customizes the teacher notes to start with the student's name. Leave blank for notes without a name prefix." style="display: inline-block; width: 20px; height: 20px; border-radius: 50%; background: lightgray; color: white; text-align: center; line-height: 20px; font-size: 14px; font-style: italic; cursor: pointer; position: relative; flex-shrink: 0;">i</span>
                 <button type="button" class="remove-essay-btn" onclick="removeClaudeEssay(${newIndex})"
                         style="background: #dc3545; color: white; border: none; padding: 5px 10px; border-radius: 4px; cursor: pointer;">
                     Remove

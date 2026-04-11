@@ -585,27 +585,117 @@ async function initializeProfiles() {
     // Set up profile modal handlers
     setupProfileModalHandlers();
 
-    // Click-to-show tooltips for .info-icon elements (replaces slow native title hover)
+    // Tooltips for .info-icon elements — hybrid hover + click behavior.
+    //
+    // Hover (desktop): popup appears below-right of the icon. Dismisses when
+    //   cursor leaves the icon, unless the cursor moves onto the popup itself
+    //   (so users can read longer tooltips without them vanishing).
+    // Click (mobile/touch): popup appears centered on screen. Click again or
+    //   click elsewhere to dismiss. Matches the previous click-only behavior.
+    //
+    // Both modes use the same .info-tooltip-popup element so only one tooltip
+    // is ever visible at a time.
+    let hoverDismissTimer = null;
+
+    function removeAnyTooltip() {
+        const existing = document.querySelector('.info-tooltip-popup');
+        if (existing) existing.remove();
+        if (hoverDismissTimer) {
+            clearTimeout(hoverDismissTimer);
+            hoverDismissTimer = null;
+        }
+    }
+
+    function createTooltipPopup(text, mode, icon) {
+        const popup = document.createElement('div');
+        popup.className = 'info-tooltip-popup';
+        popup.dataset.mode = mode; // 'hover' or 'click' — used to avoid mixing behaviors
+        popup.textContent = text;
+
+        if (mode === 'hover') {
+            // Position just below and slightly right of the icon.
+            const rect = icon.getBoundingClientRect();
+            const top = rect.bottom + 8;
+            const left = rect.left;
+            popup.style.cssText =
+                'position:fixed;top:' + top + 'px;left:' + left + 'px;' +
+                'background:#333;color:#fff;padding:10px 14px;border-radius:6px;font-size:13px;' +
+                'font-style:normal;font-weight:400;line-height:1.5;max-width:280px;z-index:10000;' +
+                'box-shadow:0 4px 12px rgba(0,0,0,0.2);pointer-events:auto;';
+        } else {
+            // Click mode: centered on screen, matches previous behavior.
+            popup.style.cssText =
+                'position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);' +
+                'background:#333;color:#fff;padding:14px 18px;border-radius:6px;font-size:14px;' +
+                'font-style:normal;font-weight:400;line-height:1.6;width:320px;z-index:10000;' +
+                'box-shadow:0 4px 12px rgba(0,0,0,0.2);pointer-events:auto;';
+        }
+
+        // If the cursor moves onto the popup, cancel any pending hover dismissal
+        // so the user can read longer tooltips without them vanishing.
+        popup.addEventListener('mouseenter', function() {
+            if (hoverDismissTimer) {
+                clearTimeout(hoverDismissTimer);
+                hoverDismissTimer = null;
+            }
+        });
+        // Leaving the popup itself dismisses it immediately (hover mode only —
+        // click-mode popups are dismissed by clicking elsewhere).
+        popup.addEventListener('mouseleave', function() {
+            if (popup.dataset.mode === 'hover') {
+                removeAnyTooltip();
+            }
+        });
+
+        document.body.appendChild(popup);
+        return popup;
+    }
+
+    // Hover-in: show tooltip next to the icon.
+    document.addEventListener('mouseover', function(e) {
+        const icon = e.target.closest('.info-icon[data-tooltip]');
+        if (!icon) return;
+
+        // If a tooltip is already showing for this exact icon, do nothing.
+        const existing = document.querySelector('.info-tooltip-popup');
+        if (existing && existing.dataset.forIcon === icon.dataset.tooltip) return;
+
+        removeAnyTooltip();
+        const popup = createTooltipPopup(icon.dataset.tooltip, 'hover', icon);
+        popup.dataset.forIcon = icon.dataset.tooltip;
+    });
+
+    // Hover-out: schedule dismissal after a short grace period, giving the
+    // user time to move the cursor onto the popup if they want to read it.
+    document.addEventListener('mouseout', function(e) {
+        const icon = e.target.closest('.info-icon[data-tooltip]');
+        if (!icon) return;
+
+        const popup = document.querySelector('.info-tooltip-popup');
+        if (!popup || popup.dataset.mode !== 'hover') return;
+
+        if (hoverDismissTimer) clearTimeout(hoverDismissTimer);
+        hoverDismissTimer = setTimeout(function() {
+            // Only dismiss if the cursor isn't currently over the popup.
+            if (!popup.matches(':hover')) {
+                removeAnyTooltip();
+            }
+        }, 150);
+    });
+
+    // Click: show centered tooltip (for mobile/touch). Also dismisses any
+    // existing tooltip when clicking elsewhere in the document.
     document.addEventListener('click', function(e) {
         const icon = e.target.closest('.info-icon[data-tooltip]');
 
-        // Close any open tooltip if clicking elsewhere
-        const existing = document.querySelector('.info-tooltip-popup');
-        if (existing) existing.remove();
+        removeAnyTooltip();
 
         if (!icon) return;
         e.preventDefault();
         e.stopPropagation();
 
-        const popup = document.createElement('div');
-        popup.className = 'info-tooltip-popup';
-        popup.textContent = icon.dataset.tooltip;
-        popup.style.cssText =
-            'position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);' +
-            'background:#333;color:#fff;padding:14px 18px;border-radius:6px;font-size:14px;' +
-            'font-style:normal;font-weight:400;line-height:1.6;width:320px;z-index:10000;' +
-            'box-shadow:0 4px 12px rgba(0,0,0,0.2);pointer-events:auto;';
-        document.body.appendChild(popup);
+        const popup = createTooltipPopup(icon.dataset.tooltip, 'click', icon);
+        popup.dataset.forIcon = icon.dataset.tooltip;
     });
 }
 
