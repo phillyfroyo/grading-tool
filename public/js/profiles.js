@@ -246,15 +246,15 @@ function createProfileFormHTML(profileId) {
                 </div>
 
                 <div style="margin-bottom: 15px;">
-                    <label for="profileVocab-${profileId}">Target Vocabulary (one per line):
-                        <span class="info-icon" data-tooltip="Paste the vocab taught in class into the box below. GPT will take this into consideration when grading essays." style="display: inline-block; width: 20px; height: 20px; border-radius: 50%; background: lightgray; color: white; text-align: center; line-height: 20px; font-size: 14px; font-style: italic; cursor: pointer; margin-left: 5px; position: relative;">i</span>
+                    <label for="profileVocab-${profileId}">Target Vocabulary (one per line or comma-separated):
+                        <span class="info-icon" data-tooltip="Paste the vocab taught in class into the box below. One word per line OR comma-separated — both work. GPT will take this into consideration when grading essays." style="display: inline-block; width: 20px; height: 20px; border-radius: 50%; background: lightgray; color: white; text-align: center; line-height: 20px; font-size: 14px; font-style: italic; cursor: pointer; margin-left: 5px; position: relative;">i</span>
                     </label>
-                    <textarea id="profileVocab-${profileId}" name="vocabulary" rows="16" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px; resize: vertical; min-height: 320px; max-height: 800px;" placeholder="Enter vocabulary words, one per line"></textarea>
+                    <textarea id="profileVocab-${profileId}" name="vocabulary" rows="16" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px; resize: vertical; min-height: 320px; max-height: 800px;" placeholder="Enter vocabulary words, one per line or comma-separated"></textarea>
                 </div>
 
                 <div style="margin-bottom: 15px;">
-                    <label for="profileGrammar-${profileId}">Target Grammar Structures (one per line):
-                        <span class="info-icon" data-tooltip="Paste the grammar taught in class into the box below. GPT will take this into consideration when grading essays." style="display: inline-block; width: 20px; height: 20px; border-radius: 50%; background: lightgray; color: white; text-align: center; line-height: 20px; font-size: 14px; font-style: italic; cursor: pointer; margin-left: 5px; position: relative;">i</span>
+                    <label for="profileGrammar-${profileId}">Target Grammar Structures (one per line; use semicolons if a structure contains commas):
+                        <span class="info-icon" data-tooltip="Paste the grammar taught in class into the box below. One structure per line. If a structure contains a comma (e.g. 'not only..., but also...'), separate items with semicolons instead. GPT will take this into consideration when grading essays." style="display: inline-block; width: 20px; height: 20px; border-radius: 50%; background: lightgray; color: white; text-align: center; line-height: 20px; font-size: 14px; font-style: italic; cursor: pointer; margin-left: 5px; position: relative;">i</span>
                     </label>
                     <textarea id="profileGrammar-${profileId}" name="grammar" rows="16" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px; resize: vertical; min-height: 320px; max-height: 800px;" placeholder="Enter grammar structures, one per line"></textarea>
                 </div>
@@ -448,8 +448,12 @@ async function handleNewProfileFormSubmission(e) {
     const profileData = {
         name: formData.get('name'),
         cefrLevel: formData.get('cefrLevel'),
-        vocabulary: formData.get('vocabulary').split('\n').filter(item => item.trim()),
-        grammar: formData.get('grammar').split('\n').filter(item => item.trim()),
+        // Vocabulary accepts newline OR comma as delimiter (vocab words never contain commas).
+        // Grammar accepts newline OR semicolon — commas are intentionally not split because
+        // grammar structures may legitimately contain commas (e.g., "not only..., but also...").
+        // Both parsers also strip surrounding quotes in case a user pastes a quoted list from a syllabus.
+        vocabulary: formData.get('vocabulary').split(/[\n,]/).map(s => s.trim().replace(/^["']|["']$/g, '')).filter(Boolean),
+        grammar: formData.get('grammar').split(/[\n;]/).map(s => s.trim().replace(/^["']|["']$/g, '')).filter(Boolean),
         prompt: formData.get('prompt'),
         temperature: (() => {
             const temp = parseFloat(formData.get('temperature'));
