@@ -2,7 +2,7 @@
 
 > **Branch**: `april-2026-tabs`
 > **Started**: 2026-04-11
-> **Status**: Phase 1 complete ✓ — ready to start Phase 2
+> **Status**: Phase 1 ✓, Phase 2 ✓ — ready to start Phase 3
 > **Estimate**: 5–7 focused sessions
 
 ## The feature
@@ -65,20 +65,28 @@ Each phase ends with a clean commit. Any phase boundary is a valid stopping poin
 - [x] Remove Claude-specific CSS rules from components.css
 - [ ] Verify single-essay and batch grading still work end-to-end (manual test — user to confirm)
 
-### Phase 2: TabStore module — ~200 lines new
-- [ ] Create `public/js/ui/tab-store.js` with the core API:
+### Phase 2: TabStore module ✓ COMPLETE (commit TBD)
+- [x] Create `public/js/ui/tab-store.js` (~300 lines) with the core API:
   - `TabStore.create(initialState)` → returns new tabId
   - `TabStore.active()` → returns active tab's state object
   - `TabStore.activeId()` → returns active tabId
   - `TabStore.switchTo(tabId)` → sets active tab, fires `tab-switched` event
-  - `TabStore.close(tabId)` → removes tab from store
+  - `TabStore.close(tabId)` → removes tab from store; auto-creates replacement if closing last tab
   - `TabStore.all()` → returns all tabs as array
   - `TabStore.count()` → returns number of tabs
-  - `TabStore.serialize()` → returns JSON-safe representation
-  - `TabStore.deserialize(data)` → populates tabs from saved data
-- [ ] Add `window.TabStore` global (same pattern as other modules)
-- [ ] Document the shape of a tab's state object in the file header
-- [ ] No behavior changes yet — infrastructure only
+  - `TabStore.get(tabId)` → returns a specific tab by ID
+  - `TabStore.rename(tabId, newLabel)` → renames a tab, fires `tab-renamed`
+  - `TabStore.serialize()` → returns JSON-safe representation including activeTabId and nextIdCounter
+  - `TabStore.deserialize(data)` → restores tabs from saved data, falls back to fresh tab on malformed input
+  - `TabStore.clear()` → removes all tabs and creates a fresh tab-1 (for "Clear & Start Fresh")
+- [x] Add `window.TabStore` global using IIFE to keep internal state private
+- [x] Document the shape of a tab's state object in the file header
+- [x] Script tag added to `index.html` before `tab-management.js`
+- [x] Module auto-creates initial tab-1 on load so app is never in zero-tabs state
+- [x] Events dispatched on window: `tab-created`, `tab-switched`, `tab-closed`, `tab-renamed`, `tab-store-restored`, `tab-store-cleared`
+- [x] Monotonic ID generation (IDs never reused, even after close)
+- [x] 38-assertion inline unit test passed: init, create, switchTo, close (active and non-active), close-last auto-replacement, rename (including rejecting whitespace), serialize/deserialize roundtrip with grading data, malformed-data fallback, clear
+- [x] No behavior changes yet — infrastructure only (no consumers)
 
 ### Phase 3: DOM scoping refactor — ~100-200 lines modified
 - [ ] Wrap the existing grading form in `.tab-pane[data-tab-id="tab-1"]` container in `public/index.html`
