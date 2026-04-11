@@ -209,102 +209,12 @@ function validateEssayForm() {
     return { isValid: true, essays };
 }
 
-// Claude essay state
-let claudeEssayCount = 1;
-
-/**
- * Add another essay input to the Claude form
- */
-function addClaudeEssay(count = 1) {
-    const container = document.getElementById('claudeEssaysContainer');
-    if (!container) return;
-
-    count = Math.max(1, Math.min(50, parseInt(count) || 1));
-
-    for (let i = 0; i < count; i++) {
-        const newIndex = claudeEssayCount;
-        const essayDiv = document.createElement('div');
-        essayDiv.className = 'essay-entry';
-        essayDiv.setAttribute('data-essay-index', newIndex);
-        essayDiv.style.marginTop = '20px';
-        essayDiv.style.borderTop = '1px solid #ddd';
-        essayDiv.style.paddingTop = '15px';
-
-        essayDiv.innerHTML = `
-            <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 8px;">
-                <label style="margin: 0; font-weight: 500;">Essay ${newIndex + 1}:</label>
-                <input type="text" class="student-name" placeholder="Student name" required
-                       style="padding: 10px; border: 2px solid #ddd; border-radius: 6px; width: 220px; font-size: 16px; height: 42px; box-sizing: border-box;">
-                <input type="text" class="student-nickname" placeholder="Nickname (optional)"
-                       style="padding: 10px; border: 2px solid #ddd; border-radius: 6px; width: 150px; font-size: 16px; height: 42px; box-sizing: border-box;">
-                <span class="info-icon" data-tooltip="Customizes the teacher notes to start with the student's name. Leave blank for notes without a name prefix." style="display: inline-block; width: 20px; height: 20px; border-radius: 50%; background: lightgray; color: white; text-align: center; line-height: 20px; font-size: 14px; font-style: italic; cursor: pointer; position: relative; flex-shrink: 0;">i</span>
-                <button type="button" class="remove-essay-btn" onclick="removeClaudeEssay(${newIndex})"
-                        style="background: #dc3545; color: white; border: none; padding: 5px 10px; border-radius: 4px; cursor: pointer;">
-                    Remove
-                </button>
-            </div>
-            <textarea class="student-text" name="studentText" rows="15" required
-                      placeholder="Paste the student's essay here..."></textarea>
-        `;
-
-        container.appendChild(essayDiv);
-        claudeEssayCount++;
-    }
-    updateClaudeRemoveButtons();
-}
-
-/**
- * Remove a Claude essay by index
- */
-function removeClaudeEssay(index) {
-    const container = document.getElementById('claudeEssaysContainer');
-    if (!container) return;
-    const essayToRemove = container.querySelector(`[data-essay-index="${index}"]`);
-    if (essayToRemove) {
-        essayToRemove.remove();
-        renumberClaudeEssays();
-        updateClaudeRemoveButtons();
-    }
-}
-
-/**
- * Renumber Claude essays after removal
- */
-function renumberClaudeEssays() {
-    const container = document.getElementById('claudeEssaysContainer');
-    if (!container) return;
-    const essays = container.querySelectorAll('.essay-entry');
-    essays.forEach((essay, index) => {
-        essay.setAttribute('data-essay-index', index);
-        const label = essay.querySelector('label');
-        if (label) label.textContent = `Essay ${index + 1}:`;
-        const removeBtn = essay.querySelector('.remove-essay-btn');
-        if (removeBtn) removeBtn.setAttribute('onclick', `removeClaudeEssay(${index})`);
-    });
-    claudeEssayCount = essays.length;
-}
-
-/**
- * Update visibility of remove buttons for Claude essays
- */
-function updateClaudeRemoveButtons() {
-    const container = document.getElementById('claudeEssaysContainer');
-    if (!container) return;
-    const essays = container.querySelectorAll('.essay-entry');
-    const showRemoveButtons = essays.length > 1;
-    essays.forEach(essay => {
-        const removeBtn = essay.querySelector('.remove-essay-btn');
-        if (removeBtn) removeBtn.style.display = showRemoveButtons ? 'inline-block' : 'none';
-    });
-}
-
 /**
  * Setup essay management UI
  */
 function setupEssayManagement() {
     // Initialize remove buttons visibility
     updateRemoveButtons();
-    updateClaudeRemoveButtons();
 
     // Add event listener for adding essays with count
     const addEssayBtn = document.getElementById('addEssayBtn');
@@ -352,30 +262,6 @@ function setupEssayManagement() {
                 essayCountInput.value = 1;
             } else if (value > 50) {
                 essayCountInput.value = 50;
-            }
-        });
-    }
-
-    // Add event listener for Claude adding essays with count
-    const claudeAddEssayBtn = document.getElementById('claudeAddEssayBtn');
-    const claudeEssayCountInput = document.getElementById('claudeEssayCountInput');
-
-    if (claudeAddEssayBtn && claudeEssayCountInput) {
-        claudeAddEssayBtn.addEventListener('click', () => {
-            const count = parseInt(claudeEssayCountInput.value) || 1;
-            addClaudeEssay(count);
-        });
-    }
-
-    // Validate Claude input on blur (when user leaves the field)
-    // Using blur instead of input so users can clear the field to type a new number
-    if (claudeEssayCountInput) {
-        claudeEssayCountInput.addEventListener('blur', () => {
-            let value = parseInt(claudeEssayCountInput.value);
-            if (isNaN(value) || value < 1) {
-                claudeEssayCountInput.value = 1;
-            } else if (value > 50) {
-                claudeEssayCountInput.value = 50;
             }
         });
     }

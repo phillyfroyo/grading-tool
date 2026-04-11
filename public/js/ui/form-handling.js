@@ -102,10 +102,6 @@ async function handleManualGradingSubmission(e) {
 async function handleGradingFormSubmission(e) {
     e.preventDefault();
 
-    // Detect which form is being submitted to determine provider
-    const formId = e.target.id;
-    const provider = formId === 'claudeGradingForm' ? 'claude' : 'openai';
-
     const formData = new FormData(e.target);
     const studentName = formData.get('studentName') || 'Student';
     const classProfile = formData.get('classProfile') || '';
@@ -149,7 +145,6 @@ async function handleGradingFormSubmission(e) {
 
 
     // Show loading state
-    // Find the submit button - different IDs for GPT vs Claude forms
     const button = e.target.querySelector('button[type="submit"]');
     if (!button) {
         console.error('Could not find submit button');
@@ -159,8 +154,7 @@ async function handleGradingFormSubmission(e) {
     button.textContent = 'Grading essays...';
     button.disabled = true;
 
-    // Determine error element ID based on form
-    const errorElementId = formId === 'claudeGradingForm' ? 'claudeClassProfileError' : 'classProfileError';
+    const errorElementId = 'classProfileError';
 
     // Mark grading as in progress so a page reload mid-grading will show
     // the "interrupted" variant of the restore modal. Cleared in finally.
@@ -185,11 +179,6 @@ async function handleGradingFormSubmission(e) {
             // Clear any previous error
             hideInlineError(errorElementId);
 
-            // Disable the other provider's tab while grading
-            if (window.TabManagementModule) {
-                window.TabManagementModule.disableInactiveTab(provider);
-            }
-
             const gradingData = {
                 studentText: studentTexts[0].text,
                 studentName: studentTexts[0].studentName,
@@ -197,7 +186,6 @@ async function handleGradingFormSubmission(e) {
                 prompt: prompt,
                 classProfile: classProfile,
                 temperature: temperature,
-                provider: provider,
                 isManualMode: false
             };
 
@@ -287,11 +275,6 @@ async function handleGradingFormSubmission(e) {
             // Clear any previous error
             hideInlineError(errorElementId);
 
-            // Disable the other provider's tab while grading
-            if (window.TabManagementModule) {
-                window.TabManagementModule.disableInactiveTab(provider);
-            }
-
             // Note: classProfile is optional if custom prompt is provided
 
             const batchData = {
@@ -302,8 +285,7 @@ async function handleGradingFormSubmission(e) {
                 })),
                 prompt: prompt,
                 classProfile: classProfile,
-                temperature: temperature,
-                provider: provider
+                temperature: temperature
             };
 
             // Show the progress UI only after validation passes
@@ -393,11 +375,6 @@ async function handleGradingFormSubmission(e) {
         button.textContent = originalText;
         button.disabled = false;
 
-        // Re-enable all tabs after grading completes
-        if (window.TabManagementModule) {
-            window.TabManagementModule.enableAllTabs();
-        }
-
         // Clear the in-progress flag. The next save (which already fires at
         // stream_done+2s on success, or is unneeded on failure) will persist
         // the cleared state. On failure we leave any partial saved session
@@ -417,19 +394,6 @@ function setupMainGrading() {
         gradingForm.addEventListener('submit', handleGradingFormSubmission);
     } else {
         console.warn('Main grading form not found');
-    }
-}
-
-/**
- * Setup Claude grading functionality
- */
-function setupClaudeGrading() {
-    // Set up form submission (using the same handler as GPT, it detects which form)
-    const claudeGradingForm = document.getElementById('claudeGradingForm');
-    if (claudeGradingForm) {
-        claudeGradingForm.addEventListener('submit', handleGradingFormSubmission);
-    } else {
-        console.warn('Claude grading form not found');
     }
 }
 
@@ -826,7 +790,6 @@ window.FormHandlingModule = {
     handleGradingFormSubmission,
     handleManualGradingSubmission,
     setupMainGrading,
-    setupClaudeGrading,
     setupManualGrading,
     clearManualForm,
     validateForm,

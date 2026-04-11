@@ -122,18 +122,17 @@
     }
 
     /**
-     * Lock or unlock the grading forms. When locked:
+     * Lock or unlock the grading form. When locked:
      *   - Essay entry headers (name/nickname inputs) and text areas are hidden.
      *   - Grade, Add Another Essay, and essay counter controls are disabled.
      *   - An inline message appears next to the grade button pointing users
      *     at the "Clear & Start Fresh" banner button.
-     * Applied to BOTH the GPT and Claude grading forms.
      *
      * @param {boolean} locked
      */
     function setFormLocked(locked) {
         formLocked = locked;
-        const formIds = ['gradingForm', 'claudeGradingForm'];
+        const formIds = ['gradingForm'];
         const inlineMessageText =
             "You have saved graded essays below. Click 'Clear & Start Fresh' at the top to grade more essays.";
 
@@ -477,7 +476,7 @@
         document.querySelectorAll('.batch-progress-container').forEach(el => el.remove());
 
         // Reset forms
-        const forms = ['gradingForm', 'claudeGradingForm'];
+        const forms = ['gradingForm'];
         forms.forEach(id => {
             const f = document.getElementById(id);
             if (f) f.reset();

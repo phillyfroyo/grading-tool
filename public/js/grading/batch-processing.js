@@ -88,9 +88,9 @@ function waitForAllFormatCalls(timeoutMs = 60000) {
 }
 
 /**
- * Get a random Claude-style loading message
+ * Get a random themed loading message (rotates while an essay is being graded)
  */
-function getClaudeLoadingMessage() {
+function getLoadingMessage() {
     const messages = [
         "🤔 Cogitating on this essay...",
         "✨ Percolating thoughts...",
@@ -194,7 +194,7 @@ function displayBatchProgress(batchData) {
                             transition: max-height 0.3s ease-out;
                             background: white;
                         ">
-                            <div id="batch-essay-${index}" style="padding: 12px;">${getClaudeLoadingMessage()}</div>
+                            <div id="batch-essay-${index}" style="padding: 12px;">${getLoadingMessage()}</div>
                         </div>
 
                         <!-- Highlights Management Tab -->
@@ -257,7 +257,7 @@ function displayBatchProgress(batchData) {
     resultsDiv.innerHTML = progressHtml;
     resultsDiv.style.display = 'block';
 
-    // Set up rotating Claude message for the first essay only
+    // Set up rotating loading message for the first essay only
     // Start with "Processing..." then switch to funny messages after 3 seconds
     if (batchData.essays.length > 0) {
         const firstEssayMessageElement = document.getElementById('processing-message-0');
@@ -266,14 +266,14 @@ function displayBatchProgress(batchData) {
             setTimeout(() => {
                 // Only switch if still processing
                 if (firstEssayMessageElement.textContent === 'Processing...') {
-                    firstEssayMessageElement.textContent = getClaudeLoadingMessage();
+                    firstEssayMessageElement.textContent = getLoadingMessage();
 
                     // Now set up interval for continued rotation
-                    window.claudeMessageTimer = setInterval(() => {
-                        // Only update if still showing a Claude message (not if completed)
+                    window.loadingMessageTimer = setInterval(() => {
+                        // Only update if still showing a loading message (not if completed)
                         const currentText = firstEssayMessageElement.textContent;
                         if (currentText !== 'Processing...' && !currentText.includes('✓') && !currentText.includes('✗')) {
-                            firstEssayMessageElement.textContent = getClaudeLoadingMessage();
+                            firstEssayMessageElement.textContent = getLoadingMessage();
                         }
                     }, 6000); // Update every 6 seconds
                 }
@@ -292,10 +292,10 @@ function updateEssayStatus(index, success, error = null) {
     const statusElement = document.getElementById(`student-status-${index}`);
     if (!statusElement) return;
 
-    // Clear the Claude message timer when the first essay status is updated
-    if (index === 0 && window.claudeMessageTimer) {
-        clearInterval(window.claudeMessageTimer);
-        window.claudeMessageTimer = null;
+    // Clear the loading message timer when the first essay status is updated
+    if (index === 0 && window.loadingMessageTimer) {
+        clearInterval(window.loadingMessageTimer);
+        window.loadingMessageTimer = null;
     }
 
     // Mark essay as completed
@@ -511,8 +511,8 @@ function loadEssayDetails(index) {
 
     const { essay, originalData } = window[`essayData_${index}`];
 
-    // Show loading spinner with Claude-style message
-    const loadingMessage = getClaudeLoadingMessage();
+    // Show loading spinner with themed message
+    const loadingMessage = getLoadingMessage();
     essayDiv.innerHTML = window.DisplayUtilsModule ?
         window.DisplayUtilsModule.createLoadingSpinner(loadingMessage) :
         `<div style="padding: 12px; font-size: 14px; color: #666;">${loadingMessage}</div>`;

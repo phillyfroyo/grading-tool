@@ -1187,11 +1187,10 @@ async function saveEssayToAccount(btn, essayIndex) {
         if (!classProfileId && window.currentBatchData?.originalData?.classProfile) {
             classProfileId = window.currentBatchData.originalData.classProfile;
         }
-        // 3. Fallback: read the dropdowns directly
+        // 3. Fallback: read the dropdown directly
         if (!classProfileId) {
             const gptSelect = document.getElementById('classProfile');
-            const claudeSelect = document.getElementById('claudeClassProfile');
-            classProfileId = (gptSelect && gptSelect.value) || (claudeSelect && claudeSelect.value) || null;
+            classProfileId = (gptSelect && gptSelect.value) || null;
         }
 
         // If no class profile found, ask user to select one

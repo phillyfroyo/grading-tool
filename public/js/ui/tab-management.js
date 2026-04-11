@@ -87,41 +87,9 @@ function setupTabSwitching() {
     switchTab('gpt-grader');
 }
 
-/**
- * Disable the inactive tab while grading is in progress
- * @param {string} activeProvider - 'openai' or 'claude' - the provider currently grading
- */
-function disableInactiveTab(activeProvider) {
-    const inactiveTabName = activeProvider === 'openai' ? 'claude-grader' : 'gpt-grader';
-    const inactiveButton = document.querySelector(`.tab-button[data-tab="${inactiveTabName}"]`);
-
-    if (inactiveButton) {
-        inactiveButton.disabled = true;
-        inactiveButton.style.cursor = 'not-allowed';
-        inactiveButton.style.opacity = '0.5';
-        inactiveButton.style.pointerEvents = 'none';
-        console.log(`🔒 Disabled ${inactiveTabName} tab during grading`);
-    }
-}
-
-/**
- * Re-enable all tabs after grading completes
- */
-function enableAllTabs() {
-    document.querySelectorAll('.tab-button').forEach(button => {
-        button.disabled = false;
-        button.style.cursor = 'pointer';
-        button.style.opacity = '1';
-        button.style.pointerEvents = 'auto';
-    });
-    console.log('🔓 Re-enabled all tabs');
-}
-
 // Export functions for module usage
 window.TabManagementModule = {
     switchTab,
     initializeTabs,
-    setupTabSwitching,
-    disableInactiveTab,
-    enableAllTabs
+    setupTabSwitching
 };

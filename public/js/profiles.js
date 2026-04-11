@@ -45,18 +45,6 @@ function updateProfileDropdown() {
             select.appendChild(option);
         });
     }
-
-    // Update Claude tab dropdown
-    const claudeSelect = document.getElementById('claudeClassProfile');
-    if (claudeSelect) {
-        claudeSelect.innerHTML = '<option value="">Select a class profile...</option>';
-        profiles.forEach(profile => {
-            const option = document.createElement('option');
-            option.value = profile.id;
-            option.textContent = profile.name;
-            claudeSelect.appendChild(option);
-        });
-    }
 }
 
 /**

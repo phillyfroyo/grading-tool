@@ -43,7 +43,7 @@ async function handleLegacyGrade(req, res) {
  * API grade endpoint handler (/api/grade)
  */
 async function handleApiGrade(req, res) {
-  const { studentText, prompt, classProfile, temperature, studentNickname, provider } = req.body;
+  const { studentText, prompt, classProfile, temperature, studentNickname } = req.body;
 
   try {
     // Get userId from session or cookies
@@ -60,7 +60,7 @@ async function handleApiGrade(req, res) {
     }
 
     // Use unified grading system
-    const result = await gradeEssayUnified(studentText, prompt, profileData, studentNickname, provider);
+    const result = await gradeEssayUnified(studentText, prompt, profileData, studentNickname);
 
     // Validate result has required fields
     if (!result || !result.scores || !result.total) {
@@ -111,12 +111,12 @@ async function handleApiGrade(req, res) {
  * Batch grading endpoint handler (/api/grade-batch)
  */
 async function handleBatchGrade(req, res) {
-  const { essays, prompt, classProfile, temperature, provider } = req.body;
+  const { essays, prompt, classProfile, temperature } = req.body;
   const isStreaming = req.query.stream === 'true';
 
   // If streaming mode is requested, set up Server-Sent Events
   if (isStreaming) {
-    return handleStreamingBatchGrade(req, res, { essays, prompt, classProfile, temperature, provider });
+    return handleStreamingBatchGrade(req, res, { essays, prompt, classProfile, temperature });
   }
 
   try {
@@ -145,7 +145,7 @@ async function handleBatchGrade(req, res) {
       const essay = essays[i];
 
       try {
-        const result = await gradeEssayUnified(essay.studentText, prompt, profileData, essay.studentNickname, provider);
+        const result = await gradeEssayUnified(essay.studentText, prompt, profileData, essay.studentNickname);
 
         // Apply temperature adjustment
         const finalResult = applyTemperatureAdjustment(result, finalTemperature);
@@ -202,7 +202,7 @@ async function handleBatchGrade(req, res) {
 /**
  * Handle streaming batch grading using Server-Sent Events
  */
-async function handleStreamingBatchGrade(req, res, { essays, prompt, classProfile, temperature, provider }) {
+async function handleStreamingBatchGrade(req, res, { essays, prompt, classProfile, temperature }) {
   try {
     const startTime = Date.now();
     console.log("\n🌊 STARTING STREAMING BATCH GRADING WITH PARALLEL BATCHES 🌊");
@@ -282,7 +282,7 @@ async function handleStreamingBatchGrade(req, res, { essays, prompt, classProfil
           console.log(`📝 Grading essay ${globalIndex + 1}/${essays.length} for ${essay.studentName}...`);
           console.log(`🏷️ Student nickname: ${essay.studentNickname || 'none'}`);
 
-          const result = await gradeEssayUnified(essay.studentText, prompt, profileData, essay.studentNickname, provider);
+          const result = await gradeEssayUnified(essay.studentText, prompt, profileData, essay.studentNickname);
 
           // Validate result has required fields before marking as successful
           if (!result || !result.scores || !result.total) {
@@ -613,7 +613,7 @@ async function handleDebugGrade(req, res) {
  */
 async function handleBatchGradeStreamInit(req, res) {
   try {
-    const { essays, prompt, classProfile, temperature, provider } = req.body;
+    const { essays, prompt, classProfile, temperature } = req.body;
 
     // Validate input
     if (!essays || !Array.isArray(essays) || essays.length === 0) {
@@ -632,7 +632,6 @@ async function handleBatchGradeStreamInit(req, res) {
       prompt: prompt || 'Please provide detailed feedback',
       classProfile: classProfile || 'default-profile',
       temperature: temperature || 0,
-      provider: provider || 'openai',
       status: 'pending',
       createdAt: Date.now()
     });
@@ -712,13 +711,12 @@ async function handleBatchGradeStream(req, res) {
     });
   }
 
-  const { essays, prompt, classProfile, temperature, provider } = sessionData;
+  const { essays, prompt, classProfile, temperature } = sessionData;
 
   console.log("\n🔥 STREAMING BATCH GRADING REQUEST RECEIVED 🔥");
   console.log("Number of essays:", essays?.length || 0);
   console.log("Class profile:", classProfile);
   console.log("Temperature:", temperature || 0);
-  console.log("Provider:", provider || 'openai');
 
   try {
     if (!essays || essays.length === 0) {
@@ -776,7 +774,7 @@ async function handleBatchGradeStream(req, res) {
           message: `Processing ${essay.studentName}...`
         })}\n\n`);
 
-        const result = await gradeEssayUnified(essay.studentText, prompt, profileData, essay.studentNickname, provider);
+        const result = await gradeEssayUnified(essay.studentText, prompt, profileData, essay.studentNickname);
         console.log(`✅ Essay ${i + 1} graded successfully, streaming result...`);
 
         // Apply temperature adjustment
