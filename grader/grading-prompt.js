@@ -121,17 +121,18 @@ For each category rationale, write 1 brief sentence that:
 - No exclamation marks
 
 ## TEACHER_NOTES FORMAT:
-${studentName ? `Start with "${studentName} - " then follow the format below.` : 'Follow the format below.'}
 
-Structure: [Intro] + [ONE sentence mentioning 1-2 areas to improve] + [Closing]
+Structure: [Name prefix + Intro] + [ONE sentence mentioning 1-2 areas to improve] + [Closing]
 
-Pick ONE intro based on total score:
-- 0-49: (skip intro, start with feedback)
-- 50-59: "Not too bad overall."
-- 60-69: "Good work here."
-- 70-79: "I think you did a great job overall."
-- 80-89: "Great job overall."
-- 90-100: "Excellent work overall."
+Pick ONE intro based on total score. ${studentName ? `The student's name is "${studentName}" — you MUST start the teacher notes with exactly "${studentName} - " followed by the intro text (or, for the 0-49 case where there is no intro, followed directly by the feedback sentence). This name prefix is required, not optional.` : 'There is no student name — start with the intro text directly.'}
+
+Intros by score:
+- 0-49: (no intro — ${studentName ? `start with "${studentName} - " then go directly into the feedback sentence` : 'start directly with the feedback sentence'})
+- 50-59: ${studentName ? `"${studentName} - Not too bad overall."` : '"Not too bad overall."'}
+- 60-69: ${studentName ? `"${studentName} - Good work here."` : '"Good work here."'}
+- 70-79: ${studentName ? `"${studentName} - I think you did a great job overall."` : '"I think you did a great job overall."'}
+- 80-89: ${studentName ? `"${studentName} - Great job overall."` : '"Great job overall."'}
+- 90-100: ${studentName ? `"${studentName} - Excellent work overall."` : '"Excellent work overall."'}
 
 The areas that need the most attention: ${topCategories || 'none'}.
 Write ONE sentence about ${hasMultipleIssues ? 'one or both of these areas' : 'this area'}.
