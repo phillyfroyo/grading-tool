@@ -2,7 +2,7 @@
 
 > **Branch**: `april-2026-tabs`
 > **Started**: 2026-04-11
-> **Status**: Phase 1 ✓, Phase 2 ✓ — ready to start Phase 3
+> **Status**: Phase 1 ✓, Phase 2 ✓, Phase 3 ✓ — ready to start Phase 4
 > **Estimate**: 5–7 focused sessions
 
 ## The feature
@@ -88,13 +88,22 @@ Each phase ends with a clean commit. Any phase boundary is a valid stopping poin
 - [x] 38-assertion inline unit test passed: init, create, switchTo, close (active and non-active), close-last auto-replacement, rename (including rejecting whitespace), serialize/deserialize roundtrip with grading data, malformed-data fallback, clear
 - [x] No behavior changes yet — infrastructure only (no consumers)
 
-### Phase 3: DOM scoping refactor — ~100-200 lines modified
-- [ ] Wrap the existing grading form in `.tab-pane[data-tab-id="tab-1"]` container in `public/index.html`
-- [ ] Replace ID-based selectors with class-based + tab-pane-scoped lookups throughout:
-  - `form-handling.js`, `essay-management.js`, `single-result.js`, `batch-processing.js`, `display-utils.js`, `grading-display-main.js`, `highlighting.js`, `pdf-export.js`
-- [ ] Add helper: `getActiveTabPane()` returns the DOM element for the active tab's pane
-- [ ] Audit inline `onclick` handlers — convert to event delegation OR pass tab context explicitly
-- [ ] App still has 1 tab, still works identically, but DOM is now structurally prepared for multi-tab
+### Phase 3: DOM scoping refactor ✓ COMPLETE (commits 80a007e, 899b817, f2f3593, 811b5c8)
+- [x] **Step 3a** (80a007e): Add `TabStore.activePane()`, `activeQuery()`, `activeQueryAll()` helpers to tab-store.js. Wrap the existing grading form in `.tab-pane[data-tab-id="tab-1"]` container in `public/index.html`. The old `tab-content` class is kept alongside for backward compat until Phase 5.
+- [x] **Step 3b** (899b817): Migrate already-tab-aware callers that used the legacy `.tab-content.active` pattern to use `TabStore.activeQuery` instead. 7 call sites across `batch-processing.js` and `essay-management.js`.
+- [x] **Step 3c** (f2f3593): Migrate the bulk of tab-scoped `getElementById`/`querySelector` calls. 11 files touched, ~50 call sites across form-handling, single-result, grading-display-main, pdf-export, display-utils, profiles, essay-management, event-delegation, batch-processing, highlighting, text-selection.
+- [x] **Step 3d** (811b5c8): Second pass to catch missed dynamic-id lookups (batch-essay-N, student-details-N, highlights-tab-N, etc.). 6 files touched, ~30 call sites in auto-save, single-result, display-utils, grading-display-main, highlighting, pdf-export.
+- [x] Inline `onclick` handlers audited — no string-level changes needed because the functions they call are now tab-aware by proxy. The user can only click visible elements, and the active tab is guaranteed to be the clicked tab at click time.
+- [x] App still has 1 tab and behaves identically, but DOM is structurally prepared for multi-tab. Every tab-scoped getElementById/querySelector resolves through `TabStore.activeQuery` with a `document.*` fallback guard for defense.
+
+Not touched (intentional — these are global, not per-tab):
+- Modals (teacherNotesModal, errorModal, confirmationModal, editModal, restoreSessionModal, profileManagementModal)
+- Modal internals and highlight-edit UI
+- Profile management UI (profilesList, addNewProfileForm, addNewProfileBtn)
+- User menu (userDropdown, userEmail, manageProfilesBtn)
+- Auto-save banner UI (auto-save-banner, auto-save-status, restoreSession*)
+- Legacy manual-grading tab
+- Dead code in `public/js/ui/tabs.js` (not loaded by index.html; cleanup deferred)
 
 ### Phase 4: Window globals → TabStore migration — ~100-150 lines modified
 - [ ] Replace every `window.currentBatchData` read/write with `TabStore.active().currentBatchData` across the 9 files identified
