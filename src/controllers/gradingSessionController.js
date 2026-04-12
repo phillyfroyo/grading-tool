@@ -21,17 +21,26 @@ async function handleSaveGradingSession(req, res) {
   const userId = getUserId(req);
   if (!userId) return res.status(401).json({ error: 'Authentication required' });
 
-  const { activeTab, sessionData } = req.body;
+  const { activeTab, sessionData, tabStoreSnapshot } = req.body;
   if (!activeTab || !sessionData) {
     return res.status(400).json({ error: 'activeTab and sessionData are required' });
   }
 
   const rhKeys = sessionData?.renderedHTML ? Object.keys(sessionData.renderedHTML) : [];
   console.log('[GRADING_SESSION] Save - activeTab:', activeTab,
+    'tabs:', tabStoreSnapshot?.tabs?.length || 'none',
     'renderedHTML keys:', rhKeys,
     'renderedHTML lengths:', rhKeys.map(k => (sessionData.renderedHTML[k] || '').length));
 
-  const saved = await saveGradingSession(userId, activeTab, sessionData);
+  // Phase 7: include tabStoreSnapshot in the saved session data.
+  // The service stores the entire sessionData JSON blob; we nest
+  // tabStoreSnapshot inside it so it persists without schema changes.
+  const sessionDataWithTabs = {
+    ...sessionData,
+    tabStoreSnapshot: tabStoreSnapshot || null,
+  };
+
+  const saved = await saveGradingSession(userId, activeTab, sessionDataWithTabs);
   if (!saved) {
     return res.status(500).json({ error: 'Failed to save grading session' });
   }
@@ -51,7 +60,16 @@ async function handleLoadGradingSession(req, res) {
     return res.json({ exists: false });
   }
 
-  res.json({ exists: true, activeTab: session.activeTab, sessionData: session.sessionData });
+  // Phase 7: tabStoreSnapshot is nested inside sessionData by the save
+  // handler. Extract it so the frontend can read it at the top level.
+  const tabStoreSnapshot = session.sessionData?.tabStoreSnapshot || null;
+
+  res.json({
+    exists: true,
+    activeTab: session.activeTab,
+    sessionData: session.sessionData,
+    tabStoreSnapshot,
+  });
 }
 
 /**

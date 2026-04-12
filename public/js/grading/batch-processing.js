@@ -1160,19 +1160,16 @@ async function retryEssay(index) {
     }
 }
 
-// Phase 6: Clear the batch tab context when the current grading run finishes.
-// This happens whether the run succeeded or failed. After this, subsequent
-// calls to tabScopedQuery() fall back to the active tab (for user-initiated
-// post-grading actions like expanding an essay or clicking retry).
+// Phase 7 update: Do NOT clear the batch tab context on grading-finished.
+// The grading-finished event fires from markGradingFinished in the finally
+// block of handleGradingFormSubmission, which runs BEFORE the async format-
+// wait block. If we clear here, format calls that are still in-flight lose
+// their tab context and write to the wrong tab.
 //
-// The markFormatCallComplete wait happens BEFORE markGradingFinished fires,
-// so all the in-stream writes have already been scoped correctly by the
-// time we clear the context here.
-if (typeof window !== 'undefined') {
-    window.addEventListener('grading-finished', () => {
-        clearBatchTabContext();
-    });
-}
+// Instead, the context is cleared by the format-wait async block in
+// form-handling.js after all format calls complete and the save has fired.
+// This ensures tabScopedQuery targets the correct tab for the entire
+// lifecycle of the grading run including post-stream format calls.
 
 // Export functions for module usage
 window.BatchProcessingModule = {

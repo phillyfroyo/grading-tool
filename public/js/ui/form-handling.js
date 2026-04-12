@@ -447,6 +447,15 @@ async function handleGradingFormSubmission(e) {
                         window.AutoSaveModule.showClearButton('Grading complete');
                         // Phase 7: scope the lock to the originating tab only
                         window.AutoSaveModule.setFormLocked(true, lockTargetTabId);
+
+                        // Clear the batch tab context now that all format calls
+                        // are done and the save has fired. From this point,
+                        // tabScopedQuery in batch-processing.js falls back to
+                        // activeQuery (correct for post-grading user interactions
+                        // like expand, retry, download).
+                        if (window.BatchProcessingModule && window.BatchProcessingModule.clearBatchTabContext) {
+                            window.BatchProcessingModule.clearBatchTabContext();
+                        }
                     })();
                 }
             } catch (streamError) {
