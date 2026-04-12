@@ -161,8 +161,6 @@
      */
     function setFormLocked(locked, tabId) {
         formLocked = locked;
-        const inlineMessageText =
-            "You have saved graded essays below. Click 'Clear & Start Fresh' at the top to grade more essays.";
 
         // Collect the tab panes to operate on.
         let panes;
@@ -172,7 +170,6 @@
         } else {
             // No tabId → lock/unlock ALL tab panes
             panes = Array.from(document.querySelectorAll('.tab-pane'));
-            // Fallback for zero-pane edge case (shouldn't happen): try legacy ID
             if (panes.length === 0) {
                 const legacy = document.getElementById('gradingForm');
                 if (legacy) panes = [legacy.closest('.tab-pane') || legacy.parentElement];
@@ -184,59 +181,18 @@
             const form = pane.querySelector('#gradingForm');
             if (!form) return;
 
-            // Hide or show essay-header rows (name/nickname) and textareas.
-            form.querySelectorAll('.essay-entry').forEach(entry => {
-                entry.style.display = locked ? 'none' : '';
-            });
+            // Phase 8: When locked, hide the ENTIRE form — the user only
+            // needs to see the results and the "Clear & Start Fresh" banner.
+            // The form (profile dropdown, essay inputs, grade button) is
+            // irrelevant while viewing completed results. It reappears when
+            // the user clicks "Clear & Start Fresh".
+            form.style.display = locked ? 'none' : '';
 
-            // Disable or enable submit + add-another + remove buttons.
-            const gradeBtn = form.querySelector('button[type="submit"]');
-            if (gradeBtn) {
-                gradeBtn.disabled = locked;
-                gradeBtn.style.opacity = locked ? '0.5' : '';
-                gradeBtn.style.cursor = locked ? 'not-allowed' : '';
-            }
-
-            const addBtn = form.querySelector('#addEssayBtn, [id$="EssayBtn"]');
-            if (addBtn) {
-                addBtn.disabled = locked;
-                addBtn.style.opacity = locked ? '0.5' : '';
-                addBtn.style.cursor = locked ? 'not-allowed' : '';
-            }
-
-            const countInput = form.querySelector('#essayCountInput, [id$="EssayCountInput"]');
-            if (countInput) {
-                countInput.disabled = locked;
-                countInput.style.opacity = locked ? '0.5' : '';
-            }
-            form.querySelectorAll('.essay-counter-arrow').forEach(arrow => {
-                arrow.style.pointerEvents = locked ? 'none' : '';
-                arrow.style.opacity = locked ? '0.5' : '';
-            });
-
-            form.querySelectorAll('.remove-essay-btn').forEach(btn => {
-                btn.disabled = locked;
-            });
-
-            // Insert or remove the inline message next to the grade button.
+            // Also clean up any lingering inline lock messages from the old
+            // partial-hide approach (in case they were left from a prior
+            // session or an older code version).
             const existingMsg = form.querySelector('.auto-save-lock-message');
-            if (locked) {
-                if (!existingMsg) {
-                    const msg = document.createElement('div');
-                    msg.className = 'auto-save-lock-message';
-                    msg.textContent = inlineMessageText;
-                    msg.style.cssText =
-                        'display: inline-block; margin-left: 12px; padding: 6px 10px;' +
-                        'color: #666; font-size: 13px; font-style: italic;' +
-                        'max-width: 360px; vertical-align: middle; line-height: 1.4;';
-                    const controls = form.querySelector('.essay-controls') || gradeBtn?.parentElement;
-                    if (controls) {
-                        controls.appendChild(msg);
-                    }
-                }
-            } else {
-                if (existingMsg) existingMsg.remove();
-            }
+            if (existingMsg) existingMsg.remove();
         });
     }
 
