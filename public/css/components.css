@@ -121,21 +121,21 @@
     content: '';
     position: absolute;
     bottom: 0;
-    width: 8px;
-    height: 8px;
+    width: 14px;
+    height: 14px;
     background: transparent;
 }
 
 .tab-item.active::before {
-    left: -8px;
-    border-radius: 0 0 8px 0;
-    box-shadow: 4px 0 0 0 #ffffff;
+    left: -14px;
+    border-radius: 0 0 14px 0;
+    box-shadow: 6px 0 0 0 #ffffff;
 }
 
 .tab-item.active::after {
-    right: -8px;
-    border-radius: 0 0 0 8px;
-    box-shadow: -4px 0 0 0 #ffffff;
+    right: -14px;
+    border-radius: 0 0 0 14px;
+    box-shadow: -6px 0 0 0 #ffffff;
 }
 
 /* Subtle separator between inactive tabs */
