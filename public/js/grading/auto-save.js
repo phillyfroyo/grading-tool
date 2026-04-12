@@ -643,7 +643,7 @@
         const icon = isWarn ? ' ⚠' : ' ✓';
 
         toast.style.cssText =
-            'position:fixed;top:12px;right:12px;z-index:9999;' +
+            'position:fixed;top:12px;left:12px;z-index:9999;' +
             'padding:10px 18px;border-radius:6px;' +
             'font-family:"Inter","Helvetica Neue",Arial,sans-serif;' +
             'font-size:13px;font-weight:500;letter-spacing:0.01em;' +
