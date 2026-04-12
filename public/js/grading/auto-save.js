@@ -81,10 +81,19 @@
     /**
      * Save immediately (called after grading completes).
      */
-    function saveImmediately() {
+    /**
+     * @param {Object} [options]
+     * @param {boolean} [options.quiet] - If true, skip the "Saving..." toast
+     *   (the "All changes saved" toast still shows on success). Used by
+     *   quick operations like tab add/close/rename where the save completes
+     *   so fast that the "Saving..." flash looks glitchy.
+     */
+    function saveImmediately(options) {
         clearDebounce();
         hasPendingChanges = true;
-        updateBannerStatus('Saving\u2026', 'ok');
+        if (!options || !options.quiet) {
+            updateBannerStatus('Saving\u2026', 'ok');
+        }
         return doSave('saveImmediately');
     }
 

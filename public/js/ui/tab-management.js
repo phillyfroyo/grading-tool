@@ -204,7 +204,7 @@ function addTab() {
 
     // Persist the updated tab set so a refresh reflects the new tab.
     if (window.AutoSaveModule && window.AutoSaveModule.saveImmediately) {
-        window.AutoSaveModule.saveImmediately();
+        window.AutoSaveModule.saveImmediately({ quiet: true });
     }
 }
 
@@ -293,7 +293,7 @@ function closeTab(tabId) {
         // set of open tabs — including empty ones. The teacher should see
         // exactly what they left when they come back.
         if (window.AutoSaveModule && window.AutoSaveModule.saveImmediately) {
-            window.AutoSaveModule.saveImmediately();
+            window.AutoSaveModule.saveImmediately({ quiet: true });
         }
     };
 
@@ -371,7 +371,7 @@ function startRenameTab(tabId, labelEl) {
                 window.TabStore.rename(tabId, newLabel);
                 // Persist the renamed tab so it survives a refresh.
                 if (window.AutoSaveModule && window.AutoSaveModule.saveImmediately) {
-                    window.AutoSaveModule.saveImmediately();
+                    window.AutoSaveModule.saveImmediately({ quiet: true });
                 }
             } else {
                 // Revert display to original if blank or unchanged.
