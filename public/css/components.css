@@ -75,8 +75,8 @@
 .tab-item {
     display: inline-flex;
     align-items: center;
-    gap: 8px;
-    padding: 5px 20px;
+    gap: 6px;
+    padding: 5px 14px;
     background: transparent;
     color: #5f6368;
     border: none;
@@ -88,9 +88,10 @@
     position: relative;
     /* Flex-based sizing: tabs shrink when the bar is full (like Chrome)
        but do NOT grow beyond their preferred width. flex-grow: 0 prevents
-       a single tab from stretching to fill the whole bar. */
+       a single tab from stretching to fill the whole bar. min-width is
+       very small so even 10 tabs fit without overflow. */
     flex: 0 1 200px;
-    min-width: 60px;
+    min-width: 36px;
     max-width: 200px;
     transition: background 0.15s ease, color 0.15s ease;
     margin-right: 1px;
