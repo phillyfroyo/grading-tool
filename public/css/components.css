@@ -57,6 +57,138 @@
     display: block;
 }
 
+/* ===== MULTI-TAB BAR (Phase 5) ===== */
+/* Horizontal row of grading tabs with a "+" button. Renders dynamically
+   from TabStore state via tab-management.js renderTabBar(). */
+.tab-bar {
+    display: flex;
+    align-items: flex-end;
+    gap: 2px;
+    border-bottom: 2px solid #e9ecef;
+    margin-bottom: 20px;
+    padding: 0;
+    overflow-x: auto;
+    flex-wrap: wrap;
+}
+
+.tab-item {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 10px 14px;
+    background: #f8f9fa;
+    color: #6c757d;
+    border: 1px solid #e9ecef;
+    border-bottom: none;
+    border-radius: 6px 6px 0 0;
+    cursor: pointer;
+    font-size: 14px;
+    font-weight: 500;
+    user-select: none;
+    position: relative;
+    top: 2px; /* overlap the border so active tab looks connected */
+    min-width: 100px;
+    max-width: 220px;
+}
+
+.tab-item:hover:not(.active) {
+    background: #e9ecef;
+}
+
+.tab-item.active {
+    background: #007bff;
+    color: white;
+    border-color: #007bff;
+    font-weight: bold;
+    z-index: 1;
+}
+
+.tab-label {
+    flex: 1;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 160px;
+}
+
+/* Inline-editable label during rename */
+.tab-label.editing {
+    background: white;
+    color: #212529;
+    border: 1px solid #007bff;
+    border-radius: 3px;
+    padding: 1px 4px;
+    outline: none;
+}
+
+.tab-close {
+    background: transparent;
+    border: none;
+    color: inherit;
+    font-size: 18px;
+    line-height: 1;
+    padding: 0 4px;
+    cursor: pointer;
+    border-radius: 3px;
+    opacity: 0.6;
+}
+
+.tab-item:hover .tab-close,
+.tab-item.active .tab-close {
+    opacity: 1;
+}
+
+.tab-close:hover {
+    background: rgba(220, 53, 69, 0.15);
+    color: #dc3545;
+}
+
+.tab-item.active .tab-close:hover {
+    background: rgba(255, 255, 255, 0.25);
+    color: white;
+}
+
+/* Hide the close button when it is the only tab — we never allow zero tabs,
+   and closing the last tab would just auto-create a fresh one, which is
+   confusing UX. Keep the single remaining tab uncloseable. */
+.tab-bar[data-tab-count="1"] .tab-close {
+    display: none;
+}
+
+.tab-add-btn {
+    background: #f8f9fa;
+    color: #495057;
+    border: 1px solid #e9ecef;
+    border-bottom: none;
+    border-radius: 6px 6px 0 0;
+    padding: 10px 14px;
+    cursor: pointer;
+    font-size: 18px;
+    font-weight: bold;
+    line-height: 1;
+    position: relative;
+    top: 2px;
+    min-width: 40px;
+}
+
+.tab-add-btn:hover {
+    background: #e9ecef;
+    color: #212529;
+}
+
+.tab-add-btn:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+}
+
+.tab-pane {
+    display: none;
+}
+
+.tab-pane.active {
+    display: block;
+}
+
 /* ===== FORM CONTROLS ===== */
 .form-control-group {
     display: flex;
