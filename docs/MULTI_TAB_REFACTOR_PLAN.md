@@ -2,7 +2,7 @@
 
 > **Branch**: `april-2026-tabs`
 > **Started**: 2026-04-11
-> **Status**: Phase 1 ✓, Phase 2 ✓, Phase 3 ✓, Phase 4 ✓, Phase 5 ✓ (pending browser test) — ready to start Phase 6
+> **Status**: Phase 1 ✓, Phase 2 ✓, Phase 3 ✓, Phase 4 ✓, Phase 5 ✓, Phase 6 ✓ (pending browser test) — ready to start Phase 7
 > **Estimate**: 5–7 focused sessions
 
 ## The feature
@@ -138,11 +138,21 @@ Not covered in Phase 5 (deferred to later phases):
 - **Tab label numbering uses monotonic ID counter, not "smallest unused"** — Phase 8 polish. E.g., after opening 10 tabs and closing all but tab-1, opening a new tab labels it "Tab 11" (from the counter) rather than "Tab 2". The internal tab ID should stay monotonic (prevents async-write collisions), but the display label can be derived from position/count.
 - **Tab bar visual design** — Phase 8 polish. Current design is functional but not final.
 
-### Phase 6: Grading lock — ~50 lines
-- [ ] Expose `AutoSaveModule.isGradingInProgress()` getter (1 line)
-- [ ] Add `TabManagementModule.lockGradingInAllTabsExcept(tabId)` and `unlockGradingInAllTabs()`
-- [ ] Wire into `form-handling.js`: call lock in `markGradingStarted`, unlock in `markGradingFinished`
-- [ ] Defense-in-depth guard in submit handler: abort if another tab is grading
+### Phase 6: Grading lock ✓ COMPLETE (commit cf4c65a)
+Turned out bigger than the ~50 line estimate because the "pin streaming writes to originating tab" sub-problem surfaced from the Phase 5 analysis. Ended up ~277 lines across 5 files.
+
+- [x] Exposed `AutoSaveModule.isGradingInProgress()` getter
+- [x] `markGradingStarted` / `markGradingFinished` now dispatch `grading-started` and `grading-finished` CustomEvents on window. `grading-started` detail includes `originTabId` captured from `TabStore.activeId()` at start time.
+- [x] Added `TabStore.queryInTab(tabId, selector)`, `queryAllInTab(tabId, selector)`, and `paneForTab(tabId)` helpers for tab-scoped queries that do not depend on which tab is active
+- [x] Added module-local `currentBatchTabId` to `batch-processing.js` with `tabScopedQuery` / `tabScopedQueryAll` helpers. `displayBatchProgress` sets the context at batch start; `grading-finished` listener clears it.
+- [x] Migrated all streaming-path `activeQuery` calls in `batch-processing.js` (updateEssayStatus, loadEssayDetails and its async callbacks, displayBatchResults checkbox capture/restore, processing-message rotation, student-row and nextStatusElement lookups) to use `tabScopedQuery`. User-interaction paths stay with `activeQuery`.
+- [x] `loadEssayDetails` also reads essayData from the context tab rather than the active tab, so streaming pre-loads find the right data even when the user has switched tabs
+- [x] Added `applyGradingLockAcrossTabs(originTabId)`, `releaseGradingLockAcrossTabs()`, and `applyGradingLockToNewTab(tabId)` to `tab-management.js`
+- [x] `wireUpTabStoreListeners` now subscribes to `grading-started` and `grading-finished` events
+- [x] `addTab` applies the grading lock to newly-created tabs if grading is already in progress (so opening a new tab during a batch grading run correctly disables the new tab's Grade button)
+- [x] Defense-in-depth: `handleGradingFormSubmission` checks `isGradingInProgress()` at the top and shows an error modal if grading is in progress elsewhere
+- [x] Verified with 10-assertion unit test of new TabStore helpers
+- [ ] **Browser smoke test pending** — next step is to verify grading lock UX, streaming-writes-to-originating-tab behavior, and that the grading-finished event correctly re-enables everything
 
 ### Phase 7: Auto-save multi-tab — ~150 lines modified
 - [ ] Change `doSave()` in `auto-save.js` to iterate `TabStore.all()` and serialize each tab's state
