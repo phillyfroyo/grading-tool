@@ -68,7 +68,7 @@
     background: #dee2e6;
     border-radius: 8px 8px 0 0;
     margin-bottom: 0;
-    overflow-x: auto;
+    overflow: hidden;
     flex-wrap: nowrap;
 }
 
@@ -86,10 +86,15 @@
     font-weight: 500;
     user-select: none;
     position: relative;
-    min-width: 160px;
+    /* Flex-based sizing: tabs share available space and shrink when
+       the bar is full, just like Chrome tabs. Preferred width is 200px
+       but they compress down to 60px before any overflow occurs. */
+    flex: 1 1 200px;
+    min-width: 60px;
     max-width: 260px;
     transition: background 0.15s ease, color 0.15s ease;
     margin-right: 1px;
+    overflow: hidden;
 }
 
 .tab-item:hover:not(.active) {
