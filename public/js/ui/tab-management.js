@@ -201,6 +201,11 @@ function addTab() {
     // new tab with its Grade button disabled so the user can still prep
     // essays but can't start a second concurrent grading run.
     applyGradingLockToNewTab(tabId);
+
+    // Persist the updated tab set so a refresh reflects the new tab.
+    if (window.AutoSaveModule && window.AutoSaveModule.saveImmediately) {
+        window.AutoSaveModule.saveImmediately();
+    }
 }
 
 /**
@@ -284,11 +289,10 @@ function closeTab(tabId) {
         // was the active one, and fire tab-switched which re-renders the bar).
         window.TabStore.close(tabId);
 
-        // Persist the updated tab state so a refresh doesn't resurrect
-        // the closed tab from the old DB snapshot — but only if the closed
-        // tab had actual work. Closing an empty tab doesn't need a save
-        // and shouldn't cause empty tabs to be persisted.
-        if (hasWork && window.AutoSaveModule && window.AutoSaveModule.saveImmediately) {
+        // Persist the updated tab state so a refresh reflects the current
+        // set of open tabs — including empty ones. The teacher should see
+        // exactly what they left when they come back.
+        if (window.AutoSaveModule && window.AutoSaveModule.saveImmediately) {
             window.AutoSaveModule.saveImmediately();
         }
     };
