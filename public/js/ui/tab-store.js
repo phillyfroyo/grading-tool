@@ -65,11 +65,23 @@
         return `tab-${nextIdCounter++}`;
     }
 
-    /** Generate a default label for a new tab. Uses the numeric part of the ID. */
-    function defaultLabelFor(tabId) {
-        const match = tabId.match(/^tab-(\d+)$/);
-        const num = match ? match[1] : String(tabs.size + 1);
-        return `Tab ${num}`;
+    /**
+     * Generate a default label for a new tab. Uses the smallest positive
+     * integer not already taken by an existing tab label, so the user sees
+     * "Tab 1", "Tab 2", "Tab 3" even after closing and reopening tabs.
+     * The internal tab ID stays monotonic (tab-11, tab-12, ...) to prevent
+     * async-write collisions, but the display label is user-friendly.
+     */
+    function defaultLabelFor() {
+        // Find the smallest "Tab N" label not currently in use.
+        const usedNumbers = new Set();
+        for (const tab of tabs.values()) {
+            const match = tab.label && tab.label.match(/^Tab (\d+)$/);
+            if (match) usedNumbers.add(parseInt(match[1], 10));
+        }
+        let n = 1;
+        while (usedNumbers.has(n)) n++;
+        return `Tab ${n}`;
     }
 
     /** Create an empty state object for a fresh tab. */
@@ -110,7 +122,7 @@
      */
     function create(initialState) {
         const tabId = generateId();
-        const label = (initialState && initialState.label) || defaultLabelFor(tabId);
+        const label = (initialState && initialState.label) || defaultLabelFor();
         const state = makeEmptyState(tabId, label);
 
         if (initialState && typeof initialState === 'object') {
@@ -308,7 +320,7 @@
             // Trust the saved id — do not regenerate. Preserves references.
             tabs.set(savedState.id, {
                 id: savedState.id,
-                label: savedState.label || defaultLabelFor(savedState.id),
+                label: savedState.label || defaultLabelFor(),
                 createdAt: savedState.createdAt || Date.now(),
                 currentGradingData: savedState.currentGradingData || null,
                 currentBatchData: savedState.currentBatchData || null,
