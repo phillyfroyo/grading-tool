@@ -84,7 +84,6 @@
     function saveImmediately() {
         clearDebounce();
         hasPendingChanges = true;
-        updateBannerStatus('Saving\u2026', 'ok');
         return doSave('saveImmediately');
     }
 
@@ -977,6 +976,7 @@
         }
 
         isSaving = true;
+        updateBannerStatus('Saving\u2026', 'ok');
         try {
             console.log(`[AutoSave] Saving session via ${source}…`);
             const resp = await fetch('/api/grading-session', {
