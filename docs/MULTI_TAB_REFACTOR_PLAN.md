@@ -132,8 +132,11 @@ Not touched (intentional — these are global, not per-tab):
 
 Not covered in Phase 5 (deferred to later phases):
 - **Grading lock** during active grading — deferred to Phase 6. Currently, clicking Grade in one tab does not disable the Grade button in other tabs.
-- **Auto-save multi-tab persistence** — deferred to Phase 7. Currently, auto-save only serializes the active tab's state. Refreshing a page with 3 tabs would only restore 1.
+- **Auto-save multi-tab persistence** — deferred to Phase 7. Currently, auto-save only serializes the active tab's state. Refreshing a page with 3 tabs would only restore 1. **Confirmed in browser testing (2026-04-11):** grading in tab-2 does fire saveImmediately, but the form-lock side effect (`setFormLocked(true)`) only locks tab-1's form because it finds the form via unscoped lookups. And on restore, only one tab-worth of data exists in the DB, so only the active tab populates. Both symptoms trace to the same root: `auto-save.js` was written for single-tab and still is.
+- **Form-lock + auto-save banner are tab-unaware** — Phase 7 scope, same root cause as multi-tab persistence. Tab-2 users see no form collapse / banner update after grading completes.
 - **Class profile dropdown refresh across tabs** — when a profile is saved from one tab, other tabs don't refresh their profile dropdown until the user switches to and interacts with them. Low-priority polish for Phase 5 or later.
+- **Tab label numbering uses monotonic ID counter, not "smallest unused"** — Phase 8 polish. E.g., after opening 10 tabs and closing all but tab-1, opening a new tab labels it "Tab 11" (from the counter) rather than "Tab 2". The internal tab ID should stay monotonic (prevents async-write collisions), but the display label can be derived from position/count.
+- **Tab bar visual design** — Phase 8 polish. Current design is functional but not final.
 
 ### Phase 6: Grading lock — ~50 lines
 - [ ] Expose `AutoSaveModule.isGradingInProgress()` getter (1 line)
