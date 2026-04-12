@@ -267,6 +267,20 @@
             return false;
         }
 
+        // If there are no graded essays, check whether there's anything
+        // worth showing the modal for. Multiple empty tabs should be
+        // silently restored (preserves the tab layout). A single empty
+        // tab is the default state — skip entirely.
+        if (peek.essayCount === 0) {
+            if (peek.tabCount > 1) {
+                // Silently restore the tab layout, no modal needed.
+                await loadAndRestore();
+                return true;
+            }
+            // Single empty tab — nothing to restore, fresh start.
+            return false;
+        }
+
         // Build the modal copy based on whether the session was interrupted.
         const modal = document.getElementById('restoreSessionModal');
         const titleEl = document.getElementById('restoreSessionTitle');
