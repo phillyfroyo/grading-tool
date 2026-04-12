@@ -167,9 +167,14 @@
     border: none;
     color: inherit;
     font-size: 14px;
-    line-height: 1;
-    width: 20px;
-    height: 20px;
+    line-height: 18px;
+    width: 18px;
+    height: 18px;
+    min-width: 18px;
+    min-height: 18px;
+    max-width: 18px;
+    max-height: 18px;
+    padding: 0;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -178,6 +183,7 @@
     opacity: 0;
     transition: opacity 0.15s, background 0.15s;
     flex-shrink: 0;
+    margin-right: -8px; /* pull closer to right edge of tab */
 }
 
 .tab-item:hover .tab-close {
@@ -208,8 +214,13 @@
     color: #5f6368;
     border: none;
     border-radius: 50%;
-    width: 24px;
-    height: 24px;
+    width: 22px;
+    height: 22px;
+    min-width: 22px;
+    min-height: 22px;
+    max-width: 22px;
+    max-height: 22px;
+    padding: 0;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -217,8 +228,8 @@
     font-size: 18px;
     font-weight: 400;
     line-height: 1;
-    margin-left: 6px;
-    margin-bottom: 3px;
+    margin-left: 8px;
+    align-self: center; /* vertically center in the tab bar */
     transition: background 0.15s;
     flex-shrink: 0;
 }
