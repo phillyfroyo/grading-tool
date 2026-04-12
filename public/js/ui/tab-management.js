@@ -285,8 +285,10 @@ function closeTab(tabId) {
         window.TabStore.close(tabId);
 
         // Persist the updated tab state so a refresh doesn't resurrect
-        // the closed tab from the old DB snapshot.
-        if (window.AutoSaveModule && window.AutoSaveModule.saveImmediately) {
+        // the closed tab from the old DB snapshot — but only if the closed
+        // tab had actual work. Closing an empty tab doesn't need a save
+        // and shouldn't cause empty tabs to be persisted.
+        if (hasWork && window.AutoSaveModule && window.AutoSaveModule.saveImmediately) {
             window.AutoSaveModule.saveImmediately();
         }
     };
