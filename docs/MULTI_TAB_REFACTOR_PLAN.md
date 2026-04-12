@@ -2,7 +2,7 @@
 
 > **Branch**: `april-2026-tabs`
 > **Started**: 2026-04-11
-> **Status**: Phase 1 ✓, Phase 2 ✓, Phase 3 ✓, Phase 4 ✓ — ready to start Phase 5
+> **Status**: Phase 1 ✓, Phase 2 ✓, Phase 3 ✓, Phase 4 ✓, Phase 5 ✓ (pending browser test) — ready to start Phase 6
 > **Estimate**: 5–7 focused sessions
 
 ## The feature
@@ -114,14 +114,26 @@ Not touched (intentional — these are global, not per-tab):
 - [x] Introduced `readEssayData(index)` helper in auto-save.js to unify reads across TabStore and legacy window globals
 - [x] App still has 1 tab but state now lives in TabStore instead of window globals. All writes go through `TabStore.active()` in normal operation, with legacy window globals as a defensive fallback that should never fire.
 
-### Phase 5: Multi-tab UI — ~100 lines new + HTML
-- [ ] Add tab bar container with tab buttons and `+` button in `public/index.html`
-- [ ] Wire `+` button to `TabStore.create()` + DOM cloning of empty form template
-- [ ] Tab button click → `TabStore.switchTo()` + CSS `.active` toggle
-- [ ] Tab close button → confirmation modal → `TabStore.close()` + remove DOM pane
-- [ ] Double-click tab name → inline rename input → save custom label
-- [ ] Enforce 10-tab cap with friendly error
-- [ ] Visual active-tab indicator
+### Phase 5: Multi-tab UI ✓ COMPLETE pending browser smoke test (commit b0ac1e3)
+- [x] Added `<div class="tab-bar" id="gradingTabBar">` container in index.html (replaces old static tab-buttons).
+- [x] Added `<template id="tab-pane-template">` with the empty form structure for cloning into new tab panes.
+- [x] CSS for `.tab-bar`, `.tab-item`, `.tab-label`, `.tab-close`, `.tab-add-btn`, `.tab-pane.active`, and the inline-editable `.tab-label.editing` state.
+- [x] Rewrote `public/js/ui/tab-management.js` (~330 lines) with:
+  - `renderTabBar()` that reads `TabStore.all()` and regenerates the bar DOM
+  - `addTab()` that calls `TabStore.create()`, clones the template into a new `.tab-pane`, switches to it, and re-runs per-tab setup functions (`setupMainGrading`, `setupEssayManagement`, `updateProfileDropdown`)
+  - `closeTab()` with unsaved-work detection and confirmation modal via `ModalManager.showConfirmation`
+  - `switchTab()` that accepts either real tab IDs or the legacy `"gpt-grader"` alias (for auto-save restore compat)
+  - `syncPanesToActiveTab()` that toggles `.active` on panes from the `tab-switched` event listener
+  - `startRenameTab()` for double-click-to-rename with Enter/Escape/blur handling
+  - Delegated click + dblclick handlers on the tab bar
+  - 10-tab cap enforced via `MAX_TABS` constant with friendly error message
+- [x] Verified with a 12-assertion integration test against a simulated DOM (init, create, switchTo, close, rename, max cap).
+- [ ] **Browser smoke test pending** — see "smoke test" notes below.
+
+Not covered in Phase 5 (deferred to later phases):
+- **Grading lock** during active grading — deferred to Phase 6. Currently, clicking Grade in one tab does not disable the Grade button in other tabs.
+- **Auto-save multi-tab persistence** — deferred to Phase 7. Currently, auto-save only serializes the active tab's state. Refreshing a page with 3 tabs would only restore 1.
+- **Class profile dropdown refresh across tabs** — when a profile is saved from one tab, other tabs don't refresh their profile dropdown until the user switches to and interacts with them. Low-priority polish for Phase 5 or later.
 
 ### Phase 6: Grading lock — ~50 lines
 - [ ] Expose `AutoSaveModule.isGradingInProgress()` getter (1 line)
