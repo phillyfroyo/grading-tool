@@ -64,7 +64,7 @@
     display: flex;
     align-items: flex-end;
     gap: 0;
-    padding: 6px 8px 0 8px;
+    padding: 4px 8px 0 8px;
     background: #dee2e6;
     border-radius: 8px 8px 0 0;
     margin-bottom: 0;
@@ -75,8 +75,8 @@
 .tab-item {
     display: inline-flex;
     align-items: center;
-    gap: 6px;
-    padding: 8px 12px;
+    gap: 8px;
+    padding: 5px 20px;
     background: transparent;
     color: #5f6368;
     border: none;
@@ -86,14 +86,15 @@
     font-weight: 500;
     user-select: none;
     position: relative;
-    min-width: 80px;
-    max-width: 200px;
+    min-width: 160px;
+    max-width: 260px;
     transition: background 0.15s ease, color 0.15s ease;
     margin-right: 1px;
 }
 
 .tab-item:hover:not(.active) {
     background: rgba(255, 255, 255, 0.5);
+    border-radius: 8px 8px 0 0;
 }
 
 .tab-item.active {
@@ -101,9 +102,33 @@
     color: #1a73e8;
     font-weight: 600;
     z-index: 1;
-    /* Active tab "connects" to the content below by having the same
-       white background as the form area. The bar's grey background
-       shows through for inactive tabs, creating the visual separation. */
+    border-radius: 8px 8px 0 0;
+}
+
+/* Manila-folder inverse rounded corners on the active tab.
+   Two pseudo-elements create small "notches" at the bottom-left and
+   bottom-right of the active tab, giving the appearance of the tab
+   curving INTO the content area below — like a manila folder tab. */
+.tab-item.active::before,
+.tab-item.active::after {
+    content: '';
+    position: absolute;
+    bottom: 0;
+    width: 8px;
+    height: 8px;
+    background: transparent;
+}
+
+.tab-item.active::before {
+    left: -8px;
+    border-radius: 0 0 8px 0;
+    box-shadow: 4px 0 0 0 #ffffff;
+}
+
+.tab-item.active::after {
+    right: -8px;
+    border-radius: 0 0 0 8px;
+    box-shadow: -4px 0 0 0 #ffffff;
 }
 
 /* Subtle separator between inactive tabs */
@@ -115,12 +140,8 @@
     height: 50%;
     width: 1px;
     background: rgba(0, 0, 0, 0.12);
-}
-
-/* Don't show separator next to the active tab */
-.tab-item.active + .tab-item::before,
-.tab-item:has(+ .tab-item.active)::after {
-    display: none;
+    border-radius: 0;
+    box-shadow: none;
 }
 
 .tab-label {
@@ -128,7 +149,7 @@
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
-    max-width: 160px;
+    max-width: 200px;
 }
 
 /* Inline-editable label during rename */
@@ -145,7 +166,7 @@
     background: transparent;
     border: none;
     color: inherit;
-    font-size: 16px;
+    font-size: 14px;
     line-height: 1;
     width: 20px;
     height: 20px;
@@ -187,8 +208,8 @@
     color: #5f6368;
     border: none;
     border-radius: 50%;
-    width: 28px;
-    height: 28px;
+    width: 24px;
+    height: 24px;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -196,8 +217,8 @@
     font-size: 18px;
     font-weight: 400;
     line-height: 1;
-    margin-left: 4px;
-    margin-bottom: 4px;
+    margin-left: 6px;
+    margin-bottom: 3px;
     transition: background 0.15s;
     flex-shrink: 0;
 }
