@@ -146,27 +146,45 @@
     }
 
     /**
-     * Lock or unlock the grading form. When locked:
+     * Lock or unlock the grading form in a specific tab pane. When locked:
      *   - Essay entry headers (name/nickname inputs) and text areas are hidden.
      *   - Grade, Add Another Essay, and essay counter controls are disabled.
      *   - An inline message appears next to the grade button pointing users
      *     at the "Clear & Start Fresh" banner button.
      *
+     * Phase 7: accepts an optional tabId parameter. When provided, only that
+     * tab's form is locked. When omitted or null, ALL tab panes are locked
+     * (used by the restore path where every restored tab has completed work).
+     *
      * @param {boolean} locked
+     * @param {string|null} tabId - Specific tab to lock, or null for all tabs
      */
-    function setFormLocked(locked) {
+    function setFormLocked(locked, tabId) {
         formLocked = locked;
-        const formIds = ['gradingForm'];
         const inlineMessageText =
             "You have saved graded essays below. Click 'Clear & Start Fresh' at the top to grade more essays.";
 
-        formIds.forEach(formId => {
-            const form = document.getElementById(formId);
+        // Collect the tab panes to operate on.
+        let panes;
+        if (tabId && window.TabStore) {
+            const pane = window.TabStore.paneForTab(tabId);
+            panes = pane ? [pane] : [];
+        } else {
+            // No tabId → lock/unlock ALL tab panes
+            panes = Array.from(document.querySelectorAll('.tab-pane'));
+            // Fallback for zero-pane edge case (shouldn't happen): try legacy ID
+            if (panes.length === 0) {
+                const legacy = document.getElementById('gradingForm');
+                if (legacy) panes = [legacy.closest('.tab-pane') || legacy.parentElement];
+            }
+        }
+
+        panes.forEach(pane => {
+            if (!pane) return;
+            const form = pane.querySelector('#gradingForm');
             if (!form) return;
 
             // Hide or show essay-header rows (name/nickname) and textareas.
-            // We toggle the entire .essay-entry so the collapse is clean and
-            // there are no orphan name fields floating without content below.
             form.querySelectorAll('.essay-entry').forEach(entry => {
                 entry.style.display = locked ? 'none' : '';
             });
@@ -186,7 +204,6 @@
                 addBtn.style.cursor = locked ? 'not-allowed' : '';
             }
 
-            // Essay count input and its arrow overlays
             const countInput = form.querySelector('#essayCountInput, [id$="EssayCountInput"]');
             if (countInput) {
                 countInput.disabled = locked;
@@ -197,8 +214,6 @@
                 arrow.style.opacity = locked ? '0.5' : '';
             });
 
-            // Remove-essay buttons inside each entry (covered by entry hide,
-            // but belt-and-suspenders in case an entry is ever shown again).
             form.querySelectorAll('.remove-essay-btn').forEach(btn => {
                 btn.disabled = locked;
             });
@@ -214,7 +229,6 @@
                         'display: inline-block; margin-left: 12px; padding: 6px 10px;' +
                         'color: #666; font-size: 13px; font-style: italic;' +
                         'max-width: 360px; vertical-align: middle; line-height: 1.4;';
-                    // Place it inside .essay-controls next to the buttons
                     const controls = form.querySelector('.essay-controls') || gradeBtn?.parentElement;
                     if (controls) {
                         controls.appendChild(msg);
@@ -238,12 +252,28 @@
             if (!resp.ok) return { exists: false };
             const data = await resp.json();
             if (!data.exists) return { exists: false };
+
             const sessionData = data.sessionData || {};
-            const results = sessionData.currentBatchData?.batchResult?.results;
-            const essayCount = Array.isArray(results) ? results.length : 0;
+            const tabStoreSnapshot = data.tabStoreSnapshot;
+
+            // Count essays — prefer the multi-tab snapshot, fall back to legacy
+            let essayCount = 0;
+            let tabCount = 1;
+            if (tabStoreSnapshot && Array.isArray(tabStoreSnapshot.tabs)) {
+                tabCount = tabStoreSnapshot.tabs.length;
+                for (const tab of tabStoreSnapshot.tabs) {
+                    const results = tab.currentBatchData?.batchResult?.results;
+                    if (Array.isArray(results)) essayCount += results.length;
+                }
+            } else {
+                const results = sessionData.currentBatchData?.batchResult?.results;
+                essayCount = Array.isArray(results) ? results.length : 0;
+            }
+
             return {
                 exists: true,
                 essayCount,
+                tabCount,
                 gradingInProgress: !!sessionData.gradingInProgress
             };
         } catch (err) {
@@ -281,15 +311,18 @@
         }
 
         const essayWord = peek.essayCount === 1 ? 'essay' : 'essays';
+        const tabNote = (peek.tabCount && peek.tabCount > 1)
+            ? ` across ${peek.tabCount} tabs`
+            : '';
         if (peek.gradingInProgress) {
             titleEl.textContent = 'Your last grading session was interrupted';
             messageEl.textContent =
-                `${peek.essayCount} ${essayWord} ${peek.essayCount === 1 ? 'was' : 'were'} saved before the interruption. ` +
+                `${peek.essayCount} ${essayWord}${tabNote} ${peek.essayCount === 1 ? 'was' : 'were'} saved before the interruption. ` +
                 `Would you like to keep them or start fresh?`;
         } else {
             titleEl.textContent = 'You have graded essays from your last session';
             messageEl.textContent =
-                `${peek.essayCount} ${essayWord} from your previous session ${peek.essayCount === 1 ? 'was' : 'were'} auto-saved. ` +
+                `${peek.essayCount} ${essayWord}${tabNote} from your previous session ${peek.essayCount === 1 ? 'was' : 'were'} auto-saved. ` +
                 `What would you like to do?`;
         }
 
@@ -327,6 +360,101 @@
      * Load saved session from server and restore UI.
      * Returns true if a session was restored.
      */
+    /**
+     * Restore a single tab's DOM state from saved data. This is the core
+     * logic that was previously the body of loadAndRestore(). Now extracted
+     * as a helper so it can be called once per tab in the multi-tab path.
+     *
+     * Assumes the target tab is already active (so activeQuery / DOM writes
+     * go to the right pane) and that the tab's JS state (currentBatchData,
+     * essayData, etc.) is already populated in TabStore.
+     *
+     * @param {Object} tabData - The saved data for this tab. In the
+     *   multi-tab path this is the augmented tab snapshot from
+     *   tabStoreSnapshot.tabs[i]. In the legacy path this is sessionData.
+     * @param {string|null} tabId - The tab ID (for scoped queries)
+     */
+    function restoreTabDOM(tabData, tabId) {
+        const queryInTab = (selector) => {
+            if (window.TabStore && tabId) {
+                return window.TabStore.queryInTab(tabId, selector);
+            }
+            if (window.TabStore) return window.TabStore.activeQuery(selector);
+            return document.querySelector(selector);
+        };
+
+        // Render student list skeleton via displayBatchResults
+        if (tabData.currentBatchData && window.BatchProcessingModule) {
+            const { batchResult, originalData } = tabData.currentBatchData;
+            const bData = originalData || tabData.currentBatchData.batchData;
+            if (batchResult && bData) {
+                window.BatchProcessingModule.displayBatchResults(batchResult, bData);
+            }
+        }
+
+        // Inject saved rendered HTML (skip /format call)
+        if (tabData.renderedHTML) {
+            Object.entries(tabData.renderedHTML).forEach(([indexStr, html]) => {
+                const idx = parseInt(indexStr, 10);
+                const essayDiv = queryInTab(`#batch-essay-${idx}`);
+                if (essayDiv && html) {
+                    essayDiv.innerHTML = html;
+                    reattachHandlers(idx);
+                }
+            });
+        }
+
+        // Inject saved highlights tab HTML
+        if (tabData.highlightsTabHTML) {
+            Object.entries(tabData.highlightsTabHTML).forEach(([indexStr, html]) => {
+                const hlTabDiv = queryInTab(`#highlights-tab-content-${indexStr}`);
+                if (hlTabDiv && html) {
+                    hlTabDiv.innerHTML = html;
+                    hlTabDiv.dataset.loaded = 'true';
+                    reattachHighlightsHandlers(parseInt(indexStr, 10), hlTabDiv, 'tab');
+                }
+            });
+        }
+
+        // Inject saved highlights content (grade-details section)
+        if (tabData.highlightsContentHTML) {
+            Object.entries(tabData.highlightsContentHTML).forEach(([indexStr, html]) => {
+                const hlInner = queryInTab(`#highlights-content-${indexStr}-inner`);
+                if (hlInner && html) {
+                    hlInner.innerHTML = html;
+                    hlInner.dataset.populated = 'true';
+                    reattachHighlightsHandlers(parseInt(indexStr, 10), hlInner, 'content');
+                }
+            });
+        }
+
+        // Restore remove-all checkbox states
+        if (tabData.removeAllStates) {
+            Object.entries(tabData.removeAllStates).forEach(([contentId, checked]) => {
+                if (!checked) return;
+                const cbId = contentId + '-remove-all';
+                const tabMatch = contentId.match(/^highlights-tab-content-(\d+)$/);
+                const actualCbId = tabMatch ? `highlights-tab-${tabMatch[1]}-remove-all` : cbId;
+                const cb = queryInTab(`#${actualCbId}`) || document.getElementById(actualCbId);
+                if (cb) cb.checked = true;
+            });
+        }
+
+        // Apply score overrides
+        if (tabData.scoreOverrides) {
+            applyScoreOverrides(tabData.scoreOverrides);
+        }
+
+        // Restore mark-complete checkbox states
+        if (tabData.completedEssays) {
+            Object.entries(tabData.completedEssays).forEach(([indexStr, checked]) => {
+                if (checked && window.BatchProcessingModule) {
+                    window.BatchProcessingModule.markStudentComplete(parseInt(indexStr, 10), true);
+                }
+            });
+        }
+    }
+
     async function loadAndRestore() {
         try {
             const resp = await fetch('/api/grading-session');
@@ -334,131 +462,104 @@
             const data = await resp.json();
             if (!data.exists) return false;
 
-            const { activeTab, sessionData } = data;
             console.log('[AutoSave] Restoring saved session…');
             isRestoring = true;
 
-            // 1. Switch to saved tab
-            if (activeTab && window.TabManagementModule) {
-                window.TabManagementModule.switchTab(activeTab);
-            }
+            const { sessionData, tabStoreSnapshot } = data;
 
-            // 2. Render student list skeleton via displayBatchResults
-            //    (this overwrites essayData_* globals with originals, so we re-restore after)
-            if (sessionData.currentBatchData && window.BatchProcessingModule) {
-                const restoreTabState = window.TabStore && window.TabStore.active();
-                if (restoreTabState) {
-                    restoreTabState.currentBatchData = sessionData.currentBatchData;
-                } else {
-                    window.currentBatchData = sessionData.currentBatchData;
+            // ─── Phase 7 multi-tab restore path ───────────────────────
+            if (tabStoreSnapshot && Array.isArray(tabStoreSnapshot.tabs) && tabStoreSnapshot.tabs.length > 0) {
+                console.log(`[AutoSave] Multi-tab restore: ${tabStoreSnapshot.tabs.length} tabs`);
+
+                // 1. Deserialize TabStore state (creates tab entries, restores
+                //    labels, IDs, JS state, and the ID counter). Does NOT
+                //    create DOM panes — those are handled below.
+                window.TabStore.deserialize(tabStoreSnapshot);
+
+                // 2. For each restored tab, create a DOM pane (if one doesn't
+                //    already exist) and restore its DOM state.
+                const allTabs = window.TabStore.all();
+                for (const tabState of allTabs) {
+                    const tabId = tabState.id;
+
+                    // Tab-1's DOM pane already exists in the static HTML.
+                    // For other tabs, create a new pane from the template.
+                    let pane = document.querySelector(`.tab-pane[data-tab-id="${tabId}"]`);
+                    if (!pane && window.TabManagementModule) {
+                        // createTabPaneDOM is exposed on the module
+                        if (typeof window.TabManagementModule.createTabPaneDOM === 'function') {
+                            pane = window.TabManagementModule.createTabPaneDOM(tabId);
+                        }
+                    }
+
+                    // Temporarily switch to this tab so displayBatchResults
+                    // (called inside restoreTabDOM) writes to the correct pane.
+                    if (window.TabManagementModule) {
+                        window.TabManagementModule.switchTab(tabId);
+                    }
+
+                    // Wire up event handlers for the new pane
+                    if (pane && window.TabManagementModule && typeof window.TabManagementModule.wireUpTabEventHandlers === 'function') {
+                        window.TabManagementModule.wireUpTabEventHandlers(tabId);
+                    }
+
+                    // Find the saved data for this tab in the snapshot.
+                    // tabStoreSnapshot.tabs[i] contains both the JS state AND
+                    // the DOM-derived state (renderedHTML, etc.) merged by
+                    // buildPayload.
+                    const savedTabData = tabStoreSnapshot.tabs.find(t => t.id === tabId);
+                    if (savedTabData && savedTabData.currentBatchData) {
+                        // Re-populate the tab's state (deserialize only restores
+                        // the core fields; essaySnapshots and DOM data are extras
+                        // added by buildPayload that need to be re-applied).
+                        if (savedTabData.essaySnapshots) {
+                            Object.entries(savedTabData.essaySnapshots).forEach(([key, val]) => {
+                                const match = key.match(/^essayData_(\d+)$/);
+                                if (match) {
+                                    tabState.essayData[parseInt(match[1], 10)] = val;
+                                }
+                            });
+                        }
+
+                        restoreTabDOM(savedTabData, tabId);
+                    }
                 }
-                const { batchResult, originalData } = sessionData.currentBatchData;
-                const bData = originalData || sessionData.currentBatchData.batchData;
-                if (batchResult && bData) {
-                    window.BatchProcessingModule.displayBatchResults(batchResult, bData);
+
+                // 3. Switch to the tab that was active at save time.
+                const savedActiveId = tabStoreSnapshot.activeTabId;
+                if (savedActiveId && window.TabManagementModule) {
+                    window.TabManagementModule.switchTab(savedActiveId);
                 }
-            }
 
-            // 3. Re-restore tab state (displayBatchResults overwrites essayData with originals)
-            const postDisplayTabState = window.TabStore && window.TabStore.active();
-            if (sessionData.currentBatchData) {
-                if (postDisplayTabState) {
-                    postDisplayTabState.currentBatchData = sessionData.currentBatchData;
-                } else {
-                    window.currentBatchData = sessionData.currentBatchData;
+            // ─── Legacy single-tab restore path (pre-Phase-7 saves) ──
+            } else if (sessionData) {
+                console.log('[AutoSave] Legacy single-tab restore');
+
+                const { activeTab } = data;
+                if (activeTab && window.TabManagementModule) {
+                    window.TabManagementModule.switchTab(activeTab);
                 }
-            }
-            if (sessionData.essaySnapshots) {
-                Object.entries(sessionData.essaySnapshots).forEach(([key, val]) => {
-                    // Snapshot keys are in the legacy "essayData_N" format.
-                    // Parse out the index and store on the active tab's essayData map.
-                    const match = key.match(/^essayData_(\d+)$/);
-                    if (match && postDisplayTabState) {
-                        postDisplayTabState.essayData[parseInt(match[1], 10)] = val;
-                    } else {
-                        // Fallback: restore as legacy window global
-                        window[key] = val;
-                    }
-                });
+
+                // Populate tab-1's JS state from legacy sessionData
+                const tab1State = window.TabStore && window.TabStore.active();
+                if (sessionData.currentBatchData && tab1State) {
+                    tab1State.currentBatchData = sessionData.currentBatchData;
+                }
+                if (sessionData.essaySnapshots && tab1State) {
+                    Object.entries(sessionData.essaySnapshots).forEach(([key, val]) => {
+                        const match = key.match(/^essayData_(\d+)$/);
+                        if (match) {
+                            tab1State.essayData[parseInt(match[1], 10)] = val;
+                        }
+                    });
+                }
+
+                restoreTabDOM(sessionData, window.TabStore ? window.TabStore.activeId() : null);
             }
 
-            // 4. Inject saved rendered HTML (skip /format call)
-            const htmlKeys = sessionData.renderedHTML ? Object.keys(sessionData.renderedHTML) : [];
-            console.log('[AutoSave] renderedHTML keys:', htmlKeys, 'lengths:', htmlKeys.map(k => (sessionData.renderedHTML[k] || '').length));
-            if (sessionData.renderedHTML) {
-                Object.entries(sessionData.renderedHTML).forEach(([indexStr, html]) => {
-                    const idx = parseInt(indexStr, 10);
-                    const essayDiv = window.TabStore
-                        ? window.TabStore.activeQuery(`#batch-essay-${idx}`)
-                        : document.getElementById(`batch-essay-${idx}`);
-                    if (essayDiv && html) {
-                        essayDiv.innerHTML = html;
-                        // Re-attach interactive handlers for this essay
-                        reattachHandlers(idx);
-                    }
-                });
-            }
+            // ─── Common post-restore steps ────────────────────────────
 
-            // 4b. Inject saved highlights tab HTML
-            if (sessionData.highlightsTabHTML) {
-                Object.entries(sessionData.highlightsTabHTML).forEach(([indexStr, html]) => {
-                    const hlTabDiv = window.TabStore
-                        ? window.TabStore.activeQuery(`#highlights-tab-content-${indexStr}`)
-                        : document.getElementById(`highlights-tab-content-${indexStr}`);
-                    if (hlTabDiv && html) {
-                        hlTabDiv.innerHTML = html;
-                        hlTabDiv.dataset.loaded = 'true';
-                        reattachHighlightsHandlers(parseInt(indexStr, 10), hlTabDiv, 'tab');
-                    }
-                });
-            }
-
-            // 4c. Inject saved highlights content (grade-details section)
-            if (sessionData.highlightsContentHTML) {
-                Object.entries(sessionData.highlightsContentHTML).forEach(([indexStr, html]) => {
-                    const hlInner = window.TabStore
-                        ? window.TabStore.activeQuery(`#highlights-content-${indexStr}-inner`)
-                        : document.getElementById(`highlights-content-${indexStr}-inner`);
-                    if (hlInner && html) {
-                        hlInner.innerHTML = html;
-                        hlInner.dataset.populated = 'true';
-                        reattachHighlightsHandlers(parseInt(indexStr, 10), hlInner, 'content');
-                    }
-                });
-            }
-
-            // 4d. Restore remove-all checkbox states
-            if (sessionData.removeAllStates) {
-                Object.entries(sessionData.removeAllStates).forEach(([contentId, checked]) => {
-                    if (!checked) return;
-                    // For highlights-tab: checkbox id is "highlights-tab-${i}-remove-all"
-                    // For highlights-content: checkbox id is "highlights-content-${i}-remove-all"
-                    const cbId = contentId + '-remove-all';
-                    // Also check the alternate format from the tab
-                    const tabMatch = contentId.match(/^highlights-tab-content-(\d+)$/);
-                    const actualCbId = tabMatch ? `highlights-tab-${tabMatch[1]}-remove-all` : cbId;
-                    const cb = document.getElementById(actualCbId);
-                    if (cb) {
-                        cb.checked = true;
-                    }
-                });
-            }
-
-            // 5. Apply score overrides
-            if (sessionData.scoreOverrides) {
-                applyScoreOverrides(sessionData.scoreOverrides);
-            }
-
-            // 6. Restore mark-complete checkbox states
-            if (sessionData.completedEssays) {
-                Object.entries(sessionData.completedEssays).forEach(([indexStr, checked]) => {
-                    if (checked && window.BatchProcessingModule) {
-                        window.BatchProcessingModule.markStudentComplete(parseInt(indexStr, 10), true);
-                    }
-                });
-            }
-
-            // 7. Auto-resize feedback textareas that have long content
+            // Auto-resize feedback textareas that have long content
             setTimeout(() => {
                 document.querySelectorAll('.editable-feedback').forEach(textarea => {
                     textarea.style.height = 'auto';
@@ -466,10 +567,10 @@
                 });
             }, 400);
 
-            // 8. Show clear button
+            // Show clear button
             showClearButton();
 
-            // Delay clearing isRestoring until after reattachHandlers timeouts (250ms)
+            // Delay clearing isRestoring until after reattachHandlers timeouts
             // and applyScoreOverrides event dispatches have settled
             setTimeout(() => {
                 isRestoring = false;
@@ -489,10 +590,10 @@
     async function clearSavedSession() {
         clearDebounce();
 
-        // Unlock form and clear the grading-in-progress flag so the next
-        // save doesn't re-persist a stale interrupted state.
+        // Unlock ALL tab forms and clear the grading-in-progress flag so
+        // the next save doesn't re-persist a stale interrupted state.
         gradingInProgress = false;
-        setFormLocked(false);
+        setFormLocked(false); // null tabId → unlocks ALL panes
 
         try {
             await fetch('/api/grading-session', { method: 'DELETE' });
@@ -500,43 +601,35 @@
             console.warn('[AutoSave] Delete request failed:', e);
         }
 
-        // Clear tab state and legacy globals
-        const clearTabState = window.TabStore && window.TabStore.active();
-        const activeBatchData = (clearTabState && clearTabState.currentBatchData) || window.currentBatchData;
-        if (activeBatchData) {
-            const count = activeBatchData.batchResult?.results?.length || 0;
-            for (let i = 0; i < count; i++) {
-                if (clearTabState) delete clearTabState.essayData[i];
-                delete window[`essayData_${i}`];
+        // Phase 7: Remove ALL extra tab panes from the DOM (keep tab-1's
+        // static pane). Then call TabStore.clear() which resets the store
+        // to a single fresh tab-1.
+        if (window.TabStore) {
+            const allTabs = window.TabStore.all();
+            for (const tab of allTabs) {
+                if (tab.id === 'tab-1') continue; // keep the static pane
+                const pane = document.querySelector(`.tab-pane[data-tab-id="${tab.id}"]`);
+                if (pane && pane.parentNode) pane.parentNode.removeChild(pane);
             }
+            window.TabStore.clear(); // resets store and auto-creates a fresh tab-1
         }
-        // Clear any remaining essayData entries (up to a reasonable max)
+
+        // Clear legacy window globals
         for (let i = 0; i < 50; i++) {
-            if (clearTabState) delete clearTabState.essayData[i];
             if (window[`essayData_${i}`]) delete window[`essayData_${i}`];
-        }
-        if (clearTabState) {
-            clearTabState.currentBatchData = null;
-            clearTabState.originalBatchDataForRetry = null;
         }
         window.currentBatchData = null;
         window.originalBatchDataForRetry = null;
 
-        // Clear results div in active tab
-        document.querySelectorAll('#results').forEach(div => {
+        // Clear results and batch progress in ALL remaining panes
+        document.querySelectorAll('.tab-pane #results, #results').forEach(div => {
             div.innerHTML = '';
             div.style.display = 'none';
         });
-
-        // Clear batch progress area
         document.querySelectorAll('.batch-progress-container').forEach(el => el.remove());
 
-        // Reset forms
-        const forms = ['gradingForm'];
-        forms.forEach(id => {
-            const f = document.getElementById(id);
-            if (f) f.reset();
-        });
+        // Reset ALL grading forms
+        document.querySelectorAll('#gradingForm').forEach(f => f.reset());
 
         // Remove banner and reset body padding
         const banner = document.getElementById('auto-save-banner');
@@ -548,6 +641,11 @@
         // Clear SingleResultModule batch data
         if (window.SingleResultModule && window.SingleResultModule.clearGradingState) {
             window.SingleResultModule.clearGradingState();
+        }
+
+        // Re-render the tab bar to reflect the cleared state (single tab)
+        if (window.TabManagementModule && window.TabManagementModule.renderTabBar) {
+            window.TabManagementModule.renderTabBar();
         }
 
         console.log('[AutoSave] Session cleared');
@@ -709,191 +807,206 @@
     }
 
     /**
-     * Build the POST body for /api/grading-session.
-     * @param {boolean} omitHTML - If true, skip rendered HTML to keep payload small.
+     * Gather the DOM-derived state for a single tab's pane: rendered essay
+     * HTML, highlight HTML, score overrides, checkbox states. Used by
+     * buildPayload to snapshot each tab independently.
+     *
+     * @param {string} tabId - The tab to gather from
+     * @param {Object} tabState - The tab's state from TabStore (for essay count)
+     * @param {boolean} omitHTML - Skip rendered HTML to keep payload small
+     * @returns {Object} DOM-derived data for this tab
      */
-    function buildPayload(omitHTML) {
-        // When a batch is currently streaming, the active tab may not be the
-        // tab that owns the batch (user may have switched tabs mid-stream).
-        // Prefer the batch's originating tab context over the active tab
-        // so buildPayload reads from the correct tab's state.
-        const batchOriginId = (window.BatchProcessingModule
-            && typeof window.BatchProcessingModule.getBatchTabContext === 'function'
-            && window.BatchProcessingModule.getBatchTabContext())
-            || null;
-
-        const targetTabState = window.TabStore && (
-            (batchOriginId && window.TabStore.get(batchOriginId))
-            || window.TabStore.active()
-        );
-        const activeTabState = targetTabState; // keep variable name for downstream logging
-        const activeBatchData = (targetTabState && targetTabState.currentBatchData) || window.currentBatchData;
-
-        // Diagnostic: snapshot the state that buildPayload sees on entry
-        const dbgCBDCount = activeBatchData?.batchResult?.results?.length;
-        const dbgTabGlobalsCount = activeTabState
-            ? Object.keys(activeTabState.essayData || {}).length
-            : 0;
-        const dbgWinGlobalsCount = Object.keys(window).filter(k => /^essayData_\d+$/.test(k)).length;
-        console.log(
-            `[AutoSaveDiag] buildPayload entry: ` +
-            `currentBatchData.results=${dbgCBDCount ?? 'null'}, ` +
-            `tab essayData entries=${dbgTabGlobalsCount}, ` +
-            `window essayData_* globals=${dbgWinGlobalsCount}`
-        );
-
-        // Determine essay count from currentBatchData OR by scanning essayData entries
-        const resultCount = activeBatchData?.batchResult?.results?.length
-            || countEssayDataGlobals();
-
-        if (resultCount === 0) {
-            console.log('[AutoSave] buildPayload: no essay data found, skipping');
-            return null;
-        }
-
-        // If currentBatchData is missing, reconstruct a local copy from
-        // essayData entries for THIS save only. Do NOT write it back to
-        // the live state — doing so used to corrupt the global during
-        // in-progress streaming, freezing it at a partial count and skipping
-        // the authoritative post-stream assignment in handleGradingFormSubmission.
-        let batchDataForPayload = activeBatchData;
-        if (!batchDataForPayload) {
-            console.log('[AutoSave] buildPayload: reconstructing local batchData from essayData entries (not persisting)');
-            const results = [];
-            const essays = [];
-            for (let i = 0; i < resultCount; i++) {
-                const ed = readEssayData(i);
-                if (ed) {
-                    results.push(ed.essay);
-                    essays.push(ed.originalData);
-                }
-            }
-            batchDataForPayload = {
-                batchResult: { results, totalEssays: results.length },
-                originalData: { essays }
-            };
-        }
-
-        const activeTab = document.querySelector('.tab-button.active');
-        const activeTabName = activeTab ? activeTab.getAttribute('data-tab') : 'gpt-grader';
-
-        // Gather essayData entries into the snapshots map for persistence.
-        // Key format stays as "essayData_N" for backward compatibility with
-        // the existing save format; Phase 7 will restructure persistence.
-        const essaySnapshots = {};
-        for (let i = 0; i < resultCount; i++) {
-            const ed = readEssayData(i);
-            if (ed) {
-                essaySnapshots[`essayData_${i}`] = ed;
-            }
-        }
-
-        // Gather rendered HTML from DOM (for instant restore).
-        // Scoped to the batch's originating tab (if a batch is streaming)
-        // or the active tab otherwise, so we capture HTML from the correct
-        // tab even if the user has switched.
-        const renderedHTML = {};
-        const highlightsTabHTML = {};
-        const highlightsContentHTML = {};
-        const savePaneTabId = (window.BatchProcessingModule
-            && typeof window.BatchProcessingModule.getBatchTabContext === 'function'
-            && window.BatchProcessingModule.getBatchTabContext())
-            || (window.TabStore && window.TabStore.activeId());
-        const queryInSaveTab = (selector) => {
-            if (window.TabStore && savePaneTabId) {
-                return window.TabStore.queryInTab(savePaneTabId, selector);
+    function gatherTabDOMState(tabId, tabState, omitHTML) {
+        const queryInTab = (selector) => {
+            if (window.TabStore && tabId) {
+                return window.TabStore.queryInTab(tabId, selector);
             }
             return document.querySelector(selector);
         };
+
+        const batchData = tabState?.currentBatchData;
+        const resultCount = batchData?.batchResult?.results?.length || 0;
+
+        // Gather essayData entries — prefer the tab's own state
+        const essaySnapshots = {};
+        if (tabState && tabState.essayData) {
+            for (const [idx, ed] of Object.entries(tabState.essayData)) {
+                if (ed) essaySnapshots[`essayData_${idx}`] = ed;
+            }
+        }
+
+        const renderedHTML = {};
+        const highlightsTabHTML = {};
+        const highlightsContentHTML = {};
         if (!omitHTML) {
             for (let i = 0; i < resultCount; i++) {
-                const div = queryInSaveTab(`#batch-essay-${i}`);
+                const div = queryInTab(`#batch-essay-${i}`);
                 const hasContent = div && div.innerHTML.trim() && div.innerHTML.trim() !== 'Loading formatted result...';
                 if (hasContent) {
                     renderedHTML[i] = div.innerHTML;
                 }
-
-                // Save highlights tab content ("Manage Highlights" standalone tab)
-                const hlTabDiv = queryInSaveTab(`#highlights-tab-content-${i}`);
+                const hlTabDiv = queryInTab(`#highlights-tab-content-${i}`);
                 if (hlTabDiv && hlTabDiv.dataset.loaded === 'true' && hlTabDiv.innerHTML.trim() && hlTabDiv.innerHTML.trim() !== 'Loading highlights...') {
                     highlightsTabHTML[i] = hlTabDiv.innerHTML;
                 }
-
-                // Save highlights content within grade-details section
-                const hlContentInner = queryInSaveTab(`#highlights-content-${i}-inner`);
+                const hlContentInner = queryInTab(`#highlights-content-${i}-inner`);
                 if (hlContentInner && hlContentInner.dataset.populated === 'true' && hlContentInner.innerHTML.trim()) {
                     highlightsContentHTML[i] = hlContentInner.innerHTML;
                 }
             }
         }
 
-        // Gather score overrides from SingleResultModule
-        let scoreOverrides = null;
-        if (window.SingleResultModule && window.SingleResultModule.getBatchGradingData) {
-            const bgd = window.SingleResultModule.getBatchGradingData();
-            if (bgd && Object.keys(bgd).length > 0) {
-                scoreOverrides = bgd;
-            }
-        }
-
-        // Gather mark-complete checkbox states — scoped to save-target tab
+        // Gather mark-complete checkbox states
         const completedEssays = {};
         for (let i = 0; i < resultCount; i++) {
-            const cb = queryInSaveTab(`.mark-complete-checkbox[data-student-index="${i}"]`);
-            if (cb && cb.checked) {
-                completedEssays[i] = true;
-            }
+            const cb = queryInTab(`.mark-complete-checkbox[data-student-index="${i}"]`);
+            if (cb && cb.checked) completedEssays[i] = true;
         }
 
-        // Gather remove-all checkbox states (checked property doesn't survive innerHTML)
+        // Gather remove-all checkbox states
         const removeAllStates = {};
         for (let i = 0; i < resultCount; i++) {
-            const hlTabCb = queryInSaveTab(`#highlights-tab-${i}-remove-all`);
-            if (hlTabCb && hlTabCb.checked) {
-                removeAllStates[`highlights-tab-content-${i}`] = true;
-            }
-            const hlContentCb = queryInSaveTab(`#highlights-content-${i}-remove-all`);
-            if (hlContentCb && hlContentCb.checked) {
-                removeAllStates[`highlights-content-${i}`] = true;
-            }
+            const hlTabCb = queryInTab(`#highlights-tab-${i}-remove-all`);
+            if (hlTabCb && hlTabCb.checked) removeAllStates[`highlights-tab-content-${i}`] = true;
+            const hlContentCb = queryInTab(`#highlights-content-${i}-remove-all`);
+            if (hlContentCb && hlContentCb.checked) removeAllStates[`highlights-content-${i}`] = true;
         }
 
-        const sessionData = {
-            currentBatchData: batchDataForPayload,
+        return {
             essaySnapshots,
             renderedHTML,
             highlightsTabHTML,
             highlightsContentHTML,
-            scoreOverrides,
             completedEssays,
             removeAllStates,
+        };
+    }
+
+    /**
+     * Build the POST body for /api/grading-session.
+     *
+     * Phase 7: serializes ALL tabs via TabStore.serialize(), then augments
+     * each tab's snapshot with DOM-derived state (rendered HTML, checkbox
+     * states, etc.). Also builds a legacy `sessionData` field from the
+     * primary grading tab (the batch origin or active tab) for backward
+     * compat with old restore code.
+     *
+     * @param {boolean} omitHTML - If true, skip rendered HTML to keep payload small.
+     */
+    function buildPayload(omitHTML) {
+        if (!window.TabStore) return null;
+
+        // When a batch is currently streaming, the active tab may not be the
+        // tab that owns the batch (user may have switched tabs mid-stream).
+        // Identify the "primary" tab for backward-compat sessionData.
+        const batchOriginId = (window.BatchProcessingModule
+            && typeof window.BatchProcessingModule.getBatchTabContext === 'function'
+            && window.BatchProcessingModule.getBatchTabContext())
+            || null;
+
+        const primaryTabId = batchOriginId || window.TabStore.activeId();
+        const primaryTabState = window.TabStore.get(primaryTabId) || window.TabStore.active();
+        const primaryBatchData = primaryTabState?.currentBatchData || window.currentBatchData;
+
+        // Diagnostic
+        const dbgCBDCount = primaryBatchData?.batchResult?.results?.length;
+        const dbgTabEssayCount = primaryTabState
+            ? Object.keys(primaryTabState.essayData || {}).length : 0;
+        console.log(
+            `[AutoSaveDiag] buildPayload entry: ` +
+            `currentBatchData.results=${dbgCBDCount ?? 'null'}, ` +
+            `tab essayData entries=${dbgTabEssayCount}, ` +
+            `tabs=${window.TabStore.count()}`
+        );
+
+        // Check if ANY tab has data worth saving
+        const allTabs = window.TabStore.all();
+        const anyTabHasData = allTabs.some(t =>
+            t.currentBatchData || (t.essayData && Object.keys(t.essayData).length > 0)
+        );
+        if (!anyTabHasData) {
+            console.log('[AutoSave] buildPayload: no tab has essay data, skipping');
+            return null;
+        }
+
+        // Phase 7: Serialize the full TabStore state, then augment each tab
+        // with DOM-derived data (renderedHTML, checkbox states, etc.)
+        const tabStoreSnapshot = window.TabStore.serialize();
+        for (const tabSnapshot of tabStoreSnapshot.tabs) {
+            const tabState = window.TabStore.get(tabSnapshot.id);
+            const domState = gatherTabDOMState(tabSnapshot.id, tabState, omitHTML);
+            // Merge DOM state into the tab's snapshot
+            Object.assign(tabSnapshot, domState);
+        }
+
+        // Legacy sessionData: built from the PRIMARY tab (batch origin or
+        // active tab) for backward compat. If the old restore code runs
+        // (e.g., after a rollback to pre-Phase-7 code), it reads sessionData
+        // and restores that one tab's state correctly.
+        const primaryResultCount = primaryBatchData?.batchResult?.results?.length || 0;
+        let batchDataForPayload = primaryBatchData;
+        if (!batchDataForPayload && primaryTabState) {
+            // Reconstruct from essayData if batchData is missing
+            const results = [];
+            const essays = [];
+            for (let i = 0; i < 50; i++) {
+                const ed = primaryTabState.essayData?.[i];
+                if (ed) {
+                    results.push(ed.essay);
+                    essays.push(ed.originalData);
+                }
+            }
+            if (results.length > 0) {
+                batchDataForPayload = {
+                    batchResult: { results, totalEssays: results.length },
+                    originalData: { essays }
+                };
+            }
+        }
+        const primaryDOMState = gatherTabDOMState(primaryTabId, primaryTabState, omitHTML);
+
+        const sessionData = {
+            currentBatchData: batchDataForPayload,
+            essaySnapshots: primaryDOMState.essaySnapshots,
+            renderedHTML: primaryDOMState.renderedHTML,
+            highlightsTabHTML: primaryDOMState.highlightsTabHTML,
+            highlightsContentHTML: primaryDOMState.highlightsContentHTML,
+            scoreOverrides: null, // TODO: per-tab score overrides
+            completedEssays: primaryDOMState.completedEssays,
+            removeAllStates: primaryDOMState.removeAllStates,
             gradingInProgress,
         };
 
-        // Sanity check: essaySnapshots is the source of truth for restore.
-        // renderedHTML is a display cache (only populated for expanded essays)
-        // and is expected to be smaller. Warn loudly if snapshots diverges from
-        // resultCount, which would indicate real data loss before persistence.
-        const snapshotCount = Object.keys(essaySnapshots).length;
-        const renderedCount = Object.keys(renderedHTML).length;
-        if (snapshotCount < resultCount) {
+        // Score overrides from SingleResultModule (currently a singleton,
+        // not per-tab — Phase 8 can refactor this if needed)
+        if (window.SingleResultModule && window.SingleResultModule.getBatchGradingData) {
+            const bgd = window.SingleResultModule.getBatchGradingData();
+            if (bgd && Object.keys(bgd).length > 0) {
+                sessionData.scoreOverrides = bgd;
+            }
+        }
+
+        // Diagnostics
+        const snapshotCount = Object.keys(primaryDOMState.essaySnapshots).length;
+        const renderedCount = Object.keys(primaryDOMState.renderedHTML).length;
+        if (snapshotCount < primaryResultCount) {
             console.warn(
                 `[AutoSave] buildPayload: snapshot/result MISMATCH — ` +
-                `resultCount=${resultCount}, essaySnapshots=${snapshotCount}, ` +
-                `renderedHTML=${renderedCount}. ` +
-                `Some essay data is missing from window.essayData_* globals and will not persist.`
+                `resultCount=${primaryResultCount}, essaySnapshots=${snapshotCount}, ` +
+                `renderedHTML=${renderedCount}.`
             );
         } else {
             console.log(
-                `[AutoSave] buildPayload: resultCount=${resultCount}, ` +
-                `essaySnapshots=${snapshotCount}, renderedHTML=${renderedCount} ` +
-                `(rendered cache is expected to be ≤ snapshots; collapsed essays lazy-load on expand)`
+                `[AutoSave] buildPayload: resultCount=${primaryResultCount}, ` +
+                `essaySnapshots=${snapshotCount}, renderedHTML=${renderedCount}, ` +
+                `tabs=${tabStoreSnapshot.tabs.length}`
             );
         }
 
         return {
-            activeTab: activeTabName,
-            sessionData,
+            activeTab: 'gpt-grader', // legacy
+            sessionData,              // legacy (primary tab only)
+            tabStoreSnapshot,          // Phase 7: ALL tabs
         };
     }
 

@@ -601,5 +601,7 @@ window.TabManagementModule = {
     addTab,
     closeTab,
     renderTabBar,
+    createTabPaneDOM,
+    wireUpTabEventHandlers,
     MAX_TABS,
 };

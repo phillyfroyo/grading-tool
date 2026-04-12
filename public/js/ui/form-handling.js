@@ -300,10 +300,13 @@ async function handleGradingFormSubmission(e) {
                 // Auto-save after single essay grading completes, then
                 // lock the form so the user can't accidentally submit a
                 // new batch on top of the saved session.
+                // Phase 7: scope the lock to the originating tab so only
+                // that tab's form collapses, not all tabs.
                 if (window.AutoSaveModule) {
+                    const lockTabId = currentBatchOriginTabId;
                     setTimeout(() => {
                         window.AutoSaveModule.saveImmediately();
-                        window.AutoSaveModule.setFormLocked(true);
+                        window.AutoSaveModule.setFormLocked(true, lockTabId);
                     }, 1000);
                 }
             } else {
@@ -436,7 +439,8 @@ async function handleGradingFormSubmission(e) {
                         console.log(`[AutoSaveDiag] firing saveImmediately (post-format-complete)`);
                         window.AutoSaveModule.saveImmediately();
                         window.AutoSaveModule.showClearButton('Grading complete');
-                        window.AutoSaveModule.setFormLocked(true);
+                        // Phase 7: scope the lock to the originating tab
+                        window.AutoSaveModule.setFormLocked(true, currentBatchOriginTabId);
                     })();
                 }
             } catch (streamError) {
