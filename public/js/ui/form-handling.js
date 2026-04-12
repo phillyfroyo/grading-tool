@@ -102,6 +102,20 @@ async function handleManualGradingSubmission(e) {
 async function handleGradingFormSubmission(e) {
     e.preventDefault();
 
+    // Phase 6: Hard-enforce the grading lock. The Grade button in
+    // non-originating tabs is disabled via tab-management.js, but we also
+    // check here as defense-in-depth against keyboard submits or
+    // programmatic form.submit() calls.
+    if (window.AutoSaveModule && typeof window.AutoSaveModule.isGradingInProgress === 'function') {
+        if (window.AutoSaveModule.isGradingInProgress()) {
+            showError(
+                'Grading is already in progress in another tab. Please wait for it to finish before starting a new one.',
+                'Grading in Progress'
+            );
+            return;
+        }
+    }
+
     const formData = new FormData(e.target);
     const studentName = formData.get('studentName') || 'Student';
     const classProfile = formData.get('classProfile') || '';

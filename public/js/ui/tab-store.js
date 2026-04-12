@@ -419,6 +419,54 @@
         return document.querySelectorAll(selector);
     }
 
+    /**
+     * Scoped querySelector that searches within a SPECIFIC tab's pane,
+     * regardless of which tab is currently active.
+     *
+     * Used by async writers (streaming callbacks, delayed DOM updates) that
+     * need to target a specific tab's DOM even if the user has since
+     * switched to a different tab. Falls back to document.querySelector if
+     * the target pane can't be found (for example, if the tab was closed
+     * while a pending write was in flight).
+     *
+     * @param {string} tabId - The tab ID to scope the query to
+     * @param {string} selector - CSS selector
+     * @returns {Element|null}
+     */
+    function queryInTab(tabId, selector) {
+        if (!tabId) return activeQuery(selector);
+        const pane = document.querySelector(`.tab-pane[data-tab-id="${tabId}"]`);
+        if (pane) {
+            const found = pane.querySelector(selector);
+            if (found) return found;
+        }
+        return document.querySelector(selector);
+    }
+
+    /**
+     * Scoped querySelectorAll that searches within a SPECIFIC tab's pane.
+     * Same use case as queryInTab() but returns a NodeList.
+     *
+     * @param {string} tabId - The tab ID to scope the query to
+     * @param {string} selector - CSS selector
+     * @returns {NodeList}
+     */
+    function queryAllInTab(tabId, selector) {
+        if (!tabId) return activeQueryAll(selector);
+        const pane = document.querySelector(`.tab-pane[data-tab-id="${tabId}"]`);
+        if (pane) return pane.querySelectorAll(selector);
+        return document.querySelectorAll(selector);
+    }
+
+    /**
+     * Return the DOM element for a specific tab's pane by tab ID.
+     * Returns null if the pane isn't in the DOM (e.g. after tab close).
+     */
+    function paneForTab(tabId) {
+        if (!tabId) return null;
+        return document.querySelector(`.tab-pane[data-tab-id="${tabId}"]`);
+    }
+
     // Expose the API on window.
     window.TabStore = {
         create,
@@ -436,5 +484,8 @@
         activePane,
         activeQuery,
         activeQueryAll,
+        queryInTab,
+        queryAllInTab,
+        paneForTab,
     };
 })();

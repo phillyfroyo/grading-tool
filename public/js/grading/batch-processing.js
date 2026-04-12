@@ -21,6 +21,52 @@ let processingQueue = {
 let formatCallsExpected = 0;
 let formatCallsDoneIndices = new Set();
 
+// Phase 6: Track which tab a batch grading run belongs to, so async
+// streaming callbacks write to the correct tab even if the user has
+// switched to a different tab. Set by displayBatchProgress() when a
+// batch starts, cleared by clearBatchTabContext() when it ends.
+//
+// While this is set, all tab-scoped DOM writes in streaming paths use
+// tabScopedQuery() / tabScopedQueryAll() which target this specific
+// tab instead of the currently-active tab.
+let currentBatchTabId = null;
+
+/**
+ * Tab-scoped query helper for streaming writes. Uses currentBatchTabId
+ * if set; otherwise falls back to the currently active tab (preserves
+ * the old activeQuery behavior for non-streaming callers).
+ */
+function tabScopedQuery(selector) {
+    if (currentBatchTabId && window.TabStore) {
+        return window.TabStore.queryInTab(currentBatchTabId, selector);
+    }
+    if (window.TabStore) return window.TabStore.activeQuery(selector);
+    return document.querySelector(selector);
+}
+
+/** Tab-scoped querySelectorAll equivalent of tabScopedQuery. */
+function tabScopedQueryAll(selector) {
+    if (currentBatchTabId && window.TabStore) {
+        return window.TabStore.queryAllInTab(currentBatchTabId, selector);
+    }
+    if (window.TabStore) return window.TabStore.activeQueryAll(selector);
+    return document.querySelectorAll(selector);
+}
+
+/**
+ * Set the originating tab for the current batch run. Called by
+ * displayBatchProgress() at the start of a new batch.
+ */
+function setBatchTabContext(tabId) {
+    currentBatchTabId = tabId;
+    console.log(`[BatchProcessing] batch tab context set: ${tabId}`);
+}
+
+/** Clear the batch tab context when the run finishes. */
+function clearBatchTabContext() {
+    currentBatchTabId = null;
+}
+
 /**
  * Reset format-call tracking at the start of a new grading run.
  * @param {number} expectedCount - Number of essays in the batch.
@@ -136,8 +182,15 @@ function displayBatchProgress(batchData) {
         nextInQueue: 2
     };
 
-    // Find the results div in the active tab
-    const resultsDiv = window.TabStore ? window.TabStore.activeQuery('#results') : document.getElementById('results');
+    // Phase 6: Pin this batch run to the currently-active tab. All subsequent
+    // streaming writes go to this tab even if the user switches tabs during
+    // grading. Context is cleared when the grading-finished event fires.
+    if (window.TabStore) {
+        setBatchTabContext(window.TabStore.activeId());
+    }
+
+    // Find the results div in the tab that owns this batch run.
+    const resultsDiv = tabScopedQuery('#results');
     if (!resultsDiv) return;
 
     // Create the progress UI immediately
@@ -257,11 +310,11 @@ function displayBatchProgress(batchData) {
     resultsDiv.style.display = 'block';
 
     // Set up rotating loading message for the first essay only
-    // Start with "Processing..." then switch to funny messages after 3 seconds
+    // Start with "Processing..." then switch to funny messages after 3 seconds.
+    // Scoped to the batch's originating tab so the rotation keeps updating
+    // the correct element even if the user switches tabs mid-grading.
     if (batchData.essays.length > 0) {
-        const firstEssayMessageElement = window.TabStore
-            ? window.TabStore.activeQuery('#processing-message-0')
-            : document.getElementById('processing-message-0');
+        const firstEssayMessageElement = tabScopedQuery('#processing-message-0');
         if (firstEssayMessageElement) {
             // After 3 seconds, start rotating funny messages
             setTimeout(() => {
@@ -290,9 +343,10 @@ function displayBatchProgress(batchData) {
  * @param {string} error - Error message if failed
  */
 function updateEssayStatus(index, success, error = null) {
-    const statusElement = window.TabStore
-        ? window.TabStore.activeQuery(`#student-status-${index}`)
-        : document.getElementById(`student-status-${index}`);
+    // Phase 6: this fires from streaming callbacks, which can happen after
+    // the user switches to a different tab. Use tabScopedQuery so writes go
+    // to the batch's originating tab, not the currently-active tab.
+    const statusElement = tabScopedQuery(`#student-status-${index}`);
     if (!statusElement) return;
 
     // Clear the loading message timer when the first essay status is updated
@@ -312,9 +366,7 @@ function updateEssayStatus(index, success, error = null) {
         `;
 
         // Enable the download button for successful essays
-        const studentRow = window.TabStore
-            ? window.TabStore.activeQuery(`#student-row-${index}`)
-            : document.getElementById(`student-row-${index}`);
+        const studentRow = tabScopedQuery(`#student-row-${index}`);
         if (studentRow) {
             const downloadBtn = studentRow.querySelector('button[onclick*="downloadIndividualEssay"]');
             if (downloadBtn) {
@@ -351,9 +403,7 @@ function updateEssayStatus(index, success, error = null) {
     // Activate next essay in queue if there is one
     if (processingQueue.nextInQueue < processingQueue.totalEssays) {
         const nextIndex = processingQueue.nextInQueue;
-        const nextStatusElement = window.TabStore
-            ? window.TabStore.activeQuery(`#student-status-${nextIndex}`)
-            : document.getElementById(`student-status-${nextIndex}`);
+        const nextStatusElement = tabScopedQuery(`#student-status-${nextIndex}`);
 
         if (nextStatusElement) {
             // Update from "In queue" to "Processing..."
@@ -387,8 +437,10 @@ function displayBatchResults(batchResult, originalData) {
         });
     }
 
-    // Find the results div in the active tab
-    const resultsDiv = window.TabStore ? window.TabStore.activeQuery('#results') : document.getElementById('results');
+    // Find the results div in the batch's originating tab. During streaming
+    // restore (loadAndRestore() → displayBatchResults()), the batch tab
+    // context is cleared so this falls back to the active tab.
+    const resultsDiv = tabScopedQuery('#results');
     if (!resultsDiv) return;
 
     // Create compact batch results UI
@@ -404,9 +456,7 @@ function displayBatchResults(batchResult, originalData) {
 
     // Capture checkbox states BEFORE replacing HTML
     const checkboxStates = {};
-    const preReplaceCheckboxes = window.TabStore
-        ? window.TabStore.activeQueryAll('.remove-all-checkbox')
-        : document.querySelectorAll('.remove-all-checkbox');
+    const preReplaceCheckboxes = tabScopedQueryAll('.remove-all-checkbox');
     preReplaceCheckboxes.forEach(checkbox => {
         const contentId = checkbox.dataset.contentId;
         if (contentId && checkbox.checked) {
@@ -425,9 +475,7 @@ function displayBatchResults(batchResult, originalData) {
     // Restore checkbox states AFTER HTML is replaced
     setTimeout(() => {
         Object.entries(checkboxStates).forEach(([contentId, isChecked]) => {
-            const checkbox = window.TabStore
-                ? window.TabStore.activeQuery(`.remove-all-checkbox[data-content-id="${contentId}"]`)
-                : document.querySelector(`.remove-all-checkbox[data-content-id="${contentId}"]`);
+            const checkbox = tabScopedQuery(`.remove-all-checkbox[data-content-id="${contentId}"]`);
             if (checkbox && isChecked) {
                 checkbox.checked = true;
                 localStorage.setItem(`removeAllFromPDF_${contentId}`, 'true');
@@ -517,13 +565,18 @@ const essayLoadingLock = {};
  * @param {number} index - Essay index
  */
 function loadEssayDetails(index) {
-    const essayDiv = window.TabStore
-        ? window.TabStore.activeQuery(`#batch-essay-${index}`)
-        : document.getElementById(`batch-essay-${index}`);
+    // Use tabScopedQuery: during streaming, the batch tab context pins the
+    // lookup to the originating tab so writes go there even if the user has
+    // switched tabs. After streaming ends, the context is cleared and this
+    // falls back to the active tab (for user-initiated expansion clicks).
+    const essayDiv = tabScopedQuery(`#batch-essay-${index}`);
 
-    // Read essay data from the active tab; fall back to the legacy window
-    // global during the multi-phase migration.
-    const essayDataEntry = (window.TabStore && window.TabStore.active()?.essayData?.[index])
+    // Read essay data from the originating tab's state during streaming,
+    // or the active tab's state for post-stream user clicks. Falls back to
+    // the legacy window global as a last resort.
+    const contextTabId = currentBatchTabId
+        || (window.TabStore && window.TabStore.activeId());
+    const essayDataEntry = (contextTabId && window.TabStore && window.TabStore.get(contextTabId)?.essayData?.[index])
         || window[`essayData_${index}`];
     if (!essayDiv || !essayDataEntry) return;
 
@@ -575,9 +628,7 @@ function loadEssayDetails(index) {
             markFormatCallComplete(index, 'loaded');
 
             // IMMEDIATE verification: confirm content loaded into correct div
-            const verifyDiv = window.TabStore
-                ? window.TabStore.activeQuery(`#batch-essay-${index}`)
-                : document.getElementById(`batch-essay-${index}`);
+            const verifyDiv = tabScopedQuery(`#batch-essay-${index}`);
             const verifyContent = verifyDiv?.querySelector(`.formatted-essay-content[data-essay-index="${index}"]`);
             if (!verifyContent) {
                 console.error(`❌ Essay ${index} content verification FAILED - content did not load correctly`);
@@ -589,9 +640,7 @@ function loadEssayDetails(index) {
             // Initialize essay editing for this batch item AFTER content is loaded
                 setTimeout(() => {
                     // Initialize text selection
-                    const essayContentDiv = window.TabStore
-                        ? window.TabStore.activeQuery(`.formatted-essay-content[data-essay-index="${index}"]`)
-                        : document.querySelector(`.formatted-essay-content[data-essay-index="${index}"]`);
+                    const essayContentDiv = tabScopedQuery(`.formatted-essay-content[data-essay-index="${index}"]`);
                     if (essayContentDiv) {
                         essayContentDiv.addEventListener('mouseup', (e) => {
                             // Get current selection to check if user is actually selecting text
@@ -625,9 +674,7 @@ function loadEssayDetails(index) {
                     }
 
                     // Initialize category buttons
-                    const categoryButtons = window.TabStore
-                        ? window.TabStore.activeQueryAll(`#categoryButtons-${index} .category-btn`)
-                        : document.querySelectorAll(`#categoryButtons-${index} .category-btn`);
+                    const categoryButtons = tabScopedQueryAll(`#categoryButtons-${index} .category-btn`);
 
                     categoryButtons.forEach(btn => {
                         btn.addEventListener('click', function(e) {
@@ -645,9 +692,7 @@ function loadEssayDetails(index) {
 
                     // Initialize existing highlights
                     if (window.HighlightingModule) {
-                        const essayContainer = window.TabStore
-                            ? window.TabStore.activeQuery(`#batch-essay-${index}`)
-                            : document.getElementById(`batch-essay-${index}`);
+                        const essayContainer = tabScopedQuery(`#batch-essay-${index}`);
                         if (essayContainer) {
                             // Check for both span and mark elements from GPT highlighting
                             const gptHighlights = essayContainer.querySelectorAll('span[style*="background"], span[class*="highlight"], span[style*="color"], mark[data-type], mark.highlighted-segment');
@@ -730,9 +775,7 @@ function loadEssayDetails(index) {
                     }
 
                     // Adjust height after all content is loaded
-                    const detailsDiv = window.TabStore
-                        ? window.TabStore.activeQuery(`#student-details-${index}`)
-                        : document.getElementById(`student-details-${index}`);
+                    const detailsDiv = tabScopedQuery(`#student-details-${index}`);
                     if (detailsDiv && detailsDiv.style.maxHeight !== '0px') {
                         detailsDiv.style.maxHeight = detailsDiv.scrollHeight + 'px';
                     }
@@ -1107,6 +1150,20 @@ async function retryEssay(index) {
     }
 }
 
+// Phase 6: Clear the batch tab context when the current grading run finishes.
+// This happens whether the run succeeded or failed. After this, subsequent
+// calls to tabScopedQuery() fall back to the active tab (for user-initiated
+// post-grading actions like expanding an essay or clicking retry).
+//
+// The markFormatCallComplete wait happens BEFORE markGradingFinished fires,
+// so all the in-stream writes have already been scoped correctly by the
+// time we clear the context here.
+if (typeof window !== 'undefined') {
+    window.addEventListener('grading-finished', () => {
+        clearBatchTabContext();
+    });
+}
+
 // Export functions for module usage
 window.BatchProcessingModule = {
     displayBatchProgress,
@@ -1125,5 +1182,8 @@ window.BatchProcessingModule = {
     retryEssay,
     resetFormatCallTracking,
     markFormatCallComplete,
-    waitForAllFormatCalls
+    waitForAllFormatCalls,
+    // Phase 6 exports for testing / debugging
+    setBatchTabContext,
+    clearBatchTabContext,
 };

@@ -110,6 +110,17 @@
      */
     function markGradingStarted() {
         gradingInProgress = true;
+        // Emit event so tab-management can disable Grade buttons in other tabs.
+        // The originating tab ID is captured at the event site so listeners know
+        // which tab to leave enabled.
+        try {
+            const originTabId = (window.TabStore && window.TabStore.activeId()) || null;
+            window.dispatchEvent(new CustomEvent('grading-started', {
+                detail: { originTabId }
+            }));
+        } catch (err) {
+            console.error('[AutoSave] Failed to dispatch grading-started:', err);
+        }
     }
 
     /**
@@ -119,6 +130,19 @@
      */
     function markGradingFinished() {
         gradingInProgress = false;
+        try {
+            window.dispatchEvent(new CustomEvent('grading-finished', { detail: {} }));
+        } catch (err) {
+            console.error('[AutoSave] Failed to dispatch grading-finished:', err);
+        }
+    }
+
+    /**
+     * Public getter for the grading-in-progress state. Other modules use
+     * this to decide whether to allow starting a new grading run.
+     */
+    function isGradingInProgress() {
+        return gradingInProgress;
     }
 
     /**
@@ -1194,5 +1218,6 @@
         setFormLocked,
         markGradingStarted,
         markGradingFinished,
+        isGradingInProgress,
     };
 })();

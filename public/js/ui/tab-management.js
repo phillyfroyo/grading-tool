@@ -196,6 +196,11 @@ function addTab() {
     // now we run them again for each new tab. The handlers themselves are
     // idempotent via data-listener-attached guards we set below.
     wireUpTabEventHandlers(tabId);
+
+    // Phase 6: if grading is already in progress in another tab, start the
+    // new tab with its Grade button disabled so the user can still prep
+    // essays but can't start a second concurrent grading run.
+    applyGradingLockToNewTab(tabId);
 }
 
 /**
@@ -430,8 +435,72 @@ function wireUpTabBarHandlers() {
 }
 
 /**
+ * Phase 6: Grading lock — while any tab is actively grading, disable the
+ * Grade button in every OTHER tab. The originating tab keeps its Grade
+ * button enabled (though its submit handler is already disabled via the
+ * existing "grading in progress" button-disabled state inside form-handling).
+ *
+ * Users can still switch tabs, view results, add essays, paste content,
+ * select class profiles, edit teacher notes — everything except start a
+ * new grading run in a non-originating tab.
+ *
+ * The lock state is signaled by grading-started and grading-finished events
+ * dispatched on window from AutoSaveModule.markGradingStarted/Finished.
+ */
+
+/** The tab ID that owns the currently-running grading operation, or null. */
+let gradingLockOriginTabId = null;
+
+/**
+ * Disable the Grade button in every tab except the originating one.
+ * Called from the grading-started event listener.
+ */
+function applyGradingLockAcrossTabs(originTabId) {
+    gradingLockOriginTabId = originTabId;
+    document.querySelectorAll('.tab-pane').forEach(pane => {
+        if (pane.dataset.tabId === originTabId) return;
+        const gradeBtn = pane.querySelector('#gradeButton, button[type="submit"]');
+        if (gradeBtn) {
+            gradeBtn.disabled = true;
+            gradeBtn.dataset.lockedByOtherTab = 'true';
+            gradeBtn.title = 'Grading is in progress in another tab. Please wait.';
+        }
+    });
+}
+
+/** Re-enable Grade buttons in all tabs. Called from grading-finished. */
+function releaseGradingLockAcrossTabs() {
+    gradingLockOriginTabId = null;
+    document.querySelectorAll('.tab-pane').forEach(pane => {
+        const gradeBtn = pane.querySelector('#gradeButton, button[type="submit"]');
+        if (gradeBtn && gradeBtn.dataset.lockedByOtherTab === 'true') {
+            gradeBtn.disabled = false;
+            delete gradeBtn.dataset.lockedByOtherTab;
+            gradeBtn.title = '';
+        }
+    });
+}
+
+/**
+ * If grading is currently in progress, disable the Grade button in a
+ * newly-created tab. Called from addTab() right after wireUpTabEventHandlers().
+ */
+function applyGradingLockToNewTab(tabId) {
+    if (!gradingLockOriginTabId) return;
+    if (tabId === gradingLockOriginTabId) return;
+    const pane = document.querySelector(`.tab-pane[data-tab-id="${tabId}"]`);
+    if (!pane) return;
+    const gradeBtn = pane.querySelector('#gradeButton, button[type="submit"]');
+    if (gradeBtn) {
+        gradeBtn.disabled = true;
+        gradeBtn.dataset.lockedByOtherTab = 'true';
+        gradeBtn.title = 'Grading is in progress in another tab. Please wait.';
+    }
+}
+
+/**
  * Listen for TabStore events and re-render the tab bar when state changes.
- * Also syncs pane visibility on tab-switched.
+ * Also syncs pane visibility on tab-switched, and handles grading lock.
  */
 function wireUpTabStoreListeners() {
     // Guard against double wiring.
@@ -459,6 +528,17 @@ function wireUpTabStoreListeners() {
         renderTabBar();
     });
     window.addEventListener('tab-store-cleared', renderTabBar);
+
+    // Phase 6 grading lock: disable Grade buttons in non-originating tabs
+    // while any tab is actively grading.
+    window.addEventListener('grading-started', (e) => {
+        const originTabId = (e.detail && e.detail.originTabId)
+            || (window.TabStore && window.TabStore.activeId());
+        if (originTabId) applyGradingLockAcrossTabs(originTabId);
+    });
+    window.addEventListener('grading-finished', () => {
+        releaseGradingLockAcrossTabs();
+    });
 }
 
 /**
