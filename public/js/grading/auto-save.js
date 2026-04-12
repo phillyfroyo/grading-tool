@@ -84,6 +84,7 @@
     function saveImmediately() {
         clearDebounce();
         hasPendingChanges = true;
+        updateBannerStatus('Saving\u2026', 'ok');
         return doSave('saveImmediately');
     }
 
@@ -868,16 +869,6 @@
             `tabs=${window.TabStore.count()}`
         );
 
-        // Check if ANY tab has data worth saving
-        const allTabs = window.TabStore.all();
-        const anyTabHasData = allTabs.some(t =>
-            t.currentBatchData || (t.essayData && Object.keys(t.essayData).length > 0)
-        );
-        if (!anyTabHasData) {
-            console.log('[AutoSave] buildPayload: no tab has essay data, skipping');
-            return null;
-        }
-
         // Phase 7: Serialize the full TabStore state, then augment each tab
         // with DOM-derived data (renderedHTML, checkbox states, etc.)
         const tabStoreSnapshot = window.TabStore.serialize();
@@ -976,7 +967,6 @@
         }
 
         isSaving = true;
-        updateBannerStatus('Saving\u2026', 'ok');
         try {
             console.log(`[AutoSave] Saving session via ${source}…`);
             const resp = await fetch('/api/grading-session', {
