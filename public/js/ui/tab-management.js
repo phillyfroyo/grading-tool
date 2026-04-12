@@ -33,6 +33,55 @@
 const MAX_TABS = 10;
 
 /**
+ * Chrome-style tab close behavior: when a tab is closed via its × button,
+ * the remaining tabs keep their current pixel widths so the next tab's ×
+ * lands exactly where the cursor is. The user can rapid-fire close tabs
+ * without moving their mouse. Tabs reflow to natural widths only when the
+ * cursor leaves the tab bar.
+ *
+ * `frozenTabWidths` is a Map<tabId, widthPx> set by closeTab before the
+ * bar re-renders. After renderTabBar rebuilds the DOM, it checks this map
+ * and applies explicit widths. A mouseleave listener on the bar clears it.
+ */
+let frozenTabWidths = null;
+
+function freezeTabWidths() {
+    const bar = document.getElementById('gradingTabBar');
+    if (!bar) return;
+    frozenTabWidths = new Map();
+    bar.querySelectorAll('.tab-item').forEach(item => {
+        const tabId = item.dataset.tabId;
+        if (tabId) {
+            frozenTabWidths.set(tabId, item.offsetWidth);
+        }
+    });
+}
+
+function applyFrozenWidths() {
+    if (!frozenTabWidths) return;
+    const bar = document.getElementById('gradingTabBar');
+    if (!bar) return;
+    bar.querySelectorAll('.tab-item').forEach(item => {
+        const tabId = item.dataset.tabId;
+        const frozenWidth = frozenTabWidths.get(tabId);
+        if (frozenWidth) {
+            item.style.width = frozenWidth + 'px';
+            item.style.flex = 'none';
+        }
+    });
+}
+
+function unfreezeTabWidths() {
+    frozenTabWidths = null;
+    const bar = document.getElementById('gradingTabBar');
+    if (!bar) return;
+    bar.querySelectorAll('.tab-item').forEach(item => {
+        item.style.width = '';
+        item.style.flex = '';
+    });
+}
+
+/**
  * Switch to a tab by ID or legacy tab name.
  *
  * Delegates to TabStore.switchTo(). The pane visibility update happens in
@@ -154,6 +203,13 @@ function renderTabBar() {
     parts.push(`<button type="button" class="tab-add-btn" id="tabAddBtn"${disabledAttr}>+</button>`);
 
     bar.innerHTML = parts.join('');
+
+    // Chrome-style: if tabs were frozen (from a close), re-apply the
+    // frozen widths to the newly rendered tab items so the × buttons
+    // stay under the cursor for rapid-fire closing.
+    if (frozenTabWidths) {
+        applyFrozenWidths();
+    }
 }
 
 /** Escape HTML entities in a string for safe insertion into innerHTML. */
@@ -276,6 +332,11 @@ function closeTab(tabId) {
 
     const hasWork = tabHasUnsavedWork(tabId);
     const doClose = () => {
+        // Chrome-style: snapshot current tab widths BEFORE the close so
+        // renderTabBar can re-apply them and the next tab's × stays under
+        // the cursor. Widths unfreeze on mouseleave of the tab bar.
+        freezeTabWidths();
+
         // Remove the DOM pane.
         const pane = document.querySelector(`.tab-pane[data-tab-id="${tabId}"]`);
         if (pane && pane.parentNode) pane.parentNode.removeChild(pane);
@@ -437,6 +498,16 @@ function wireUpTabBarHandlers() {
         const tabItem = label.closest('.tab-item');
         if (!tabItem) return;
         startRenameTab(tabItem.dataset.tabId, label);
+    });
+
+    // Chrome-style: when the cursor leaves the tab bar after closing a
+    // tab, unfreeze the locked widths so tabs reflow to their natural
+    // flex sizes. This is what makes rapid-fire closing feel smooth —
+    // tabs stay put while you're clicking, then resize once you're done.
+    bar.addEventListener('mouseleave', () => {
+        if (frozenTabWidths) {
+            unfreezeTabWidths();
+        }
     });
 }
 
