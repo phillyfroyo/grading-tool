@@ -45,6 +45,14 @@ const MAX_TABS = 10;
  */
 let frozenTabWidths = null;
 
+/**
+ * Freeze the tab bar so remaining tabs don't resize after a close.
+ *
+ * Approach: capture each tab's current width and the bar's total
+ * scrollable width. After the bar re-renders with N-1 tabs, set
+ * each remaining tab to its PRE-CLOSE width (not the post-reflow
+ * width). This keeps the × buttons in place for rapid-fire closing.
+ */
 function freezeTabWidths() {
     const bar = document.getElementById('gradingTabBar');
     if (!bar) return;
@@ -172,7 +180,12 @@ function resolveLegacyTabName(name) {
  * Render the tab bar from TabStore state. Called at init and in response
  * to tab-* events. Idempotent — safe to call repeatedly.
  */
+/** When true, renderTabBar is a no-op. Set during closeTab to prevent
+ *  the event-driven re-render from destroying frozen tab widths. */
+let suppressBarRender = false;
+
 function renderTabBar() {
+    if (suppressBarRender) return;
     const bar = document.getElementById('gradingTabBar');
     if (!bar || !window.TabStore) return;
 
@@ -332,28 +345,64 @@ function closeTab(tabId) {
 
     const hasWork = tabHasUnsavedWork(tabId);
     const doClose = () => {
-        // Chrome-style: snapshot current tab widths BEFORE the close so
-        // we can re-apply them after the bar re-renders and keep the next
-        // tab's × under the cursor. Widths unfreeze on mouseleave.
+        // Chrome-style rapid-fire close: instead of letting renderTabBar
+        // rebuild the entire bar (which destroys frozen widths), we:
+        // 1. Freeze each tab to its current pixel width
+        // 2. Remove ONLY the closed tab's bar item (not a full rebuild)
+        // 3. Suppress the event-driven renderTabBar during the close
+        // 4. Tabs stay frozen until mouseleave unfreezes them
+
+        const bar = document.getElementById('gradingTabBar');
+
+        // Step 1: freeze current widths
         freezeTabWidths();
+
+        // Step 2: remove the closed tab's item from the bar directly
+        // (without a full renderTabBar rebuild)
+        if (bar) {
+            const closedItem = bar.querySelector(`.tab-item[data-tab-id="${tabId}"]`);
+            if (closedItem) closedItem.remove();
+        }
+
+        // Step 3: suppress renderTabBar during TabStore.close() by
+        // temporarily setting a flag that renderTabBar checks
+        suppressBarRender = true;
 
         // Remove the DOM pane.
         const pane = document.querySelector(`.tab-pane[data-tab-id="${tabId}"]`);
         if (pane && pane.parentNode) pane.parentNode.removeChild(pane);
 
-        // Remove from store (store will auto-switch to another tab if this
-        // was the active one, and fire tab-switched which re-renders the bar).
+        // Remove from store (fires tab-switched + tab-closed events,
+        // but renderTabBar is suppressed so the bar DOM stays intact
+        // with its frozen widths).
         window.TabStore.close(tabId);
 
-        // The event-driven renderTabBar calls above rebuild the DOM.
-        // Apply frozen widths once more in a microtask to ensure they
-        // stick even if multiple renders happened synchronously (e.g.
-        // tab-switched + tab-closed both firing from the same close).
-        requestAnimationFrame(() => {
-            if (frozenTabWidths) {
-                applyFrozenWidths();
-            }
-        });
+        suppressBarRender = false;
+
+        // Step 4: apply frozen widths to the remaining bar items
+        // (they're still the original DOM elements, not rebuilt)
+        applyFrozenWidths();
+
+        // Update the data-tab-count attribute for CSS rules (e.g. hide
+        // close button on last tab)
+        if (bar && window.TabStore) {
+            bar.dataset.tabCount = String(window.TabStore.count());
+        }
+
+        // Update the active indicator on the bar items (TabStore may
+        // have switched to a different tab)
+        if (bar && window.TabStore) {
+            const newActiveId = window.TabStore.activeId();
+            bar.querySelectorAll('.tab-item').forEach(item => {
+                if (item.dataset.tabId === newActiveId) {
+                    item.classList.add('active');
+                    item.setAttribute('aria-selected', 'true');
+                } else {
+                    item.classList.remove('active');
+                    item.setAttribute('aria-selected', 'false');
+                }
+            });
+        }
 
         // Persist the updated tab state so a refresh doesn't resurrect
         // the closed tab from the old DB snapshot.
