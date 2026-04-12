@@ -57,50 +57,70 @@
     display: block;
 }
 
-/* ===== MULTI-TAB BAR (Phase 5) ===== */
-/* Horizontal row of grading tabs with a "+" button. Renders dynamically
-   from TabStore state via tab-management.js renderTabBar(). */
+/* ===== MULTI-TAB BAR (Chrome-style) ===== */
+/* Horizontal row of grading tabs styled after Chrome browser tabs.
+   Renders dynamically from TabStore state via tab-management.js. */
 .tab-bar {
     display: flex;
     align-items: flex-end;
-    gap: 2px;
-    border-bottom: 2px solid #e9ecef;
-    margin-bottom: 20px;
-    padding: 0;
+    gap: 0;
+    padding: 6px 8px 0 8px;
+    background: #dee2e6;
+    border-radius: 8px 8px 0 0;
+    margin-bottom: 0;
     overflow-x: auto;
-    flex-wrap: wrap;
+    flex-wrap: nowrap;
 }
 
 .tab-item {
     display: inline-flex;
     align-items: center;
     gap: 6px;
-    padding: 10px 14px;
-    background: #f8f9fa;
-    color: #6c757d;
-    border: 1px solid #e9ecef;
-    border-bottom: none;
-    border-radius: 6px 6px 0 0;
+    padding: 8px 12px;
+    background: transparent;
+    color: #5f6368;
+    border: none;
+    border-radius: 8px 8px 0 0;
     cursor: pointer;
-    font-size: 14px;
+    font-size: 13px;
     font-weight: 500;
     user-select: none;
     position: relative;
-    top: 2px; /* overlap the border so active tab looks connected */
-    min-width: 100px;
-    max-width: 220px;
+    min-width: 80px;
+    max-width: 200px;
+    transition: background 0.15s ease, color 0.15s ease;
+    margin-right: 1px;
 }
 
 .tab-item:hover:not(.active) {
-    background: #e9ecef;
+    background: rgba(255, 255, 255, 0.5);
 }
 
 .tab-item.active {
-    background: #007bff;
-    color: white;
-    border-color: #007bff;
-    font-weight: bold;
+    background: #ffffff;
+    color: #1a73e8;
+    font-weight: 600;
     z-index: 1;
+    /* Active tab "connects" to the content below by having the same
+       white background as the form area. The bar's grey background
+       shows through for inactive tabs, creating the visual separation. */
+}
+
+/* Subtle separator between inactive tabs */
+.tab-item:not(.active) + .tab-item:not(.active)::before {
+    content: '';
+    position: absolute;
+    left: -1px;
+    top: 25%;
+    height: 50%;
+    width: 1px;
+    background: rgba(0, 0, 0, 0.12);
+}
+
+/* Don't show separator next to the active tab */
+.tab-item.active + .tab-item::before,
+.tab-item:has(+ .tab-item.active)::after {
+    display: none;
 }
 
 .tab-label {
@@ -115,7 +135,7 @@
 .tab-label.editing {
     background: white;
     color: #212529;
-    border: 1px solid #007bff;
+    border: 1px solid #1a73e8;
     border-radius: 3px;
     padding: 1px 4px;
     outline: none;
@@ -125,59 +145,70 @@
     background: transparent;
     border: none;
     color: inherit;
-    font-size: 18px;
+    font-size: 16px;
     line-height: 1;
-    padding: 0 4px;
+    width: 20px;
+    height: 20px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
     cursor: pointer;
-    border-radius: 3px;
+    border-radius: 50%;
+    opacity: 0;
+    transition: opacity 0.15s, background 0.15s;
+    flex-shrink: 0;
+}
+
+.tab-item:hover .tab-close {
     opacity: 0.6;
 }
 
-.tab-item:hover .tab-close,
 .tab-item.active .tab-close {
-    opacity: 1;
+    opacity: 0.5;
 }
 
 .tab-close:hover {
-    background: rgba(220, 53, 69, 0.15);
-    color: #dc3545;
+    opacity: 1 !important;
+    background: rgba(0, 0, 0, 0.08);
 }
 
 .tab-item.active .tab-close:hover {
-    background: rgba(255, 255, 255, 0.25);
-    color: white;
+    background: rgba(26, 115, 232, 0.12);
+    color: #1a73e8;
 }
 
-/* Hide the close button when it is the only tab — we never allow zero tabs,
-   and closing the last tab would just auto-create a fresh one, which is
-   confusing UX. Keep the single remaining tab uncloseable. */
+/* Hide the close button when it is the only tab */
 .tab-bar[data-tab-count="1"] .tab-close {
     display: none;
 }
 
 .tab-add-btn {
-    background: #f8f9fa;
-    color: #495057;
-    border: 1px solid #e9ecef;
-    border-bottom: none;
-    border-radius: 6px 6px 0 0;
-    padding: 10px 14px;
+    background: transparent;
+    color: #5f6368;
+    border: none;
+    border-radius: 50%;
+    width: 28px;
+    height: 28px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
     cursor: pointer;
     font-size: 18px;
-    font-weight: bold;
+    font-weight: 400;
     line-height: 1;
-    position: relative;
-    top: 2px;
-    min-width: 40px;
+    margin-left: 4px;
+    margin-bottom: 4px;
+    transition: background 0.15s;
+    flex-shrink: 0;
 }
 
 .tab-add-btn:hover {
-    background: #e9ecef;
-    color: #212529;
+    background: rgba(255, 255, 255, 0.5);
+    color: #202124;
 }
 
 .tab-add-btn:disabled {
-    opacity: 0.4;
+    opacity: 0.3;
     cursor: not-allowed;
 }
 
