@@ -283,6 +283,12 @@ function closeTab(tabId) {
         // Remove from store (store will auto-switch to another tab if this
         // was the active one, and fire tab-switched which re-renders the bar).
         window.TabStore.close(tabId);
+
+        // Persist the updated tab state so a refresh doesn't resurrect
+        // the closed tab from the old DB snapshot.
+        if (window.AutoSaveModule && window.AutoSaveModule.saveImmediately) {
+            window.AutoSaveModule.saveImmediately();
+        }
     };
 
     if (hasWork && window.ModalManager && typeof window.ModalManager.showConfirmation === 'function') {
