@@ -1,6 +1,44 @@
 # Grading Tool - TODO
 
-> Last updated: 2026-04-07
+> Last updated: 2026-04-11
+
+---
+
+## 🟡 OPEN: Prisma connection pool exhaustion during concurrent grading
+
+**Discovered:** 2026-04-11 during Phase 6 multi-tab grading tests
+**Severity:** Latent — dev-only symptom so far, but will bite in production
+**Branch where observed:** `april-2026-tabs` (but unrelated to the tabs refactor)
+
+**Symptom:** Intermittent `Profile not found` errors during batch grading. The server logs show:
+
+```
+prisma:error
+Invalid `prisma.class_profiles.findFirst()` invocation:
+Timed out fetching a new connection from the connection pool. More info: http://pris.ly/d/connection-pool
+(Current connection pool timeout: 10, connection limit: 5)
+```
+
+Same profile ID on a subsequent attempt returns `Database search result: FOUND` without the error. The profile exists in the DB and is owned by the correct user — the lookup just times out waiting for a free connection.
+
+**Why it surfaced now:** Phase 6 multi-tab testing fires more rapid consecutive DB-touching requests (auth check + profile lookup per essay + auto-save writes) than single-tab testing ever did. The 5-connection pool saturates under that load. Prod hasn't seen it because real teachers grade one batch at a time, not two-tab stress tests.
+
+**Why it matters for prod:** Once multi-tab grading ships, real users will legitimately start firing more concurrent requests. The pool exhaustion will hit prod eventually, and when it does it presents as a misleading "Profile not found" error instead of the real "DB connection timeout" cause.
+
+**Unknown factors to investigate before fixing:**
+- What connection limit does prod Prisma use? Neon/Vercel Postgres may have different pool settings than local dev.
+- Is `pgbouncer` or another connection pooler sitting in front of Prisma on prod?
+- Does any middleware (auth, profile lookup, session) leak connections by not releasing them?
+- Should the connection limit be bumped, or is there a leak to fix first?
+
+**Suggested fix direction (when tackled):**
+1. Reproduce reliably: script a multi-tab-like load test against local dev to trigger the timeout.
+2. Diagnose: check Prisma's connection usage during the test — is it hitting 5 consistently, or is it leaking over time?
+3. Fix the root cause OR bump the pool size appropriately for expected concurrency.
+4. **Separately: improve error handling** — when `findProfileById` throws a connection timeout, the backend should either retry once or return a 503 with a "database temporarily unavailable, please retry" message, NOT a misleading "Profile not found".
+5. Add monitoring/alerts for connection pool errors in prod.
+
+**Scope:** Out of scope for the multi-tab refactor. File as its own follow-up after the tabs work lands.
 
 ---
 
