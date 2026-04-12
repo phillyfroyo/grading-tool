@@ -369,6 +369,10 @@ function startRenameTab(tabId, labelEl) {
             const newLabel = labelEl.textContent.trim();
             if (newLabel && newLabel !== tab.label) {
                 window.TabStore.rename(tabId, newLabel);
+                // Persist the renamed tab so it survives a refresh.
+                if (window.AutoSaveModule && window.AutoSaveModule.saveImmediately) {
+                    window.AutoSaveModule.saveImmediately();
+                }
             } else {
                 // Revert display to original if blank or unchanged.
                 labelEl.textContent = tab.label;
