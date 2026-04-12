@@ -94,7 +94,9 @@
     max-width: 200px;
     transition: background 0.15s ease, color 0.15s ease;
     margin-right: 1px;
-    overflow: hidden;
+    /* overflow must be visible (not hidden) so the manila-folder
+       notch pseudo-elements can extend outside the tab bounds */
+    overflow: visible;
 }
 
 .tab-item:hover:not(.active) {
