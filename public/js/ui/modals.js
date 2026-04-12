@@ -456,8 +456,14 @@ class ModalManager {
 
         targetElement.style.display = '';
 
-        // Update stored grading data if it exists
-        if (window.currentGradingData) {
+        // Update stored grading data if it exists.
+        // Writes to the active tab's state; falls back to the legacy window
+        // global during the multi-phase migration in case TabStore isn't
+        // loaded yet.
+        const activeTabState = window.TabStore && window.TabStore.active();
+        if (activeTabState && activeTabState.currentGradingData) {
+            activeTabState.currentGradingData.teacher_notes = notesText.trim();
+        } else if (window.currentGradingData) {
             window.currentGradingData.teacher_notes = notesText.trim();
         }
 

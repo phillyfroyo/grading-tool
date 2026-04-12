@@ -961,8 +961,9 @@ function enhanceContentForPDF(content, studentName, originalContent = null) {
     const originalTeacherNotes = sourceForOriginal.querySelector('.teacher-notes');
     const savedNotesFromDataset = originalTeacherNotes?.dataset?.teacherNotes;
 
-    // Check window.currentGradingData as another fallback
-    const globalTeacherNotes = window.currentGradingData?.teacher_notes;
+    // Check the active tab's currentGradingData as another fallback
+    const globalTeacherNotes = (window.TabStore && window.TabStore.active()?.currentGradingData?.teacher_notes)
+        || window.currentGradingData?.teacher_notes;
 
     let notesText = '';
 
@@ -1919,11 +1920,15 @@ window.exportManualToPDF = exportManualToPDF;
 window.exportIndividualEssay = exportIndividualEssay;
 window.downloadIndividualEssay = function(index) {
     // Wrapper function for batch download
-    // Try multiple ways to get the essay data
-    let essayData = window[`essayData_${index}`];
+    // Try multiple ways to get the essay data. Prefer the active tab's
+    // stored essay data, fall back to legacy window globals.
+    const activeTabState = window.TabStore && window.TabStore.active();
+    let essayData = (activeTabState && activeTabState.essayData?.[index])
+        || window[`essayData_${index}`];
 
     if (!essayData) {
-        essayData = window.batchResults?.essays?.[index];
+        essayData = (activeTabState && activeTabState.batchResults?.essays?.[index])
+            || window.batchResults?.essays?.[index];
     }
 
     if (!essayData && window.BatchProcessingModule) {

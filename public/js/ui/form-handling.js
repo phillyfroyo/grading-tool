@@ -304,27 +304,44 @@ async function handleGradingFormSubmission(e) {
             // Use streaming batch endpoint for better UX (essays return progressively)
             console.log(`[AutoSaveDiag] streaming start: ${batchData.essays.length} essays submitted`);
 
-            // Store original batch data globally for retry functionality
-            window.originalBatchDataForRetry = batchData;
+            // Store original batch data for retry functionality — scoped to
+            // the active tab via TabStore, with a fallback to the legacy
+            // window global during the multi-phase migration.
+            const submitTabState = window.TabStore && window.TabStore.active();
+            if (submitTabState) {
+                submitTabState.originalBatchDataForRetry = batchData;
+            } else {
+                window.originalBatchDataForRetry = batchData;
+            }
 
             try {
                 const streamResult = await streamBatchGradingSimple(batchData);
 
-                const preExisting = !!window.currentBatchData;
-                const preExistingCount = window.currentBatchData?.batchResult?.results?.length;
+                // Read current batch data from active tab with window fallback
+                const readCurrentBatchData = () => (window.TabStore && window.TabStore.active()?.currentBatchData)
+                    || window.currentBatchData;
+
+                const preExisting = !!readCurrentBatchData();
+                const preExistingCount = readCurrentBatchData()?.batchResult?.results?.length;
                 const streamCount = streamResult?.results?.length;
                 console.log(
                     `[AutoSaveDiag] streaming done: streamResult.results=${streamCount}, ` +
                     `currentBatchData already set=${preExisting} (len=${preExistingCount ?? 'n/a'})`
                 );
 
-                // Ensure window.currentBatchData is set after streaming completes
+                // Ensure currentBatchData is set after streaming completes
                 // (streaming displays results individually via queue, skipping displayBatchResults)
-                if (!window.currentBatchData && streamResult) {
-                    window.currentBatchData = {
+                if (!readCurrentBatchData() && streamResult) {
+                    const newBatchData = {
                         batchResult: streamResult,
                         originalData: batchData
                     };
+                    const postStreamTabState = window.TabStore && window.TabStore.active();
+                    if (postStreamTabState) {
+                        postStreamTabState.currentBatchData = newBatchData;
+                    } else {
+                        window.currentBatchData = newBatchData;
+                    }
                     console.log(`[AutoSaveDiag] assigned currentBatchData from streamResult (len=${streamCount})`);
                 } else if (preExisting && preExistingCount !== streamCount) {
                     console.warn(
@@ -462,10 +479,16 @@ async function streamBatchGradingSimple(batchData) {
     if (totalEssays <= CHUNK_SIZE) {
         const smallResult = await processEssayChunk(batchData, 0);
         // Keep currentBatchData in sync so any save firing here sees the truth.
-        window.currentBatchData = {
+        const smallBatch = {
             batchResult: smallResult,
             originalData: batchData
         };
+        const smallTabState = window.TabStore && window.TabStore.active();
+        if (smallTabState) {
+            smallTabState.currentBatchData = smallBatch;
+        } else {
+            window.currentBatchData = smallBatch;
+        }
         return smallResult;
     }
 
@@ -498,7 +521,7 @@ async function streamBatchGradingSimple(batchData) {
             // Update currentBatchData incrementally so any save firing mid-batch
             // (debounced from user edits, etc.) sees the latest known results
             // instead of triggering the buildPayload reconstruction fallback.
-            window.currentBatchData = {
+            const chunkBatch = {
                 batchResult: {
                     success: true,
                     results: allResults,
@@ -506,6 +529,12 @@ async function streamBatchGradingSimple(batchData) {
                 },
                 originalData: batchData
             };
+            const chunkTabState = window.TabStore && window.TabStore.active();
+            if (chunkTabState) {
+                chunkTabState.currentBatchData = chunkBatch;
+            } else {
+                window.currentBatchData = chunkBatch;
+            }
 
             processedCount = chunkEnd;
 
@@ -633,7 +662,7 @@ async function processEssayChunk(chunkData, globalOffset) {
 
                         // Store essay data for expansion (use GLOBAL index)
                         if (data.success && chunkData.essays[data.index]) {
-                            window[`essayData_${globalResultIndex}`] = {
+                            const streamSnapshot = {
                                 essay: {
                                     success: true,
                                     result: data.result,
@@ -645,6 +674,12 @@ async function processEssayChunk(chunkData, globalOffset) {
                                     classProfile: chunkData.classProfile || null
                                 }
                             };
+                            const streamTabState = window.TabStore && window.TabStore.active();
+                            if (streamTabState) {
+                                streamTabState.essayData[globalResultIndex] = streamSnapshot;
+                            } else {
+                                window[`essayData_${globalResultIndex}`] = streamSnapshot;
+                            }
                         }
 
                         // Queue this result for staggered display

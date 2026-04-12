@@ -436,15 +436,21 @@ function displayBatchResults(batchResult, originalData) {
         });
     }, 50);
 
-    // Store batch data globally for download and expand functions
-    window.currentBatchData = { batchResult, originalData };
+    // Store batch data on the active tab for download and expand functions.
+    // Falls back to window globals if TabStore isn't available.
+    const activeTabState = window.TabStore && window.TabStore.active();
+    if (activeTabState) {
+        activeTabState.currentBatchData = { batchResult, originalData };
+    } else {
+        window.currentBatchData = { batchResult, originalData };
+    }
 
     // Store essay data for lazy loading when expanded
     if (batchResult.results && originalData && originalData.essays) {
         batchResult.results.forEach((essay, index) => {
             if (essay.success) {
                 const essayFromOriginal = originalData.essays[index];
-                window[`essayData_${index}`] = {
+                const snapshot = {
                     essay: essay,
                     originalData: {
                         ...essayFromOriginal,
@@ -452,6 +458,11 @@ function displayBatchResults(batchResult, originalData) {
                         classProfile: originalData.classProfile || null
                     }
                 };
+                if (activeTabState) {
+                    activeTabState.essayData[index] = snapshot;
+                } else {
+                    window[`essayData_${index}`] = snapshot;
+                }
             }
         });
     }
@@ -510,7 +521,11 @@ function loadEssayDetails(index) {
         ? window.TabStore.activeQuery(`#batch-essay-${index}`)
         : document.getElementById(`batch-essay-${index}`);
 
-    if (!essayDiv || !window[`essayData_${index}`]) return;
+    // Read essay data from the active tab; fall back to the legacy window
+    // global during the multi-phase migration.
+    const essayDataEntry = (window.TabStore && window.TabStore.active()?.essayData?.[index])
+        || window[`essayData_${index}`];
+    if (!essayDiv || !essayDataEntry) return;
 
     // LOCK: Prevent duplicate concurrent loads for the same essay
     if (essayLoadingLock[index]) {
@@ -526,7 +541,7 @@ function loadEssayDetails(index) {
     // Set the lock
     essayLoadingLock[index] = true;
 
-    const { essay, originalData } = window[`essayData_${index}`];
+    const { essay, originalData } = essayDataEntry;
 
     // Show loading spinner with themed message
     const loadingMessage = getLoadingMessage();
@@ -754,7 +769,8 @@ function loadEssayDetails(index) {
 function downloadIndividualEssay(index) {
     console.log('Downloading essay for student index:', index);
 
-    const essayData = window[`essayData_${index}`];
+    const essayData = (window.TabStore && window.TabStore.active()?.essayData?.[index])
+        || window[`essayData_${index}`];
     if (!essayData) {
         console.error('No essay data found for index:', index);
         return;
@@ -776,17 +792,19 @@ function downloadIndividualEssay(index) {
 function downloadAllEssays() {
     console.log('Downloading all essays');
 
-    if (!window.currentBatchData) {
+    const batchData = (window.TabStore && window.TabStore.active()?.currentBatchData)
+        || window.currentBatchData;
+    if (!batchData) {
         console.error('No batch data available for download');
         return;
     }
 
     // Use PDF export module if available
     if (window.PDFExportModule && window.PDFExportModule.exportBatchEssays) {
-        window.PDFExportModule.exportBatchEssays(window.currentBatchData);
+        window.PDFExportModule.exportBatchEssays(batchData);
     } else {
         // Fallback implementation
-        console.log('PDF export not available, batch data:', window.currentBatchData);
+        console.log('PDF export not available, batch data:', batchData);
         showError('PDF export functionality is not available.', 'PDF Export Error');
     }
 }
@@ -1003,7 +1021,8 @@ async function retryEssay(index) {
     essayLoadingLock[index] = false;
 
     // Get original batch data (stored separately from currentBatchData to avoid conflicts)
-    const batchData = window.originalBatchDataForRetry;
+    const batchData = (window.TabStore && window.TabStore.active()?.originalBatchDataForRetry)
+        || window.originalBatchDataForRetry;
     if (!batchData || !batchData.essays || !batchData.essays[index]) {
         console.error('❌ Cannot retry: original batch data not found');
         alert('Cannot retry: original essay data not found. Please refresh and try grading again.');
@@ -1051,7 +1070,7 @@ async function retryEssay(index) {
             console.log(`✅ Retry successful for ${essay.studentName}`);
 
             // Store the essay data in the same format as batch processing
-            window[`essayData_${index}`] = {
+            const retrySnapshot = {
                 essay: {
                     index: index,
                     success: true,
@@ -1067,6 +1086,13 @@ async function retryEssay(index) {
                     classProfile: batchData.classProfile || null
                 }
             };
+
+            const retryTabState = window.TabStore && window.TabStore.active();
+            if (retryTabState) {
+                retryTabState.essayData[index] = retrySnapshot;
+            } else {
+                window[`essayData_${index}`] = retrySnapshot;
+            }
 
             // Update status to success
             updateEssayStatus(index, true);

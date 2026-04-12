@@ -98,8 +98,11 @@ function editTeacherNotes(element) {
                                 targetElement.title = 'Click to edit teacher notes';
                             }
                             
-                            // Update global data
-                            if (window.currentGradingData) {
+                            // Update stored grading data on the active tab
+                            const activeTabState = window.TabStore && window.TabStore.active();
+                            if (activeTabState && activeTabState.currentGradingData) {
+                                activeTabState.currentGradingData.teacher_notes = notesText.trim();
+                            } else if (window.currentGradingData) {
                                 window.currentGradingData.teacher_notes = notesText.trim();
                             }
                         }
@@ -250,8 +253,12 @@ function createTeacherNotesInlineEditor(element) {
             element.title = 'Click to edit teacher notes';
         }
         
-        // Update global data for PDF export
-        if (window.currentGradingData) {
+        // Update stored grading data on the active tab for PDF export
+        const activeTabState = window.TabStore && window.TabStore.active();
+        if (activeTabState && activeTabState.currentGradingData) {
+            activeTabState.currentGradingData.teacher_notes = newNotes;
+            console.log('✅ Updated active tab currentGradingData.teacher_notes via inline editor');
+        } else if (window.currentGradingData) {
             window.currentGradingData.teacher_notes = newNotes;
             console.log('✅ Updated currentGradingData.teacher_notes via inline editor');
         }

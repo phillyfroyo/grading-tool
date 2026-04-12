@@ -1151,7 +1151,8 @@ async function saveEssayToAccount(btn, essayIndex) {
 
         // Get essay grading data (JSON)
         let essayData = null;
-        const essayDataObj = window[`essayData_${essayIndex}`];
+        const essayDataObj = (window.TabStore && window.TabStore.active()?.essayData?.[essayIndex])
+            || window[`essayData_${essayIndex}`];
         const batchData = window.SingleResultModule?.getBatchGradingData?.();
 
         if (essayDataObj) {
@@ -1200,8 +1201,10 @@ async function saveEssayToAccount(btn, essayIndex) {
             classProfileId = essayDataObj.originalData.classProfile;
         }
         // 2. From currentBatchData (set during grading)
-        if (!classProfileId && window.currentBatchData?.originalData?.classProfile) {
-            classProfileId = window.currentBatchData.originalData.classProfile;
+        const activeBatchData = (window.TabStore && window.TabStore.active()?.currentBatchData)
+            || window.currentBatchData;
+        if (!classProfileId && activeBatchData?.originalData?.classProfile) {
+            classProfileId = activeBatchData.originalData.classProfile;
         }
         // 3. Fallback: read the dropdown directly
         if (!classProfileId) {

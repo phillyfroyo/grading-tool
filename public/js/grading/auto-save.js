@@ -322,21 +322,39 @@
             // 2. Render student list skeleton via displayBatchResults
             //    (this overwrites essayData_* globals with originals, so we re-restore after)
             if (sessionData.currentBatchData && window.BatchProcessingModule) {
-                window.currentBatchData = sessionData.currentBatchData;
-                const { batchResult, originalData } = window.currentBatchData;
-                const bData = originalData || window.currentBatchData.batchData;
+                const restoreTabState = window.TabStore && window.TabStore.active();
+                if (restoreTabState) {
+                    restoreTabState.currentBatchData = sessionData.currentBatchData;
+                } else {
+                    window.currentBatchData = sessionData.currentBatchData;
+                }
+                const { batchResult, originalData } = sessionData.currentBatchData;
+                const bData = originalData || sessionData.currentBatchData.batchData;
                 if (batchResult && bData) {
                     window.BatchProcessingModule.displayBatchResults(batchResult, bData);
                 }
             }
 
-            // 3. Re-restore window globals (displayBatchResults overwrites essayData_* with originals)
+            // 3. Re-restore tab state (displayBatchResults overwrites essayData with originals)
+            const postDisplayTabState = window.TabStore && window.TabStore.active();
             if (sessionData.currentBatchData) {
-                window.currentBatchData = sessionData.currentBatchData;
+                if (postDisplayTabState) {
+                    postDisplayTabState.currentBatchData = sessionData.currentBatchData;
+                } else {
+                    window.currentBatchData = sessionData.currentBatchData;
+                }
             }
             if (sessionData.essaySnapshots) {
                 Object.entries(sessionData.essaySnapshots).forEach(([key, val]) => {
-                    window[key] = val;
+                    // Snapshot keys are in the legacy "essayData_N" format.
+                    // Parse out the index and store on the active tab's essayData map.
+                    const match = key.match(/^essayData_(\d+)$/);
+                    if (match && postDisplayTabState) {
+                        postDisplayTabState.essayData[parseInt(match[1], 10)] = val;
+                    } else {
+                        // Fallback: restore as legacy window global
+                        window[key] = val;
+                    }
                 });
             }
 
@@ -458,16 +476,24 @@
             console.warn('[AutoSave] Delete request failed:', e);
         }
 
-        // Clear globals
-        if (window.currentBatchData) {
-            const count = window.currentBatchData.batchResult?.results?.length || 0;
+        // Clear tab state and legacy globals
+        const clearTabState = window.TabStore && window.TabStore.active();
+        const activeBatchData = (clearTabState && clearTabState.currentBatchData) || window.currentBatchData;
+        if (activeBatchData) {
+            const count = activeBatchData.batchResult?.results?.length || 0;
             for (let i = 0; i < count; i++) {
+                if (clearTabState) delete clearTabState.essayData[i];
                 delete window[`essayData_${i}`];
             }
         }
-        // Clear any remaining essayData globals (up to a reasonable max)
+        // Clear any remaining essayData entries (up to a reasonable max)
         for (let i = 0; i < 50; i++) {
+            if (clearTabState) delete clearTabState.essayData[i];
             if (window[`essayData_${i}`]) delete window[`essayData_${i}`];
+        }
+        if (clearTabState) {
+            clearTabState.currentBatchData = null;
+            clearTabState.originalBatchDataForRetry = null;
         }
         window.currentBatchData = null;
         window.originalBatchDataForRetry = null;
@@ -622,15 +648,25 @@
     }
 
     /**
-     * Count how many essayData_* globals exist (scan up to 50).
+     * Look up essay data by index. Prefers the active tab's essayData map,
+     * falls back to the legacy window global.
+     */
+    function readEssayData(index) {
+        const tab = window.TabStore && window.TabStore.active();
+        if (tab && tab.essayData && tab.essayData[index]) return tab.essayData[index];
+        return window[`essayData_${index}`];
+    }
+
+    /**
+     * Count how many essayData entries exist (scan up to 50).
      * Returns highest filled index + 1, so the iteration range in buildPayload
      * spans the full batch even when failed essays leave gaps in the sequence
-     * (batch-processing.js only sets essayData_* for essay.success === true).
+     * (batch-processing.js only sets essayData for essay.success === true).
      */
     function countEssayDataGlobals() {
         let highestIndex = -1;
         for (let i = 0; i < 50; i++) {
-            if (window[`essayData_${i}`]) highestIndex = i;
+            if (readEssayData(i)) highestIndex = i;
         }
         return highestIndex + 1;
     }
@@ -640,17 +676,25 @@
      * @param {boolean} omitHTML - If true, skip rendered HTML to keep payload small.
      */
     function buildPayload(omitHTML) {
+        // Read active tab's batch data, falling back to legacy window global
+        const activeTabState = window.TabStore && window.TabStore.active();
+        const activeBatchData = (activeTabState && activeTabState.currentBatchData) || window.currentBatchData;
+
         // Diagnostic: snapshot the state that buildPayload sees on entry
-        const dbgCBDCount = window.currentBatchData?.batchResult?.results?.length;
-        const dbgGlobalsCount = Object.keys(window).filter(k => /^essayData_\d+$/.test(k)).length;
+        const dbgCBDCount = activeBatchData?.batchResult?.results?.length;
+        const dbgTabGlobalsCount = activeTabState
+            ? Object.keys(activeTabState.essayData || {}).length
+            : 0;
+        const dbgWinGlobalsCount = Object.keys(window).filter(k => /^essayData_\d+$/.test(k)).length;
         console.log(
             `[AutoSaveDiag] buildPayload entry: ` +
             `currentBatchData.results=${dbgCBDCount ?? 'null'}, ` +
-            `essayData_* globals=${dbgGlobalsCount}`
+            `tab essayData entries=${dbgTabGlobalsCount}, ` +
+            `window essayData_* globals=${dbgWinGlobalsCount}`
         );
 
-        // Determine essay count from currentBatchData OR by scanning essayData_* globals
-        const resultCount = window.currentBatchData?.batchResult?.results?.length
+        // Determine essay count from currentBatchData OR by scanning essayData entries
+        const resultCount = activeBatchData?.batchResult?.results?.length
             || countEssayDataGlobals();
 
         if (resultCount === 0) {
@@ -659,17 +703,17 @@
         }
 
         // If currentBatchData is missing, reconstruct a local copy from
-        // essayData_* globals for THIS save only. Do NOT write it back to
-        // window.currentBatchData — doing so used to corrupt the global during
+        // essayData entries for THIS save only. Do NOT write it back to
+        // the live state — doing so used to corrupt the global during
         // in-progress streaming, freezing it at a partial count and skipping
         // the authoritative post-stream assignment in handleGradingFormSubmission.
-        let batchDataForPayload = window.currentBatchData;
+        let batchDataForPayload = activeBatchData;
         if (!batchDataForPayload) {
-            console.log('[AutoSave] buildPayload: reconstructing local batchData from essayData globals (not persisting to window)');
+            console.log('[AutoSave] buildPayload: reconstructing local batchData from essayData entries (not persisting)');
             const results = [];
             const essays = [];
             for (let i = 0; i < resultCount; i++) {
-                const ed = window[`essayData_${i}`];
+                const ed = readEssayData(i);
                 if (ed) {
                     results.push(ed.essay);
                     essays.push(ed.originalData);
@@ -684,11 +728,14 @@
         const activeTab = document.querySelector('.tab-button.active');
         const activeTabName = activeTab ? activeTab.getAttribute('data-tab') : 'gpt-grader';
 
-        // Gather essayData_* globals
+        // Gather essayData entries into the snapshots map for persistence.
+        // Key format stays as "essayData_N" for backward compatibility with
+        // the existing save format; Phase 7 will restructure persistence.
         const essaySnapshots = {};
         for (let i = 0; i < resultCount; i++) {
-            if (window[`essayData_${i}`]) {
-                essaySnapshots[`essayData_${i}`] = window[`essayData_${i}`];
+            const ed = readEssayData(i);
+            if (ed) {
+                essaySnapshots[`essayData_${i}`] = ed;
             }
         }
 
@@ -850,7 +897,7 @@
      */
     function reattachHandlers(index) {
         setTimeout(() => {
-            const essayData = window[`essayData_${index}`];
+            const essayData = readEssayData(index);
             if (!essayData) return;
             const { essay, originalData } = essayData;
 

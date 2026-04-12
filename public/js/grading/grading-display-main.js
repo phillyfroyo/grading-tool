@@ -134,8 +134,10 @@ function loadHighlightsTab(index) {
         // Essay details not loaded yet - load them first, then populate highlights
         console.log(`📄 Essay content not loaded for index ${index}, loading now...`);
 
-        // Check if essay data exists
-        if (!window[`essayData_${index}`]) {
+        // Check if essay data exists on the active tab (with window fallback)
+        const essayDataCheck = (window.TabStore && window.TabStore.active()?.essayData?.[index])
+            || window[`essayData_${index}`];
+        if (!essayDataCheck) {
             contentDiv.innerHTML = '<p style="color: #999;">Essay data not available.</p>';
             return;
         }
