@@ -2,7 +2,7 @@
 
 > **Branch**: `april-2026-tabs`
 > **Started**: 2026-04-11
-> **Status**: Phase 1 ✓, Phase 2 ✓, Phase 3 ✓ — ready to start Phase 4
+> **Status**: Phase 1 ✓, Phase 2 ✓, Phase 3 ✓, Phase 4 ✓ — ready to start Phase 5
 > **Estimate**: 5–7 focused sessions
 
 ## The feature
@@ -105,13 +105,14 @@ Not touched (intentional — these are global, not per-tab):
 - Legacy manual-grading tab
 - Dead code in `public/js/ui/tabs.js` (not loaded by index.html; cleanup deferred)
 
-### Phase 4: Window globals → TabStore migration — ~100-150 lines modified
-- [ ] Replace every `window.currentBatchData` read/write with `TabStore.active().currentBatchData` across the 9 files identified
-- [ ] Same for `window.currentGradingData`
-- [ ] Same for `window.originalBatchDataForRetry`
-- [ ] Same for `window.essayData_${i}` (pattern becomes `TabStore.active().essayData[i]`)
-- [ ] Same for `window.batchResults` (fallback in pdf-export)
-- [ ] App still has 1 tab but state now lives in TabStore instead of window globals
+### Phase 4: Window globals → TabStore migration ✓ COMPLETE (commit 7074729)
+- [x] Replace every `window.currentBatchData` read/write with `TabStore.active().currentBatchData` — 8 files, ~15 call sites
+- [x] Same for `window.currentGradingData` — 3 files (modals, editing-functions, pdf-export). Note: currentGradingData is actually a module-scoped variable in single-result.js; `window.currentGradingData` was always undefined, so the writes in modals.js/editing-functions.js have always been dead code. Migration follows the pattern anyway to be consistent and set up for future use.
+- [x] Same for `window.originalBatchDataForRetry` — form-handling.js (write), batch-processing.js (read), auto-save.js (clear)
+- [x] Same for `window.essayData_${i}` (pattern becomes `TabStore.active().essayData[i]`) — 5 files, ~10 call sites. The existing "essayData_N" key format is preserved in the persistence snapshot for backward compat; Phase 7 restructures persistence.
+- [x] Same for `window.batchResults` (fallback in pdf-export.js `downloadIndividualEssay` wrapper)
+- [x] Introduced `readEssayData(index)` helper in auto-save.js to unify reads across TabStore and legacy window globals
+- [x] App still has 1 tab but state now lives in TabStore instead of window globals. All writes go through `TabStore.active()` in normal operation, with legacy window globals as a defensive fallback that should never fire.
 
 ### Phase 5: Multi-tab UI — ~100 lines new + HTML
 - [ ] Add tab bar container with tab buttons and `+` button in `public/index.html`
