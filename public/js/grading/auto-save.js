@@ -181,12 +181,18 @@
             const form = pane.querySelector('#gradingForm');
             if (!form) return;
 
-            // Phase 8: When locked, hide the ENTIRE form — the user only
-            // needs to see the results and the "Clear & Start Fresh" banner.
-            // The form (profile dropdown, essay inputs, grade button) is
-            // irrelevant while viewing completed results. It reappears when
-            // the user clicks "Clear & Start Fresh".
-            form.style.display = locked ? 'none' : '';
+            // Phase 8: When locked, hide the ENTIRE form — but only if this
+            // tab actually has graded results. Empty tabs (no batch data)
+            // should keep their form visible so the user sees the blank
+            // grading form, not a blank page.
+            if (locked) {
+                const paneTabId = pane.dataset.tabId;
+                const tabState = paneTabId && window.TabStore && window.TabStore.get(paneTabId);
+                const hasResults = tabState && tabState.currentBatchData;
+                form.style.display = hasResults ? 'none' : '';
+            } else {
+                form.style.display = '';
+            }
 
             // Also clean up any lingering inline lock messages from the old
             // partial-hide approach (in case they were left from a prior
