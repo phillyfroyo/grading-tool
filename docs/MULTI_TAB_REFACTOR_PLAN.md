@@ -2,7 +2,7 @@
 
 > **Branch**: `april-2026-tabs`
 > **Started**: 2026-04-11
-> **Status**: Phase 1 ✓, Phase 2 ✓, Phase 3 ✓, Phase 4 ✓, Phase 5 ✓, Phase 6 ✓ (browser verified) — ready to start Phase 7
+> **Status**: Phase 1 ✓, Phase 2 ✓, Phase 3 ✓, Phase 4 ✓, Phase 5 ✓, Phase 6 ✓, Phase 7 ✓ (pending browser test) — ready for Phase 8 (polish/testing)
 > **Estimate**: 5–7 focused sessions
 
 ## The feature
@@ -157,11 +157,16 @@ Turned out bigger than the ~50 line estimate because the "pin streaming writes t
   2. Tab-2's Grade button looked clickable because the existing CSS overrode the default disabled appearance and `title` only showed on hover. Fix: explicit CSS for `[data-locked-by-other-tab="true"]` with greyed-out background, `cursor: not-allowed`, and a new `.grading-lock-notice` inline span showing "⏳ Grading active in another tab" in yellow warning styling.
   Healthy log sequence verified: all 3 essays complete their format calls, `tab essayData entries=3`, `essaySnapshots=3`, no MISMATCH warnings, clean save.
 
-### Phase 7: Auto-save multi-tab — ~150 lines modified
-- [ ] Change `doSave()` in `auto-save.js` to iterate `TabStore.all()` and serialize each tab's state
-- [ ] Change `loadAndRestore()` to populate `TabStore` from the saved blob and activate the previously-active tab
-- [ ] Update the restore-prompt modal to reflect multi-tab (probably "Restore your 3 saved tabs?" instead of "Restore your saved session?")
-- [ ] Test session-restore flow with multiple tabs
+### Phase 7: Auto-save multi-tab ✓ COMPLETE (commit ce4f8bc)
+Ended up ~408 lines added / 289 removed (~120 net new) across 3 files.
+
+- [x] buildPayload now calls TabStore.serialize() and augments each tab with DOM-derived state via gatherTabDOMState helper. Legacy sessionData field preserved for backward compat.
+- [x] loadAndRestore detects tabStoreSnapshot in saved data and enters multi-tab restore: deserializes TabStore, creates DOM panes per tab, wires up handlers, restores HTML + checkbox states + score overrides via restoreTabDOM helper. Falls back to old single-tab path for pre-Phase-7 saves.
+- [x] peekSavedSession counts essays across all tabs; restore modal says "N essays across M tabs" when appropriate.
+- [x] setFormLocked accepts optional tabId parameter to scope lock to one tab. Post-grading lock calls pass currentBatchOriginTabId.
+- [x] clearSavedSession removes extra tab panes from DOM, calls TabStore.clear(), re-renders tab bar.
+- [x] tab-management.js exports createTabPaneDOM and wireUpTabEventHandlers for the restore path.
+- [ ] **Browser smoke test pending** — test grading in 2 tabs, refresh, verify both restore.
 
 ### Phase 8: Testing + bug fixes — ~1 session
 - [ ] Open `+` button, verify new tab opens empty
