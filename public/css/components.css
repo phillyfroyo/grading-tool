@@ -86,12 +86,12 @@
     font-weight: 500;
     user-select: none;
     position: relative;
-    /* Flex-based sizing: tabs share available space and shrink when
-       the bar is full, just like Chrome tabs. Preferred width is 200px
-       but they compress down to 60px before any overflow occurs. */
-    flex: 1 1 200px;
+    /* Flex-based sizing: tabs shrink when the bar is full (like Chrome)
+       but do NOT grow beyond their preferred width. flex-grow: 0 prevents
+       a single tab from stretching to fill the whole bar. */
+    flex: 0 1 200px;
     min-width: 60px;
-    max-width: 260px;
+    max-width: 200px;
     transition: background 0.15s ease, color 0.15s ease;
     margin-right: 1px;
     overflow: hidden;
@@ -234,9 +234,11 @@
     font-weight: 400;
     line-height: 1;
     margin-left: 8px;
-    align-self: center; /* vertically center in the tab bar */
+    align-self: center;
     transition: background 0.15s;
-    flex-shrink: 0;
+    /* Never shrink or grow — the + button keeps its size and tabs
+       shrink around it */
+    flex: 0 0 auto;
 }
 
 .tab-add-btn:hover {
