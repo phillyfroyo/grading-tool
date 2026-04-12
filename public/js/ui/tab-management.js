@@ -333,8 +333,8 @@ function closeTab(tabId) {
     const hasWork = tabHasUnsavedWork(tabId);
     const doClose = () => {
         // Chrome-style: snapshot current tab widths BEFORE the close so
-        // renderTabBar can re-apply them and the next tab's × stays under
-        // the cursor. Widths unfreeze on mouseleave of the tab bar.
+        // we can re-apply them after the bar re-renders and keep the next
+        // tab's × under the cursor. Widths unfreeze on mouseleave.
         freezeTabWidths();
 
         // Remove the DOM pane.
@@ -344,6 +344,16 @@ function closeTab(tabId) {
         // Remove from store (store will auto-switch to another tab if this
         // was the active one, and fire tab-switched which re-renders the bar).
         window.TabStore.close(tabId);
+
+        // The event-driven renderTabBar calls above rebuild the DOM.
+        // Apply frozen widths once more in a microtask to ensure they
+        // stick even if multiple renders happened synchronously (e.g.
+        // tab-switched + tab-closed both firing from the same close).
+        requestAnimationFrame(() => {
+            if (frozenTabWidths) {
+                applyFrozenWidths();
+            }
+        });
 
         // Persist the updated tab state so a refresh doesn't resurrect
         // the closed tab from the old DB snapshot.
