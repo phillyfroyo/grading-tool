@@ -587,11 +587,13 @@
         // Reset ALL grading forms
         document.querySelectorAll('#gradingForm').forEach(f => f.reset());
 
-        // Remove banner and reset body padding
-        const banner = document.getElementById('auto-save-banner');
-        if (banner) {
+        // Remove any toast or legacy banner
+        const toast = document.getElementById('auto-save-toast');
+        if (toast) toast.remove();
+        const legacyBanner = document.getElementById('auto-save-banner');
+        if (legacyBanner) {
             document.body.style.paddingTop = '';
-            banner.remove();
+            legacyBanner.remove();
         }
 
         // Clear SingleResultModule batch data
@@ -611,94 +613,80 @@
      * Show the fixed auto-save banner at the top of the viewport.
      * Left side: status text. Right side: "Clear & Start Fresh" button.
      */
-    function showClearButton(statusText) {
-        if (document.getElementById('auto-save-banner')) return;
-
-        const banner = document.createElement('div');
-        banner.id = 'auto-save-banner';
-        banner.style.cssText =
-            'position:fixed;top:0;left:0;right:0;z-index:9999;' +
-            'display:flex;align-items:center;justify-content:space-between;' +
-            'padding:4px 20px;' +
-            'background:rgba(209,243,209,0.92);' +
-            'border-bottom:1px solid rgba(100,180,100,0.4);' +
-            'box-shadow:0 1px 3px rgba(0,0,0,0.06);' +
-            'font-family:"Inter","Helvetica Neue",Arial,sans-serif;' +
-            'font-size:12px;color:#2d6a2d;letter-spacing:0.01em;' +
-            'backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);';
-
-        // Status text (left)
-        const status = document.createElement('span');
-        status.id = 'auto-save-status';
-        status.style.cssText = 'font-weight:500;';
-        setStatusContent(status, statusText || 'Session restored', 'ok');
-
-        // Clear button (right)
-        const btn = document.createElement('button');
-        btn.textContent = 'Clear & Start Fresh';
-        btn.style.cssText =
-            'padding:4px 14px;' +
-            'background:#e8e8e8;color:#444;' +
-            'border:1px solid #ccc;border-radius:4px;' +
-            'font-family:inherit;font-size:11px;font-weight:600;cursor:pointer;' +
-            'transition:background 0.15s;white-space:nowrap;';
-        btn.addEventListener('mouseover', () => {
-            btn.style.background = '#dcdcdc';
-        });
-        btn.addEventListener('mouseout', () => {
-            btn.style.background = '#e8e8e8';
-        });
-        btn.addEventListener('click', function () {
-            if (confirm('This will clear all graded essays. Are you sure?')) {
-                clearSavedSession();
-            }
-        });
-
-        banner.appendChild(status);
-        banner.appendChild(btn);
-        document.body.appendChild(banner);
-
-        // Push page content down so banner doesn't overlap it
-        document.body.style.paddingTop = banner.offsetHeight + 'px';
-    }
-
     /**
-     * Set status span content with optional trailing icon.
+     * Show a transient toast notification at the top of the viewport.
+     * Replaces the old persistent banner. Toasts auto-dismiss after a
+     * delay (5s for success, stays for warnings until manually dismissed
+     * or replaced by the next toast).
+     *
+     * @param {string} text - Message to display
+     * @param {'ok'|'warn'} level - Visual style: green for ok, yellow for warn
      */
-    function setStatusContent(statusEl, text, level) {
-        statusEl.innerHTML = '';
-        statusEl.appendChild(document.createTextNode(text));
-        if (level === 'ok') {
-            const icon = document.createElement('span');
-            icon.textContent = ' \u2713';
-            icon.style.cssText = 'font-weight:400;margin-left:4px;';
-            statusEl.appendChild(icon);
+    let toastDismissTimer = null;
+
+    function showToast(text, level) {
+        // Remove any existing toast
+        const existing = document.getElementById('auto-save-toast');
+        if (existing) existing.remove();
+        if (toastDismissTimer) {
+            clearTimeout(toastDismissTimer);
+            toastDismissTimer = null;
+        }
+
+        const toast = document.createElement('div');
+        toast.id = 'auto-save-toast';
+
+        const isWarn = level === 'warn';
+        const bg = isWarn ? 'rgba(255,243,205,0.95)' : 'rgba(209,243,209,0.95)';
+        const border = isWarn ? 'rgba(200,170,80,0.4)' : 'rgba(100,180,100,0.4)';
+        const color = isWarn ? '#856404' : '#2d6a2d';
+        const icon = isWarn ? ' ⚠' : ' ✓';
+
+        toast.style.cssText =
+            'position:fixed;top:12px;right:12px;z-index:9999;' +
+            'padding:10px 18px;border-radius:6px;' +
+            'font-family:"Inter","Helvetica Neue",Arial,sans-serif;' +
+            'font-size:13px;font-weight:500;letter-spacing:0.01em;' +
+            'box-shadow:0 2px 8px rgba(0,0,0,0.12);' +
+            'backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);' +
+            'transition:opacity 0.3s ease;opacity:0;' +
+            `background:${bg};border:1px solid ${border};color:${color};`;
+
+        toast.textContent = text + icon;
+        document.body.appendChild(toast);
+
+        // Fade in
+        requestAnimationFrame(() => {
+            toast.style.opacity = '1';
+        });
+
+        // Auto-dismiss after 5s for success; warnings stay until replaced
+        if (!isWarn) {
+            toastDismissTimer = setTimeout(() => {
+                toast.style.opacity = '0';
+                setTimeout(() => {
+                    if (toast.parentNode) toast.remove();
+                }, 300);
+            }, 5000);
         }
     }
 
     /**
-     * Update the banner status text and appearance.
-     * @param {string} text - Status message
-     * @param {'ok'|'warn'} level - Visual style
+     * Legacy API: showClearButton is called by form-handling.js and
+     * batch-processing.js after grading completes. In the old design it
+     * created a persistent banner with a Clear button. Now it just shows
+     * a brief toast confirming grading is complete.
+     */
+    function showClearButton(statusText) {
+        showToast(statusText || 'Session restored', 'ok');
+    }
+
+    /**
+     * Legacy API: updateBannerStatus is called by doSave and saveImmediately
+     * to show save progress. Now routes to the toast.
      */
     function updateBannerStatus(text, level) {
-        const banner = document.getElementById('auto-save-banner');
-        const status = document.getElementById('auto-save-status');
-        if (!banner || !status) return;
-
-        setStatusContent(status, text, level);
-
-        if (level === 'warn') {
-            banner.style.background = 'rgba(255,243,205,0.95)';
-            banner.style.borderBottomColor = 'rgba(200,170,80,0.4)';
-            banner.style.color = '#856404';
-            status.style.color = '#856404';
-        } else {
-            banner.style.background = 'rgba(209,243,209,0.92)';
-            banner.style.borderBottomColor = 'rgba(100,180,100,0.4)';
-            banner.style.color = '#2d6a2d';
-            status.style.color = '#2d6a2d';
-        }
+        showToast(text, level || 'ok');
     }
 
     // --- Internal helpers ---
