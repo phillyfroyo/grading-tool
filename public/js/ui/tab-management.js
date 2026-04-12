@@ -33,63 +33,6 @@
 const MAX_TABS = 10;
 
 /**
- * Chrome-style tab close behavior: when a tab is closed via its × button,
- * the remaining tabs keep their current pixel widths so the next tab's ×
- * lands exactly where the cursor is. The user can rapid-fire close tabs
- * without moving their mouse. Tabs reflow to natural widths only when the
- * cursor leaves the tab bar.
- *
- * `frozenTabWidths` is a Map<tabId, widthPx> set by closeTab before the
- * bar re-renders. After renderTabBar rebuilds the DOM, it checks this map
- * and applies explicit widths. A mouseleave listener on the bar clears it.
- */
-let frozenTabWidths = null;
-
-/**
- * Freeze the tab bar so remaining tabs don't resize after a close.
- *
- * Approach: capture each tab's current width and the bar's total
- * scrollable width. After the bar re-renders with N-1 tabs, set
- * each remaining tab to its PRE-CLOSE width (not the post-reflow
- * width). This keeps the × buttons in place for rapid-fire closing.
- */
-function freezeTabWidths() {
-    const bar = document.getElementById('gradingTabBar');
-    if (!bar) return;
-    frozenTabWidths = new Map();
-    bar.querySelectorAll('.tab-item').forEach(item => {
-        const tabId = item.dataset.tabId;
-        if (tabId) {
-            frozenTabWidths.set(tabId, item.offsetWidth);
-        }
-    });
-}
-
-function applyFrozenWidths() {
-    if (!frozenTabWidths) return;
-    const bar = document.getElementById('gradingTabBar');
-    if (!bar) return;
-    bar.querySelectorAll('.tab-item').forEach(item => {
-        const tabId = item.dataset.tabId;
-        const frozenWidth = frozenTabWidths.get(tabId);
-        if (frozenWidth) {
-            item.style.width = frozenWidth + 'px';
-            item.style.flex = 'none';
-        }
-    });
-}
-
-function unfreezeTabWidths() {
-    frozenTabWidths = null;
-    const bar = document.getElementById('gradingTabBar');
-    if (!bar) return;
-    bar.querySelectorAll('.tab-item').forEach(item => {
-        item.style.width = '';
-        item.style.flex = '';
-    });
-}
-
-/**
  * Switch to a tab by ID or legacy tab name.
  *
  * Delegates to TabStore.switchTo(). The pane visibility update happens in
@@ -180,12 +123,7 @@ function resolveLegacyTabName(name) {
  * Render the tab bar from TabStore state. Called at init and in response
  * to tab-* events. Idempotent — safe to call repeatedly.
  */
-/** When true, renderTabBar is a no-op. Set during closeTab to prevent
- *  the event-driven re-render from destroying frozen tab widths. */
-let suppressBarRender = false;
-
 function renderTabBar() {
-    if (suppressBarRender) return;
     const bar = document.getElementById('gradingTabBar');
     if (!bar || !window.TabStore) return;
 
@@ -216,13 +154,6 @@ function renderTabBar() {
     parts.push(`<button type="button" class="tab-add-btn" id="tabAddBtn"${disabledAttr}>+</button>`);
 
     bar.innerHTML = parts.join('');
-
-    // Chrome-style: if tabs were frozen (from a close), re-apply the
-    // frozen widths to the newly rendered tab items so the × buttons
-    // stay under the cursor for rapid-fire closing.
-    if (frozenTabWidths) {
-        applyFrozenWidths();
-    }
 }
 
 /** Escape HTML entities in a string for safe insertion into innerHTML. */
@@ -345,64 +276,13 @@ function closeTab(tabId) {
 
     const hasWork = tabHasUnsavedWork(tabId);
     const doClose = () => {
-        // Chrome-style rapid-fire close: instead of letting renderTabBar
-        // rebuild the entire bar (which destroys frozen widths), we:
-        // 1. Freeze each tab to its current pixel width
-        // 2. Remove ONLY the closed tab's bar item (not a full rebuild)
-        // 3. Suppress the event-driven renderTabBar during the close
-        // 4. Tabs stay frozen until mouseleave unfreezes them
-
-        const bar = document.getElementById('gradingTabBar');
-
-        // Step 1: freeze current widths
-        freezeTabWidths();
-
-        // Step 2: remove the closed tab's item from the bar directly
-        // (without a full renderTabBar rebuild)
-        if (bar) {
-            const closedItem = bar.querySelector(`.tab-item[data-tab-id="${tabId}"]`);
-            if (closedItem) closedItem.remove();
-        }
-
-        // Step 3: suppress renderTabBar during TabStore.close() by
-        // temporarily setting a flag that renderTabBar checks
-        suppressBarRender = true;
-
         // Remove the DOM pane.
         const pane = document.querySelector(`.tab-pane[data-tab-id="${tabId}"]`);
         if (pane && pane.parentNode) pane.parentNode.removeChild(pane);
 
-        // Remove from store (fires tab-switched + tab-closed events,
-        // but renderTabBar is suppressed so the bar DOM stays intact
-        // with its frozen widths).
+        // Remove from store (store will auto-switch to another tab if this
+        // was the active one, and fire tab-switched which re-renders the bar).
         window.TabStore.close(tabId);
-
-        suppressBarRender = false;
-
-        // Step 4: apply frozen widths to the remaining bar items
-        // (they're still the original DOM elements, not rebuilt)
-        applyFrozenWidths();
-
-        // Update the data-tab-count attribute for CSS rules (e.g. hide
-        // close button on last tab)
-        if (bar && window.TabStore) {
-            bar.dataset.tabCount = String(window.TabStore.count());
-        }
-
-        // Update the active indicator on the bar items (TabStore may
-        // have switched to a different tab)
-        if (bar && window.TabStore) {
-            const newActiveId = window.TabStore.activeId();
-            bar.querySelectorAll('.tab-item').forEach(item => {
-                if (item.dataset.tabId === newActiveId) {
-                    item.classList.add('active');
-                    item.setAttribute('aria-selected', 'true');
-                } else {
-                    item.classList.remove('active');
-                    item.setAttribute('aria-selected', 'false');
-                }
-            });
-        }
 
         // Persist the updated tab state so a refresh doesn't resurrect
         // the closed tab from the old DB snapshot.
@@ -557,16 +437,6 @@ function wireUpTabBarHandlers() {
         const tabItem = label.closest('.tab-item');
         if (!tabItem) return;
         startRenameTab(tabItem.dataset.tabId, label);
-    });
-
-    // Chrome-style: when the cursor leaves the tab bar after closing a
-    // tab, unfreeze the locked widths so tabs reflow to their natural
-    // flex sizes. This is what makes rapid-fire closing feel smooth —
-    // tabs stay put while you're clicking, then resize once you're done.
-    bar.addEventListener('mouseleave', () => {
-        if (frozenTabWidths) {
-            unfreezeTabWidths();
-        }
     });
 }
 
