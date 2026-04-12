@@ -18,13 +18,7 @@
 
 /* ===== TAB SYSTEM ===== */
 .tab-container {
-    margin-bottom: 20px;
-}
-
-.tab-buttons {
-    display: flex;
-    border-bottom: 2px solid #e9ecef;
-    margin-bottom: 20px;
+    margin-bottom: 0;
 }
 
 .tab-button {
