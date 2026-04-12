@@ -420,6 +420,12 @@ async function handleGradingFormSubmission(e) {
                 // essays that are still mid-load — which then can't be
                 // edited after a page refresh. See TODO.md.
                 if (window.AutoSaveModule) {
+                    // Capture the origin tab ID NOW, before the grading-finished
+                    // event (fired by markGradingFinished in the finally block)
+                    // clears currentBatchOriginTabId. The async block below runs
+                    // AFTER the finally block, so currentBatchOriginTabId would
+                    // already be null by the time setFormLocked fires.
+                    const lockTargetTabId = currentBatchOriginTabId;
                     (async () => {
                         console.log(`[AutoSaveDiag] waiting for /format calls before save...`);
                         if (window.BatchProcessingModule?.waitForAllFormatCalls) {
@@ -439,8 +445,8 @@ async function handleGradingFormSubmission(e) {
                         console.log(`[AutoSaveDiag] firing saveImmediately (post-format-complete)`);
                         window.AutoSaveModule.saveImmediately();
                         window.AutoSaveModule.showClearButton('Grading complete');
-                        // Phase 7: scope the lock to the originating tab
-                        window.AutoSaveModule.setFormLocked(true, currentBatchOriginTabId);
+                        // Phase 7: scope the lock to the originating tab only
+                        window.AutoSaveModule.setFormLocked(true, lockTargetTabId);
                     })();
                 }
             } catch (streamError) {
