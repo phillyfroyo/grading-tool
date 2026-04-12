@@ -452,6 +452,44 @@ function wireUpTabBarHandlers() {
 let gradingLockOriginTabId = null;
 
 /**
+ * Apply the locked visual state to a single Grade button and insert an
+ * inline notice next to it explaining why. Idempotent — safe to call
+ * repeatedly on the same button.
+ */
+function lockGradeButton(gradeBtn) {
+    if (!gradeBtn) return;
+    gradeBtn.disabled = true;
+    gradeBtn.dataset.lockedByOtherTab = 'true';
+    gradeBtn.title = 'Grading is in progress in another tab. Please wait for it to finish.';
+
+    // Insert a sibling notice element if not already present.
+    const parent = gradeBtn.parentNode;
+    if (parent && !parent.querySelector('.grading-lock-notice')) {
+        const notice = document.createElement('span');
+        notice.className = 'grading-lock-notice';
+        notice.textContent = '⏳ Grading active in another tab';
+        // Insert right after the grade button so it appears inline.
+        gradeBtn.insertAdjacentElement('afterend', notice);
+    }
+}
+
+/** Remove the locked visual state and the inline notice from a button. */
+function unlockGradeButton(gradeBtn) {
+    if (!gradeBtn) return;
+    if (gradeBtn.dataset.lockedByOtherTab === 'true') {
+        gradeBtn.disabled = false;
+        delete gradeBtn.dataset.lockedByOtherTab;
+        gradeBtn.title = '';
+    }
+    // Remove the notice if present.
+    const parent = gradeBtn.parentNode;
+    if (parent) {
+        const notice = parent.querySelector('.grading-lock-notice');
+        if (notice) notice.remove();
+    }
+}
+
+/**
  * Disable the Grade button in every tab except the originating one.
  * Called from the grading-started event listener.
  */
@@ -460,11 +498,7 @@ function applyGradingLockAcrossTabs(originTabId) {
     document.querySelectorAll('.tab-pane').forEach(pane => {
         if (pane.dataset.tabId === originTabId) return;
         const gradeBtn = pane.querySelector('#gradeButton, button[type="submit"]');
-        if (gradeBtn) {
-            gradeBtn.disabled = true;
-            gradeBtn.dataset.lockedByOtherTab = 'true';
-            gradeBtn.title = 'Grading is in progress in another tab. Please wait.';
-        }
+        lockGradeButton(gradeBtn);
     });
 }
 
@@ -473,11 +507,7 @@ function releaseGradingLockAcrossTabs() {
     gradingLockOriginTabId = null;
     document.querySelectorAll('.tab-pane').forEach(pane => {
         const gradeBtn = pane.querySelector('#gradeButton, button[type="submit"]');
-        if (gradeBtn && gradeBtn.dataset.lockedByOtherTab === 'true') {
-            gradeBtn.disabled = false;
-            delete gradeBtn.dataset.lockedByOtherTab;
-            gradeBtn.title = '';
-        }
+        unlockGradeButton(gradeBtn);
     });
 }
 
@@ -491,11 +521,7 @@ function applyGradingLockToNewTab(tabId) {
     const pane = document.querySelector(`.tab-pane[data-tab-id="${tabId}"]`);
     if (!pane) return;
     const gradeBtn = pane.querySelector('#gradeButton, button[type="submit"]');
-    if (gradeBtn) {
-        gradeBtn.disabled = true;
-        gradeBtn.dataset.lockedByOtherTab = 'true';
-        gradeBtn.title = 'Grading is in progress in another tab. Please wait.';
-    }
+    lockGradeButton(gradeBtn);
 }
 
 /**

@@ -3,6 +3,41 @@
  * Handles form submission, validation, and manual grading form management
  */
 
+// Phase 6 followup: Track which tab owns the currently-running grading
+// operation. Set by handleGradingFormSubmission when grading starts,
+// cleared when the grading-finished event fires. Used to pin essayData
+// and currentBatchData state writes to the originating tab, so that
+// switching tabs mid-stream does not scramble state across tabs.
+//
+// This mirrors currentBatchTabId in batch-processing.js but lives here
+// because the chunk stream callbacks are in this file and they need the
+// context at write time. The two contexts are set at the same time
+// (displayBatchProgress is called right after we capture here) and
+// cleared by the same grading-finished event.
+let currentBatchOriginTabId = null;
+
+/**
+ * Get the tab ID to use for state writes during batch streaming. Returns
+ * the originating tab if a batch is currently in progress, else falls
+ * back to the currently active tab (safe default for edge cases).
+ */
+function getBatchWriteTabState() {
+    if (!window.TabStore) return null;
+    if (currentBatchOriginTabId) {
+        return window.TabStore.get(currentBatchOriginTabId);
+    }
+    return window.TabStore.active();
+}
+
+// Listen for the grading-finished event from auto-save.js and clear the
+// origin tab context. Done at module level so it fires on success or
+// failure path alike.
+if (typeof window !== 'undefined') {
+    window.addEventListener('grading-finished', () => {
+        currentBatchOriginTabId = null;
+    });
+}
+
 // Inline error utility functions
 function showInlineError(elementId, message) {
     const errorElement = document.getElementById(elementId);
@@ -115,6 +150,12 @@ async function handleGradingFormSubmission(e) {
             return;
         }
     }
+
+    // Phase 6 followup: Capture the originating tab ID before any async
+    // work starts. This ID is used by the streaming chunk callbacks to
+    // pin their essayData and currentBatchData writes to the correct
+    // tab, even if the user switches to a different tab mid-stream.
+    currentBatchOriginTabId = (window.TabStore && window.TabStore.activeId()) || null;
 
     const formData = new FormData(e.target);
     const studentName = formData.get('studentName') || 'Student';
@@ -318,10 +359,11 @@ async function handleGradingFormSubmission(e) {
             // Use streaming batch endpoint for better UX (essays return progressively)
             console.log(`[AutoSaveDiag] streaming start: ${batchData.essays.length} essays submitted`);
 
-            // Store original batch data for retry functionality — scoped to
-            // the active tab via TabStore, with a fallback to the legacy
-            // window global during the multi-phase migration.
-            const submitTabState = window.TabStore && window.TabStore.active();
+            // Store original batch data for retry functionality — pinned to
+            // the originating tab via currentBatchOriginTabId, with a
+            // fallback to the legacy window global during the multi-phase
+            // migration.
+            const submitTabState = getBatchWriteTabState();
             if (submitTabState) {
                 submitTabState.originalBatchDataForRetry = batchData;
             } else {
@@ -331,9 +373,14 @@ async function handleGradingFormSubmission(e) {
             try {
                 const streamResult = await streamBatchGradingSimple(batchData);
 
-                // Read current batch data from active tab with window fallback
-                const readCurrentBatchData = () => (window.TabStore && window.TabStore.active()?.currentBatchData)
-                    || window.currentBatchData;
+                // Read current batch data from the ORIGINATING tab (not the
+                // currently-active tab), with window fallback. This is
+                // essential after streaming finishes because the user may
+                // have switched tabs during the stream.
+                const readCurrentBatchData = () => {
+                    const originState = getBatchWriteTabState();
+                    return (originState && originState.currentBatchData) || window.currentBatchData;
+                };
 
                 const preExisting = !!readCurrentBatchData();
                 const preExistingCount = readCurrentBatchData()?.batchResult?.results?.length;
@@ -350,7 +397,7 @@ async function handleGradingFormSubmission(e) {
                         batchResult: streamResult,
                         originalData: batchData
                     };
-                    const postStreamTabState = window.TabStore && window.TabStore.active();
+                    const postStreamTabState = getBatchWriteTabState();
                     if (postStreamTabState) {
                         postStreamTabState.currentBatchData = newBatchData;
                     } else {
@@ -493,11 +540,13 @@ async function streamBatchGradingSimple(batchData) {
     if (totalEssays <= CHUNK_SIZE) {
         const smallResult = await processEssayChunk(batchData, 0);
         // Keep currentBatchData in sync so any save firing here sees the truth.
+        // Write to the batch's originating tab so state is not scrambled when
+        // the user switches tabs mid-stream.
         const smallBatch = {
             batchResult: smallResult,
             originalData: batchData
         };
-        const smallTabState = window.TabStore && window.TabStore.active();
+        const smallTabState = getBatchWriteTabState();
         if (smallTabState) {
             smallTabState.currentBatchData = smallBatch;
         } else {
@@ -535,6 +584,8 @@ async function streamBatchGradingSimple(batchData) {
             // Update currentBatchData incrementally so any save firing mid-batch
             // (debounced from user edits, etc.) sees the latest known results
             // instead of triggering the buildPayload reconstruction fallback.
+            // Pinned to the originating tab so state writes don't cross tabs
+            // when the user switches mid-stream.
             const chunkBatch = {
                 batchResult: {
                     success: true,
@@ -543,7 +594,7 @@ async function streamBatchGradingSimple(batchData) {
                 },
                 originalData: batchData
             };
-            const chunkTabState = window.TabStore && window.TabStore.active();
+            const chunkTabState = getBatchWriteTabState();
             if (chunkTabState) {
                 chunkTabState.currentBatchData = chunkBatch;
             } else {
@@ -674,7 +725,14 @@ async function processEssayChunk(chunkData, globalOffset) {
                         // Store the result (use local index for chunk array)
                         processedResults[data.index] = adjustedData;
 
-                        // Store essay data for expansion (use GLOBAL index)
+                        // Store essay data for expansion (use GLOBAL index).
+                        // Pinned to the originating tab — this is the critical
+                        // fix for the "essays stuck on loading messages" bug:
+                        // if the user switches tabs mid-stream, TabStore.active()
+                        // returns the new tab, and the essayData writes would
+                        // land in the wrong tab. getBatchWriteTabState() returns
+                        // the tab that started the batch regardless of the
+                        // current active tab.
                         if (data.success && chunkData.essays[data.index]) {
                             const streamSnapshot = {
                                 essay: {
@@ -688,7 +746,7 @@ async function processEssayChunk(chunkData, globalOffset) {
                                     classProfile: chunkData.classProfile || null
                                 }
                             };
-                            const streamTabState = window.TabStore && window.TabStore.active();
+                            const streamTabState = getBatchWriteTabState();
                             if (streamTabState) {
                                 streamTabState.essayData[globalResultIndex] = streamSnapshot;
                             } else {

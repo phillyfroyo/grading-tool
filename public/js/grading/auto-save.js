@@ -672,12 +672,25 @@
     }
 
     /**
-     * Look up essay data by index. Prefers the active tab's essayData map,
-     * falls back to the legacy window global.
+     * Look up essay data by index. Prefers the batch's originating tab
+     * when a batch is currently streaming (via BatchProcessingModule
+     * batch tab context), else the active tab, else the legacy window
+     * global. This mirrors the tab-resolution logic in buildPayload so
+     * save / restore always reads the right tab.
      */
     function readEssayData(index) {
-        const tab = window.TabStore && window.TabStore.active();
-        if (tab && tab.essayData && tab.essayData[index]) return tab.essayData[index];
+        const batchOriginId = (window.BatchProcessingModule
+            && typeof window.BatchProcessingModule.getBatchTabContext === 'function'
+            && window.BatchProcessingModule.getBatchTabContext())
+            || null;
+
+        const targetTab = window.TabStore && (
+            (batchOriginId && window.TabStore.get(batchOriginId))
+            || window.TabStore.active()
+        );
+        if (targetTab && targetTab.essayData && targetTab.essayData[index]) {
+            return targetTab.essayData[index];
+        }
         return window[`essayData_${index}`];
     }
 
@@ -700,9 +713,21 @@
      * @param {boolean} omitHTML - If true, skip rendered HTML to keep payload small.
      */
     function buildPayload(omitHTML) {
-        // Read active tab's batch data, falling back to legacy window global
-        const activeTabState = window.TabStore && window.TabStore.active();
-        const activeBatchData = (activeTabState && activeTabState.currentBatchData) || window.currentBatchData;
+        // When a batch is currently streaming, the active tab may not be the
+        // tab that owns the batch (user may have switched tabs mid-stream).
+        // Prefer the batch's originating tab context over the active tab
+        // so buildPayload reads from the correct tab's state.
+        const batchOriginId = (window.BatchProcessingModule
+            && typeof window.BatchProcessingModule.getBatchTabContext === 'function'
+            && window.BatchProcessingModule.getBatchTabContext())
+            || null;
+
+        const targetTabState = window.TabStore && (
+            (batchOriginId && window.TabStore.get(batchOriginId))
+            || window.TabStore.active()
+        );
+        const activeTabState = targetTabState; // keep variable name for downstream logging
+        const activeBatchData = (targetTabState && targetTabState.currentBatchData) || window.currentBatchData;
 
         // Diagnostic: snapshot the state that buildPayload sees on entry
         const dbgCBDCount = activeBatchData?.batchResult?.results?.length;
@@ -763,32 +788,39 @@
             }
         }
 
-        // Gather rendered HTML from DOM (for instant restore)
+        // Gather rendered HTML from DOM (for instant restore).
+        // Scoped to the batch's originating tab (if a batch is streaming)
+        // or the active tab otherwise, so we capture HTML from the correct
+        // tab even if the user has switched.
         const renderedHTML = {};
         const highlightsTabHTML = {};
         const highlightsContentHTML = {};
+        const savePaneTabId = (window.BatchProcessingModule
+            && typeof window.BatchProcessingModule.getBatchTabContext === 'function'
+            && window.BatchProcessingModule.getBatchTabContext())
+            || (window.TabStore && window.TabStore.activeId());
+        const queryInSaveTab = (selector) => {
+            if (window.TabStore && savePaneTabId) {
+                return window.TabStore.queryInTab(savePaneTabId, selector);
+            }
+            return document.querySelector(selector);
+        };
         if (!omitHTML) {
             for (let i = 0; i < resultCount; i++) {
-                const div = window.TabStore
-                    ? window.TabStore.activeQuery(`#batch-essay-${i}`)
-                    : document.getElementById(`batch-essay-${i}`);
+                const div = queryInSaveTab(`#batch-essay-${i}`);
                 const hasContent = div && div.innerHTML.trim() && div.innerHTML.trim() !== 'Loading formatted result...';
                 if (hasContent) {
                     renderedHTML[i] = div.innerHTML;
                 }
 
                 // Save highlights tab content ("Manage Highlights" standalone tab)
-                const hlTabDiv = window.TabStore
-                    ? window.TabStore.activeQuery(`#highlights-tab-content-${i}`)
-                    : document.getElementById(`highlights-tab-content-${i}`);
+                const hlTabDiv = queryInSaveTab(`#highlights-tab-content-${i}`);
                 if (hlTabDiv && hlTabDiv.dataset.loaded === 'true' && hlTabDiv.innerHTML.trim() && hlTabDiv.innerHTML.trim() !== 'Loading highlights...') {
                     highlightsTabHTML[i] = hlTabDiv.innerHTML;
                 }
 
                 // Save highlights content within grade-details section
-                const hlContentInner = window.TabStore
-                    ? window.TabStore.activeQuery(`#highlights-content-${i}-inner`)
-                    : document.getElementById(`highlights-content-${i}-inner`);
+                const hlContentInner = queryInSaveTab(`#highlights-content-${i}-inner`);
                 if (hlContentInner && hlContentInner.dataset.populated === 'true' && hlContentInner.innerHTML.trim()) {
                     highlightsContentHTML[i] = hlContentInner.innerHTML;
                 }
@@ -804,12 +836,10 @@
             }
         }
 
-        // Gather mark-complete checkbox states
+        // Gather mark-complete checkbox states — scoped to save-target tab
         const completedEssays = {};
         for (let i = 0; i < resultCount; i++) {
-            const cb = window.TabStore
-                ? window.TabStore.activeQuery(`.mark-complete-checkbox[data-student-index="${i}"]`)
-                : document.querySelector(`.mark-complete-checkbox[data-student-index="${i}"]`);
+            const cb = queryInSaveTab(`.mark-complete-checkbox[data-student-index="${i}"]`);
             if (cb && cb.checked) {
                 completedEssays[i] = true;
             }
@@ -818,17 +848,11 @@
         // Gather remove-all checkbox states (checked property doesn't survive innerHTML)
         const removeAllStates = {};
         for (let i = 0; i < resultCount; i++) {
-            // Highlights tab remove-all checkbox
-            const hlTabCb = window.TabStore
-                ? window.TabStore.activeQuery(`#highlights-tab-${i}-remove-all`)
-                : document.getElementById(`highlights-tab-${i}-remove-all`);
+            const hlTabCb = queryInSaveTab(`#highlights-tab-${i}-remove-all`);
             if (hlTabCb && hlTabCb.checked) {
                 removeAllStates[`highlights-tab-content-${i}`] = true;
             }
-            // Grade-details highlights remove-all checkbox
-            const hlContentCb = window.TabStore
-                ? window.TabStore.activeQuery(`#highlights-content-${i}-remove-all`)
-                : document.getElementById(`highlights-content-${i}-remove-all`);
+            const hlContentCb = queryInSaveTab(`#highlights-content-${i}-remove-all`);
             if (hlContentCb && hlContentCb.checked) {
                 removeAllStates[`highlights-content-${i}`] = true;
             }

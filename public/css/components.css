@@ -288,6 +288,32 @@
     color: white;
 }
 
+/* Phase 6: visible disabled state for the Grade button when another tab
+   is actively grading. Overrides the default blue background with a
+   greyed-out appearance and a "not-allowed" cursor so users immediately
+   understand the button is locked. */
+.essay-controls #gradeButton[data-locked-by-other-tab="true"],
+.essay-controls #gradeButton:disabled[data-locked-by-other-tab="true"] {
+    background: #adb5bd !important;
+    color: #6c757d !important;
+    cursor: not-allowed !important;
+    opacity: 0.7;
+}
+
+/* Inline notice shown next to a locked Grade button explaining why */
+.grading-lock-notice {
+    display: inline-block;
+    margin-left: 10px;
+    padding: 6px 10px;
+    background: #fff3cd;
+    border: 1px solid #ffc107;
+    color: #856404;
+    border-radius: 4px;
+    font-size: 13px;
+    font-weight: 500;
+    vertical-align: middle;
+}
+
 .essay-controls #addEssayBtn {
     background: #28a745;
     color: white;

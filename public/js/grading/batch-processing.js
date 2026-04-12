@@ -68,6 +68,16 @@ function clearBatchTabContext() {
 }
 
 /**
+ * Return the originating tab ID for the current batch run, or null if
+ * no batch is currently in progress. Exposed so form-handling.js can
+ * pin its own essayData/currentBatchData writes to the same tab that
+ * batch-processing.js scopes its DOM writes to.
+ */
+function getBatchTabContext() {
+    return currentBatchTabId;
+}
+
+/**
  * Reset format-call tracking at the start of a new grading run.
  * @param {number} expectedCount - Number of essays in the batch.
  */
@@ -1186,4 +1196,5 @@ window.BatchProcessingModule = {
     // Phase 6 exports for testing / debugging
     setBatchTabContext,
     clearBatchTabContext,
+    getBatchTabContext,
 };
