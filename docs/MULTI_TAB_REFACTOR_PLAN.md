@@ -2,7 +2,7 @@
 
 > **Branch**: `april-2026-tabs`
 > **Started**: 2026-04-11
-> **Status**: Phase 1 ✓, Phase 2 ✓, Phase 3 ✓, Phase 4 ✓, Phase 5 ✓, Phase 6 ✓ (pending browser test) — ready to start Phase 7
+> **Status**: Phase 1 ✓, Phase 2 ✓, Phase 3 ✓, Phase 4 ✓, Phase 5 ✓, Phase 6 ✓ (browser verified) — ready to start Phase 7
 > **Estimate**: 5–7 focused sessions
 
 ## The feature
@@ -152,7 +152,10 @@ Turned out bigger than the ~50 line estimate because the "pin streaming writes t
 - [x] `addTab` applies the grading lock to newly-created tabs if grading is already in progress (so opening a new tab during a batch grading run correctly disables the new tab's Grade button)
 - [x] Defense-in-depth: `handleGradingFormSubmission` checks `isGradingInProgress()` at the top and shows an error modal if grading is in progress elsewhere
 - [x] Verified with 10-assertion unit test of new TabStore helpers
-- [ ] **Browser smoke test pending** — next step is to verify grading lock UX, streaming-writes-to-originating-tab behavior, and that the grading-finished event correctly re-enables everything
+- [x] **Browser smoke test completed** — two bugs surfaced and fixed in followup commit `d13137b`:
+  1. Streaming state writes (essayData, currentBatchData) were still using `TabStore.active()` in `form-handling.js`, so switching tabs mid-stream scrambled which tab received each essay's state. Fix: `form-handling.js` captures `currentBatchOriginTabId` at submit time and exposes `getBatchWriteTabState()`; all streaming state writes pin to that tab. Auto-save also extended to prefer `BatchProcessingModule.getBatchTabContext()` over active tab when a batch is streaming.
+  2. Tab-2's Grade button looked clickable because the existing CSS overrode the default disabled appearance and `title` only showed on hover. Fix: explicit CSS for `[data-locked-by-other-tab="true"]` with greyed-out background, `cursor: not-allowed`, and a new `.grading-lock-notice` inline span showing "⏳ Grading active in another tab" in yellow warning styling.
+  Healthy log sequence verified: all 3 essays complete their format calls, `tab essayData entries=3`, `essaySnapshots=3`, no MISMATCH warnings, clean save.
 
 ### Phase 7: Auto-save multi-tab — ~150 lines modified
 - [ ] Change `doSave()` in `auto-save.js` to iterate `TabStore.all()` and serialize each tab's state
