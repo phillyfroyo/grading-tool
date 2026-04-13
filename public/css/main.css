@@ -4,6 +4,10 @@
    ================================================================== */
 
 /* ===== BASE STYLES ===== */
+html {
+    overflow-y: scroll; /* Always show vertical scrollbar to prevent horizontal shift when content grows */
+}
+
 * {
     font-family: 'Times New Roman', Times, serif;
 }
