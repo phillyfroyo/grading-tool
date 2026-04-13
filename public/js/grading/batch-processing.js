@@ -874,16 +874,14 @@ function markStudentComplete(index, completed = true) {
     if (checkbox) {
         checkbox.checked = completed;
 
-        // Update visual indicators
+        // No visual dimming — the checkbox state itself is sufficient
+        // feedback. The old opacity: 0.7 looked like a bug after session
+        // restore because the cause (clicking the checkbox) was no longer
+        // visible in the user's memory.
         const studentRow = checkbox.closest('.student-row');
         if (studentRow) {
-            if (completed) {
-                studentRow.style.opacity = '0.7';
-                studentRow.style.backgroundColor = '#f8f9fa';
-            } else {
-                studentRow.style.opacity = '1';
-                studentRow.style.backgroundColor = '';
-            }
+            studentRow.style.opacity = '';
+            studentRow.style.backgroundColor = '';
         }
     }
 }
