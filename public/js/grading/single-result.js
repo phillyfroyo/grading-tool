@@ -274,11 +274,21 @@ function setupBatchEditableElements(gradingResult, originalData, essayIndex) {
                 this.style.height = 'auto';
                 this.style.height = Math.max(34, this.scrollHeight) + 'px';
             });
+        });
 
-            // Auto-resize on initial render so AI-generated text that
-            // wraps to multiple lines shows fully without overflow.
-            textarea.style.height = 'auto';
-            textarea.style.height = Math.max(34, textarea.scrollHeight) + 'px';
+        // Auto-resize all feedback textareas after the browser has had a
+        // chance to lay out the DOM and compute line wrapping. The
+        // synchronous resize we had before ran before the browser painted,
+        // so scrollHeight reflected single-line height even for wrapped
+        // content. requestAnimationFrame + a small setTimeout ensures the
+        // layout pass has completed.
+        requestAnimationFrame(() => {
+            setTimeout(() => {
+                essayContainer.querySelectorAll('.editable-feedback').forEach(ta => {
+                    ta.style.height = 'auto';
+                    ta.style.height = Math.max(34, ta.scrollHeight) + 'px';
+                });
+            }, 50);
         });
     }
 
@@ -487,6 +497,20 @@ function createSingleEssayHTMLFallback(studentName, formatted) {
         </div>
     `;
 }
+
+// Auto-resize all feedback textareas when the window resizes (handles
+// browser narrow/widen causing text to wrap/unwrap). Debounced to avoid
+// excessive reflows during drag-resize.
+let resizeDebounce = null;
+window.addEventListener('resize', function() {
+    if (resizeDebounce) clearTimeout(resizeDebounce);
+    resizeDebounce = setTimeout(function() {
+        document.querySelectorAll('.editable-feedback').forEach(function(ta) {
+            ta.style.height = 'auto';
+            ta.style.height = Math.max(34, ta.scrollHeight) + 'px';
+        });
+    }, 150);
+});
 
 // Export functions for module usage
 window.SingleResultModule = {
