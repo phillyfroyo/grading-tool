@@ -269,11 +269,16 @@ function setupBatchEditableElements(gradingResult, originalData, essayIndex) {
                 }
             });
 
-            // Auto-resize textarea
+            // Auto-resize textarea on user input
             textarea.addEventListener('input', function() {
                 this.style.height = 'auto';
-                this.style.height = this.scrollHeight + 'px';
+                this.style.height = Math.max(34, this.scrollHeight) + 'px';
             });
+
+            // Auto-resize on initial render so AI-generated text that
+            // wraps to multiple lines shows fully without overflow.
+            textarea.style.height = 'auto';
+            textarea.style.height = Math.max(34, textarea.scrollHeight) + 'px';
         });
     }
 

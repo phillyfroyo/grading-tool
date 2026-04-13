@@ -881,8 +881,8 @@ function generateFeedbackSummary(scores, total, meta, teacherNotes, encouragemen
              border-radius: 0 6px 6px 0;"
              data-category="${category}"
              data-note-exclude-from-pdf="true">
-          <div style="display: flex; align-items: stretch; gap: 10px;">
-            <strong style="color: ${categoryInfo.color}; font-size: 14px; white-space: nowrap; display: flex; align-items: center; min-width: 80px;">
+          <div style="display: flex; align-items: center; gap: 10px;">
+            <strong style="color: ${categoryInfo.color}; font-size: 14px; white-space: nowrap; min-width: 80px;">
               ${categoryInfo.name}
             </strong>
             <textarea class="editable-feedback"
@@ -895,11 +895,11 @@ function generateFeedbackSummary(scores, total, meta, teacherNotes, encouragemen
             <button class="toggle-note-pdf-btn no-print"
                     data-category="${category}"
                     data-excluded="true"
-                    style="padding: 0; width: 26px; height: 34px; font-size: 18px; font-weight: bold; border: none; border-radius: 4px; cursor: pointer; background: #28a745; color: white; display: flex; align-items: center; justify-content: center; flex-shrink: 0;"
+                    style="padding: 0; width: 26px; min-height: 26px; font-size: 18px; font-weight: bold; border: none; border-radius: 4px; cursor: pointer; background: #28a745; color: white; display: flex; align-items: center; justify-content: center; flex-shrink: 0; align-self: center;"
                     onmouseover="this.style.background='#218838'"
                     onmouseout="this.style.background=this.dataset.excluded==='true'?'#28a745':'#dc3545'"
                     title="Add to PDF export">+</button>` : ''}
-            <div style="display: flex; align-items: center; gap: 4px; flex-shrink: 0;">
+            <div style="display: flex; align-items: center; gap: 4px; flex-shrink: 0; align-self: center;">
               <div class="score-input-container" style="position: relative;">
                 <input type="number"
                        class="editable-score"
