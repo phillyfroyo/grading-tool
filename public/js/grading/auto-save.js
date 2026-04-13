@@ -384,7 +384,9 @@
                 const essayDiv = queryInTab(`#batch-essay-${idx}`);
                 if (essayDiv && html) {
                     essayDiv.innerHTML = html;
-                    reattachHandlers(idx);
+                    // Pass tabId so the 250ms-delayed reattach targets the
+                    // correct tab even during multi-tab restore iteration.
+                    reattachHandlers(idx, tabId);
                 }
             });
         }
@@ -396,7 +398,7 @@
                 if (hlTabDiv && html) {
                     hlTabDiv.innerHTML = html;
                     hlTabDiv.dataset.loaded = 'true';
-                    reattachHighlightsHandlers(parseInt(indexStr, 10), hlTabDiv, 'tab');
+                    reattachHighlightsHandlers(parseInt(indexStr, 10), hlTabDiv, 'tab', tabId);
                 }
             });
         }
@@ -408,7 +410,7 @@
                 if (hlInner && html) {
                     hlInner.innerHTML = html;
                     hlInner.dataset.populated = 'true';
-                    reattachHighlightsHandlers(parseInt(indexStr, 10), hlInner, 'content');
+                    reattachHighlightsHandlers(parseInt(indexStr, 10), hlInner, 'content', tabId);
                 }
             });
         }
@@ -1018,8 +1020,35 @@
 
     /**
      * Re-attach interactive handlers on a restored essay div.
+     *
+     * @param {number} index - Essay index
+     * @param {string|null} tabId - The tab ID to scope queries to. During
+     *   multi-tab restore, the active tab changes as we iterate, so callers
+     *   pass the specific tab ID to avoid the 250ms setTimeout finding the
+     *   wrong tab's elements.
      */
-    function reattachHandlers(index) {
+    function reattachHandlers(index, tabId) {
+        // Capture the tab ID now; by the time the setTimeout fires, the
+        // active tab may have changed (multi-tab restore iterates tabs).
+        const scopedTabId = tabId
+            || (window.TabStore && window.TabStore.activeId())
+            || null;
+
+        const queryScoped = (selector) => {
+            if (window.TabStore && scopedTabId) {
+                return window.TabStore.queryInTab(scopedTabId, selector);
+            }
+            if (window.TabStore) return window.TabStore.activeQuery(selector);
+            return document.querySelector(selector);
+        };
+
+        const queryAllScoped = (selector) => {
+            if (window.TabStore && scopedTabId) {
+                return window.TabStore.queryAllInTab(scopedTabId, selector);
+            }
+            return document.querySelectorAll(selector);
+        };
+
         setTimeout(() => {
             const essayData = readEssayData(index);
             if (!essayData) return;
@@ -1028,9 +1057,7 @@
             // Strip "already initialized" data attributes from injected HTML.
             // Event listeners don't survive innerHTML injection, but these marker
             // attributes do — causing setup functions to skip re-attaching listeners.
-            const essayContainer = window.TabStore
-                ? window.TabStore.activeQuery(`#batch-essay-${index}`)
-                : document.getElementById(`batch-essay-${index}`);
+            const essayContainer = queryScoped(`#batch-essay-${index}`);
             if (essayContainer) {
                 essayContainer.removeAttribute('data-listeners-attached');
                 essayContainer.querySelectorAll('[data-listener-added]').forEach(
@@ -1042,9 +1069,7 @@
             }
 
             // Text selection handler
-            const essayContentDiv = window.TabStore
-                ? window.TabStore.activeQuery(`.formatted-essay-content[data-essay-index="${index}"]`)
-                : document.querySelector(`.formatted-essay-content[data-essay-index="${index}"]`);
+            const essayContentDiv = queryScoped(`.formatted-essay-content[data-essay-index="${index}"]`);
             if (essayContentDiv) {
                 essayContentDiv.addEventListener('mouseup', function (e) {
                     const selection = window.getSelection();
@@ -1068,7 +1093,7 @@
             }
 
             // Category buttons
-            const categoryButtons = document.querySelectorAll(
+            const categoryButtons = queryAllScoped(
                 `#categoryButtons-${index} .category-btn`
             );
             categoryButtons.forEach(function (btn) {
@@ -1158,8 +1183,13 @@
      * @param {number} index - Essay index
      * @param {HTMLElement} container - The highlights content container
      * @param {'tab'|'content'} type - Which highlights section this is
+     * @param {string|null} tabId - Tab to scope queries to (for multi-tab restore)
      */
-    function reattachHighlightsHandlers(index, container, type) {
+    function reattachHighlightsHandlers(index, container, type, tabId) {
+        const scopedTabId = tabId
+            || (window.TabStore && window.TabStore.activeId())
+            || null;
+
         setTimeout(() => {
             // Strip guard attributes that survived innerHTML injection
             container.querySelectorAll('[data-setup-complete]').forEach(
@@ -1173,8 +1203,8 @@
 
             // Setup remove-all checkbox
             if (type === 'tab') {
-                const checkbox = window.TabStore
-                    ? window.TabStore.activeQuery(`#highlights-tab-${index}-remove-all`)
+                const checkbox = (window.TabStore && scopedTabId)
+                    ? window.TabStore.queryInTab(scopedTabId, `#highlights-tab-${index}-remove-all`)
                     : document.getElementById(`highlights-tab-${index}-remove-all`);
                 if (checkbox) {
                     checkbox.removeAttribute('data-setup-complete');
