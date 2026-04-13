@@ -17,31 +17,31 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     });
 
-    // Handle manage profiles button directly
-    const manageBtn = document.getElementById('manageProfilesBtn');
-    if (manageBtn) {
-        manageBtn.addEventListener('click', function(e) {
-            e.preventDefault();
-            e.stopPropagation();
+    // Handle manage profiles button via event delegation so it works in
+    // any tab pane (each tab has its own #manageProfilesBtn from the
+    // cloned template; getElementById only finds the first one).
+    document.addEventListener('click', function(e) {
+        const manageBtn = e.target.closest('.manage-profiles-btn, #manageProfilesBtn');
+        if (!manageBtn) return;
 
-            // Open modal directly
-            const modal = document.getElementById('profileManagementModal');
-            if (modal) {
-                modal.style.display = 'block';
+        e.preventDefault();
+        e.stopPropagation();
 
-                // Load profiles list
-                if (window.ProfilesModule && window.ProfilesModule.loadProfilesList) {
-                    window.ProfilesModule.loadProfilesList();
-                } else {
-                    console.error('[USER_MENU] ProfilesModule or loadProfilesList not found');
-                }
+        // Open modal directly
+        const modal = document.getElementById('profileManagementModal');
+        if (modal) {
+            modal.style.display = 'block';
+
+            // Load profiles list
+            if (window.ProfilesModule && window.ProfilesModule.loadProfilesList) {
+                window.ProfilesModule.loadProfilesList();
             } else {
-                console.error('[USER_MENU] Profile management modal not found');
+                console.error('[USER_MENU] ProfilesModule or loadProfilesList not found');
             }
-        });
-    } else {
-        console.error('[USER_MENU] Manage profiles button NOT found');
-    }
+        } else {
+            console.error('[USER_MENU] Profile management modal not found');
+        }
+    });
 });
 
 /**
