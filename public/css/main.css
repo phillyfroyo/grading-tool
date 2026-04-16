@@ -103,6 +103,18 @@ select {
     box-sizing: border-box;
 }
 
+/* Highlight fields flagged by validateGradingForm so the user can locate
+   which ones need attention. Applied by form-handling.js when the Grade
+   button is clicked with missing required fields; cleared on the next
+   submit attempt. */
+.field-invalid,
+textarea.field-invalid,
+input[type="text"].field-invalid,
+select.field-invalid {
+    border-color: #dc3545;
+    box-shadow: 0 0 0 2px rgba(220, 53, 69, 0.15);
+}
+
 /* ===== BUTTONS ===== */
 button {
     background: #007bff;

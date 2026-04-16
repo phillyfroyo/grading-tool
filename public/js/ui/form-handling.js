@@ -38,20 +38,101 @@ if (typeof window !== 'undefined') {
     });
 }
 
-// Inline error utility functions
-function showInlineError(elementId, message) {
-    const errorElement = document.getElementById(elementId);
-    if (errorElement) {
-        errorElement.textContent = message;
-        errorElement.style.display = 'block';
-    }
+/**
+ * CSS class applied to invalid fields so the user can visually locate which
+ * ones need attention. Styled in css/main.css.
+ */
+const INVALID_FIELD_CLASS = 'field-invalid';
+
+function clearFieldErrors(form) {
+    form.querySelectorAll('.' + INVALID_FIELD_CLASS).forEach(el => {
+        el.classList.remove(INVALID_FIELD_CLASS);
+    });
+    // Also strip any stale legacy .error class from prior pageloads or
+    // manual inspection — they cause a pink fill that clashes with the
+    // red outline styling of .field-invalid.
+    form.querySelectorAll('.error').forEach(el => {
+        el.classList.remove('error');
+    });
 }
 
-function hideInlineError(elementId) {
-    const errorElement = document.getElementById(elementId);
-    if (errorElement) {
-        errorElement.style.display = 'none';
-        errorElement.textContent = '';
+function markFieldInvalid(el) {
+    if (el) el.classList.add(INVALID_FIELD_CLASS);
+}
+
+/**
+ * Validate the grading form and return any missing-field messages.
+ *
+ * Scoped to the submitted form's DOM subtree via form.querySelectorAll, so
+ * it naturally Just Works across multiple tabs — no tab-ID resolution
+ * needed. (Previously validation used getElementById which always targeted
+ * tab-1's error div due to duplicate IDs across tab panes.)
+ *
+ * Logic:
+ *   - Class profile is required unless a custom prompt is provided.
+ *   - The first essay row is always required (both name and text). This
+ *     covers the "nothing filled in" case — user gets individual errors
+ *     for the first row's name and text, not a generic "enter at least
+ *     one essay" message.
+ *   - Additional rows (2+) are only required if they're partially filled.
+ *     Fully-blank rows 2+ are ignored — users often click "Add another
+ *     essay" prematurely and leave rows empty.
+ *
+ * @param {HTMLFormElement} form - The submitted grading form
+ * @returns {string[]} List of human-readable error messages. Empty = valid.
+ */
+function validateGradingForm(form) {
+    clearFieldErrors(form);
+    const errors = [];
+
+    // Class profile (allow empty if a custom prompt is set — backwards compat
+    // with the prior inline-error logic).
+    const classProfileEl = form.querySelector('select[name="classProfile"]');
+    const classProfile = classProfileEl ? (classProfileEl.value || '').trim() : '';
+    const promptEl = document.querySelector('#prompt');
+    const prompt = promptEl ? (promptEl.value || '').trim() : '';
+    if (!classProfile && !prompt) {
+        errors.push('Please select a class profile');
+        markFieldInvalid(classProfileEl);
+    }
+
+    // Per-essay checks. All rows that exist are required — if the user
+    // clicked "Add another essay" and left both name and text empty, that's
+    // an unintentional blank row that should be fixed or removed rather
+    // than silently skipped during grading.
+    const essayEntries = form.querySelectorAll('.essay-entry');
+    essayEntries.forEach((entry, idx) => {
+        const nameEl = entry.querySelector('.student-name');
+        const textEl = entry.querySelector('.student-text');
+        const name = nameEl ? (nameEl.value || '').trim() : '';
+        const text = textEl ? (textEl.value || '').trim() : '';
+        const essayLabel = `Essay ${idx + 1}`;
+
+        if (!name) {
+            errors.push(`Student name required: ${essayLabel}`);
+            markFieldInvalid(nameEl);
+        }
+        if (!text) {
+            errors.push(`Paste student essay: ${essayLabel}`);
+            markFieldInvalid(textEl);
+        }
+    });
+
+    return errors;
+}
+
+/**
+ * Show the collected validation errors as a single red toast. The AutoSave
+ * module owns the toast styling; we just hand it the combined message.
+ */
+function showValidationToast(errors) {
+    if (!errors || errors.length === 0) return;
+    const message = errors.map(e => '• ' + e).join('\n');
+    if (window.AutoSaveModule && typeof window.AutoSaveModule.showToast === 'function') {
+        window.AutoSaveModule.showToast(message, 'error');
+    } else {
+        // Defensive fallback if AutoSaveModule hasn't loaded yet
+        alert(message);
     }
 }
 
@@ -137,6 +218,15 @@ async function handleManualGradingSubmission(e) {
 async function handleGradingFormSubmission(e) {
     e.preventDefault();
 
+    // Validate required fields and show a single combined error toast if
+    // anything is missing. Form-scoped queries so this works correctly in
+    // every tab (getElementById used to silently target tab-1 only).
+    const validationErrors = validateGradingForm(e.target);
+    if (validationErrors.length > 0) {
+        showValidationToast(validationErrors);
+        return;
+    }
+
     // Phase 6: Hard-enforce the grading lock. The Grade button in
     // non-originating tabs is disabled via tab-management.js, but we also
     // check here as defense-in-depth against keyboard submits or
@@ -209,8 +299,6 @@ async function handleGradingFormSubmission(e) {
     button.textContent = 'Grading essays...';
     button.disabled = true;
 
-    const errorElementId = 'classProfileError';
-
     // Mark grading as in progress so a page reload mid-grading will show
     // the "interrupted" variant of the restore modal. Cleared in finally.
     if (window.AutoSaveModule) {
@@ -219,20 +307,11 @@ async function handleGradingFormSubmission(e) {
 
     try {
         if (studentTexts.length === 1) {
-            // Single essay grading - validate requirements first
+            // Single essay grading. Validation already ran at the top of
+            // handleGradingFormSubmission via validateGradingForm — class
+            // profile / custom prompt / student name / essay text all
+            // already required. We just need the prompt here for the request.
             const prompt = document.querySelector('#prompt')?.value?.trim() || '';
-
-            // Validation: Must have either a class profile OR a custom prompt
-            if (!classProfile && !prompt) {
-                showInlineError(errorElementId, 'Please select a class profile');
-                // Reset button state
-                button.textContent = originalText;
-                button.disabled = false;
-                return;
-            }
-
-            // Clear any previous error
-            hideInlineError(errorElementId);
 
             const gradingData = {
                 studentText: studentTexts[0].text,
@@ -318,22 +397,11 @@ async function handleGradingFormSubmission(e) {
                 throw new Error(result.error || 'Grading failed');
             }
         } else {
-            // Batch essay grading - validate requirements first
+            // Batch essay grading. Validation already ran at the top of
+            // handleGradingFormSubmission via validateGradingForm — class
+            // profile / custom prompt / per-essay name and text all
+            // already required.
             const prompt = document.querySelector('#prompt')?.value?.trim() || '';
-
-            // Validation: Must have either a class profile OR a custom prompt
-            if (!classProfile && !prompt) {
-                showInlineError(errorElementId, 'Please select a class profile');
-                // Reset button state
-                button.textContent = originalText;
-                button.disabled = false;
-                return;
-            }
-
-            // Clear any previous error
-            hideInlineError(errorElementId);
-
-            // Note: classProfile is optional if custom prompt is provided
 
             const batchData = {
                 essays: studentTexts.map(essay => ({
@@ -490,7 +558,27 @@ function setupMainGrading() {
         ? window.TabStore.activeQuery('#gradingForm')
         : document.getElementById('gradingForm');
     if (gradingForm) {
+        // Disable HTML5 native validation so browser tooltips don't compete
+        // with our validation toasts. Our validateGradingForm runs first
+        // and shows a single combined red toast for all missing fields.
+        gradingForm.noValidate = true;
         gradingForm.addEventListener('submit', handleGradingFormSubmission);
+
+        // Clear the .field-invalid red outline as soon as the user starts
+        // typing/pasting/selecting into a flagged field. Uses event
+        // delegation on the form so it covers all current AND future fields
+        // (e.g. rows added via "Add another essay" after the form loads).
+        // Listens for both 'input' (text boxes, textareas) and 'change'
+        // (select dropdown — input also fires for select, but change is the
+        // canonical event for select value changes).
+        const clearOwnInvalidState = (e) => {
+            if (e.target && e.target.classList
+                && e.target.classList.contains(INVALID_FIELD_CLASS)) {
+                e.target.classList.remove(INVALID_FIELD_CLASS);
+            }
+        };
+        gradingForm.addEventListener('input', clearOwnInvalidState);
+        gradingForm.addEventListener('change', clearOwnInvalidState);
     } else {
         console.warn('Main grading form not found');
     }
@@ -862,6 +950,12 @@ async function fallbackToBatchProcessing(batchData) {
  */
 function setupFormValidation() {
     document.querySelectorAll('form').forEach(form => {
+        // Skip the grading form — it has its own tab-aware validation via
+        // validateGradingForm + toast messaging. Running the legacy
+        // validateForm on top would add the .error class (pink fill) which
+        // clashes with the .field-invalid outline styling.
+        if (form.id === 'gradingForm') return;
+
         form.addEventListener('submit', function(e) {
             if (!validateForm(this)) {
                 e.preventDefault();

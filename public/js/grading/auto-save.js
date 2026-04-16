@@ -706,10 +706,24 @@
         toast.id = 'auto-save-toast';
 
         const isWarn = level === 'warn';
-        const bg = isWarn ? 'rgba(255,243,205,0.95)' : 'rgba(209,243,209,0.95)';
-        const border = isWarn ? 'rgba(200,170,80,0.4)' : 'rgba(100,180,100,0.4)';
-        const color = isWarn ? '#856404' : '#2d6a2d';
-        const icon = isWarn ? ' ⚠' : ' ✓';
+        const isError = level === 'error';
+        let bg, border, color, icon;
+        if (isError) {
+            bg = 'rgba(248,215,218,0.97)';
+            border = 'rgba(180,80,80,0.5)';
+            color = '#721c24';
+            icon = '';
+        } else if (isWarn) {
+            bg = 'rgba(255,243,205,0.95)';
+            border = 'rgba(200,170,80,0.4)';
+            color = '#856404';
+            icon = ' ⚠';
+        } else {
+            bg = 'rgba(209,243,209,0.95)';
+            border = 'rgba(100,180,100,0.4)';
+            color = '#2d6a2d';
+            icon = ' ✓';
+        }
 
         toast.style.cssText =
             'position:fixed;top:12px;left:12px;z-index:9999;' +
@@ -719,6 +733,7 @@
             'box-shadow:0 2px 8px rgba(0,0,0,0.12);' +
             'backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);' +
             'transition:opacity 0.3s ease;opacity:0;' +
+            'white-space:pre-line;max-width:420px;' +
             `background:${bg};border:1px solid ${border};color:${color};`;
 
         toast.textContent = text + icon;
@@ -729,14 +744,17 @@
             toast.style.opacity = '1';
         });
 
-        // Auto-dismiss after 5s for success; warnings stay until replaced
+        // Auto-dismiss: 5s for success, 8s for errors (longer — users need
+        // time to read a multi-line validation message). Warnings stay until
+        // replaced by the next toast.
         if (!isWarn) {
+            const dismissMs = isError ? 8000 : 5000;
             toastDismissTimer = setTimeout(() => {
                 toast.style.opacity = '0';
                 setTimeout(() => {
                     if (toast.parentNode) toast.remove();
                 }, 300);
-            }, 5000);
+            }, dismissMs);
         }
     }
 
@@ -1401,5 +1419,9 @@
         markGradingStarted,
         markGradingFinished,
         isGradingInProgress,
+        // Exposed so other modules (e.g. form validation) can surface
+        // toast-style messages with consistent styling. Levels: 'ok' (green,
+        // 5s), 'warn' (yellow, persistent), 'error' (red, 8s).
+        showToast,
     };
 })();
