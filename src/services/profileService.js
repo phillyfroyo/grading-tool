@@ -11,6 +11,19 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
 /**
+ * Normalize a word count input from the client.
+ * Empty string, null, undefined, and non-numeric input all become null
+ * (the "unset" state in the nullable schema). Otherwise returns a
+ * non-negative integer.
+ */
+function normalizeWordCount(value) {
+  if (value === null || value === undefined || value === '') return null;
+  const n = parseInt(value, 10);
+  if (Number.isNaN(n) || n < 0) return null;
+  return n;
+}
+
+/**
  * Load profiles from database or file system for a specific user
  * @param {string} userId - User ID to filter profiles
  * @returns {Promise<Object>} Profiles object with profiles array
@@ -174,6 +187,12 @@ async function createProfile(profileData, userId) {
       createData.temperature = parseFloat(profileData.temperature) || 0;
     }
 
+    // Required word count fields. Accept null/undefined/empty string as "unset"
+    // (column is nullable in the schema). Whole numbers only; reject non-numeric
+    // input by falling back to null.
+    createData.requiredWordCountMin = normalizeWordCount(profileData.requiredWordCountMin);
+    createData.requiredWordCountMax = normalizeWordCount(profileData.requiredWordCountMax);
+
     console.log("[PROFILES] Database create data:", createData);
 
     try {
@@ -194,6 +213,8 @@ async function createProfile(profileData, userId) {
         vocabulary: profileData.vocabulary || [],
         grammar: profileData.grammar || [],
         prompt: profileData.prompt || '',
+        requiredWordCountMin: normalizeWordCount(profileData.requiredWordCountMin),
+        requiredWordCountMax: normalizeWordCount(profileData.requiredWordCountMax),
         temperature: parseFloat(profileData.temperature) || 0,
         userId: userId,
         created: new Date().toISOString(),
@@ -214,6 +235,8 @@ async function createProfile(profileData, userId) {
       vocabulary: profileData.vocabulary || [],
       grammar: profileData.grammar || [],
       prompt: profileData.prompt || '',
+      requiredWordCountMin: normalizeWordCount(profileData.requiredWordCountMin),
+      requiredWordCountMax: normalizeWordCount(profileData.requiredWordCountMax),
       temperature: parseFloat(profileData.temperature) || 0,
       userId: userId,
       created: new Date().toISOString(),
@@ -248,6 +271,8 @@ async function updateProfile(profileId, updateData, userId) {
         vocabulary: updateData.vocabulary || [],
         grammar: updateData.grammar || [],
         prompt: updateData.prompt || '',
+        requiredWordCountMin: normalizeWordCount(updateData.requiredWordCountMin),
+        requiredWordCountMax: normalizeWordCount(updateData.requiredWordCountMax),
       };
 
       // Only add temperature if it exists in the request
@@ -292,6 +317,8 @@ async function updateProfile(profileId, updateData, userId) {
         vocabulary: updateData.vocabulary || [],
         grammar: updateData.grammar || [],
         prompt: updateData.prompt || '',
+        requiredWordCountMin: normalizeWordCount(updateData.requiredWordCountMin),
+        requiredWordCountMax: normalizeWordCount(updateData.requiredWordCountMax),
         temperature: parseFloat(updateData.temperature) || 0,
         userId: userId,
         lastModified: new Date().toISOString(),
@@ -312,6 +339,8 @@ async function updateProfile(profileId, updateData, userId) {
     vocabulary: updateData.vocabulary || [],
     grammar: updateData.grammar || [],
     prompt: updateData.prompt || '',
+    requiredWordCountMin: normalizeWordCount(updateData.requiredWordCountMin),
+    requiredWordCountMax: normalizeWordCount(updateData.requiredWordCountMax),
     temperature: parseFloat(updateData.temperature) || 0,
     userId: userId,
     lastModified: new Date().toISOString(),

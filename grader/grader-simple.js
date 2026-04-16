@@ -281,7 +281,8 @@ export async function gradeEssaySimple(studentText, classProfile, progressCallba
       classProfile.cefrLevel,
       studentText,
       errorDetectionResults,
-      studentNickname // Pass the studentNickname parameter
+      studentNickname,
+      metrics.word_count // Algorithmic count — eliminates GPT miscount risk
     );
 
     const gradingResponse = await openai.chat.completions.create({

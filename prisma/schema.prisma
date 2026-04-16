@@ -8,17 +8,24 @@ datasource db {
 }
 
 model class_profiles {
-  id           String   @id
-  name         String
-  cefrLevel    String
-  vocabulary   String[]
-  grammar      String[]
-  prompt       String?
-  created      DateTime @default(now())
-  lastModified DateTime
-  userId       String
-  temperature  Float?   @default(0)
-  users        users    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id                    String   @id
+  name                  String
+  cefrLevel             String
+  vocabulary            String[]
+  grammar               String[]
+  prompt                String?
+  // Explicit word count target for this profile's assignment. Teachers can
+  // set these directly in the profile edit modal. When both are null the
+  // grader falls back to regex-parsing the prompt text for ranges like
+  // "200-220 words"; when no target is found at all the Layout category is
+  // scored on structure/transitions only, not length.
+  requiredWordCountMin  Int?
+  requiredWordCountMax  Int?
+  created               DateTime @default(now())
+  lastModified          DateTime
+  userId                String
+  temperature           Float?   @default(0)
+  users                 users    @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
 model sessions {

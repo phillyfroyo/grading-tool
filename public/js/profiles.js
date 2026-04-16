@@ -273,6 +273,21 @@ function createProfileFormHTML(profileId) {
                 </div>
 
                 <div style="margin-bottom: 15px;">
+                    <label>Required Word Count (optional):
+                        <span class="info-icon" data-tooltip="Set the assignment's target word count so the grader can score the Layout category against a known range. Overrides any word count mentioned in the prompt above. Leave both fields blank to have the grader read the prompt for phrasings like '200-220 words', or to skip length entirely if the prompt doesn't mention it." style="display: inline-block; width: 20px; height: 20px; border-radius: 50%; background: lightgray; color: white; text-align: center; line-height: 20px; font-size: 14px; font-style: italic; cursor: pointer; margin-left: 5px; position: relative;">i</span>
+                    </label>
+                    <div style="display: flex; gap: 10px; align-items: center; margin-top: 4px;">
+                        <input type="number" id="profileWordCountMin-${profileId}" name="requiredWordCountMin" min="0" step="1" placeholder="Min (e.g. 200)" style="flex: 1; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
+                        <span style="color: #666;">to</span>
+                        <input type="number" id="profileWordCountMax-${profileId}" name="requiredWordCountMax" min="0" step="1" placeholder="Max (e.g. 220)" style="flex: 1; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
+                        <span style="color: #666; font-size: 13px;">words</span>
+                    </div>
+                    <div style="margin-top: 4px; font-size: 12px; color: #666; font-style: italic;">
+                        Leave blank to parse the word count from the prompt above, or skip length grading entirely.
+                    </div>
+                </div>
+
+                <div style="margin-bottom: 15px;">
                     <label for="profileTemperature-${profileId}">Temperature: <span id="profileTemperatureValue-${profileId}">0</span>
                         <span class="info-icon" data-tooltip="Temperature control adjusts how merciful/harsh the grade output is relative to the grading rubric. At a temperature of 0, the AI grades strictly to the rubric. Each increment of 0.5 will add or subtract 5 points out of 100. For example, if the AI returns a 50/100 and you set the temperature to 0.5, the algorithm adjusts it to 55/100. At a temperature of 3.0, that same essay becomes 80/100." style="display: inline-block; width: 20px; height: 20px; border-radius: 50%; background: lightgray; color: white; text-align: center; line-height: 20px; font-size: 14px; font-style: italic; cursor: pointer; margin-left: 5px; position: relative;">i</span>
                     </label>
@@ -339,6 +354,12 @@ function toggleProfileEditForm(profileId) {
             document.getElementById(`profileVocab-${profileId}`).value = profile.vocabulary ? profile.vocabulary.join('\n') : '';
             document.getElementById(`profileGrammar-${profileId}`).value = profile.grammar ? profile.grammar.join('\n') : '';
             document.getElementById(`profilePrompt-${profileId}`).value = profile.prompt || '';
+            // Word count fields are nullable; show empty string when unset so
+            // the number input doesn't display a stale "0".
+            const wcMinEl = document.getElementById(`profileWordCountMin-${profileId}`);
+            const wcMaxEl = document.getElementById(`profileWordCountMax-${profileId}`);
+            if (wcMinEl) wcMinEl.value = (profile.requiredWordCountMin !== null && profile.requiredWordCountMin !== undefined) ? profile.requiredWordCountMin : '';
+            if (wcMaxEl) wcMaxEl.value = (profile.requiredWordCountMax !== null && profile.requiredWordCountMax !== undefined) ? profile.requiredWordCountMax : '';
             document.getElementById(`profileTemperature-${profileId}`).value = profile.temperature || 0;
             updateProfileTemperatureDisplay(profile.temperature || 0, profileId);
         }
@@ -542,6 +563,27 @@ async function handleNewProfileFormSubmission(e) {
     const profileId = form.dataset.profileId;
     console.log('[PROFILES] Form data collected, profileId:', profileId);
 
+    // Parse required word count bounds. Empty strings become null (explicitly
+    // "unset" in the nullable schema). Non-numeric input falls back to null.
+    const parseWordCountField = (raw) => {
+        if (raw === null || raw === undefined || String(raw).trim() === '') return null;
+        const n = parseInt(raw, 10);
+        if (Number.isNaN(n) || n < 0) return null;
+        return n;
+    };
+    const wcMin = parseWordCountField(formData.get('requiredWordCountMin'));
+    const wcMax = parseWordCountField(formData.get('requiredWordCountMax'));
+
+    // Validate: if one bound is set, both should be; min <= max.
+    if ((wcMin !== null) !== (wcMax !== null)) {
+        showError('Please set both minimum and maximum required word count, or leave both blank.', 'Word Count Incomplete');
+        return;
+    }
+    if (wcMin !== null && wcMax !== null && wcMin > wcMax) {
+        showError('Required word count minimum must be less than or equal to maximum.', 'Word Count Invalid');
+        return;
+    }
+
     const profileData = {
         name: formData.get('name'),
         cefrLevel: formData.get('cefrLevel'),
@@ -552,6 +594,8 @@ async function handleNewProfileFormSubmission(e) {
         vocabulary: formData.get('vocabulary').split(/[\n,]/).map(s => s.trim().replace(/^["']|["']$/g, '')).filter(Boolean),
         grammar: formData.get('grammar').split(/[\n;]/).map(s => s.trim().replace(/^["']|["']$/g, '')).filter(Boolean),
         prompt: formData.get('prompt'),
+        requiredWordCountMin: wcMin,
+        requiredWordCountMax: wcMax,
         temperature: (() => {
             const temp = parseFloat(formData.get('temperature'));
             return (isNaN(temp) || !isFinite(temp)) ? 0 : temp;
