@@ -8,7 +8,17 @@ import { readFileSync } from 'fs';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
 import { buildSimpleErrorDetectionPrompt } from './error-detection-simple.js';
-import { buildGradingPrompt } from './grading-prompt.js';
+import { buildGradingPrompt, resolveWordCountRange } from './grading-prompt.js';
+import {
+  countErrorsByCategory,
+  computeGrammarBand,
+  computeVocabularyBand,
+  computeSpellingBand,
+  computeMechanicsBand,
+  computeLayoutLengthBand,
+  computeLayoutTransitionBand,
+  bandToPointRange,
+} from './scoring.js';
 import { PrismaClient } from '@prisma/client';
 
 dotenv.config();
@@ -266,6 +276,56 @@ export async function gradeEssaySimple(studentText, classProfile, progressCallba
       transition_words_found: metrics.transition_words_found
     };
 
+    // Compute deterministic per-category data BEFORE building the grading
+    // prompt. GPT has historically miscounted errors and mis-mapped counts
+    // to rubric bands; doing the math here and passing the exact band (and
+    // thus the exact point range) to GPT eliminates that class of error.
+    const errorCounts = countErrorsByCategory(errorDetection.inline_issues);
+    const cleanVocab = stripHeaders(classProfile.vocabulary);
+    const cleanGrammar = stripHeaders(classProfile.grammar);
+    const hasClassVocabulary = cleanVocab.length > 0;
+    const hasClassGrammar = cleanGrammar.length > 0;
+
+    const precomputed = {
+      errorCounts,
+      bands: {
+        grammar: computeGrammarBand({
+          errorCount: errorCounts.grammar || 0,
+          classStructuresUsedCount: (metrics.grammar_structures_used || []).length,
+          hasClassGrammar,
+        }),
+        vocabulary: computeVocabularyBand({
+          classVocabUsedCount: (metrics.class_vocabulary_used || []).length,
+          hasClassVocabulary,
+        }), // null when no class vocab list — Vocabulary stays subjective
+        spelling: computeSpellingBand(errorCounts.spelling || 0),
+        mechanics: computeMechanicsBand(errorCounts.mechanics || 0),
+      },
+      layout: {
+        // Length and transition bands precomputed; GPT judges structure
+        // quality as a third band and averages in the prompt.
+        lengthBand: (() => {
+          const range = resolveWordCountRange(classProfile);
+          if (!range) return null;
+          return computeLayoutLengthBand({
+            actualCount: metrics.word_count,
+            targetMin: range.min,
+            targetMax: range.max,
+          });
+        })(),
+        transitionBand: computeLayoutTransitionBand(
+          (metrics.transition_words_found || []).length
+        ),
+        paragraphCount: metrics.paragraph_count,
+        transitionWordCount: (metrics.transition_words_found || []).length,
+      },
+      hasClassVocabulary,
+      hasClassGrammar,
+      classStructuresUsedCount: (metrics.grammar_structures_used || []).length,
+      classVocabUsedCount: (metrics.class_vocabulary_used || []).length,
+      bandToPointRange,
+    };
+
     // STEP 3: Grade with rubric
     if (progressCallback) {
       progressCallback({
@@ -282,7 +342,8 @@ export async function gradeEssaySimple(studentText, classProfile, progressCallba
       studentText,
       errorDetectionResults,
       studentNickname,
-      metrics.word_count // Algorithmic count — eliminates GPT miscount risk
+      metrics.word_count, // Algorithmic count — eliminates GPT miscount risk
+      precomputed // Per-category error counts and band numbers
     );
 
     const gradingResponse = await openai.chat.completions.create({

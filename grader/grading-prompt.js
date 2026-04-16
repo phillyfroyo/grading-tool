@@ -133,7 +133,7 @@ function resolveWordCountRange(classProfile) {
 // Export helpers for testing / other modules.
 export { parseWordCountFromPrompt, resolveWordCountRange };
 
-export function buildGradingPrompt(rubric, classProfile, cefrLevel, studentText, errorDetectionResults, studentNickname, studentWordCount) {
+export function buildGradingPrompt(rubric, classProfile, cefrLevel, studentText, errorDetectionResults, studentNickname, studentWordCount, precomputed) {
   const levelInfo = rubric.cefr_levels[cefrLevel] || rubric.cefr_levels['C1'];
   const categories = Object.keys(rubric.categories);
 
@@ -227,6 +227,75 @@ export function buildGradingPrompt(rubric, classProfile, cefrLevel, studentText,
   }
   const classMetricsBlock = classMetricsLines.length > 0 ? '\n' + classMetricsLines.join('\n') : '';
 
+  // Build the AUTHORITATIVE ERROR COUNTS + PRECOMPUTED BANDS sections.
+  // These only appear when precomputed data is available (i.e. the new
+  // scoring pipeline — backward-compatible for any legacy caller).
+  let authoritativeBlock = '';
+  if (precomputed) {
+    const ec = precomputed.errorCounts || {};
+    const b = precomputed.bands || {};
+    const toPts = precomputed.bandToPointRange;
+
+    // Format one per-category line like:
+    //   - Mechanics: 2 errors → band 1 → score in 13-15 range
+    const lines = [];
+    const addBandLine = (name, band, weight, count, structuresInfo) => {
+      if (band == null) return; // subjective — handled elsewhere
+      const { min, max } = toPts(band, weight);
+      const base = count != null ? `${count} errors` : '';
+      const extra = structuresInfo || '';
+      const detail = [base, extra].filter(Boolean).join(', ');
+      lines.push(`- **${name}**: ${detail ? detail + ' → ' : ''}band ${band} → score in ${min}-${max} range`);
+    };
+
+    addBandLine('Grammar', b.grammar, 15, ec.grammar || 0,
+      precomputed.hasClassGrammar
+        ? `${precomputed.classStructuresUsedCount} class grammar structures used`
+        : null);
+    if (b.vocabulary != null) {
+      // Class-vocab-present case: score is determined by match count only.
+      lines.push(`- **Vocabulary**: ${precomputed.classVocabUsedCount} class vocabulary words used → band ${b.vocabulary} → score in ${toPts(b.vocabulary, 15).min}-${toPts(b.vocabulary, 15).max} range`);
+    }
+    addBandLine('Spelling', b.spelling, 15, ec.spelling || 0);
+    addBandLine('Mechanics', b.mechanics, 15, ec.mechanics || 0);
+
+    // Layout has two precomputed sub-bands (length, transitions) plus a
+    // structure judgment that GPT provides. We tell GPT the two numeric
+    // bands and instruct it to average with its structure assessment.
+    const layout = precomputed.layout || {};
+    const layoutDetails = [];
+    if (layout.lengthBand != null) {
+      layoutDetails.push(`length band = ${layout.lengthBand}`);
+    } else {
+      layoutDetails.push(`length = NOT SCORED (no word count target set)`);
+    }
+    layoutDetails.push(`transition-word band = ${layout.transitionBand} (${layout.transitionWordCount} transitions found)`);
+    layoutDetails.push(`paragraph count = ${layout.paragraphCount}`);
+
+    const layoutStructureInstruction = (layout.lengthBand != null)
+      ? `Read the essay and assign a structure-quality band (1-5) based on paragraph organization. Then AVERAGE the three band numbers (length, transitions, structure) and round to the nearest integer. Map the final band to its point range: band 1 → 13-15, band 2 → 10-12, band 3 → 7-9, band 4 → 4-6, band 5 → 0-3. Select a specific point value within that range.`
+      : `No word count target set for this assignment. Score Layout from two inputs only: (1) transition-word band = ${layout.transitionBand}, (2) your judgment of paragraph organization as a band (1-5). AVERAGE these two band numbers, round, and map to the point range. Do NOT penalize length.`;
+
+    authoritativeBlock = `
+## AUTHORITATIVE SCORING DATA (precomputed from the detected errors — USE THESE EXACT NUMBERS):
+
+${lines.join('\n')}
+
+### Layout (${15} points) — partial precomputation:
+- ${layoutDetails.join('\n- ')}
+
+${layoutStructureInstruction}
+
+### Subjective categories (no precomputation):
+- **Fluency** (10 points): Read the essay and assign a band 1-5 based on organization and logical flow of ideas. Map to point range: band 1 → 9-10, band 2 → 7-8, band 3 → 5-6, band 4 → 3-4, band 5 → 0-2.
+- **Content** (15 points): Read the essay and the assignment prompt. Assign a band 1-5 based on variety of ideas, elaboration, and topic relevance. Map to point range: band 1 → 13-15, band 2 → 10-12, band 3 → 7-9, band 4 → 4-6, band 5 → 0-3.${b.vocabulary == null ? `
+- **Vocabulary** (15 points): No class vocabulary list is specified for this assignment. Read the essay and score vocabulary based on variety, appropriateness, and accuracy of the words the student used. Assign a band 1-5 and map to point range: band 1 → 13-15, band 2 → 10-12, band 3 → 7-9, band 4 → 4-6, band 5 → 0-3. Do NOT mention "class vocabulary" in the rationale.` : ''}
+
+### CRITICAL RULE:
+For Grammar, Spelling, Mechanics${b.vocabulary != null ? ', and Vocabulary' : ''}: the bands above are FINAL. Pick a point value inside the given range but DO NOT change bands based on your reading of the essay. The error counts are authoritative; your reading of the essay applies ONLY to Fluency, Content, Layout structure${b.vocabulary == null ? ', and Vocabulary' : ''}.
+`;
+  }
+
   return `You are an expert ESL writing grader. Grade according to the rubric.
 
 ## YOUR JOB
@@ -276,11 +345,11 @@ ${hasClassGrammar
   : `- Grammar structures: NOT SPECIFIED for this class. Grade the "grammar" category based ONLY on the correctness of the grammar the student actually used in their essay. Do NOT mention target grammar structures, a class grammar list, or whether the student used class grammar anywhere in the rationale or feedback. Do NOT say things like "no class grammar structures used" or "target structures not applied".`}
 
 ## SCORING RULES:
-- Follow rubric bands precisely
-- Score based on actual performance against criteria
-- Perfect performance = FULL POINTS
-- Use the full range of the rubric
-
+- Use the AUTHORITATIVE SCORING DATA above as the source of truth for bands.
+- For categories with a precomputed band: the band is FINAL. Pick any point value within the given range based on rubric-band nuance, but do NOT shift to a different band.
+- For subjective categories: read the essay and pick a band 1-5, then map to the point range specified above.
+- Perfect performance within a band = top of that range. Average performance = middle. Barely meeting band criteria = bottom of range.
+${authoritativeBlock}
 
 ## STUDENT TEXT:
 "${studentText}"

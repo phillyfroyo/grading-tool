@@ -18,23 +18,23 @@
       "bands": [
         {
           "range": "15% - 13%",
-          "description": "No grammatical errors or only 2-3 minor errors. Excellent tense agreement. Uses 4+ structures taught in class."
+          "description": "0-3 grammar errors total. Tense agreement is consistent. Uses 4+ grammar structures from the class list."
         },
         {
           "range": "12% - 10%",
-          "description": "Almost no grammatical errors (3-5 minor errors). Correct tense agreement with few mistakes. Uses 3 structures taught in class."
+          "description": "4-5 grammar errors. Tense agreement mostly correct. Uses 3 grammar structures from the class list."
         },
         {
           "range": "9% - 7%",
-          "description": "A few grammatical errors (6-9 no basic) and use of few structures seen in class (2). Good tense agreement with mistakes."
+          "description": "6-9 grammar errors, mostly complex ones (tense agreement issues, subject-verb agreement, article use). Uses 2 grammar structures from the class list."
         },
         {
           "range": "6% - 4%",
-          "description": "Several grammatical errors (10-15 almost no basic ones) and only uses 1 structure seen in class. Tense agreement is not correct."
+          "description": "10-15 grammar errors, including some basic ones (wrong singular/plural, missing articles on most nouns, basic tense errors). Uses 1 grammar structure from the class list."
         },
         {
           "range": "3% - 0%",
-          "description": "Many grammatical errors (15 or + and basic ones) and no use of any structure seen in class. There is no tense agreement."
+          "description": "15+ grammar errors, many of them basic. No grammar structures from the class list used. Tense agreement is absent or inconsistent throughout."
         }
       ]
     },
@@ -48,23 +48,23 @@
       "bands": [
         {
           "range": "15% - 13%",
-          "description": "Excellent use of vocabulary taught in class (10+ correct words)."
+          "description": "10+ class-vocabulary words used correctly."
         },
         {
           "range": "12% - 10%",
-          "description": "Good use of vocabulary taught in class (7-9 correct words)."
+          "description": "7-9 class-vocabulary words used correctly."
         },
         {
           "range": "9% - 7%",
-          "description": "Correct use of vocabulary seen in class (5-6 vocabulary words)."
+          "description": "5-6 class-vocabulary words used correctly."
         },
         {
           "range": "6% - 4%",
-          "description": "Correct but few use of vocabulary seen in class (3-4 words)."
+          "description": "3-4 class-vocabulary words used correctly."
         },
         {
           "range": "3% - 0%",
-          "description": "Incorrect or no use of vocabulary seen in class (0-2 words)."
+          "description": "0-2 class-vocabulary words used, OR class-vocabulary words used incorrectly."
         }
       ]
     },
@@ -78,23 +78,23 @@
       "bands": [
         {
           "range": "15% - 13%",
-          "description": "Hardly any spelling errors (2-3). No errors that impede communication."
+          "description": "0-3 spelling errors."
         },
         {
           "range": "12% - 10%",
-          "description": "Some spelling errors (3-5). Errors do not impede communication."
+          "description": "4-5 spelling errors."
         },
         {
           "range": "9% - 7%",
-          "description": "Number of errors 6-8 that do not impede communication."
+          "description": "6-8 spelling errors."
         },
         {
           "range": "6% - 4%",
-          "description": "Errors may obscure communication at times. Spelling errors of 8-10."
+          "description": "9-10 spelling errors."
         },
         {
           "range": "3% - 0%",
-          "description": "Frequent errors that obscure communication. Many spelling errors (10 or more or basic ones)."
+          "description": "11+ spelling errors."
         }
       ]
     },
@@ -104,27 +104,27 @@
       "color": "#555555",
       "backgroundColor": "#E0E0E0",
       "weight": 15,
-      "description": "Correct use of commas, periods, capitalization, and sentence boundaries.",
+      "description": "Correct use of commas, periods, capitalization, apostrophes, and sentence boundaries.",
       "bands": [
         {
           "range": "15% - 13%",
-          "description": "No punctuation errors or only 1-3 minor errors."
+          "description": "0-3 punctuation/capitalization errors total. Small slips like a missing comma, missing apostrophe, missed capital, or one run-on sentence."
         },
         {
           "range": "12% - 10%",
-          "description": "Almost no punctuation errors (3-5 minor)."
+          "description": "4-5 punctuation/capitalization errors. Occasional slips, meaning remains clear."
         },
         {
           "range": "9% - 7%",
-          "description": "A few punctuation errors (5-10 and almost no basic ones)."
+          "description": "6-10 punctuation/capitalization errors. Noticeable but communication is still clear."
         },
         {
           "range": "6% - 4%",
-          "description": "Many punctuation errors (10 or + 20 basic ones)."
+          "description": "11-20 punctuation/capitalization errors."
         },
         {
           "range": "3% - 0%",
-          "description": "Lack of punctuation difficult to understand because of it. (20 or + including basic ones)."
+          "description": "20+ punctuation/capitalization errors AND the text is difficult to follow because of them."
         }
       ]
     },
@@ -138,23 +138,23 @@
       "bands": [
         {
           "range": "10% - 9%",
-          "description": "Well-organized, coherent, and easy to follow. Valid ideas clearly connected."
+          "description": "Well-organized. Clear logical flow between ideas and paragraphs. Easy to follow."
         },
         {
           "range": "8% - 7%",
-          "description": "Mostly clear organization. Valid ideas organized logically."
+          "description": "Organization is mostly clear. Minor choppy transitions between ideas."
         },
         {
           "range": "6% - 5%",
-          "description": "Inadequate organization or development. Structure of the answer(s) is (are) not easy to follow. Mainly valid ideas organized adequately."
+          "description": "Some organizational issues. Structure is not always easy to follow. Ideas are present but not always connected."
         },
         {
           "range": "4% - 3%",
-          "description": "Organization and structure detract from the answer(s). Choppy, ideas organized inadequately. Communication or purpose of writing sometimes obscured; repetitive."
+          "description": "Choppy structure. Ideas organized inadequately. Purpose sometimes unclear. Repetitive."
         },
         {
           "range": "2% - 0%",
-          "description": "Text is not structured. Confusing, ideas disconnected; lacks logical."
+          "description": "Text is not structured. Ideas disconnected. Logic unclear."
         }
       ]
     },
@@ -168,23 +168,23 @@
       "bands": [
         {
           "range": "15% - 13%",
-          "description": "Excellent text structure. Length within target range (10-13 words under OR 10-15 words over). Uses 6+ transition words."
+          "description": "Length within target range (10-13 words under OR 10-15 words over). Clear paragraph structure. 6+ varied transition words used."
         },
         {
           "range": "12% - 10%",
-          "description": "Good structure. Length slightly off target (14-15 words under OR 16-20 words over). Uses 5 transition words."
+          "description": "Length slightly off target (14-15 words under OR 16-20 words over). Good structure. 5 transition words used."
         },
         {
           "range": "9% - 7%",
-          "description": "Several inconsistencies in text type requirements. The length is not the one asked (16-17 words less or 21-25 words more). Uses cohesive devices (4 transition words) but in a repetitive way."
+          "description": "Length off target (16-17 words under OR 21-25 words over). Some structural inconsistencies. 4 transition words, somewhat repetitive."
         },
         {
           "range": "6% - 4%",
-          "description": "Barely meets text type requirements. The length is not the one asked (18-19 words less or 26-30 words more). Incorrect use of cohesive devices (3-2 transition words)."
+          "description": "Length clearly off target (18-19 words under OR 26-30 words over). Weak structure. 2-3 transition words."
         },
         {
           "range": "3% - 0%",
-          "description": "Does not meet text type requirements (20 or more words less or 31 or more words more). Attempts at appropriate writing are unsuccessful or inconsistent. No use of cohesive devices."
+          "description": "Length severely off target (20+ words under OR 31+ words over). Structure missing or incoherent. Zero transition words."
         }
       ]
     },
@@ -198,23 +198,23 @@
       "bands": [
         {
           "range": "15% - 13%",
-          "description": "Considerable variety of ideas. All content points elaborated and clearly connected to main topic."
+          "description": "Considerable variety of ideas. All content points addressed and elaborated. Directly connected to the topic."
         },
         {
           "range": "12% - 10%",
-          "description": "Several valid ideas. Most content points elaborated and relevant."
+          "description": "Several valid ideas. Most content points addressed. Relevant to the assigned topic."
         },
         {
           "range": "9% - 7%",
-          "description": "Some valid ideas. Some content points elaborated. Main ideas stand out but choppy."
+          "description": "Some valid ideas. Partial elaboration. Main ideas present but choppy."
         },
         {
           "range": "6% - 4%",
-          "description": "Limited variety of ideas. Hardly any content points elaborated."
+          "description": "Limited variety of ideas. Most content points missing or underdeveloped."
         },
         {
           "range": "3% - 0%",
-          "description": "Insufficient treatment of topic, no content point elaborated. Information has nothing to do with the main topic."
+          "description": "Topic insufficiently addressed. No elaboration. Content barely relates to the assigned topic."
         }
       ]
     }
