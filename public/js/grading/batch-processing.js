@@ -779,9 +779,11 @@ function loadEssayDetails(index) {
                         window.EssayEditingModule.initializeBatchEssayEditing(index, essay.result, originalData);
                     }
 
-                    // Setup editable elements for score inputs (critical for batch processing)
+                    // Setup editable elements for score inputs (critical for batch processing).
+                    // Pass currentBatchTabId so per-tab batchGradingData writes land
+                    // in the originating tab even if the user switched tabs mid-stream.
                     if (window.SingleResultModule && window.SingleResultModule.setupBatchEditableElements) {
-                        window.SingleResultModule.setupBatchEditableElements(essay.result, originalData, index);
+                        window.SingleResultModule.setupBatchEditableElements(essay.result, originalData, index, currentBatchTabId);
                     }
 
                     // Adjust height after all content is loaded

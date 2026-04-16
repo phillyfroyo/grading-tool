@@ -427,9 +427,11 @@
             });
         }
 
-        // Apply score overrides
+        // Apply score overrides scoped to this tab. Passing tabId is critical
+        // during multi-tab restore — the active tab flips between iterations
+        // as switchTab is called, so activeQuery would race.
         if (tabData.scoreOverrides) {
-            applyScoreOverrides(tabData.scoreOverrides);
+            applyScoreOverrides(tabData.scoreOverrides, tabId);
         }
 
         // Restore mark-complete checkbox states
@@ -462,6 +464,12 @@
                 //    labels, IDs, JS state, and the ID counter). Does NOT
                 //    create DOM panes — those are handled below.
                 window.TabStore.deserialize(tabStoreSnapshot);
+
+                // Track whether any tab's per-tab scoreOverrides were applied.
+                // If not (e.g. loading a pre-refactor save that only has the
+                // flat sessionData.scoreOverrides), we fall back after the
+                // loop and apply to the primary tab.
+                let appliedAnyPerTabOverrides = false;
 
                 // 2. For each restored tab, create a DOM pane (if one doesn't
                 //    already exist) and restore its DOM state.
@@ -508,6 +516,11 @@
                             });
                         }
 
+                        if (savedTabData.scoreOverrides
+                            && Object.keys(savedTabData.scoreOverrides).length > 0) {
+                            appliedAnyPerTabOverrides = true;
+                        }
+
                         restoreTabDOM(savedTabData, tabId);
                     }
                 }
@@ -516,6 +529,31 @@
                 const savedActiveId = tabStoreSnapshot.activeTabId;
                 if (savedActiveId && window.TabManagementModule) {
                     window.TabManagementModule.switchTab(savedActiveId);
+                }
+
+                // 4. Backward-compat fallback for pre-refactor saves: old
+                //    payloads stored scoreOverrides as a flat singleton blob
+                //    inside sessionData, with no per-tab gathering. If no
+                //    per-tab overrides were applied above AND the legacy field
+                //    is present, apply it to the primary tab as a best-effort
+                //    restoration of the most-recently-setup tab's edits.
+                if (!appliedAnyPerTabOverrides
+                    && sessionData
+                    && sessionData.scoreOverrides
+                    && Object.keys(sessionData.scoreOverrides).length > 0) {
+                    const primaryId = savedActiveId
+                        || (tabStoreSnapshot.tabs[0] && tabStoreSnapshot.tabs[0].id)
+                        || (window.TabStore && window.TabStore.activeId());
+                    if (primaryId) {
+                        console.log('[AutoSave] Applying legacy scoreOverrides to primary tab:', primaryId);
+                        const primaryState = window.TabStore && window.TabStore.get(primaryId);
+                        if (primaryState) {
+                            // Seed the primary tab's batchGradingData so the next
+                            // auto-save writes them in the new per-tab format.
+                            primaryState.batchGradingData = JSON.parse(JSON.stringify(sessionData.scoreOverrides));
+                        }
+                        applyScoreOverrides(sessionData.scoreOverrides, primaryId);
+                    }
                 }
 
             // ─── Legacy single-tab restore path (pre-Phase-7 saves) ──
@@ -847,6 +885,13 @@
             if (hlContentCb && hlContentCb.checked) removeAllStates[`highlights-content-${i}`] = true;
         }
 
+        // Per-tab score overrides — live inside tabState.batchGradingData now.
+        // Keep the saved-payload field name `scoreOverrides` so restoreTabDOM's
+        // existing `if (tabData.scoreOverrides)` check keeps working for both
+        // old and new payloads.
+        const bgd = tabState && tabState.batchGradingData;
+        const scoreOverrides = (bgd && Object.keys(bgd).length > 0) ? bgd : null;
+
         return {
             essaySnapshots,
             renderedHTML,
@@ -854,6 +899,7 @@
             highlightsContentHTML,
             completedEssays,
             removeAllStates,
+            scoreOverrides,
         };
     }
 
@@ -936,20 +982,14 @@
             renderedHTML: primaryDOMState.renderedHTML,
             highlightsTabHTML: primaryDOMState.highlightsTabHTML,
             highlightsContentHTML: primaryDOMState.highlightsContentHTML,
-            scoreOverrides: null, // TODO: per-tab score overrides
+            // Per-tab score overrides are now captured inside gatherTabDOMState
+            // for each tab. Legacy sessionData reflects the primary tab only,
+            // which matches how old singleton-based saves worked.
+            scoreOverrides: primaryDOMState.scoreOverrides,
             completedEssays: primaryDOMState.completedEssays,
             removeAllStates: primaryDOMState.removeAllStates,
             gradingInProgress,
         };
-
-        // Score overrides from SingleResultModule (currently a singleton,
-        // not per-tab — Phase 8 can refactor this if needed)
-        if (window.SingleResultModule && window.SingleResultModule.getBatchGradingData) {
-            const bgd = window.SingleResultModule.getBatchGradingData();
-            if (bgd && Object.keys(bgd).length > 0) {
-                sessionData.scoreOverrides = bgd;
-            }
-        }
 
         // Diagnostics
         const snapshotCount = Object.keys(primaryDOMState.essaySnapshots).length;
@@ -1148,7 +1188,10 @@
                 );
             }
 
-            // Editable score inputs (also calls setupCategoryNoteToggleListeners internally)
+            // Editable score inputs (also calls setupCategoryNoteToggleListeners internally).
+            // Pass scopedTabId so per-tab batchGradingData writes land in the
+            // correct tab even though the active tab may have changed during
+            // the 250ms setTimeout (multi-tab restore iterates tabs).
             if (
                 window.SingleResultModule &&
                 window.SingleResultModule.setupBatchEditableElements &&
@@ -1158,7 +1201,8 @@
                 window.SingleResultModule.setupBatchEditableElements(
                     essay.result,
                     originalData,
-                    index
+                    index,
+                    scopedTabId
                 );
             }
 
@@ -1303,18 +1347,26 @@
 
     /**
      * Apply saved score overrides to the DOM inputs.
+     * @param {Object} overrides - Score overrides keyed by essay index.
+     * @param {string} [tabId] - Optional tab ID. When provided, container lookups
+     *                          are scoped to that tab's pane via queryInTab,
+     *                          which is critical during the multi-tab restore
+     *                          loop where the active tab flips between iterations.
      */
-    function applyScoreOverrides(overrides) {
+    function applyScoreOverrides(overrides, tabId) {
         if (!overrides) return;
 
         Object.entries(overrides).forEach(([essayIndex, data]) => {
             if (!data || !data.gradingData || !data.gradingData.scores) return;
 
             Object.entries(data.gradingData.scores).forEach(([category, scoreData]) => {
-                // Find score input for this essay/category
-                const container = window.TabStore
-                    ? window.TabStore.activeQuery(`#batch-essay-${essayIndex}`)
-                    : document.getElementById(`batch-essay-${essayIndex}`);
+                // Find score input for this essay/category, scoped to the
+                // target tab (not the active tab).
+                const container = (window.TabStore && tabId)
+                    ? window.TabStore.queryInTab(tabId, `#batch-essay-${essayIndex}`)
+                    : (window.TabStore
+                        ? window.TabStore.activeQuery(`#batch-essay-${essayIndex}`)
+                        : document.getElementById(`batch-essay-${essayIndex}`));
                 if (!container) return;
 
                 const input = container.querySelector(

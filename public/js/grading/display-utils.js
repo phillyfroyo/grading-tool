@@ -1122,23 +1122,32 @@ async function saveEssayToAccount(btn, essayIndex) {
     btn.textContent = 'Saving...';
 
     try {
+        // Resolve the tab this button lives in. The button is rendered inside
+        // a specific tab's pane, so we scope all subsequent lookups to that
+        // tab rather than whichever tab is currently active.
+        const btnPane = btn.closest && btn.closest('.tab-pane');
+        const btnTabId = (btnPane && btnPane.dataset && btnPane.dataset.tabId)
+            || (window.TabStore && window.TabStore.activeId())
+            || null;
+        const scopedQuery = (selector) => {
+            if (window.TabStore && btnTabId) {
+                return window.TabStore.queryInTab(btnTabId, selector);
+            }
+            if (window.TabStore) return window.TabStore.activeQuery(selector);
+            return document.querySelector(selector);
+        };
+
         // Get rendered HTML from DOM
-        // Look within the active tab pane first — batch-essay-N and
+        // Look within the originating tab's pane first — batch-essay-N and
         // essayContainer are children of the per-tab results div.
         let renderedHTML = '';
-        const batchDiv = window.TabStore
-            ? window.TabStore.activeQuery(`#batch-essay-${essayIndex}`)
-            : document.getElementById(`batch-essay-${essayIndex}`);
-        const singleContainer = window.TabStore
-            ? window.TabStore.activeQuery('#essayContainer')
-            : document.getElementById('essayContainer');
+        const batchDiv = scopedQuery(`#batch-essay-${essayIndex}`);
+        const singleContainer = scopedQuery('#essayContainer');
         if (batchDiv) {
             renderedHTML = batchDiv.innerHTML;
         } else if (singleContainer) {
             // For single essay, grab the results div content
-            const resultsDiv = window.TabStore
-                ? window.TabStore.activeQuery('#results')
-                : document.getElementById('results');
+            const resultsDiv = scopedQuery('#results');
             if (resultsDiv) renderedHTML = resultsDiv.innerHTML;
         }
 
@@ -1149,11 +1158,13 @@ async function saveEssayToAccount(btn, essayIndex) {
             return;
         }
 
-        // Get essay grading data (JSON)
+        // Get essay grading data (JSON). Source from the button's tab, not the
+        // active tab — they can differ if the user clicked Save in a background tab.
         let essayData = null;
-        const essayDataObj = (window.TabStore && window.TabStore.active()?.essayData?.[essayIndex])
+        const btnTabState = (window.TabStore && btnTabId) ? window.TabStore.get(btnTabId) : null;
+        const essayDataObj = (btnTabState && btnTabState.essayData && btnTabState.essayData[essayIndex])
             || window[`essayData_${essayIndex}`];
-        const batchData = window.SingleResultModule?.getBatchGradingData?.();
+        const batchData = window.SingleResultModule?.getBatchGradingData?.(btnTabId) || {};
 
         if (essayDataObj) {
             essayData = essayDataObj;

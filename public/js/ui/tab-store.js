@@ -26,6 +26,7 @@
  *     originalBatchDataForRetry: null, // batch retry source data
  *     essayData: {},                   // per-essay snapshots keyed by index
  *     batchResults: null,              // pdf-export fallback
+ *     batchGradingData: {},            // user edits to category scores/rationales
  *   }
  *
  * DOM state (form inputs, results, scroll positions, highlights, open modals)
@@ -95,6 +96,12 @@
             originalBatchDataForRetry: null,
             essayData: {},
             batchResults: null,
+            // Per-tab grading data for batch results. Keyed by essay index,
+            // values are { gradingData, originalData }. Holds user edits to
+            // category scores and feedback rationales so they persist through
+            // auto-save/restore. Previously a module-level singleton in
+            // single-result.js, moved here so each tab owns its own edits.
+            batchGradingData: {},
         };
     }
 
@@ -327,6 +334,7 @@
                 originalBatchDataForRetry: savedState.originalBatchDataForRetry || null,
                 essayData: savedState.essayData || {},
                 batchResults: savedState.batchResults || null,
+                batchGradingData: savedState.batchGradingData || {},
             });
         }
 
@@ -437,9 +445,19 @@
      *
      * Used by async writers (streaming callbacks, delayed DOM updates) that
      * need to target a specific tab's DOM even if the user has since
-     * switched to a different tab. Falls back to document.querySelector if
-     * the target pane can't be found (for example, if the tab was closed
-     * while a pending write was in flight).
+     * switched to a different tab.
+     *
+     * Behavior by tabId:
+     *   - If tabId is provided and the pane exists: returns the first match
+     *     inside that pane, or null if the pane has no match. DOES NOT fall
+     *     back to a document-wide search — crossing tabs would silently
+     *     corrupt state (e.g. return tab-2's element when tab-1 was asked
+     *     for). Callers that want "find anywhere" should query the document
+     *     explicitly.
+     *   - If tabId is provided but the pane is missing (e.g. tab was closed
+     *     while a pending write was in flight): returns null.
+     *   - If tabId is falsy: delegates to activeQuery() which has an
+     *     active-tab-first, document-wide-fallback policy.
      *
      * @param {string} tabId - The tab ID to scope the query to
      * @param {string} selector - CSS selector
@@ -448,16 +466,17 @@
     function queryInTab(tabId, selector) {
         if (!tabId) return activeQuery(selector);
         const pane = document.querySelector(`.tab-pane[data-tab-id="${tabId}"]`);
-        if (pane) {
-            const found = pane.querySelector(selector);
-            if (found) return found;
-        }
-        return document.querySelector(selector);
+        if (!pane) return null;
+        return pane.querySelector(selector);
     }
 
     /**
      * Scoped querySelectorAll that searches within a SPECIFIC tab's pane.
-     * Same use case as queryInTab() but returns a NodeList.
+     * Same use case and same tabId semantics as queryInTab().
+     *
+     * When tabId is provided and the pane has no matches, returns an empty
+     * NodeList — NEVER falls back to a document-wide search. Returning
+     * cross-tab matches silently would be worse than returning nothing.
      *
      * @param {string} tabId - The tab ID to scope the query to
      * @param {string} selector - CSS selector
@@ -466,8 +485,12 @@
     function queryAllInTab(tabId, selector) {
         if (!tabId) return activeQueryAll(selector);
         const pane = document.querySelector(`.tab-pane[data-tab-id="${tabId}"]`);
-        if (pane) return pane.querySelectorAll(selector);
-        return document.querySelectorAll(selector);
+        if (!pane) {
+            // Return an empty NodeList rather than document-wide. Use a
+            // non-matching selector on document to produce an empty NodeList.
+            return document.querySelectorAll(':not(*)');
+        }
+        return pane.querySelectorAll(selector);
     }
 
     /**

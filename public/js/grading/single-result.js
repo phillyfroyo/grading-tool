@@ -7,8 +7,49 @@
 let currentGradingData = null;
 let currentOriginalData = null;
 
-// Track grading data for multiple essays in batch processing
-let batchGradingData = {};
+// Per-tab batchGradingData now lives in TabStore (each tab's state.batchGradingData).
+// The helpers below resolve the correct tab and read/write through TabStore so
+// writes from one tab can't accidentally clobber another tab's edits during
+// multi-tab auto-save/restore.
+
+/**
+ * Resolve the tab ID for a given context. Preference order:
+ *   1. Explicit tabId argument
+ *   2. DOM context: climb from the element to the nearest .tab-pane[data-tab-id]
+ *   3. BatchProcessingModule's batch tab context (set during streaming)
+ *   4. TabStore.activeId()
+ * Returns null if none can be resolved.
+ */
+function resolveTabId(tabIdOrElement) {
+    if (typeof tabIdOrElement === 'string' && tabIdOrElement) {
+        return tabIdOrElement;
+    }
+    if (tabIdOrElement && typeof tabIdOrElement === 'object' && tabIdOrElement.closest) {
+        const pane = tabIdOrElement.closest('.tab-pane');
+        if (pane && pane.dataset && pane.dataset.tabId) {
+            return pane.dataset.tabId;
+        }
+    }
+    if (window.BatchProcessingModule
+        && typeof window.BatchProcessingModule.getBatchTabContext === 'function') {
+        const ctx = window.BatchProcessingModule.getBatchTabContext();
+        if (ctx) return ctx;
+    }
+    if (window.TabStore && typeof window.TabStore.activeId === 'function') {
+        return window.TabStore.activeId();
+    }
+    return null;
+}
+
+/** Return the batchGradingData map for a given tab, or {} if unavailable. */
+function getBatchDataForTab(tabId) {
+    const resolved = resolveTabId(tabId);
+    if (!resolved || !window.TabStore) return {};
+    const state = window.TabStore.get(resolved);
+    if (!state) return {};
+    if (!state.batchGradingData) state.batchGradingData = {};
+    return state.batchGradingData;
+}
 
 /**
  * Display results for a single essay
@@ -16,8 +57,10 @@ let batchGradingData = {};
  * @param {Object} originalData - The original form data
  */
 function displayResults(gradingResult, originalData) {
-    // Clear any batch data when displaying single results
-    batchGradingData = {};
+    // Clear any batch data in the current tab when displaying single results.
+    // Scoped to the active tab — other tabs' batch data is untouched.
+    const activeState = window.TabStore && window.TabStore.active();
+    if (activeState) activeState.batchGradingData = {};
 
     const resultsDiv = window.TabStore ? window.TabStore.activeQuery('#results') : document.getElementById('results');
     if (!resultsDiv) return;
@@ -136,8 +179,12 @@ function setupEditableElements(gradingResult, originalData) {
                 if (newValue !== currentValue) {
                     input.value = newValue;
 
-                    // Trigger input event to let existing listeners handle the update
-                    input.dispatchEvent(new Event('input'));
+                    // Trigger input event to let existing listeners handle the update.
+                    // Must bubble so the document-level autosave listener in
+                    // auto-save.js sees the change — non-bubbling events stay
+                    // on the input element and never reach the doc handler,
+                    // which silently skips autosave for arrow-button edits.
+                    input.dispatchEvent(new Event('input', { bubbles: true }));
                 }
             }
         });
@@ -162,24 +209,84 @@ function setupEditableElements(gradingResult, originalData) {
  * @param {Object} gradingResult - Grading result object
  * @param {Object} originalData - Original form data
  * @param {number} essayIndex - Essay index for batch processing
+ * @param {string} [tabId] - Optional explicit tab ID; resolves via fallback chain if omitted.
+ *                          Callers operating on a non-active tab (e.g. restore loops,
+ *                          background-tab streaming) MUST pass this explicitly.
  */
-function setupBatchEditableElements(gradingResult, originalData, essayIndex) {
+function setupBatchEditableElements(gradingResult, originalData, essayIndex, tabId) {
     // Clear single essay data when setting up batch
     if (essayIndex === 0) {
         currentGradingData = null;
         currentOriginalData = null;
     }
 
-    // Store data for this specific essay index
-    batchGradingData[essayIndex] = {
-        gradingData: { ...gradingResult },
+    const resolvedTabId = resolveTabId(tabId);
+    const tabBatchData = getBatchDataForTab(resolvedTabId);
+
+    // Resolve the essay container scoped to the target tab, not the active tab.
+    // During multi-tab restore and background-tab streaming, the active tab is
+    // not necessarily the tab we're setting up for.
+    //
+    // queryInTab with an explicit tabId returns null (not a cross-tab match)
+    // if the pane lacks the element, which is what we want — silently falling
+    // back to the active tab's element would corrupt cross-tab state.
+    const essayContainer = (window.TabStore && resolvedTabId)
+        ? window.TabStore.queryInTab(resolvedTabId, `#batch-essay-${essayIndex}`)
+        : (window.TabStore
+            ? window.TabStore.activeQuery(`#batch-essay-${essayIndex}`)
+            : document.getElementById(`batch-essay-${essayIndex}`));
+
+    if (!essayContainer && resolvedTabId) {
+        // Diagnostic: the target tab's pane doesn't contain #batch-essay-N.
+        // This usually means the pane hasn't been populated with the batch
+        // template yet. The caller should retry or the template injection
+        // should precede this call. Data is still written to the tab's
+        // batchGradingData so no edits are lost, but listeners can't attach.
+        console.warn(
+            `[setupBatchEditableElements] No #batch-essay-${essayIndex} in tab ${resolvedTabId}. ` +
+            `Listeners not attached. This likely means the batch template hasn't rendered yet.`
+        );
+    }
+
+    // Store data for this specific essay index. IMPORTANT: this write happens
+    // BEFORE the listenersAttached guard so that re-entries (e.g. during
+    // restore) populate tab state even when listener attachment is skipped.
+    //
+    // To avoid clobbering restored user edits, read any DOM input values that
+    // are already present and layer them on top of the incoming gradingResult.
+    // During restore, applyScoreOverrides writes edited values into inputs
+    // BEFORE setupBatchEditableElements runs (via the 250ms reattach timeout),
+    // so we preserve them here instead of overwriting with raw AI scores.
+    const mergedGradingData = { ...gradingResult };
+    if (mergedGradingData.scores && essayContainer) {
+        mergedGradingData.scores = { ...mergedGradingData.scores };
+        essayContainer.querySelectorAll('.editable-score').forEach(input => {
+            const category = input.dataset.category;
+            if (!category || !mergedGradingData.scores[category]) return;
+            const domValue = parseFloat(input.value);
+            if (!Number.isNaN(domValue)) {
+                mergedGradingData.scores[category] = {
+                    ...mergedGradingData.scores[category],
+                    points: domValue,
+                };
+            }
+        });
+        essayContainer.querySelectorAll('.editable-feedback').forEach(textarea => {
+            const category = textarea.dataset.category;
+            if (!category || !mergedGradingData.scores[category]) return;
+            if (typeof textarea.value === 'string' && textarea.value.length > 0) {
+                mergedGradingData.scores[category] = {
+                    ...mergedGradingData.scores[category],
+                    rationale: textarea.value,
+                };
+            }
+        });
+    }
+    tabBatchData[essayIndex] = {
+        gradingData: mergedGradingData,
         originalData: { ...originalData }
     };
 
-    // Add listeners for score inputs within the specific essay container
-    const essayContainer = window.TabStore
-        ? window.TabStore.activeQuery(`#batch-essay-${essayIndex}`)
-        : document.getElementById(`batch-essay-${essayIndex}`);
     if (essayContainer) {
         // Check if we've already set up listeners for this container
         if (essayContainer.dataset.listenersAttached === 'true') {
@@ -199,6 +306,12 @@ function setupBatchEditableElements(gradingResult, originalData, essayIndex) {
                 input.dataset.listenerAdded = 'true';
 
                 input.addEventListener('input', function() {
+                    // Resolve tab at FIRE time, not attach time. The element
+                    // lives inside a specific .tab-pane, so closest() gives us
+                    // the correct owner regardless of active-tab state.
+                    const eventTabId = resolveTabId(this);
+                    const batchData = getBatchDataForTab(eventTabId);
+
                     // Get the essay index from the input's data attribute
                     const currentEssayIndex = parseInt(this.dataset.essayIndex);
                     const category = this.dataset.category;
@@ -209,15 +322,15 @@ function setupBatchEditableElements(gradingResult, originalData, essayIndex) {
                     if (newPoints < 0) this.value = 0;
                     if (newPoints > maxPoints) this.value = maxPoints;
 
-                    // Update data for this specific essay
-                    if (batchGradingData[currentEssayIndex] &&
-                        batchGradingData[currentEssayIndex].gradingData.scores &&
-                        batchGradingData[currentEssayIndex].gradingData.scores[category]) {
-                        batchGradingData[currentEssayIndex].gradingData.scores[category].points = parseFloat(this.value);
+                    // Update data for this specific essay in this specific tab
+                    if (batchData[currentEssayIndex] &&
+                        batchData[currentEssayIndex].gradingData.scores &&
+                        batchData[currentEssayIndex].gradingData.scores[category]) {
+                        batchData[currentEssayIndex].gradingData.scores[category].points = parseFloat(this.value);
                     }
 
-                    // Recalculate total score for this specific essay
-                    updateTotalScore(currentEssayIndex);
+                    // Recalculate total score for this specific essay in this specific tab
+                    updateTotalScore(currentEssayIndex, eventTabId);
                 });
             }
         });
@@ -248,8 +361,12 @@ function setupBatchEditableElements(gradingResult, originalData, essayIndex) {
                     if (newValue !== currentValue) {
                         input.value = newValue;
 
-                        // Trigger input event to let existing listeners handle the update
-                        input.dispatchEvent(new Event('input'));
+                        // Trigger input event to let existing listeners handle the update.
+                        // Must bubble so the document-level autosave listener in
+                        // auto-save.js sees the change — non-bubbling events stay
+                        // on the input element and never reach the doc handler,
+                        // which silently skips autosave for arrow-button edits.
+                        input.dispatchEvent(new Event('input', { bubbles: true }));
                     }
                 }
             });
@@ -260,12 +377,23 @@ function setupBatchEditableElements(gradingResult, originalData, essayIndex) {
     if (essayContainer) {
         essayContainer.querySelectorAll('.editable-feedback').forEach(textarea => {
             textarea.addEventListener('input', function() {
+                // Resolve tab + essayIndex at FIRE time for the same reason as
+                // the score input listener above.
+                const eventTabId = resolveTabId(this);
+                const batchData = getBatchDataForTab(eventTabId);
                 const category = this.dataset.category;
-                // Update data for this specific essay
-                if (batchGradingData[essayIndex] &&
-                    batchGradingData[essayIndex].gradingData.scores &&
-                    batchGradingData[essayIndex].gradingData.scores[category]) {
-                    batchGradingData[essayIndex].gradingData.scores[category].rationale = this.value;
+
+                // The textarea lives inside .category-row > .score-input or similar;
+                // walk up to the essay container to get the index reliably.
+                const container = this.closest('[id^="batch-essay-"]');
+                const currentEssayIndex = container
+                    ? parseInt(container.id.replace('batch-essay-', ''), 10)
+                    : essayIndex;
+
+                if (batchData[currentEssayIndex] &&
+                    batchData[currentEssayIndex].gradingData.scores &&
+                    batchData[currentEssayIndex].gradingData.scores[category]) {
+                    batchData[currentEssayIndex].gradingData.scores[category].rationale = this.value;
                 }
             });
 
@@ -309,13 +437,20 @@ function setupBatchEditableElements(gradingResult, originalData, essayIndex) {
 /**
  * Update total score display
  * @param {number} essayIndex - Optional essay index for batch processing
+ * @param {string} [tabId] - Optional tab ID. When omitted, resolves via fallback chain.
+ *                          Callers that already resolved tabId at event-fire time should
+ *                          propagate it here to avoid redundant resolution.
  */
-function updateTotalScore(essayIndex = null) {
+function updateTotalScore(essayIndex = null, tabId) {
+    const resolvedTabId = (essayIndex !== null) ? resolveTabId(tabId) : null;
     let gradingData;
 
     // Determine which data to use based on whether this is batch or single
-    if (essayIndex !== null && batchGradingData[essayIndex]) {
-        gradingData = batchGradingData[essayIndex].gradingData;
+    if (essayIndex !== null) {
+        const batchData = getBatchDataForTab(resolvedTabId);
+        if (batchData[essayIndex]) {
+            gradingData = batchData[essayIndex].gradingData;
+        }
     } else {
         gradingData = currentGradingData;
     }
@@ -339,10 +474,13 @@ function updateTotalScore(essayIndex = null) {
     // Update the displayed total score
     let overallScoreElement;
     if (essayIndex !== null) {
-        // For batch processing, find the overall score within the specific essay container
-        const essayContainer = window.TabStore
-            ? window.TabStore.activeQuery(`#batch-essay-${essayIndex}`)
-            : document.getElementById(`batch-essay-${essayIndex}`);
+        // For batch processing, find the overall score within the specific
+        // essay container scoped to the target tab (not the active tab).
+        const essayContainer = (window.TabStore && resolvedTabId)
+            ? window.TabStore.queryInTab(resolvedTabId, `#batch-essay-${essayIndex}`)
+            : (window.TabStore
+                ? window.TabStore.activeQuery(`#batch-essay-${essayIndex}`)
+                : document.getElementById(`batch-essay-${essayIndex}`));
         overallScoreElement = essayContainer ? essayContainer.querySelector('.overall-score') : null;
     } else {
         // For single essays, scope to the active tab pane
@@ -357,18 +495,23 @@ function updateTotalScore(essayIndex = null) {
     }
 
     // Update individual category displays if needed
-    updateCategoryPercentages(essayIndex);
+    updateCategoryPercentages(essayIndex, resolvedTabId);
 }
 
 /**
  * Update category percentage displays
  * @param {number} essayIndex - Optional essay index for batch processing
+ * @param {string} [tabId] - Optional tab ID; propagated from updateTotalScore.
  */
-function updateCategoryPercentages(essayIndex = null) {
+function updateCategoryPercentages(essayIndex = null, tabId) {
+    const resolvedTabId = (essayIndex !== null) ? resolveTabId(tabId) : null;
     // Determine which data to use
     let gradingData;
-    if (essayIndex !== null && batchGradingData[essayIndex]) {
-        gradingData = batchGradingData[essayIndex].gradingData;
+    if (essayIndex !== null) {
+        const batchData = getBatchDataForTab(resolvedTabId);
+        if (batchData[essayIndex]) {
+            gradingData = batchData[essayIndex].gradingData;
+        }
     } else {
         gradingData = currentGradingData;
     }
@@ -379,9 +522,11 @@ function updateCategoryPercentages(essayIndex = null) {
     // Default to the active tab pane so single-essay updates stay scoped.
     let container = (window.TabStore && window.TabStore.activePane()) || document;
     if (essayIndex !== null) {
-        const essayContainer = window.TabStore
-            ? window.TabStore.activeQuery(`#batch-essay-${essayIndex}`)
-            : document.getElementById(`batch-essay-${essayIndex}`);
+        const essayContainer = (window.TabStore && resolvedTabId)
+            ? window.TabStore.queryInTab(resolvedTabId, `#batch-essay-${essayIndex}`)
+            : (window.TabStore
+                ? window.TabStore.activeQuery(`#batch-essay-${essayIndex}`)
+                : document.getElementById(`batch-essay-${essayIndex}`));
         container = essayContainer || container;
     }
 
@@ -406,20 +551,24 @@ function updateCategoryPercentages(essayIndex = null) {
  * @param {string} category - Category to update
  * @param {number} points - New points value
  * @param {number} maxPoints - Maximum points
+ * @param {string} [tabId] - Optional tab ID; callers that know their DOM context
+ *                          should resolve this from the element and pass it in.
  */
-function updateBatchScore(essayIndex, category, points, maxPoints) {
-    if (!batchGradingData[essayIndex]) {
-        console.warn(`No batch grading data for essay ${essayIndex}`);
+function updateBatchScore(essayIndex, category, points, maxPoints, tabId) {
+    const resolvedTabId = resolveTabId(tabId);
+    const batchData = getBatchDataForTab(resolvedTabId);
+    if (!batchData[essayIndex]) {
+        console.warn(`No batch grading data for essay ${essayIndex} in tab ${resolvedTabId}`);
         return;
     }
 
-    const data = batchGradingData[essayIndex].gradingData;
+    const data = batchData[essayIndex].gradingData;
     if (data && data.scores && data.scores[category]) {
         data.scores[category].points = points;
         data.scores[category].out_of = maxPoints;
 
-        // Trigger total score update
-        updateTotalScore(essayIndex);
+        // Trigger total score update for the same tab
+        updateTotalScore(essayIndex, resolvedTabId);
     }
 }
 
@@ -525,5 +674,8 @@ window.SingleResultModule = {
     saveGradingState,
     restoreGradingState,
     clearGradingState,
-    getBatchGradingData: () => batchGradingData
+    // Tab-aware accessor. Pass a tabId to read a specific tab's batch data;
+    // omit to read the active tab's (or whichever tab the resolver picks).
+    // Returns {} if the tab or store is unavailable.
+    getBatchGradingData: (tabId) => getBatchDataForTab(tabId)
 };
