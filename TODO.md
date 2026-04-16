@@ -160,43 +160,6 @@ Why: the grading flow has two stages. Stage 1 (AI grading via SSE) populates `wi
 
 ---
 
-## 🔴 PRODUCTION BUG: Single-essay grade lands in wrong tab if user switches tabs mid-grade
-
-**Discovered:** 2026-04-16 during category-grade persistence testing (exists on `main`)
-**Severity:** High — real data loss risk. Reproduces on `main` without the category-grade refactor.
-
-**Symptom:** Start grading a single essay in tab-1. Before it completes, switch to tab-2 and start preparing another essay (add text, select profile). Tab-1's grade completes while you're in tab-2. Switch back to tab-1 and:
-- "Loading formatted result..." stays visible indefinitely
-- The "graded" UI lock (hiding the input form + class profile) never fires
-- Refresh the page: tab-1 is empty (0 essays), tab-2 now has tab-1's essay in its essay-1 slot — the original tab-2 in-progress content is gone.
-
-**Root cause:** The single-essay grading path in `form-handling.js:handleGradingFormSubmission` (around lines 261-300) uses the non-streaming `/api/grade` endpoint, wraps its result as a 1-essay batch, and calls `BatchProcessingModule.displayBatchResults(batchResult, singleEssayBatchData)`. Inside `displayBatchResults` at `public/js/grading/batch-processing.js:499` and `:519`:
-
-```js
-const activeTabState = window.TabStore && window.TabStore.active();
-if (activeTabState) {
-    activeTabState.currentBatchData = { batchResult, originalData };   // line 501
-    // ...
-    activeTabState.essayData[index] = snapshot;                          // line 520
-}
-```
-
-Both state writes go to `TabStore.active()` — the currently-active tab, which is tab-2 when the user switched mid-grade. Tab-1 gets nothing. On refresh, tab-1 serializes as empty and tab-2's serialization contains tab-1's essay in the wrong slot.
-
-**Why streaming path isn't affected:** The streaming SSE path (`processEssayChunk` → `handleStreamingMessage`) was already fixed in commit `d13137b` ("Phase 6 followup: pin state writes to originating tab"). That fix routes writes through `getBatchWriteTabState()`, which reads `currentBatchOriginTabId` instead of `TabStore.active()`. The single-essay path and `displayBatchResults` itself were missed by that fix — they still use `TabStore.active()` directly.
-
-**Suggested fix direction:**
-1. `displayBatchResults` in `batch-processing.js` already has `currentBatchTabId` (the module-local variable used by `tabScopedQuery`). Replace `TabStore.active()` at lines 499 and 519 with a helper that prefers `currentBatchTabId` and falls back to active — mirroring the `getBatchWriteTabState()` pattern.
-2. For the single-essay path specifically, verify the grading lock and UI transition also pin to the origin tab.
-3. Add a test scenario: single-essay grade + mid-grade tab switch + refresh = correct tab ownership.
-
-**Key files:**
-- `public/js/grading/batch-processing.js` — `displayBatchResults()` lines 435-532, especially the state writes at 499 and 519
-- `public/js/ui/form-handling.js` — `handleGradingFormSubmission()` single-essay branch at lines 261-312
-- Prior fix for reference: commit `d13137b` (Phase 6 followup for streaming path)
-
----
-
 ## 1. Copy button in edit highlight modal
 Add a copy icon/button to the edit highlight modal to copy the highlighted student text to the clipboard.
 

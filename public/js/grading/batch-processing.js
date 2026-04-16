@@ -78,6 +78,24 @@ function getBatchTabContext() {
 }
 
 /**
+ * Return the tab state to use for batch-related state writes. Prefers the
+ * originating tab (currentBatchTabId) when a batch is in progress, falling
+ * back to the active tab otherwise.
+ *
+ * This mirrors getBatchWriteTabState() in form-handling.js and serves the
+ * same purpose: pin async state writes (displayBatchResults, retry-write-
+ * back) to the tab that started the operation, so switching tabs mid-grade
+ * does not scramble state across tabs.
+ */
+function getBatchWriteTabState() {
+    if (!window.TabStore) return null;
+    if (currentBatchTabId) {
+        return window.TabStore.get(currentBatchTabId);
+    }
+    return window.TabStore.active();
+}
+
+/**
  * Reset format-call tracking at the start of a new grading run.
  * @param {number} expectedCount - Number of essays in the batch.
  */
@@ -494,11 +512,16 @@ function displayBatchResults(batchResult, originalData) {
         });
     }, 50);
 
-    // Store batch data on the active tab for download and expand functions.
-    // Falls back to window globals if TabStore isn't available.
-    const activeTabState = window.TabStore && window.TabStore.active();
-    if (activeTabState) {
-        activeTabState.currentBatchData = { batchResult, originalData };
+    // Store batch data on the batch's originating tab for download and
+    // expand functions. Using the batch origin (not active tab) is critical
+    // because displayBatchResults fires after the grade completes, and the
+    // user may have switched tabs during grading — TabStore.active() would
+    // send state to the wrong tab. Falls back to the active tab when no
+    // batch context is set (e.g. direct calls outside the grading flow),
+    // and to window globals if TabStore isn't available.
+    const batchOriginTabState = getBatchWriteTabState();
+    if (batchOriginTabState) {
+        batchOriginTabState.currentBatchData = { batchResult, originalData };
     } else {
         window.currentBatchData = { batchResult, originalData };
     }
@@ -516,8 +539,8 @@ function displayBatchResults(batchResult, originalData) {
                         classProfile: originalData.classProfile || null
                     }
                 };
-                if (activeTabState) {
-                    activeTabState.essayData[index] = snapshot;
+                if (batchOriginTabState) {
+                    batchOriginTabState.essayData[index] = snapshot;
                 } else {
                     window[`essayData_${index}`] = snapshot;
                 }
@@ -1070,6 +1093,12 @@ if (document.readyState === 'loading') {
 async function retryEssay(index) {
     console.log(`🔄 Retrying essay at index ${index}`);
 
+    // Capture the tab ID at retry-click time. The user is looking at the
+    // failed essay in a specific tab; the retry result must write back to
+    // THAT tab, not whichever tab is active when the async fetch resolves
+    // (the user may switch tabs while the retry is in flight).
+    const retryOriginTabId = (window.TabStore && window.TabStore.activeId()) || null;
+
     // Clear the loading lock to allow fresh load
     essayLoadingLock[index] = false;
 
@@ -1140,7 +1169,12 @@ async function retryEssay(index) {
                 }
             };
 
-            const retryTabState = window.TabStore && window.TabStore.active();
+            // Write back to the tab the user was in when they clicked retry,
+            // not whichever tab is active now (the user may have switched
+            // tabs while the retry was in flight).
+            const retryTabState = retryOriginTabId && window.TabStore
+                ? window.TabStore.get(retryOriginTabId)
+                : null;
             if (retryTabState) {
                 retryTabState.essayData[index] = retrySnapshot;
             } else {
