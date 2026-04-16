@@ -20,7 +20,11 @@ body {
     background: #f5f5f5;
     min-height: 100vh;
     display: flex;
-    align-items: center;
+    /* flex-start pins the container to the top so content-height changes
+       (switching between a blank form tab and a graded-results tab) don't
+       re-center the whole container vertically, which looked like the page
+       was jumping. Horizontal centering is preserved. */
+    align-items: flex-start;
     justify-content: center;
     box-sizing: border-box;
 }

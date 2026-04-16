@@ -253,6 +253,11 @@
 
 .tab-pane.active {
     display: block;
+    /* Floor height prevents the page from jumping when switching between a
+       tab with a blank form (tall) and a tab with one or two graded essays
+       collapsed (short). Sized to a blank single-essay form; taller content
+       (more essays, expanded graded results) overrides via natural height. */
+    min-height: 600px;
 }
 
 /* ===== FORM CONTROLS ===== */
