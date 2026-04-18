@@ -1,20 +1,20 @@
 /**
- * Public API controller for POST /v1/grade.
+ * Public API controller for POST /v1/grade and POST /v1/grade-batch.
  *
- * Accepts a stateless grading request: essay + inline rubric. No DB lookup,
- * no session, no user context. Designed for external platforms (Akdmic,
- * Cuentana) to integrate without needing grading-tool accounts.
- *
- * Keeps the response shape identical to the session-based /api/grade
- * endpoint so downstream callers get the same grading data.
+ * Stateless grading: essay(s) + inline rubric. No DB lookup, no session,
+ * no user context. Single-essay path returns JSON; batch path streams SSE
+ * so callers can render results progressively rather than waiting minutes
+ * for a classroom to finish.
  */
 
 import { gradeEssaySimple } from '../../grader/grader-simple.js';
 import { applyTemperatureAdjustment } from '../services/temperatureService.js';
+import { processBatchStreaming } from '../services/batchGradingService.js';
 
 const MAX_ESSAY_CHARS = 10_000;
 const MAX_RUBRIC_LIST_ITEMS = 150;
 const GRADE_TIMEOUT_MS = 120_000;
+const MAX_BATCH_ESSAYS = 60;
 const VALID_CEFR_LEVELS = new Set(['A1', 'A2', 'B1', 'B2', 'C1', 'C2']);
 
 class GradingTimeoutError extends Error {
@@ -38,36 +38,25 @@ function bad(res, message) {
   });
 }
 
-function validateAndBuildProfile(body) {
-  if (!body || typeof body !== 'object') {
-    return { error: 'Request body must be a JSON object' };
-  }
-
-  const { essay, prompt, rubric, studentNickname } = body;
-
+function validateEssayField(essay, fieldLabel = 'essay') {
   if (typeof essay !== 'string' || essay.trim().length === 0) {
-    return { error: 'essay is required and must be a non-empty string' };
+    return `${fieldLabel} is required and must be a non-empty string`;
   }
   if (essay.length > MAX_ESSAY_CHARS) {
-    return { error: `essay exceeds max length of ${MAX_ESSAY_CHARS} characters` };
+    return `${fieldLabel} exceeds max length of ${MAX_ESSAY_CHARS} characters`;
   }
+  return null;
+}
 
+function validateRubric(rubric, prompt) {
   if (prompt !== undefined && typeof prompt !== 'string') {
     return { error: 'prompt must be a string when provided' };
   }
-
   if (!rubric || typeof rubric !== 'object' || Array.isArray(rubric)) {
     return { error: 'rubric is required and must be an object' };
   }
 
-  const {
-    cefrLevel,
-    vocabulary,
-    grammar,
-    requiredWordCountMin,
-    requiredWordCountMax,
-    temperature,
-  } = rubric;
+  const { cefrLevel, vocabulary, grammar, requiredWordCountMin, requiredWordCountMax, temperature } = rubric;
 
   if (cefrLevel !== undefined && !VALID_CEFR_LEVELS.has(cefrLevel)) {
     return { error: `rubric.cefrLevel must be one of: ${[...VALID_CEFR_LEVELS].join(', ')}` };
@@ -102,30 +91,84 @@ function validateAndBuildProfile(body) {
     }
   }
 
-  if (studentNickname !== undefined && typeof studentNickname !== 'string') {
+  return {
+    profileData: {
+      id: `inline-${Date.now()}`,
+      name: 'inline-rubric',
+      cefrLevel: cefrLevel || 'C1',
+      vocabulary: vocabulary || [],
+      grammar: grammar || [],
+      requiredWordCountMin: requiredWordCountMin ?? null,
+      requiredWordCountMax: requiredWordCountMax ?? null,
+      prompt: prompt || '',
+      temperature: temperature ?? 0,
+    },
+    temperature: temperature ?? 0,
+  };
+}
+
+function validateSingleGradeRequest(body) {
+  if (!body || typeof body !== 'object') return { error: 'Request body must be a JSON object' };
+
+  const essayError = validateEssayField(body.essay);
+  if (essayError) return { error: essayError };
+
+  if (body.studentNickname !== undefined && typeof body.studentNickname !== 'string') {
     return { error: 'studentNickname must be a string when provided' };
   }
 
-  // Build a classProfile-shaped object that the internal grader expects.
-  // Giving it a synthetic id/name keeps logging readable without touching the DB.
-  const profileData = {
-    id: `inline-${Date.now()}`,
-    name: 'inline-rubric',
-    cefrLevel: cefrLevel || 'C1',
-    vocabulary: vocabulary || [],
-    grammar: grammar || [],
-    requiredWordCountMin: requiredWordCountMin ?? null,
-    requiredWordCountMax: requiredWordCountMax ?? null,
-    prompt: prompt || '',
-    temperature: temperature ?? 0,
-  };
+  const rubricResult = validateRubric(body.rubric, body.prompt);
+  if (rubricResult.error) return { error: rubricResult.error };
 
   return {
-    profileData,
-    essay,
-    prompt: prompt || '',
-    studentNickname: studentNickname || null,
-    temperature: temperature ?? 0,
+    essay: body.essay,
+    prompt: body.prompt || '',
+    studentNickname: body.studentNickname || null,
+    profileData: rubricResult.profileData,
+    temperature: rubricResult.temperature,
+  };
+}
+
+function validateBatchGradeRequest(body) {
+  if (!body || typeof body !== 'object') return { error: 'Request body must be a JSON object' };
+
+  if (!Array.isArray(body.essays) || body.essays.length === 0) {
+    return { error: 'essays is required and must be a non-empty array' };
+  }
+  if (body.essays.length > MAX_BATCH_ESSAYS) {
+    return { error: `essays exceeds max batch size of ${MAX_BATCH_ESSAYS}` };
+  }
+
+  const normalizedEssays = [];
+  for (let i = 0; i < body.essays.length; i++) {
+    const e = body.essays[i];
+    if (!e || typeof e !== 'object') {
+      return { error: `essays[${i}] must be an object` };
+    }
+    const essayError = validateEssayField(e.essay, `essays[${i}].essay`);
+    if (essayError) return { error: essayError };
+    if (e.id !== undefined && typeof e.id !== 'string') {
+      return { error: `essays[${i}].id must be a string when provided` };
+    }
+    if (e.studentNickname !== undefined && typeof e.studentNickname !== 'string') {
+      return { error: `essays[${i}].studentNickname must be a string when provided` };
+    }
+    normalizedEssays.push({
+      id: e.id || null,
+      studentText: e.essay,
+      studentName: e.id || `Essay ${i + 1}`,
+      studentNickname: e.studentNickname || null,
+    });
+  }
+
+  const rubricResult = validateRubric(body.rubric, body.prompt);
+  if (rubricResult.error) return { error: rubricResult.error };
+
+  return {
+    essays: normalizedEssays,
+    prompt: body.prompt || '',
+    profileData: rubricResult.profileData,
+    temperature: rubricResult.temperature,
   };
 }
 
@@ -133,7 +176,7 @@ export async function handleGrade(req, res) {
   const startedAt = Date.now();
   const apiClient = req.apiClient || 'unknown';
 
-  const parsed = validateAndBuildProfile(req.body);
+  const parsed = validateSingleGradeRequest(req.body);
   if (parsed.error) {
     logRequest({ apiClient, startedAt, essayChars: req.body?.essay?.length || 0, success: false, errorCode: 'invalid_request' });
     return bad(res, parsed.error);
@@ -211,4 +254,64 @@ function logRequest({ apiClient, startedAt, essayChars, success, errorCode }) {
     errorCode,
   };
   console.log('[publicApi]', JSON.stringify(entry));
+}
+
+export async function handleBatchGrade(req, res) {
+  const startedAt = Date.now();
+  const apiClient = req.apiClient || 'unknown';
+
+  const parsed = validateBatchGradeRequest(req.body);
+  if (parsed.error) {
+    logRequest({
+      apiClient,
+      startedAt,
+      essayChars: 0,
+      success: false,
+      errorCode: 'invalid_request',
+    });
+    return bad(res, parsed.error);
+  }
+
+  res.writeHead(200, {
+    'Content-Type': 'text/event-stream',
+    'Cache-Control': 'no-cache',
+    'Connection': 'keep-alive',
+  });
+
+  const totalEssayChars = parsed.essays.reduce((sum, e) => sum + e.studentText.length, 0);
+  const writeEvent = (event) => res.write(`data: ${JSON.stringify(event)}\n\n`);
+
+  try {
+    await processBatchStreaming({
+      essays: parsed.essays,
+      prompt: parsed.prompt,
+      profileData: parsed.profileData,
+      temperature: parsed.temperature,
+      delayBetweenResultsMs: 0,
+      onEvent: writeEvent,
+    });
+
+    logRequest({
+      apiClient,
+      startedAt,
+      essayChars: totalEssayChars,
+      success: true,
+      errorCode: null,
+    });
+    res.end();
+  } catch (err) {
+    console.error('[publicApi] Batch grading failed:', err);
+    writeEvent({
+      type: 'error',
+      error: { code: 'grading_failed', message: err.message || 'Internal grading error' },
+    });
+    logRequest({
+      apiClient,
+      startedAt,
+      essayChars: totalEssayChars,
+      success: false,
+      errorCode: 'grading_failed',
+    });
+    res.end();
+  }
 }

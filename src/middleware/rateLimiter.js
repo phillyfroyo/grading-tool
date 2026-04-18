@@ -16,7 +16,7 @@ export const gradeRateLimiter = rateLimit({
   max: 60,
   standardHeaders: true,
   legacyHeaders: false,
-  keyGenerator: (req) => req.apiClient || req.ip,
+  keyGenerator: (req) => req.apiClient || 'unknown',
   handler: (req, res) => {
     console.log('[publicApi]', JSON.stringify({
       ts: new Date().toISOString(),

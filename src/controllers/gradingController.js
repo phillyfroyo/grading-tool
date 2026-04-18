@@ -4,6 +4,7 @@
 import { gradeEssayUnified, gradeLegacy } from '../services/gradingService.js';
 import { findProfileById } from '../services/profileService.js';
 import { applyTemperatureAdjustment } from '../services/temperatureService.js';
+import { processBatchStreaming } from '../services/batchGradingService.js';
 import { formatGradedEssay } from '../../grader/formatter.js';
 import { isVercel } from '../config/index.js';
 
@@ -204,179 +205,42 @@ async function handleBatchGrade(req, res) {
  */
 async function handleStreamingBatchGrade(req, res, { essays, prompt, classProfile, temperature }) {
   try {
-    const startTime = Date.now();
-    console.log("\n🌊 STARTING STREAMING BATCH GRADING WITH PARALLEL BATCHES 🌊");
-    console.log(`📊 Processing ${essays.length} essays in batches of 2`);
-    console.log(`⏰ Start time: ${new Date(startTime).toISOString()}`);
-
-    // Set up Server-Sent Events headers
     res.writeHead(200, {
       'Content-Type': 'text/event-stream',
       'Cache-Control': 'no-cache',
       'Connection': 'keep-alive',
       'Access-Control-Allow-Origin': '*',
-      'Access-Control-Allow-Headers': 'Cache-Control'
+      'Access-Control-Allow-Headers': 'Cache-Control',
     });
 
-    // Get profile data
-    console.log("🔍 Looking for profile:", classProfile);
-
-    // Get userId from session or cookies (same logic as profile controller)
     let userId = req.session?.userId;
     if (!userId && req.signedCookies) {
       userId = req.signedCookies.userId;
     }
-    console.log("🔑 User ID for streaming grading:", userId, "from session:", !!req.session?.userId, "from cookies:", !!req.signedCookies?.userId);
 
     const profileData = await findProfileById(classProfile, userId);
     if (!profileData) {
-      const errorMsg = `Profile not found: ${classProfile}`;
-      console.error("❌", errorMsg);
-      res.write(`data: ${JSON.stringify({
-        type: 'error',
-        error: errorMsg
-      })}\n\n`);
+      res.write(`data: ${JSON.stringify({ type: 'error', error: `Profile not found: ${classProfile}` })}\n\n`);
       res.end();
       return;
     }
 
-    console.log("✅ Profile found:", profileData.name);
     const finalTemperature = temperature !== undefined ? temperature : (profileData.temperature || 0);
+    const writeEvent = (event) => res.write(`data: ${JSON.stringify(event)}\n\n`);
 
-    // Send initial status
-    res.write(`data: ${JSON.stringify({
-      type: 'start',
-      totalEssays: essays.length,
-      message: 'Starting parallel batch grading...'
-    })}\n\n`);
-
-    // Process essays in parallel batches of 2 (3 API calls per essay with 30k TPM limit)
-    const BATCH_SIZE = 2;
-    let currentBatch = 1;
-    const totalBatches = Math.ceil(essays.length / BATCH_SIZE);
-
-    for (let batchStart = 0; batchStart < essays.length; batchStart += BATCH_SIZE) {
-      const batchEnd = Math.min(batchStart + BATCH_SIZE, essays.length);
-      const batch = essays.slice(batchStart, batchEnd);
-
-      console.log(`\n🚀 Processing batch ${currentBatch}/${totalBatches} (essays ${batchStart + 1}-${batchEnd})`);
-
-      // Send processing status for all essays in this batch
-      batch.forEach((essay, batchIndex) => {
-        const globalIndex = batchStart + batchIndex;
-        res.write(`data: ${JSON.stringify({
-          type: 'processing',
-          index: globalIndex,
-          studentName: essay.studentName,
-          message: `Processing ${essay.studentName} (Batch ${currentBatch}/${totalBatches})...`,
-          batch: currentBatch,
-          totalBatches: totalBatches
-        })}\n\n`);
-      });
-
-      // Process all essays in this batch in parallel
-      const batchPromises = batch.map(async (essay, batchIndex) => {
-        const globalIndex = batchStart + batchIndex;
-
-        try {
-          console.log(`📝 Grading essay ${globalIndex + 1}/${essays.length} for ${essay.studentName}...`);
-          console.log(`🏷️ Student nickname: ${essay.studentNickname || 'none'}`);
-
-          const result = await gradeEssayUnified(essay.studentText, prompt, profileData, essay.studentNickname);
-
-          // Validate result has required fields before marking as successful
-          if (!result || !result.scores || !result.total) {
-            throw new Error('Incomplete grading result - missing scores or total');
-          }
-
-          // Apply temperature adjustment
-          const finalResult = applyTemperatureAdjustment(result, finalTemperature);
-          finalResult.studentName = essay.studentName;
-          finalResult.studentNickname = essay.studentNickname;
-
-          return {
-            index: globalIndex,
-            success: true,
-            studentName: essay.studentName,
-            studentNickname: essay.studentNickname,
-            result: finalResult
-          };
-
-        } catch (error) {
-          console.error(`❌ Error grading essay ${globalIndex + 1} for ${essay.studentName}:`, error);
-
-          return {
-            index: globalIndex,
-            success: false,
-            studentName: essay.studentName,
-            studentNickname: essay.studentNickname,
-            error: error.message
-          };
-        }
-      });
-
-      // Wait for all essays in this batch to complete using allSettled for better error handling
-      const batchResults = await Promise.allSettled(batchPromises);
-
-      // Extract results, converting rejected promises to error objects instead of silently dropping them
-      const processedResults = batchResults.map((result, idx) => {
-        if (result.status === 'fulfilled') {
-          return result.value;
-        }
-        // Handle rejected promises - convert to error result instead of dropping
-        const globalIndex = batchStart + idx;
-        const essay = batch[idx];
-        console.error(`❌ Promise rejected for essay ${globalIndex + 1}:`, result.reason);
-        return {
-          index: globalIndex,
-          success: false,
-          studentName: essay?.studentName || `Student ${globalIndex + 1}`,
-          studentNickname: essay?.studentNickname || '',
-          error: result.reason?.message || 'Unknown error - essay grading failed'
-        };
-      });
-
-      // Stream results with a 500ms delay between each for better UX
-      for (let i = 0; i < processedResults.length; i++) {
-        const result = processedResults[i];
-
-        // Add delay between essays (except for the first one)
-        if (i > 0) {
-          await new Promise(resolve => setTimeout(resolve, 500));
-        }
-
-        res.write(`data: ${JSON.stringify({
-          type: 'result',
-          ...result
-        })}\n\n`);
-
-        console.log(`📤 Streamed result for ${result.studentName} (index: ${result.index})`);
-      }
-
-      const elapsedSeconds = ((Date.now() - startTime) / 1000).toFixed(1);
-      console.log(`✅ Batch ${currentBatch}/${totalBatches} completed - ${batchResults.length} essays processed`);
-      console.log(`⏱️ Elapsed time: ${elapsedSeconds}s`);
-      currentBatch++;
-    }
-
-    // Send completion status
-    const totalElapsedSeconds = ((Date.now() - startTime) / 1000).toFixed(1);
-    res.write(`data: ${JSON.stringify({
-      type: 'complete',
-      message: `All ${essays.length} essays processed in ${totalBatches} batches`,
-      totalTimeSeconds: totalElapsedSeconds
-    })}\n\n`);
+    await processBatchStreaming({
+      essays,
+      prompt,
+      profileData,
+      temperature: finalTemperature,
+      delayBetweenResultsMs: 500,
+      onEvent: writeEvent,
+    });
 
     res.end();
-    console.log(`\n✅ STREAMING BATCH GRADING COMPLETED! ${essays.length} essays in ${totalBatches} batches`);
-    console.log(`⏱️ Total time: ${totalElapsedSeconds}s (${(totalElapsedSeconds / 60).toFixed(1)} minutes)`);
-
   } catch (error) {
-    console.error("\n❌ STREAMING BATCH GRADING ERROR:", error);
-    res.write(`data: ${JSON.stringify({
-      type: 'error',
-      error: error.message
-    })}\n\n`);
+    console.error('[streamingBatchGrade]', error);
+    res.write(`data: ${JSON.stringify({ type: 'error', error: error.message })}\n\n`);
     res.end();
   }
 }
