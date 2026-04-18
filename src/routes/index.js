@@ -8,12 +8,14 @@ import gradingSessionRoutes from './gradingSession.js';
 import savedEssayRoutes from './savedEssays.js';
 import staticRoutes from './static.js';
 import authRoutes from './auth.js';
+import publicApiRoutes from './publicApi.js';
 
 const router = express.Router();
 
 // Mount route modules - ORDER MATTERS!
 // Specific routes FIRST (auth, api)
 router.use('/auth', authRoutes);
+router.use('/v1', publicApiRoutes);
 router.use('/', gradingRoutes);
 router.use('/', profileRoutes);
 router.use('/', gradingSessionRoutes);
