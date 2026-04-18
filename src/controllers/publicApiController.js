@@ -13,8 +13,24 @@ import { gradeEssaySimple } from '../../grader/grader-simple.js';
 import { applyTemperatureAdjustment } from '../services/temperatureService.js';
 
 const MAX_ESSAY_CHARS = 10_000;
-const MAX_RUBRIC_LIST_ITEMS = 500;
+const MAX_RUBRIC_LIST_ITEMS = 150;
+const GRADE_TIMEOUT_MS = 120_000;
 const VALID_CEFR_LEVELS = new Set(['A1', 'A2', 'B1', 'B2', 'C1', 'C2']);
+
+class GradingTimeoutError extends Error {
+  constructor() {
+    super('Grading timed out');
+    this.name = 'GradingTimeoutError';
+  }
+}
+
+function withTimeout(promise, ms) {
+  let timerId;
+  const timeout = new Promise((_, reject) => {
+    timerId = setTimeout(() => reject(new GradingTimeoutError()), ms);
+  });
+  return Promise.race([promise, timeout]).finally(() => clearTimeout(timerId));
+}
 
 function bad(res, message) {
   return res.status(400).json({
@@ -124,11 +140,9 @@ export async function handleGrade(req, res) {
   }
 
   try {
-    const result = await gradeEssaySimple(
-      parsed.essay,
-      parsed.profileData,
-      null,
-      parsed.studentNickname,
+    const result = await withTimeout(
+      gradeEssaySimple(parsed.essay, parsed.profileData, null, parsed.studentNickname),
+      GRADE_TIMEOUT_MS,
     );
 
     if (!result || !result.scores || !result.total) {
@@ -160,6 +174,19 @@ export async function handleGrade(req, res) {
       segments: finalResult.segments,
     });
   } catch (err) {
+    if (err instanceof GradingTimeoutError) {
+      logRequest({
+        apiClient,
+        startedAt,
+        essayChars: parsed.essay.length,
+        success: false,
+        errorCode: 'upstream_timeout',
+      });
+      return res.status(504).json({
+        error: { code: 'upstream_timeout', message: 'Grading timed out. Retry shortly.' },
+      });
+    }
+
     console.error('[publicApi] Grading failed:', err);
     logRequest({
       apiClient,
