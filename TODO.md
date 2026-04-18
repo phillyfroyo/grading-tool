@@ -137,7 +137,7 @@ Why: the grading flow has two stages. Stage 1 (AI grading via SSE) populates `wi
 
 ---
 
-## 🔴 PRODUCTION BUG: Everything below "Summary" line is grayed out
+## ✅ FIXED: Everything below "Summary" line is grayed out
 
 **Reported:** 2026-03-01
 **Severity:** Medium — visual/UX issue in production
