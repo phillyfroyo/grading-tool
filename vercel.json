@@ -6,7 +6,8 @@
       "src": "server.js",
       "use": "@vercel/node",
       "config": {
-        "includeFiles": ["class-profiles.json", "grader/**", "src/**"]
+        "includeFiles": ["class-profiles.json", "grader/**", "src/**"],
+        "maxDuration": 300
       }
     },
     {
