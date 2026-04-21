@@ -1,0 +1,130 @@
+{
+  "info": {
+    "name": "Grading API (v1)",
+    "description": "External-facing grading API for the ESL grading tool. Configure the `baseUrl` and `apiKey` collection variables before running any request.\n\nSee docs/API.md for the full contract.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "_postman_id": "grading-api-v1"
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:3001",
+      "type": "string",
+      "description": "Replace with the staging or production base URL when testing against a deployed environment."
+    },
+    {
+      "key": "apiKey",
+      "value": "REPLACE_WITH_YOUR_RAW_KEY",
+      "type": "string",
+      "description": "Raw API key issued by the grading-tool team. Never commit a real key to source control."
+    }
+  ],
+  "auth": {
+    "type": "bearer",
+    "bearer": [
+      { "key": "token", "value": "{{apiKey}}", "type": "string" }
+    ]
+  },
+  "item": [
+    {
+      "name": "Grade single essay — happy path",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Content-Type", "value": "application/json" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"essay\": \"Yesterday I go to the store with my friend. We buy some bread and cheese, but the store was very crowded. However, we had a good time talking about our plans.\",\n  \"prompt\": \"Write about a recent experience. 30-60 words.\",\n  \"studentNickname\": \"Maria\",\n  \"rubric\": {\n    \"cefrLevel\": \"B1\",\n    \"vocabulary\": [\"crowded\", \"plans\", \"experience\"],\n    \"grammar\": [\"past simple\"],\n    \"requiredWordCountMin\": 30,\n    \"requiredWordCountMax\": 60,\n    \"temperature\": 0\n  }\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/v1/grade",
+          "host": ["{{baseUrl}}"],
+          "path": ["v1", "grade"]
+        },
+        "description": "Grades a single essay against an inline rubric. Expect a 200 response with scores, feedback, inline_issues, and formattedText. Typical latency: 10-30s."
+      }
+    },
+    {
+      "name": "Grade batch — happy path (SSE stream)",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Content-Type", "value": "application/json" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"essays\": [\n    { \"id\": \"student-maria\", \"essay\": \"Yesterday I go to the park with my dog. We play fetch and run around.\", \"studentNickname\": \"Maria\" },\n    { \"id\": \"student-jose\", \"essay\": \"My favorite hobby is cooking. I like to make pasta and pizza for my family.\", \"studentNickname\": \"Jose\" },\n    { \"id\": \"student-ana\", \"essay\": \"Last weekend I visit my grandmother. She makes delicious soup and we talk for hours.\", \"studentNickname\": \"Ana\" }\n  ],\n  \"prompt\": \"Write about a recent experience. 15-40 words.\",\n  \"rubric\": {\n    \"cefrLevel\": \"B1\",\n    \"vocabulary\": [\"family\", \"favorite\"],\n    \"grammar\": [\"past simple\", \"present simple\"],\n    \"requiredWordCountMin\": 15,\n    \"requiredWordCountMax\": 40\n  }\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/v1/grade-batch",
+          "host": ["{{baseUrl}}"],
+          "path": ["v1", "grade-batch"]
+        },
+        "description": "Grades multiple essays and streams per-essay results as Server-Sent Events. Postman will display the raw SSE stream; in production your server should consume it with a streaming JSON reader (see docs/API.md)."
+      }
+    },
+    {
+      "name": "Grade single essay — missing auth (401)",
+      "request": {
+        "auth": { "type": "noauth" },
+        "method": "POST",
+        "header": [
+          { "key": "Content-Type", "value": "application/json" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"essay\": \"test\",\n  \"rubric\": { \"cefrLevel\": \"B1\" }\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/v1/grade",
+          "host": ["{{baseUrl}}"],
+          "path": ["v1", "grade"]
+        },
+        "description": "Demonstrates the 401 response when the Authorization header is missing. Expect: {\"error\":{\"code\":\"unauthorized\",\"message\":\"Missing or malformed Authorization header...\"}}"
+      }
+    },
+    {
+      "name": "Grade single essay — invalid key (401)",
+      "request": {
+        "auth": {
+          "type": "bearer",
+          "bearer": [{ "key": "token", "value": "obviously-not-a-real-key", "type": "string" }]
+        },
+        "method": "POST",
+        "header": [
+          { "key": "Content-Type", "value": "application/json" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"essay\": \"test\",\n  \"rubric\": { \"cefrLevel\": \"B1\" }\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/v1/grade",
+          "host": ["{{baseUrl}}"],
+          "path": ["v1", "grade"]
+        },
+        "description": "Demonstrates the 401 response when the bearer token doesn't match a configured API key. Expect: {\"error\":{\"code\":\"unauthorized\",\"message\":\"Invalid API key\"}}"
+      }
+    },
+    {
+      "name": "Grade single essay — validation error (400)",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Content-Type", "value": "application/json" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"essay\": \"\",\n  \"rubric\": { \"cefrLevel\": \"B1\" }\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/v1/grade",
+          "host": ["{{baseUrl}}"],
+          "path": ["v1", "grade"]
+        },
+        "description": "Demonstrates a 400 validation error. An empty essay string is rejected at the controller boundary with no LLM call made. Expect: {\"error\":{\"code\":\"invalid_request\",\"message\":\"essay is required and must be a non-empty string\"}}"
+      }
+    }
+  ]
+}
