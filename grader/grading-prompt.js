@@ -371,8 +371,7 @@ ${errorDetectionResults.inline_issues.map(issue =>
     "content": {"points": X, "out_of": 15, "rationale": "Brief note explaining score (1 sentence)"}
   },
   "total": {"points": X, "out_of": 100},
-  "teacher_notes": "See format below",
-  "encouragement_next_steps": ["Step 1", "Step 2", "Step 3"]
+  "teacher_notes": "See format below"
 }
 
 ## RATIONALE FORMAT:

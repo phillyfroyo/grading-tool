@@ -74,7 +74,7 @@ export function formatGradedEssay(studentText, gradingResults, options = {}) {
   console.log(`Student text length: ${studentText.length}`);
   console.log(`Number of inline issues: ${(gradingResults.inline_issues || []).length}`);
   
-  const { meta, scores, total, inline_issues, teacher_notes, encouragement_next_steps } = gradingResults;
+  const { meta, scores, total, inline_issues, teacher_notes } = gradingResults;
 
   // Normalize text and fix offsets ONCE to ensure consistency
   const normalizedText = studentText.normalize('NFC');
@@ -84,7 +84,7 @@ export function formatGradedEssay(studentText, gradingResults, options = {}) {
   const formattedText = renderWithOffsets(normalizedText, correctedIssues, options);
 
   // Generate feedback summary with new format
-  const feedbackHtml = generateFeedbackSummary(scores, total, meta, teacher_notes, encouragement_next_steps, options);
+  const feedbackHtml = generateFeedbackSummary(scores, total, meta, teacher_notes, options);
 
   return {
     formattedText: formattedText,
@@ -820,7 +820,7 @@ function renderSingleHighlight(issue, text, segmentIndex, editable) {
 }
 
 
-function generateFeedbackSummary(scores, total, meta, teacherNotes, encouragementSteps, options = {}) {
+function generateFeedbackSummary(scores, total, meta, teacherNotes, options = {}) {
   const { editable = true } = options;
   const scoreColor = getScoreColor(total?.points || 0);
   

@@ -64,7 +64,7 @@ Content-Type: application/json
 |---|---|---|---|
 | `essay` | string | yes | The student's writing. Max 10,000 characters. |
 | `prompt` | string | no | The assignment instructions. If it contains a word-count range, it will be auto-parsed. |
-| `studentNickname` | string | no | Used to personalize `teacher_notes` and `encouragement_next_steps`. |
+| `studentNickname` | string | no | Used to personalize `teacher_notes`. |
 | `rubric` | object | yes | Inline rubric definition (see below). |
 
 **Rubric fields:**
@@ -100,10 +100,6 @@ Content-Type: application/json
     "transition_words_found": ["however"]
   },
   "teacher_notes": "Maria - Good work here. Let's work on grammar...",
-  "encouragement_next_steps": [
-    "Step 1: Review past simple tense usage.",
-    "Step 2: Practice more varied vocabulary."
-  ],
   "inline_issues": [
     {
       "category": "grammar",

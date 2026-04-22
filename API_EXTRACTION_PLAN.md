@@ -56,7 +56,7 @@ Content-Type: application/json
 
 ### Response body
 
-Same shape as the current `handleApiGrade` response (scores, total, meta, teacher_notes, encouragement_next_steps, inline_issues, errors, overallScore). See `src/controllers/gradingController.js:74-87`.
+Same shape as the current `handleApiGrade` response (scores, total, meta, teacher_notes, inline_issues, errors, overallScore). See `src/controllers/gradingController.js:74-87`.
 
 ### Error responses
 

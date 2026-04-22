@@ -31,7 +31,6 @@ function displayManualGradingResults(result) {
             grammar_structures_used: []
         },
         teacher_notes: result.overallFeedback || 'Manual grading notes',
-        encouragement_next_steps: 'Keep up the good work!',
         inline_issues: []
     };
 

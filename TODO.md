@@ -1,6 +1,25 @@
 # Grading Tool - TODO
 
-> Last updated: 2026-04-16
+> Last updated: 2026-04-22
+
+---
+
+## ✅ FIXED: Remove dead `encouragement_next_steps` feature (wasted tokens)
+
+**Discovered:** 2026-04-21 while building akdmic-mock demo. akdmic-mock rendered a "Next steps" section for every graded essay; we don't have this feature in the main UI or the PDF export. Investigation showed it was silently plumbed through the pipeline without ever rendering.
+
+**Fixed:** 2026-04-22 on branch `API_EXTRACTION_v1`.
+
+**Verified before removal:** grep'd `public/js/pdf-export.js` (zero references), `docs/grading-api.postman.json` (zero references), and the full `public/`, `src/`, and `grader/` trees — every reference was either the unused pipeline plumbing or the stub value in `manual-grading.js`.
+
+**Changes:**
+1. `grader/grading-prompt.js` — dropped `encouragement_next_steps` from the instructed JSON output shape.
+2. `grader/formatter.js` — stopped destructuring it at line 77, stopped passing it to `generateFeedbackSummary` at line 87, removed the unused param from that function's signature.
+3. `src/controllers/publicApiController.js` + `src/controllers/gradingController.js` — removed from both response envelopes.
+4. `docs/API.md` — removed from the request-fields note and the example response JSON.
+5. `public/js/ui/manual-grading.js` — deleted the stub `'Keep up the good work!'` value.
+
+**Impact:** ~60-75 output tokens saved per grade (~$0.0007 at GPT-4o pricing). More importantly, no more phantom field leaking into external API consumers.
 
 ---
 
