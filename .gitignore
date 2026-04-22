@@ -1,3 +1,9 @@
 .env
 node_modules/
 /generated/prisma
+
+# Real student essays used for local metrics runs (PII).
+# The synthetic essays.mjs is intentionally committed; don't commit real ones.
+scripts/metrics-fixtures/*.json
+scripts/metrics-fixtures/*.txt
+scripts/metrics-fixtures/real-*.mjs
