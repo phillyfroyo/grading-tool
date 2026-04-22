@@ -12,6 +12,19 @@ function errorHandler(err, req, res, next) {
   console.error('❌ ERROR HANDLER CAUGHT:', err.message);
   console.error('Error stack:', err.stack);
 
+  // /v1/* is the public API and uses a {error:{code,message}} envelope.
+  // body-parser throws entity.parse.failed before route-level middleware can
+  // catch it, so classify it here for /v1 and return the documented 400.
+  const isPublicApi = req.path?.startsWith('/v1/');
+  const isJsonParseError =
+    err?.type === 'entity.parse.failed' || err instanceof SyntaxError;
+
+  if (isPublicApi && isJsonParseError) {
+    return res.status(400).json({
+      error: { code: 'invalid_request', message: 'Request body is not valid JSON' },
+    });
+  }
+
   // Default error response
   let statusCode = 500;
   let errorResponse = {
