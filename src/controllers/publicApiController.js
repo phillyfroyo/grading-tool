@@ -206,14 +206,10 @@ export async function handleGrade(req, res) {
       success: true,
       scores: finalResult.scores,
       total: finalResult.total,
+      overallScore: finalResult.total?.points ?? 0,
       meta: finalResult.meta,
       teacher_notes: finalResult.teacher_notes,
       inline_issues: finalResult.inline_issues,
-      formattedText: finalResult.formattedText,
-      feedbackSummary: finalResult.feedbackSummary,
-      errors: finalResult.errors,
-      overallScore: finalResult.overallScore,
-      segments: finalResult.segments,
     });
   } catch (err) {
     if (err instanceof GradingTimeoutError) {

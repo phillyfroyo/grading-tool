@@ -93,6 +93,7 @@ Content-Type: application/json
     "content":    { "points": 13, "out_of": 15, "rationale": "..." }
   },
   "total": { "points": 78, "out_of": 100 },
+  "overallScore": 78,
   "meta": {
     "word_count": 45,
     "class_vocabulary_used": ["crowded", "plans"],
@@ -109,22 +110,16 @@ Content-Type: application/json
       "correction": "went",
       "explanation": "Use past tense for actions completed in the past."
     }
-  ],
-  "formattedText": "<p>...HTML with highlight spans...</p>",
-  "feedbackSummary": "<div>...HTML summary...</div>",
-  "overallScore": 78
+  ]
 }
 ```
 
-**How to render the highlighted essay (two options):**
+`overallScore` is a convenience alias for `total.points`. Use either.
 
-1. **Structured data (recommended for custom UIs):** use `inline_issues`. Each
-   entry has `start` and `end` character offsets into the original essay
-   text, plus the error `category`, the proposed `correction`, and an
-   `explanation`. You render the highlights in your own styling.
-2. **Pre-rendered HTML:** use `formattedText`. Already color-coded by our
-   CSS classes (`.grammar-error`, `.spelling-error`, etc.). Fastest to
-   ship; hardest to restyle.
+**How to render the highlighted essay:** use `inline_issues`. Each entry
+has `start` and `end` character offsets into the original essay text, plus
+the error `category`, the proposed `correction`, and an `explanation`.
+Render the highlights in your own styling.
 
 ---
 

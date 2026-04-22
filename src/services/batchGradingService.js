@@ -81,6 +81,7 @@ export async function processBatchStreaming({
         const finalResult = applyTemperatureAdjustment(result, temperature);
         finalResult.studentName = essay.studentName;
         finalResult.studentNickname = essay.studentNickname;
+        finalResult.overallScore = finalResult.total?.points ?? 0;
 
         return {
           index: globalIndex,
