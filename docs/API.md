@@ -31,6 +31,28 @@ A missing, malformed, or unrecognized key returns `401 Unauthorized`.
 
 ## Endpoints
 
+### `GET /v1/health` — Health check
+
+Cheap liveness probe for uptime monitors. No authentication. No rate limit.
+Does not touch the grading pipeline or the LLM. A successful response proves
+the HTTP layer and routing are working.
+
+```
+GET <API_BASE_URL>/v1/health
+```
+
+**Response — 200 OK:**
+
+```json
+{
+  "status": "ok",
+  "uptimeSeconds": 418,
+  "timestamp": "2026-04-22T17:05:12.481Z"
+}
+```
+
+---
+
 ### `POST /v1/grade` — Grade a single essay
 
 Returns a complete grading result as JSON. Typical latency is 10–30s per

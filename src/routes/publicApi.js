@@ -14,6 +14,16 @@ import { handleGrade, handleBatchGrade } from '../controllers/publicApiControlle
 
 const router = express.Router();
 
+// Health check — no auth, no rate limit. Uptime monitors ping this.
+// Keep it cheap: no DB lookup, no LLM call, no dependency check.
+router.get('/health', (req, res) => {
+  res.json({
+    status: 'ok',
+    uptimeSeconds: Math.floor(process.uptime()),
+    timestamp: new Date().toISOString(),
+  });
+});
+
 router.post('/grade', apiKeyAuth, gradeRateLimiter, asyncHandler(handleGrade));
 router.post('/grade-batch', apiKeyAuth, gradeRateLimiter, asyncHandler(handleBatchGrade));
 
