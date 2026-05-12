@@ -189,9 +189,9 @@ app.use(express.static(config.files.publicPath, {
       res.setHeader('Content-Type', 'image/png');
     }
 
-    // Set caching headers for static assets (1 hour for development)
+    // Set caching headers for static assets (24 hours)
     if (path.endsWith('.css') || path.endsWith('.js') || path.endsWith('.svg') || path.endsWith('.png')) {
-      res.setHeader('Cache-Control', 'public, max-age=3600');
+      res.setHeader('Cache-Control', 'public, max-age=86400');
     }
   }
 }));
