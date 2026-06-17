@@ -1,0 +1,19 @@
+{
+  "_comment": "SINGLE SOURCE OF TRUTH for correction-guide highlight categories. Matched to the printed rubric. Every surface (color-coded essay, top/bottom highlight key, manual edit modal, exported PDF essay/key/error-list) reads from here via public/js/categories.js (browser) or grader/categories.js (backend). style 'fill' = colored background + black text; 'text' = colored text on transparent. manualOnly true = GPT never emits it; human applies it manually (like 'delete'). The id is the persisted data-category key — keep it stable on rename; change only name.",
+  "categories": [
+    { "id": "grammar",            "name": "Grammar",                 "style": "fill", "color": "#FF00FF", "manualOnly": false },
+    { "id": "mechanics",          "name": "Mechanics / Punctuation", "style": "fill", "color": "#F87000", "manualOnly": false },
+    { "id": "redundancy",         "name": "Redundancy",              "style": "fill", "color": "#00FF00", "manualOnly": true },
+    { "id": "vocabulary",         "name": "Vocabulary / Structure",  "style": "fill", "color": "#00B0F0", "manualOnly": false },
+    { "id": "fluency",            "name": "Needs rephrasing",        "style": "fill", "color": "#00FFFF", "manualOnly": false },
+    { "id": "spelling",           "name": "Spelling",                "style": "text", "color": "#FF0000", "manualOnly": false },
+    { "id": "professor-comments", "name": "Professor's comments",    "style": "fill", "color": "#FFFF00", "manualOnly": true },
+    { "id": "delete",             "name": "Delete",                  "style": "text", "color": "#000000", "manualOnly": true, "strikethrough": true }
+  ],
+  "aliases": {
+    "mechanics-punctuation": "mechanics",
+    "vocabulary-structure": "vocabulary",
+    "needs-rephrasing": "fluency",
+    "non-suitable-words": "delete"
+  }
+}

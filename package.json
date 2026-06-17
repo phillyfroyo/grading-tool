@@ -24,6 +24,7 @@
     "build:frontend": "vite build",
     "preview": "vite preview",
     "postinstall": "npx prisma generate",
+    "gen:categories": "node scripts/gen-categories.mjs",
     "db:setup": "npx prisma migrate dev --name init && npx prisma generate && node scripts/migrate-profiles.js",
     "db:reset": "npx prisma migrate reset",
     "db:studio": "npx prisma studio"

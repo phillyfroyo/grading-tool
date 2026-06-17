@@ -49,15 +49,11 @@
  * @returns {Object|null} Category data object or null
  */
 function getCategoryData(category) {
-    const categories = {
-        'grammar': { color: '#FF8C00', name: 'Grammar Error' },
-        'vocabulary': { color: '#00A36C', name: 'Vocabulary Error' },
-        'mechanics': { color: '#D3D3D3', name: 'Mechanics Error' },
-        'spelling': { color: '#DC143C', name: 'Spelling Error' },
-        'fluency': { color: '#87CEEB', name: 'Fluency Error' },
-        'delete': { color: '#000000', name: 'Delete Word' }
-    };
-    return categories[category] || null;
+    // Read from the single source of truth (window.CATEGORIES). `color` is the
+    // category's swatch color (used for button borders / accents).
+    const cat = window.CATEGORIES.getCategory(category);
+    if (!cat) return null;
+    return { color: cat.color, name: cat.name };
 }
 
 /**
@@ -304,14 +300,16 @@ function applyBatchHighlight(range, text, category, essayIndex) {
  * @param {string} primaryCategory - Primary category
  */
 function updateHighlightVisualStyling(element, primaryCategory, allCategories = null) {
-    const categoryStyles = {
-        grammar: { color: '#FF8C00', backgroundColor: 'rgba(255, 140, 0, 0.3)' },
-        vocabulary: { color: '#00A36C', backgroundColor: 'rgba(0, 163, 108, 0.3)' },
-        mechanics: { backgroundColor: '#D3D3D3', color: '#000000' },
-        spelling: { color: '#DC143C', backgroundColor: 'rgba(220, 20, 60, 0.3)' },
-        fluency: { backgroundColor: '#87CEEB', color: '#000000' },
-        delete: { textDecoration: 'line-through', color: '#000000', fontWeight: 'bold' }
-    };
+    // Build the rendered CSS for a category from the single source of truth.
+    function styleFor(catId) {
+        const s = window.CATEGORIES.getCategoryStyle(catId);
+        const css = { color: s.color, backgroundColor: s.background };
+        if (s.strikethrough) {
+            css.textDecoration = 'line-through';
+            css.fontWeight = 'bold';
+        }
+        return css;
+    }
 
     // Reset all category-related styles first to prevent style bleed from previous category
     element.style.color = '';
@@ -321,9 +319,8 @@ function updateHighlightVisualStyling(element, primaryCategory, allCategories = 
     element.style.boxShadow = '';
     element.style.borderBottom = '';
 
-    const style = categoryStyles[primaryCategory];
-    if (style) {
-        Object.assign(element.style, style);
+    if (window.CATEGORIES.getCategory(primaryCategory)) {
+        Object.assign(element.style, styleFor(primaryCategory));
     }
 
     // Check for multi-category - add visual indicator
@@ -331,9 +328,10 @@ function updateHighlightVisualStyling(element, primaryCategory, allCategories = 
     if (categories.length > 1) {
         // Multi-category highlight: add dashed underline and box shadow to indicate multiple errors
         const secondaryCategory = categories[1];
-        const secondaryStyle = categoryStyles[secondaryCategory];
-        if (secondaryStyle) {
-            const secondaryColor = secondaryStyle.color || '#666';
+        const secondaryCat = window.CATEGORIES.getCategory(secondaryCategory);
+        if (secondaryCat) {
+            // Use the secondary category's swatch color as the indicator accent.
+            const secondaryColor = secondaryCat.color || '#666';
             element.style.borderBottom = `2px dashed ${secondaryColor}`;
             element.style.boxShadow = `inset 0 0 0 1px ${secondaryColor}`;
         }
@@ -946,29 +944,21 @@ function showHighlightEditModal(element, currentCategories) {
         }
     });
 
-    // Create category buttons
-    const categories = [
-        { id: 'grammar', name: 'Grammar Error', color: '#FF8C00' },
-        { id: 'vocabulary', name: 'Vocabulary Error', color: '#00A36C' },
-        { id: 'mechanics', name: 'Mechanics Error', color: '#D3D3D3' },
-        { id: 'spelling', name: 'Spelling Error', color: '#DC143C' },
-        { id: 'fluency', name: 'Fluency Error', color: '#87CEEB' },
-        { id: 'delete', name: 'Delete Word', color: '#000000' }
-    ];
+    // Create category buttons from the single source of truth (window.CATEGORIES).
+    const categories = window.CATEGORIES.getManualCategories();
 
     modalCategoryButtons.innerHTML = categories.map(category => {
         const isSelected = currentCategories.includes(category.id);
-        const isMechanics = category.id === 'mechanics';
-        const isFluency = category.id === 'fluency';
-        const isDelete = category.id === 'delete';
+        const style = window.CATEGORIES.getCategoryStyle(category.id);
+        const isFill = style.background !== 'transparent';
 
         const bgColor = isSelected
             ? category.color
-            : (isMechanics || isFluency ? category.color : 'transparent');
+            : (isFill ? style.background : 'transparent');
         const textColor = isSelected
             ? 'white'
-            : (isMechanics || isFluency ? 'black' : category.color);
-        const decoration = isDelete ? 'text-decoration: line-through;' : '';
+            : (isFill ? 'black' : style.color);
+        const decoration = style.strikethrough ? 'text-decoration: line-through;' : '';
         const selectedClass = isSelected ? 'modal-category-selected' : '';
 
         return `
@@ -1238,6 +1228,15 @@ const EXPLANATION_SUGGESTIONS = {
     delete: [
         'Unnecessary word — remove it.',
         'Not a word.'
+    ],
+    redundancy: [
+        'Redundant — this repeats an idea already stated.',
+        'Remove the repetition.',
+        'Say this once.'
+    ],
+    'professor-comments': [
+        'See my comment.',
+        'Let\'s discuss this in class.'
     ]
 };
 

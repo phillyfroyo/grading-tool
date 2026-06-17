@@ -4,6 +4,46 @@
  */
 
 /**
+ * Generate the print/PDF CSS for all highlight categories from the single
+ * source of truth (window.CATEGORIES). Produces:
+ *   - mark[data-category=...] / mark[data-type=...]  → essay highlight colors
+ *   - .legend-<id>                                   → top highlight-key swatches
+ *   - .highlight-entry.<id>-error                    → error-list border accent
+ * so colors persist identically across the PDF essay, key, and error list.
+ */
+function buildCategoryPrintCSS() {
+    if (!window.CATEGORIES) return '';
+    return window.CATEGORIES.getManualCategories().map(category => {
+        const s = window.CATEGORIES.getCategoryStyle(category.id);
+        const isFill = s.background !== 'transparent';
+        const strike = s.strikethrough ? '\n                    text-decoration: line-through !important;' : '';
+
+        // Essay highlight mark
+        const markBody = isFill
+            ? `background: ${s.background} !important;
+                    color: #000000 !important;
+                    border: none !important;
+                    padding: 1px 2px !important;
+                    border-radius: 2px !important;${strike}`
+            : `background: transparent !important;
+                    color: ${s.color} !important;
+                    border: none !important;
+                    font-weight: bold !important;${strike}`;
+
+        // Top-key legend swatch
+        const legendBody = isFill
+            ? `background: ${s.background} !important; color: #000000 !important; padding: 2px 4px !important;${s.strikethrough ? ' text-decoration: line-through !important;' : ''}`
+            : `color: ${s.color} !important; font-weight: bold !important;${s.strikethrough ? ' text-decoration: line-through !important;' : ''}`;
+
+        return `mark[data-category="${category.id}"], mark[data-type="${category.id}"] {
+                    ${markBody}
+                }
+                .legend-${category.id} { ${legendBody} }
+                .highlight-entry.${category.id}-error { border-left-color: ${category.color}; }`;
+    }).join('\n                ');
+}
+
+/**
  * Export single essay to PDF
  */
 function exportToPDF() {
@@ -419,53 +459,10 @@ function openPrintDialog(resultsDiv, studentName) {
                     vertical-align: super;
                     margin-left: 1px;
                 }
-                /* Ensure all highlights are visible with appropriate category colors */
-                mark[data-category="grammar"], mark[data-type="grammar"] {
-                    background: transparent !important;
-                    color: #FF8C00 !important;
-                    border: none !important;
-                    font-weight: bold !important;
-                }
-                mark[data-category="vocabulary"], mark[data-type="vocabulary"] {
-                    background: transparent !important;
-                    color: #00A36C !important;
-                    border: none !important;
-                    font-weight: bold !important;
-                }
-                mark[data-category="spelling"], mark[data-type="spelling"] {
-                    background: transparent !important;
-                    color: #DC143C !important;
-                    border: none !important;
-                    font-weight: bold !important;
-                }
-                mark[data-category="mechanics"], mark[data-type="mechanics"] {
-                    background: #D3D3D3 !important;
-                    color: #000000 !important;
-                    border: none !important;
-                    padding: 1px 2px !important;
-                    border-radius: 2px !important;
-                }
-                mark[data-category="fluency"], mark[data-type="fluency"] {
-                    background: #87CEEB !important;
-                    color: #000000 !important;
-                    border: none !important;
-                    padding: 1px 2px !important;
-                    border-radius: 2px !important;
-                }
-                mark[data-category="delete"], mark[data-type="delete"] {
-                    background: transparent !important;
-                    color: #000000 !important;
-                    border: none !important;
-                    text-decoration: line-through !important;
-                    padding: 0 !important;
-                }
-                /* Legend labels with colors */
-                .legend-grammar { color: #FF8C00 !important; font-weight: bold !important; }
-                .legend-vocabulary { color: #00A36C !important; font-weight: bold !important; }
-                .legend-spelling { color: #DC143C !important; font-weight: bold !important; }
-                .legend-mechanics { background: #D3D3D3 !important; color: #000000 !important; padding: 2px 4px !important; }
-                .legend-fluency { background: #87CEEB !important; color: #000000 !important; padding: 2px 4px !important; }
-                .legend-delete { text-decoration: line-through !important; color: #000000 !important; }
+                /* Category highlight colors, top-key swatches, and error-list
+                   accents — generated from the single source of truth so the
+                   PDF essay, key, and error list always agree. */
+                ${buildCategoryPrintCSS()}
                 /* Fallback for any mark elements */
                 mark {
                     background: transparent !important;
@@ -514,24 +511,8 @@ function openPrintDialog(resultsDiv, studentName) {
                     page-break-inside: avoid;
                     break-inside: avoid;
                 }
-                .highlight-entry.grammar-error {
-                    border-left-color: #FF8C00;
-                }
-                .highlight-entry.vocabulary-error {
-                    border-left-color: #00A36C;
-                }
-                .highlight-entry.spelling-error {
-                    border-left-color: #DC143C;
-                }
-                .highlight-entry.mechanics-error {
-                    border-left-color: #D3D3D3;
-                }
-                .highlight-entry.fluency-error {
-                    border-left-color: #87CEEB;
-                }
-                .highlight-entry.delete-error {
-                    border-left-color: #000000;
-                }
+                /* .highlight-entry.<id>-error border accents are generated by
+                   buildCategoryPrintCSS() above (single source of truth). */
                 .highlight-number-text {
                     font-weight: bold;
                     color: #333;
@@ -1491,15 +1472,11 @@ function enhanceContentForPDF(content, studentName, originalContent = null) {
  * @returns {string} Display name
  */
 function getCategoryDisplayName(category) {
-    const categoryMap = {
-        'grammar': 'Grammar Error',
-        'vocabulary': 'Vocabulary Error',
-        'spelling': 'Spelling Error',
-        'mechanics': 'Mechanics Error',
-        'fluency': 'Fluency Error',
-        'delete': 'Delete Word'
-    };
-    return categoryMap[category] || category.charAt(0).toUpperCase() + category.slice(1);
+    // Display names come from the single source of truth (window.CATEGORIES).
+    if (window.CATEGORIES) {
+        return window.CATEGORIES.getCategoryName(category);
+    }
+    return category.charAt(0).toUpperCase() + category.slice(1);
 }
 
 /**

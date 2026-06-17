@@ -732,43 +732,34 @@ function loadEssayDetails(index) {
 
                             // Add click handlers to GPT highlights
                             gptHighlights.forEach((element, i) => {
-                                // Extract category from data-type attribute or style/class
+                                // Resolve category via the single source of truth.
+                                // Prefer the persisted data-category / data-type
+                                // (canonical id or alias), then fall back to the
+                                // class name, then the strikethrough → delete cue.
                                 let category = 'unknown';
 
-                                // Check for data-type attribute (GPT mark elements)
-                                if (element.dataset.type) {
-                                    const dataType = element.dataset.type;
-                                    if (dataType.includes('grammar')) {
-                                        category = 'grammar';
-                                    } else if (dataType.includes('vocabulary')) {
-                                        category = 'vocabulary';
-                                    } else if (dataType.includes('spelling')) {
-                                        category = 'spelling';
-                                    } else if (dataType.includes('mechanics')) {
-                                        category = 'mechanics';
-                                    } else if (dataType.includes('fluency')) {
-                                        category = 'fluency';
-                                    } else if (dataType.includes('delete')) {
-                                        category = 'delete';
+                                const resolveCat = (val) => {
+                                    const cat = val && window.CATEGORIES && window.CATEGORIES.getCategory(val);
+                                    return cat ? cat.id : null;
+                                };
+
+                                category = resolveCat(element.dataset.category)
+                                    || resolveCat(element.dataset.type)
+                                    || null;
+
+                                if (!category && element.className) {
+                                    // Legacy: id embedded in a class like "highlight-<id>".
+                                    for (const c of (window.CATEGORIES ? window.CATEGORIES.CATEGORY_LIST : [])) {
+                                        if (element.className.includes(c.id)) { category = c.id; break; }
                                     }
-                                } else {
-                                    // Fallback: try to determine category from color/class
-                                    const styleMatch = element.style.backgroundColor?.match(/rgb.*|#/);
-                                    if (styleMatch || element.className.includes('highlight')) {
-                                        if (element.style.backgroundColor?.includes('255, 140') || element.className.includes('grammar')) {
-                                            category = 'grammar';
-                                        } else if (element.style.backgroundColor?.includes('0, 163') || element.className.includes('vocabulary')) {
-                                            category = 'vocabulary';
-                                        } else if (element.style.backgroundColor?.includes('220, 20') || element.className.includes('spelling')) {
-                                            category = 'spelling';
-                                        } else if (element.style.backgroundColor?.includes('211, 211') || element.className.includes('mechanics')) {
-                                            category = 'mechanics';
-                                        } else if (element.style.backgroundColor?.includes('135, 206') || element.className.includes('fluency')) {
-                                            category = 'fluency';
-                                        } else if (element.style.textDecoration?.includes('line-through') || element.className.includes('delete')) {
-                                            category = 'delete';
-                                        }
-                                    }
+                                }
+
+                                if (!category && element.style.textDecoration?.includes('line-through')) {
+                                    category = 'delete';
+                                }
+
+                                if (!category) {
+                                    category = 'unknown';
                                 }
 
                                 // Add required attributes
