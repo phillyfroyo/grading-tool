@@ -1150,6 +1150,32 @@
                 });
             }
 
+            // The restored HTML is a saved snapshot that may carry stale category
+            // labels/order in the button row and the "Highlight Meanings" key.
+            // Rebuild both from the current single source of truth so previously-
+            // saved essays reflect the latest categories. The essay's highlight
+            // marks (the real data) are untouched; their colors come from the
+            // generated categories.css regardless of the saved inline styles.
+            const categoryButtonsContainer = queryScoped(`#categoryButtons-${index}`);
+            if (categoryButtonsContainer && window.CategorySelectionModule &&
+                typeof window.CategorySelectionModule.createCategoryButtons === 'function') {
+                categoryButtonsContainer.innerHTML =
+                    window.CategorySelectionModule.createCategoryButtons(index) +
+                    `<button id="clearSelectionBtn-${index}" onclick="clearSelection(${index})" style="background: #f5f5f5; color: #666; border: 2px solid #ccc; padding: 8px 12px; border-radius: 4px; cursor: pointer; margin-left: 10px;">Clear Selection</button>`;
+            }
+
+            // Rebuild the "Highlight Meanings" legend from the source of truth.
+            // The legend lives inside the restored #batch-essay-N subtree.
+            if (essayContainer && typeof createColorLegend === 'function') {
+                const oldLegend = essayContainer.querySelector('.color-legend');
+                if (oldLegend) {
+                    const tmp = document.createElement('div');
+                    tmp.innerHTML = createColorLegend();
+                    const fresh = tmp.querySelector('.color-legend');
+                    if (fresh) oldLegend.replaceWith(fresh);
+                }
+            }
+
             // Category buttons
             const categoryButtons = queryAllScoped(
                 `#categoryButtons-${index} .category-btn`
