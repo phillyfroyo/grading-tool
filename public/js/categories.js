@@ -46,7 +46,7 @@
       "id": "vocabulary",
       "shortName": "Vocab",
       "name": "Vocabulary",
-      "style": "fill",
+      "style": "text",
       "color": "#00B0F0",
       "manualOnly": false
     },

@@ -4,7 +4,7 @@
     { "id": "grammar",            "shortName": "Grammar",    "name": "Grammar",                    "style": "text", "color": "#FF00FF", "manualOnly": false },
     { "id": "mechanics",          "shortName": "Mechanics",  "name": "Mechanics & Punctuation",    "style": "fill", "color": "#D3D3D3", "manualOnly": false },
     { "id": "spelling",           "shortName": "Spelling",   "name": "Spelling",                   "style": "text", "color": "#FF0000", "manualOnly": false },
-    { "id": "vocabulary",         "shortName": "Vocab",      "name": "Vocabulary",                 "style": "fill", "color": "#00B0F0", "manualOnly": false },
+    { "id": "vocabulary",         "shortName": "Vocab",      "name": "Vocabulary",                 "style": "text", "color": "#00B0F0", "manualOnly": false },
     { "id": "fluency",            "shortName": "Fluency",    "name": "Fluency / Needs rephrasing", "style": "fill", "color": "#00FFFF", "manualOnly": false },
     { "id": "professor-comments", "shortName": "Comments",   "name": "Professor's comments",       "style": "fill", "color": "#FFFF00", "manualOnly": true },
     { "id": "redundancy",         "shortName": "Redundancy", "name": "Redundancy",                 "style": "fill", "color": "#00FF00", "manualOnly": true },
