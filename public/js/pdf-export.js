@@ -747,6 +747,20 @@ function processHighlightsForPDF(content) {
         mark.removeAttribute('onmouseout');
         mark.style.cursor = 'default';
 
+        // Strip stale inline category styling so the generated print CSS
+        // (buildCategoryPrintCSS, keyed on data-category) fully governs the
+        // appearance. Without this, an essay saved when a category was a fill
+        // keeps inline background/color baked into its marks and prints with
+        // the old style. The data-category attribute is preserved.
+        mark.style.removeProperty('background');
+        mark.style.removeProperty('background-color');
+        mark.style.removeProperty('color');
+        mark.style.removeProperty('padding');
+        mark.style.removeProperty('border-radius');
+        mark.style.removeProperty('text-decoration');
+        mark.style.removeProperty('box-shadow');
+        mark.style.removeProperty('border-bottom');
+
         // Remove any event listeners
         const newMark = mark.cloneNode(true);
         if (mark.parentNode) {
@@ -916,6 +930,26 @@ function enhanceContentForPDF(content, studentName, originalContent = null) {
     // Add spacing and border to color legend for PDF
     const colorLegend = tempDiv.querySelector('.color-legend');
     if (colorLegend) {
+        // Rebuild the legend swatches from the single source of truth so a PDF
+        // exported from a previously-saved essay reflects current category
+        // labels/styles (the cloned legend may carry stale inline styles).
+        if (typeof createColorLegend === 'function') {
+            const tmp = document.createElement('div');
+            tmp.innerHTML = createColorLegend();
+            const fresh = tmp.querySelector('.color-legend');
+            if (fresh) {
+                colorLegend.innerHTML = fresh.innerHTML;
+            }
+        } else {
+            // Fallback: strip stale inline styling from each swatch so the
+            // generated .legend-<id> rules govern.
+            colorLegend.querySelectorAll('mark[data-category]').forEach(sw => {
+                sw.style.removeProperty('background');
+                sw.style.removeProperty('background-color');
+                sw.style.removeProperty('color');
+                sw.style.removeProperty('text-decoration');
+            });
+        }
         // Get existing styles and append new ones with !important
         const existingStyles = colorLegend.getAttribute('style') || '';
         colorLegend.setAttribute('style', existingStyles + ' margin-top: 25px !important; padding-top: 15px !important; border-top: 1px solid #999 !important;');
