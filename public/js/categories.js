@@ -22,7 +22,7 @@
       "id": "grammar",
       "shortName": "Grammar",
       "name": "Grammar",
-      "style": "fill",
+      "style": "text",
       "color": "#FF00FF",
       "manualOnly": false
     },

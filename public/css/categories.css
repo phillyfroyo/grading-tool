@@ -6,12 +6,11 @@
 
 mark[data-category="grammar"],
 mark[data-type="grammar"] {
-    background: #FF00FF !important;
-    color: #000000 !important;
-    padding: 2px 0 !important;
-    border-radius: 2px !important;
+    background: transparent !important;
+    color: #FF00FF !important;
+    font-weight: bold !important;
 }
-.legend-grammar { background-color: #FF00FF !important; color: #000000 !important; padding: 2px 6px !important; border-radius: 3px !important; }
+.legend-grammar { color: #FF00FF !important; background: transparent !important; }
 .highlight-entry.grammar-error { border-left-color: #FF00FF !important; }
 
 mark[data-category="mechanics"],
