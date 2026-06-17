@@ -101,3 +101,54 @@ const out = `/**
 
 writeFileSync(outPath, out);
 console.log('Wrote ' + outPath + ' from ' + jsonPath);
+
+// ── Also generate public/css/categories.css ───────────────────────────────
+// Screen + print stylesheet for highlight categories, derived from the same
+// JSON. Uses !important so it reliably overrides any stale inline styles on
+// restored/legacy essays. Covers the color-coded essay marks, the highlight
+// key swatches (.legend-<id>), and the error-list accents (.highlight-entry).
+function styleOf(cat) {
+  if (cat.style === 'fill') {
+    return { background: cat.color, color: '#000000', strikethrough: !!cat.strikethrough };
+  }
+  return { background: 'transparent', color: cat.color, strikethrough: !!cat.strikethrough };
+}
+
+const cssRules = data.categories.map((cat) => {
+  const s = styleOf(cat);
+  const isFill = s.background !== 'transparent';
+  const strike = s.strikethrough ? '\n    text-decoration: line-through !important;\n    font-weight: bold !important;' : '';
+
+  const markBody = isFill
+    ? `    background: ${s.background} !important;
+    color: #000000 !important;
+    padding: 2px 0 !important;
+    border-radius: 2px !important;${strike}`
+    : `    background: transparent !important;
+    color: ${s.color} !important;
+    font-weight: bold !important;${strike}`;
+
+  const legendBody = isFill
+    ? `background-color: ${s.background} !important; color: #000000 !important; padding: 2px 6px !important; border-radius: 3px !important;${s.strikethrough ? ' text-decoration: line-through !important;' : ''}`
+    : `color: ${s.color} !important; background: transparent !important;${s.strikethrough ? ' text-decoration: line-through !important;' : ''}`;
+
+  return `mark[data-category="${cat.id}"],
+mark[data-type="${cat.id}"] {
+${markBody}
+}
+.legend-${cat.id} { ${legendBody} }
+.highlight-entry.${cat.id}-error { border-left-color: ${cat.color} !important; }`;
+}).join('\n\n');
+
+const cssOut = `/* ===================================================================
+   Correction-guide category colors — GENERATED, do not edit by hand.
+   Edit shared/categories.json, then run: npm run gen:categories
+   Single source of truth shared with public/js/categories.js.
+   =================================================================== */
+
+${cssRules}
+`;
+
+const cssPath = join(root, 'public', 'css', 'categories.css');
+writeFileSync(cssPath, cssOut);
+console.log('Wrote ' + cssPath + ' from ' + jsonPath);

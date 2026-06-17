@@ -406,15 +406,19 @@ function renderResizePreview() {
     const highlightTxt = fullText.substring(elementStart, elementEnd);
     const trailingText = fullText.substring(elementEnd, ctxEnd);
 
-    // ── Category style map (modal preview: black text, category-colored background) ──
-    const catStyles = {
-        grammar:    'background:rgba(255,140,0,0.3);color:#000;',
-        vocabulary: 'background:rgba(0,163,108,0.3);color:#000;',
-        mechanics:  'background:#D3D3D3;color:#000;',
-        spelling:   'background:rgba(220,20,60,0.3);color:#000;',
-        fluency:    'background:#87CEEB;color:#000;',
-        delete:     'background:rgba(0,0,0,0.15);text-decoration:line-through;color:#000;font-weight:bold;'
-    };
+    // ── Resize-preview style for a category, derived from the single source of
+    //    truth (window.CATEGORIES): fill categories show their fill, text
+    //    categories show colored text. ──
+    function previewStyleFor(catId) {
+        const s = window.CATEGORIES.getCategoryStyle(catId);
+        if (s.strikethrough) {
+            return `background:${s.background !== 'transparent' ? s.background : 'rgba(0,0,0,0.15)'};text-decoration:line-through;color:${s.color};font-weight:bold;`;
+        }
+        if (s.background !== 'transparent') {
+            return `background:${s.background};color:#000;`;
+        }
+        return `background:transparent;color:${s.color};font-weight:bold;`;
+    }
 
     // ── Build style for the active highlight (use modal's live category selection) ──
     const modal = document.getElementById('editModal');
@@ -423,16 +427,13 @@ function renderResizePreview() {
     const categories = modalCats.length > 0 ? modalCats
         : (element ? (element.dataset.category || '').split(',').filter(c => c.trim()) : []);
     const primaryCat = categories[0] || 'grammar';
-    let markStyle = catStyles[primaryCat] || '';
+    let markStyle = window.CATEGORIES.getCategory(primaryCat) ? previewStyleFor(primaryCat) : '';
 
     // Multi-category: add secondary category indicators (matches updateHighlightVisualStyling)
     if (categories.length > 1) {
         const secondaryCat = categories[1];
-        const secondaryColors = {
-            grammar: '#FF8C00', vocabulary: '#00A36C', mechanics: '#000',
-            spelling: '#DC143C', fluency: '#000', delete: '#000'
-        };
-        const secColor = secondaryColors[secondaryCat] || '#666';
+        const secCatData = window.CATEGORIES.getCategory(secondaryCat);
+        const secColor = secCatData ? secCatData.color : '#666';
         markStyle += `border-bottom:2px dashed ${secColor};box-shadow:inset 0 0 0 1px ${secColor};`;
     }
 
@@ -1313,19 +1314,11 @@ function toggleModalCategory(category) {
     const categoryBtn = modal.querySelector(`[data-category="${category}"]`);
     if (categoryBtn) {
         const isSelected = selectedCategories.includes(category);
-        const categories = [
-            { id: 'grammar', color: '#FF8C00' },
-            { id: 'vocabulary', color: '#00A36C' },
-            { id: 'mechanics', color: '#D3D3D3' },
-            { id: 'spelling', color: '#DC143C' },
-            { id: 'fluency', color: '#87CEEB' },
-            { id: 'delete', color: '#000000' }
-        ];
-
-        const categoryData = categories.find(c => c.id === category);
+        // Derived from the single source of truth (window.CATEGORIES).
+        const categoryData = window.CATEGORIES.getCategory(category);
         if (categoryData) {
-            const isMechanics = category === 'mechanics';
-            const isFluency = category === 'fluency';
+            const style = window.CATEGORIES.getCategoryStyle(category);
+            const isFill = style.background !== 'transparent';
 
             if (isSelected) {
                 categoryBtn.style.backgroundColor = categoryData.color;
@@ -1337,8 +1330,8 @@ function toggleModalCategory(category) {
                     categoryBtn.innerHTML += '<span class="checkmark" style="position: absolute; top: -4px; right: -4px; background: #28a745; color: white; border-radius: 50%; width: 16px; height: 16px; display: flex; align-items: center; justify-content: center; font-size: 10px; font-weight: bold;">✓</span>';
                 }
             } else {
-                categoryBtn.style.backgroundColor = (isMechanics || isFluency) ? categoryData.color : 'transparent';
-                categoryBtn.style.color = (isMechanics || isFluency) ? 'black' : categoryData.color;
+                categoryBtn.style.backgroundColor = isFill ? style.background : 'transparent';
+                categoryBtn.style.color = isFill ? 'black' : style.color;
                 categoryBtn.classList.remove('modal-category-selected');
                 // Remove checkmark if present
                 const checkmark = categoryBtn.querySelector('.checkmark');

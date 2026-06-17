@@ -29,7 +29,7 @@
       "id": "mechanics",
       "name": "Mechanics / Punctuation",
       "style": "fill",
-      "color": "#F87000",
+      "color": "#D3D3D3",
       "manualOnly": false
     },
     {
