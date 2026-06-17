@@ -20,6 +20,7 @@
   "categories": [
     {
       "id": "grammar",
+      "shortName": "Grammar",
       "name": "Grammar",
       "style": "fill",
       "color": "#FF00FF",
@@ -27,48 +28,55 @@
     },
     {
       "id": "mechanics",
-      "name": "Mechanics / Punctuation",
+      "shortName": "Mechanics",
+      "name": "Mechanics & Punctuation",
       "style": "fill",
       "color": "#D3D3D3",
       "manualOnly": false
     },
     {
-      "id": "redundancy",
-      "name": "Redundancy",
-      "style": "fill",
-      "color": "#00FF00",
-      "manualOnly": true
-    },
-    {
-      "id": "vocabulary",
-      "name": "Vocabulary / Structure",
-      "style": "fill",
-      "color": "#00B0F0",
-      "manualOnly": false
-    },
-    {
-      "id": "fluency",
-      "name": "Needs rephrasing",
-      "style": "fill",
-      "color": "#00FFFF",
-      "manualOnly": false
-    },
-    {
       "id": "spelling",
+      "shortName": "Spelling",
       "name": "Spelling",
       "style": "text",
       "color": "#FF0000",
       "manualOnly": false
     },
     {
+      "id": "vocabulary",
+      "shortName": "Vocab",
+      "name": "Vocabulary",
+      "style": "fill",
+      "color": "#00B0F0",
+      "manualOnly": false
+    },
+    {
+      "id": "fluency",
+      "shortName": "Fluency",
+      "name": "Fluency / Needs rephrasing",
+      "style": "fill",
+      "color": "#00FFFF",
+      "manualOnly": false
+    },
+    {
       "id": "professor-comments",
+      "shortName": "Comments",
       "name": "Professor's comments",
       "style": "fill",
       "color": "#FFFF00",
       "manualOnly": true
     },
     {
+      "id": "redundancy",
+      "shortName": "Redundancy",
+      "name": "Redundancy",
+      "style": "fill",
+      "color": "#00FF00",
+      "manualOnly": true
+    },
+    {
       "id": "delete",
+      "shortName": "Delete",
       "name": "Delete",
       "style": "text",
       "color": "#000000",
@@ -105,6 +113,13 @@
     return s ? s.charAt(0).toUpperCase() + s.slice(1) : '';
   }
 
+  // Compact label for the editing UI (category buttons + Edit highlight modal).
+  function getCategoryShortName(idOrAlias) {
+    var cat = getCategory(idOrAlias);
+    if (cat) return cat.shortName || cat.name;
+    return getCategoryName(idOrAlias);
+  }
+
   function getCategoryStyle(idOrAlias) {
     var cat = getCategory(idOrAlias);
     if (!cat) return { background: 'transparent', color: '#000000', strikethrough: false };
@@ -128,6 +143,7 @@
     CATEGORY_ALIASES: CATEGORY_ALIASES,
     getCategory: getCategory,
     getCategoryName: getCategoryName,
+    getCategoryShortName: getCategoryShortName,
     getCategoryStyle: getCategoryStyle,
     getManualCategories: getManualCategories,
     getAutoCategories: getAutoCategories

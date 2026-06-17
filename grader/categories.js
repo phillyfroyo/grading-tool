@@ -31,12 +31,19 @@ export function getCategory(idOrAlias) {
   return CATEGORY_BY_ID[key] || CATEGORY_BY_ID[CATEGORY_ALIASES[key]] || null;
 }
 
-/** Display name for a category id/alias, with a graceful fallback. */
+/** Full student-facing display name for a category id/alias. */
 export function getCategoryName(idOrAlias) {
   const cat = getCategory(idOrAlias);
   if (cat) return cat.name;
   const s = String(idOrAlias || '');
   return s ? s.charAt(0).toUpperCase() + s.slice(1) : '';
+}
+
+/** Compact editing-UI label for a category id/alias. */
+export function getCategoryShortName(idOrAlias) {
+  const cat = getCategory(idOrAlias);
+  if (cat) return cat.shortName || cat.name;
+  return getCategoryName(idOrAlias);
 }
 
 /** Effective rendering colors for a category. */

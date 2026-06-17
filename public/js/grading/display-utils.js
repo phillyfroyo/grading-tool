@@ -110,7 +110,7 @@ function createCategoryButtons(essayIndex = '') {
         const bgColor = isFill ? style.background : 'transparent';
         const textColor = isFill ? 'black' : style.color;
         const decoration = style.strikethrough ? 'text-decoration: line-through;' : '';
-        return `<button class="category-btn" data-category="${category.id}"${dataAttr} style="background: ${bgColor}; color: ${textColor}; border: 2px solid ${category.color}; padding: 8px 12px; border-radius: 20px; cursor: pointer; font-weight: bold; transition: all 0.2s; ${decoration}">${category.name}</button>`;
+        return `<button class="category-btn" data-category="${category.id}"${dataAttr} style="background: ${bgColor}; color: ${textColor}; border: 2px solid ${category.color}; padding: 8px 12px; border-radius: 20px; cursor: pointer; font-weight: bold; transition: all 0.2s; ${decoration}">${category.shortName || category.name}</button>`;
     }).join('\n        ');
 }
 

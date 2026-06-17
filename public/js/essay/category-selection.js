@@ -206,6 +206,7 @@ function getAvailableCategories() {
     return window.CATEGORIES.getManualCategories().map(c => ({
         id: c.id,
         name: c.name,
+        shortName: c.shortName || c.name,
         color: c.color
     }));
 }
@@ -230,7 +231,7 @@ function createCategoryButtons(essayIndex = '') {
                     style="background: ${bgColor}; color: ${textColor}; border: 2px solid ${category.color};
                            padding: 8px 12px; border-radius: 20px; cursor: pointer; font-weight: bold;
                            transition: all 0.2s; ${decoration}">
-                ${category.name}
+                ${category.shortName}
             </button>
         `;
     }).join('');
@@ -247,8 +248,8 @@ function initializeCategorySelection(containerId, essayIndex = null) {
 
     const buttonsHTML = createCategoryButtons(essayIndex || '');
     container.innerHTML = buttonsHTML + (essayIndex !== null ?
-        `<button id="clearSelectionBtn-${essayIndex}" onclick="clearSelection(${essayIndex})" style="background: #f5f5f5; color: #666; border: 2px solid #ccc; padding: 8px 12px; border-radius: 4px; cursor: pointer; margin-left: 10px;">Clear</button>` :
-        `<button id="clearSelectionBtn" onclick="clearSelection()" style="background: #f5f5f5; color: #666; border: 2px solid #ccc; padding: 8px 12px; border-radius: 4px; cursor: pointer; margin-left: 10px;">Clear</button>`
+        `<button id="clearSelectionBtn-${essayIndex}" onclick="clearSelection(${essayIndex})" style="background: #f5f5f5; color: #666; border: 2px solid #ccc; padding: 8px 12px; border-radius: 4px; cursor: pointer; margin-left: 10px;">Clear Selection</button>` :
+        `<button id="clearSelectionBtn" onclick="clearSelection()" style="background: #f5f5f5; color: #666; border: 2px solid #ccc; padding: 8px 12px; border-radius: 4px; cursor: pointer; margin-left: 10px;">Clear Selection</button>`
     );
 
     // Setup event listeners

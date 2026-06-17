@@ -67,6 +67,13 @@ const out = `/**
     return s ? s.charAt(0).toUpperCase() + s.slice(1) : '';
   }
 
+  // Compact label for the editing UI (category buttons + Edit highlight modal).
+  function getCategoryShortName(idOrAlias) {
+    var cat = getCategory(idOrAlias);
+    if (cat) return cat.shortName || cat.name;
+    return getCategoryName(idOrAlias);
+  }
+
   function getCategoryStyle(idOrAlias) {
     var cat = getCategory(idOrAlias);
     if (!cat) return { background: 'transparent', color: '#000000', strikethrough: false };
@@ -90,6 +97,7 @@ const out = `/**
     CATEGORY_ALIASES: CATEGORY_ALIASES,
     getCategory: getCategory,
     getCategoryName: getCategoryName,
+    getCategoryShortName: getCategoryShortName,
     getCategoryStyle: getCategoryStyle,
     getManualCategories: getManualCategories,
     getAutoCategories: getAutoCategories
