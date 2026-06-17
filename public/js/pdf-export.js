@@ -720,23 +720,31 @@ function processHighlightsForPDF(content) {
         const notes = mark.dataset.notes || mark.dataset.message || mark.title || ''; // backwards compatibility
         const originalText = mark.dataset.originalText || mark.textContent || '';
 
-        // Only process highlights that have notes/explanations for numbering
-        if (notes && notes.trim() && !notes.toLowerCase().includes('click to edit')) {
-            // Add number to the highlight
-            mark.setAttribute('data-highlight-number', highlightNumber);
+        // Include every highlight in the numbered error list. The only
+        // highlights left out are those the user excluded via the "Manage
+        // Highlights and Corrections" section (data-excludeFromPdf, handled
+        // above). Highlights with no correction/explanation are still listed
+        // (the legend renderer omits those fields when empty). The "click to
+        // edit ..." placeholder is the default title on an un-annotated
+        // highlight — treat it as no notes, not as content.
+        const realNotes = (notes && !notes.toLowerCase().includes('click to edit'))
+            ? notes.trim()
+            : '';
 
-            // Store highlight data
-            highlightsData.push({
-                number: highlightNumber,
-                text: originalText.trim(),
-                categories: categories,
-                correction: correction.trim(),
-                explanation: explanation.trim(),
-                notes: notes.trim() // backwards compatibility
-            });
+        // Add number to the highlight
+        mark.setAttribute('data-highlight-number', highlightNumber);
 
-            highlightNumber++;
-        }
+        // Store highlight data
+        highlightsData.push({
+            number: highlightNumber,
+            text: originalText.trim(),
+            categories: categories,
+            correction: correction.trim(),
+            explanation: explanation.trim(),
+            notes: realNotes // backwards compatibility
+        });
+
+        highlightNumber++;
 
         // Keep category/type attributes for styling but clean up interactive attributes
         mark.removeAttribute('onclick');
