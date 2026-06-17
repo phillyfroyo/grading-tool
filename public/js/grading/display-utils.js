@@ -149,9 +149,12 @@ function createColorLegend() {
 function createStudentRowHTML(essay, index, statusIcon) {
     const backgroundColor = essay.success ? '#f8f9fa' : '#fff5f5';
     const textColor = essay.success ? '#333' : '#721c24';
+    const essayId = essay.essayId || '';
+    // Retry args carry the stable essayId so a retry re-grades the right student.
+    const retryArgs = essayId ? `${index}, '${essayId}'` : `${index}`;
 
     return `
-        <div class="student-row" style="border: 2px solid #ddd; margin: 10px 0; border-radius: 6px; overflow: hidden;">
+        <div class="student-row" id="student-row-${index}" data-essay-id="${essayId}" data-student-name="${(essay.studentName || '').replace(/"/g, '&quot;')}" style="border: 2px solid #ddd; margin: 10px 0; border-radius: 6px; overflow: hidden;">
             <!-- Student Name Header (clickable to expand grade details) -->
             <div class="student-header-clickable" onclick="toggleTab('grade-details-${index}', ${index})" style="
                 padding: 12px 18px;
@@ -191,7 +194,7 @@ function createStudentRowHTML(essay, index, statusIcon) {
                 transition: max-height 0.3s ease-out;
                 background: white;
             ">
-                <div id="batch-essay-${index}" style="padding: 15px;">Loading formatted result...</div>
+                <div id="batch-essay-${index}" data-essay-id="${essayId}" style="padding: 15px;">Loading formatted result...</div>
             </div>
 
             <!-- Highlights Management Tab -->
@@ -240,7 +243,22 @@ function createStudentRowHTML(essay, index, statusIcon) {
                 <div id="highlights-tab-content-${index}" style="padding: 15px;">Loading highlights...</div>
             </div>
             ` : `
-            <div style="padding: 15px; color: #721c24;">Error: ${essay.error}</div>
+            <!-- Failed / never-returned essay: clear, student-bound placeholder
+                 with a retry that re-grades this exact student (by essayId). -->
+            <div id="grade-details-${index}" class="tab-content" style="max-height: 0; overflow: hidden; transition: max-height 0.3s ease-out; background: white;">
+                <div id="batch-essay-${index}" data-essay-id="${essayId}" style="padding: 15px;">
+                    <div style="padding: 14px; border: 1px dashed #dc3545; border-radius: 6px; background: #fff5f5; color: #842029; font-size: 14px; line-height: 1.5;">
+                        <strong>This essay did not return.</strong> We're sorry — nothing was graded for this student.
+                        ${essay.error ? `<div style="font-size: 12px; color: #a06; margin-top: 6px;">${essay.error}</div>` : ''}
+                        <div style="margin-top: 10px;">
+                            <button onclick="window.BatchProcessingModule.retryEssay(${retryArgs})"
+                                    style="padding: 6px 14px; font-size: 13px; background: #007bff; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: 600;">
+                                Retry this essay
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
             `}
         </div>
     `;

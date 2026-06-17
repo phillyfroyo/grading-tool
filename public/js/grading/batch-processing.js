@@ -54,6 +54,26 @@ function tabScopedQueryAll(selector) {
 }
 
 /**
+ * Resolve a student-row's numeric DOM index from its stable essayId.
+ * Returns the index (number) or null if no matching row exists.
+ *
+ * This is the swap-safety bridge: results/status updates carry the stable
+ * essayId, and we map it to the row that actually represents that essay
+ * (via data-essay-id), rather than trusting the result's array position.
+ */
+function resolveRowIndexByEssayId(essayId) {
+    if (!essayId) return null;
+    const rows = tabScopedQueryAll('.student-row[data-essay-id]');
+    for (const row of rows) {
+        if (row.dataset.essayId === essayId) {
+            const m = /student-row-(\d+)/.exec(row.id || '');
+            if (m) return parseInt(m[1], 10);
+        }
+    }
+    return null;
+}
+
+/**
  * Set the originating tab for the current batch run. Called by
  * displayBatchProgress() at the start of a new batch.
  */
@@ -230,7 +250,7 @@ function displayBatchProgress(batchData) {
             </div>
             <div class="compact-student-list" style="margin: 12px 0;">
                 ${batchData.essays.map((essay, index) => `
-                    <div class="student-row" id="student-row-${index}" style="border: 2px solid #ddd; margin: 10px 0; border-radius: 6px; overflow: hidden;">
+                    <div class="student-row" id="student-row-${index}" data-essay-id="${essay.essayId || ''}" data-student-name="${(essay.studentName || '').replace(/"/g, '&quot;')}" style="border: 2px solid #ddd; margin: 10px 0; border-radius: 6px; overflow: hidden;">
                         <!-- Student Name Header (clickable to expand grade details) -->
                         <div class="student-header-clickable" onclick="toggleTab('grade-details-${index}', ${index})" style="
                             padding: 12px 18px;
@@ -274,7 +294,7 @@ function displayBatchProgress(batchData) {
                             transition: max-height 0.3s ease-out;
                             background: white;
                         ">
-                            <div id="batch-essay-${index}" style="padding: 12px;">${getLoadingMessage()}</div>
+                            <div id="batch-essay-${index}" data-essay-id="${essay.essayId || ''}" style="padding: 12px;">${getLoadingMessage()}</div>
                         </div>
 
                         <!-- Highlights Management Tab -->
@@ -370,10 +390,21 @@ function displayBatchProgress(batchData) {
  * @param {boolean} success - Whether the essay was successfully graded
  * @param {string} error - Error message if failed
  */
-function updateEssayStatus(index, success, error = null) {
+function updateEssayStatus(index, success, error = null, essayId = null) {
     // Phase 6: this fires from streaming callbacks, which can happen after
     // the user switches to a different tab. Use tabScopedQuery so writes go
     // to the batch's originating tab, not the currently-active tab.
+    //
+    // Swap-safety: when an essayId is provided, resolve the target row by that
+    // stable id (the row carries data-essay-id) and use its numeric index for
+    // all subsequent id-keyed DOM lookups. This guarantees status/content lands
+    // on the correct student even if array positions ever shift. Falls back to
+    // the numeric index for legacy callers.
+    const resolvedIndex = (essayId != null)
+        ? (resolveRowIndexByEssayId(essayId) ?? index)
+        : index;
+    index = resolvedIndex;
+
     const statusElement = tabScopedQuery(`#student-status-${index}`);
     if (!statusElement) return;
 
@@ -405,14 +436,18 @@ function updateEssayStatus(index, success, error = null) {
         }
 
     } else {
+        // The Retry button carries the stable essayId so a retry always
+        // re-grades and writes back to the correct student row.
+        const rowEssayId = (tabScopedQuery(`#student-row-${index}`)?.dataset?.essayId) || essayId || '';
+        const retryArgs = rowEssayId ? `${index}, '${rowEssayId}'` : `${index}`;
         statusElement.innerHTML = `
             <div style="display: flex; align-items: center; gap: 8px;">
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#dc3545" stroke-width="2">
                     <circle cx="12" cy="12" r="10"></circle>
                     <path d="M15 9l-6 6M9 9l6 6"></path>
                 </svg>
-                <span style="color: #dc3545; font-weight: 500;">Failed</span>
-                <button onclick="window.BatchProcessingModule.retryEssay(${index})"
+                <span style="color: #dc3545; font-weight: 500;">Did not return</span>
+                <button onclick="window.BatchProcessingModule.retryEssay(${retryArgs})"
                         style="padding: 4px 10px; font-size: 12px; background: #007bff; color: white; border: none; border-radius: 4px; cursor: pointer;"
                         onmouseover="this.style.background='#0056b3'"
                         onmouseout="this.style.background='#007bff'">
@@ -421,6 +456,17 @@ function updateEssayStatus(index, success, error = null) {
             </div>
             ${error ? `<div style="font-size: 11px; color: #666; margin-top: 4px;">${error}</div>` : ''}
         `;
+        // Also place a clear, student-bound placeholder in the essay content
+        // area so a failed/never-returned essay is unmistakable and can never
+        // be confused for another student's result.
+        const failDiv = tabScopedQuery(`#batch-essay-${index}`);
+        if (failDiv) {
+            failDiv.innerHTML = `
+                <div style="padding: 14px; border: 1px dashed #dc3545; border-radius: 6px; background: #fff5f5; color: #842029; font-size: 14px; line-height: 1.5;">
+                    <strong>This essay did not return.</strong> We're sorry — nothing was graded for this student.
+                    Please click <strong>Retry</strong> above to grade this essay again.
+                </div>`;
+        }
         // Failed essays will never run loadEssayDetails — mark them done
         // here so waitForAllFormatCalls doesn't hang on missing completions.
         // Safe to call even if loadEssayDetails's error branches already
@@ -455,8 +501,9 @@ function displayBatchResults(batchResult, originalData) {
     if (batchResult.results) {
         batchResult.results.forEach((essay, index) => {
             setTimeout(() => {
-                // Update the status indicator with success/failure
-                updateEssayStatus(index, essay.success, essay.error);
+                // Update the status indicator with success/failure, keyed by
+                // the stable essayId so it lands on the correct student row.
+                updateEssayStatus(index, essay.success, essay.error, essay.essayId);
 
                 if (window.EssayManagementModule) {
                     window.EssayManagementModule.markStudentComplete(index, essay.success);
@@ -526,24 +573,44 @@ function displayBatchResults(batchResult, originalData) {
         window.currentBatchData = { batchResult, originalData };
     }
 
-    // Store essay data for lazy loading when expanded
+    // Store essay data for lazy loading when expanded. Pair each result to its
+    // original essay by the STABLE essayId, not by array position. If a result
+    // and the same-index original disagree on essayId (should never happen now
+    // that arrays stay aligned, but this is the safety net against any future
+    // desync), find the matching original by id and log a warning rather than
+    // risk pairing a student's name with another student's essay.
     if (batchResult.results && originalData && originalData.essays) {
         batchResult.results.forEach((essay, index) => {
-            if (essay.success) {
-                const essayFromOriginal = originalData.essays[index];
-                const snapshot = {
-                    essay: essay,
-                    originalData: {
-                        ...essayFromOriginal,
-                        index: index,
-                        classProfile: originalData.classProfile || null
+            if (!essay.success) return;
+
+            const resultId = essay.essayId || null;
+            let essayFromOriginal = originalData.essays[index];
+
+            if (resultId) {
+                if (!essayFromOriginal || essayFromOriginal.essayId !== resultId) {
+                    const byId = originalData.essays.find(e => e && e.essayId === resultId);
+                    if (byId) {
+                        console.warn(`[swap-guard] result.essayId ${resultId} did not match originalData.essays[${index}] — re-paired by id`);
+                        essayFromOriginal = byId;
                     }
-                };
-                if (batchOriginTabState) {
-                    batchOriginTabState.essayData[index] = snapshot;
-                } else {
-                    window[`essayData_${index}`] = snapshot;
                 }
+            }
+
+            const snapshot = {
+                essay: essay,
+                originalData: {
+                    ...essayFromOriginal,
+                    essayId: resultId || (essayFromOriginal && essayFromOriginal.essayId),
+                    index: index,
+                    classProfile: originalData.classProfile || null
+                }
+            };
+            if (batchOriginTabState) {
+                batchOriginTabState.essayData[index] = snapshot;
+                if (resultId) batchOriginTabState.essayData[resultId] = snapshot;
+            } else {
+                window[`essayData_${index}`] = snapshot;
+                if (resultId) window[`essayData_${resultId}`] = snapshot;
             }
         });
     }
@@ -597,19 +664,34 @@ const essayLoadingLock = {};
  * Load essay details for batch result expansion
  * @param {number} index - Essay index
  */
-function loadEssayDetails(index) {
+function loadEssayDetails(index, essayId = null) {
+    // If we know the essayId, make sure `index` points at the row that
+    // actually represents that essay (swap-safety). The row carries
+    // data-essay-id; resolving here means content is fetched into and written
+    // back to the correct student's row regardless of any positional shift.
+    if (essayId != null) {
+        const resolved = resolveRowIndexByEssayId(essayId);
+        if (resolved != null) index = resolved;
+    }
+
     // Use tabScopedQuery: during streaming, the batch tab context pins the
     // lookup to the originating tab so writes go there even if the user has
     // switched tabs. After streaming ends, the context is cleared and this
     // falls back to the active tab (for user-initiated expansion clicks).
     const essayDiv = tabScopedQuery(`#batch-essay-${index}`);
 
-    // Read essay data from the originating tab's state during streaming,
-    // or the active tab's state for post-stream user clicks. Falls back to
-    // the legacy window global as a last resort.
+    // Read essay data by the STABLE essayId first (swap-proof), then fall back
+    // to the numeric index for legacy callers. essayData is keyed by both the
+    // essayId and the global index during streaming.
     const contextTabId = currentBatchTabId
         || (window.TabStore && window.TabStore.activeId());
-    const essayDataEntry = (contextTabId && window.TabStore && window.TabStore.get(contextTabId)?.essayData?.[index])
+    const tabEssayData = (contextTabId && window.TabStore && window.TabStore.get(contextTabId)?.essayData) || null;
+    // Prefer the essayId stamped on the target row if not passed explicitly.
+    const rowEssayId = essayId || (essayDiv && essayDiv.dataset && essayDiv.dataset.essayId) || null;
+    const essayDataEntry =
+        (rowEssayId && tabEssayData && tabEssayData[rowEssayId])
+        || (rowEssayId && window[`essayData_${rowEssayId}`])
+        || (tabEssayData && tabEssayData[index])
         || window[`essayData_${index}`];
     if (!essayDiv || !essayDataEntry) return;
 
@@ -838,10 +920,19 @@ function loadEssayDetails(index) {
 function downloadIndividualEssay(index) {
     console.log('Downloading essay for student index:', index);
 
-    const essayData = (window.TabStore && window.TabStore.active()?.essayData?.[index])
+    // Prefer the row's stable essayId so the download is always the essay the
+    // user is looking at, never a positionally-shifted neighbour.
+    const rowEssayId = (tabScopedQuery(`#student-row-${index}`)?.dataset?.essayId)
+        || (tabScopedQuery(`#batch-essay-${index}`)?.dataset?.essayId)
+        || null;
+    const tabEssayData = (window.TabStore && window.TabStore.active()?.essayData) || null;
+    const essayData =
+        (rowEssayId && tabEssayData && tabEssayData[rowEssayId])
+        || (rowEssayId && window[`essayData_${rowEssayId}`])
+        || (tabEssayData && tabEssayData[index])
         || window[`essayData_${index}`];
     if (!essayData) {
-        console.error('No essay data found for index:', index);
+        console.error('No essay data found for index:', index, 'essayId:', rowEssayId);
         return;
     }
 
@@ -1081,8 +1172,13 @@ if (document.readyState === 'loading') {
  * Retry grading a single failed essay
  * @param {number} index - Essay index to retry
  */
-async function retryEssay(index) {
-    console.log(`🔄 Retrying essay at index ${index}`);
+async function retryEssay(index, essayId = null) {
+    // Resolve to the row that actually represents this essay (swap-safety).
+    if (essayId != null) {
+        const resolved = resolveRowIndexByEssayId(essayId);
+        if (resolved != null) index = resolved;
+    }
+    console.log(`🔄 Retrying essay at index ${index}${essayId ? ` (essayId ${essayId})` : ''}`);
 
     // Capture the tab ID at retry-click time. The user is looking at the
     // failed essay in a specific tab; the retry result must write back to
@@ -1096,13 +1192,22 @@ async function retryEssay(index) {
     // Get original batch data (stored separately from currentBatchData to avoid conflicts)
     const batchData = (window.TabStore && window.TabStore.active()?.originalBatchDataForRetry)
         || window.originalBatchDataForRetry;
-    if (!batchData || !batchData.essays || !batchData.essays[index]) {
+    // Prefer locating the essay by its stable essayId in the original batch
+    // (never collapsed), falling back to the numeric index.
+    let essay = null;
+    if (batchData && batchData.essays) {
+        if (essayId != null) {
+            essay = batchData.essays.find(e => e && e.essayId === essayId) || null;
+        }
+        if (!essay) essay = batchData.essays[index] || null;
+    }
+    if (!batchData || !essay) {
         console.error('❌ Cannot retry: original batch data not found');
         alert('Cannot retry: original essay data not found. Please refresh and try grading again.');
         return;
     }
-
-    const essay = batchData.essays[index];
+    // Use the essay's own id for snapshot keying below.
+    const retryEssayId = essay.essayId || essayId || null;
 
     // Update UI to show retrying
     const statusElement = window.TabStore
@@ -1146,12 +1251,14 @@ async function retryEssay(index) {
             const retrySnapshot = {
                 essay: {
                     index: index,
+                    essayId: retryEssayId,
                     success: true,
                     studentName: essay.studentName,
                     studentNickname: essay.studentNickname,
                     result: result
                 },
                 originalData: {
+                    essayId: retryEssayId,
                     studentText: essay.studentText,
                     studentName: essay.studentName,
                     studentNickname: essay.studentNickname,
@@ -1162,18 +1269,21 @@ async function retryEssay(index) {
 
             // Write back to the tab the user was in when they clicked retry,
             // not whichever tab is active now (the user may have switched
-            // tabs while the retry was in flight).
+            // tabs while the retry was in flight). Key by both essayId
+            // (swap-proof) and index (legacy).
             const retryTabState = retryOriginTabId && window.TabStore
                 ? window.TabStore.get(retryOriginTabId)
                 : null;
             if (retryTabState) {
                 retryTabState.essayData[index] = retrySnapshot;
+                if (retryEssayId) retryTabState.essayData[retryEssayId] = retrySnapshot;
             } else {
                 window[`essayData_${index}`] = retrySnapshot;
+                if (retryEssayId) window[`essayData_${retryEssayId}`] = retrySnapshot;
             }
 
             // Update status to success
-            updateEssayStatus(index, true);
+            updateEssayStatus(index, true, null, retryEssayId);
 
         } else {
             throw new Error(result.error || 'Grading returned unsuccessful');
@@ -1181,7 +1291,7 @@ async function retryEssay(index) {
 
     } catch (error) {
         console.error(`❌ Retry failed for essay ${index}:`, error);
-        updateEssayStatus(index, false, `Retry failed: ${error.message}`);
+        updateEssayStatus(index, false, `Retry failed: ${error.message}`, retryEssayId);
     }
 }
 
@@ -1212,6 +1322,7 @@ window.BatchProcessingModule = {
     restoreBatchCompletionStatus,
     clearBatchCompletionStatus,
     retryEssay,
+    resolveRowIndexByEssayId,
     resetFormatCallTracking,
     markFormatCallComplete,
     waitForAllFormatCalls,

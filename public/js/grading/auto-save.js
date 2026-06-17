@@ -377,16 +377,81 @@
             }
         }
 
-        // Inject saved rendered HTML (skip /format call)
+        // Inject saved rendered HTML (skip /format call).
+        //
+        // Swap-safety: each captured HTML chunk recorded which essayId it
+        // belongs to (renderedHTMLEssayIds). On restore we inject it into the
+        // row whose data-essay-id matches — NOT blindly by index. If a saved
+        // essay failed/dropped, indices in the skeleton may not line up with
+        // the saved sparse map; pairing by id guarantees a student's rendered
+        // essay can only land in that student's row.
+        //
+        // Legacy saves (no renderedHTMLEssayIds) fall back to index injection,
+        // which is safe ONLY for complete batches — see the count check below.
         if (tabData.renderedHTML) {
+            const idMap = tabData.renderedHTMLEssayIds || null;
+
+            // Legacy safety gate: a save made before essayIds existed (no idMap)
+            // can only be restored by index, which is safe ONLY if the batch was
+            // complete (no failed/missing essays). If a legacy save was partial,
+            // index injection could slide a student's essay onto another student
+            // — so we refuse to inject and leave the failure placeholders the
+            // skeleton already rendered. Newer saves (with idMap) pair by id and
+            // are always safe, so this gate doesn't apply to them.
+            let legacyUnsafe = false;
+            if (!idMap) {
+                const results = tabData.currentBatchData?.batchResult?.results || [];
+                const anyFailed = results.some(r => r && r.success === false);
+                const renderedCount = Object.keys(tabData.renderedHTML).length;
+                const successCount = results.filter(r => r && r.success).length;
+                // Unsafe if any essay failed, or fewer rendered chunks than
+                // successes (a gap that would slide under index injection).
+                legacyUnsafe = anyFailed || (results.length > 0 && renderedCount < successCount);
+                if (legacyUnsafe) {
+                    console.warn('[swap-guard] legacy save (no essayIds) is partial/has failures — skipping index-based HTML restore to avoid mis-pairing; affected students show the retry placeholder');
+                }
+            }
+
+            if (legacyUnsafe) {
+                // Skip injection entirely; the skeleton's per-student placeholders stand.
+            } else
             Object.entries(tabData.renderedHTML).forEach(([indexStr, html]) => {
+                if (!html) return;
                 const idx = parseInt(indexStr, 10);
-                const essayDiv = queryInTab(`#batch-essay-${idx}`);
-                if (essayDiv && html) {
-                    essayDiv.innerHTML = html;
+                const savedEssayId = idMap ? idMap[indexStr] : null;
+
+                let targetDiv = null;
+                let targetIdx = idx;
+
+                if (savedEssayId) {
+                    // Scan all batch-essay divs in the tab for a matching data-essay-id.
+                    const candidates = window.TabStore
+                        ? window.TabStore.queryAllInTab(tabId, '[id^="batch-essay-"][data-essay-id]')
+                        : document.querySelectorAll('[id^="batch-essay-"][data-essay-id]');
+                    for (const div of candidates) {
+                        if (div.dataset.essayId === savedEssayId) {
+                            targetDiv = div;
+                            const m = /batch-essay-(\d+)/.exec(div.id || '');
+                            if (m) targetIdx = parseInt(m[1], 10);
+                            break;
+                        }
+                    }
+                    // If we had an id but found no matching row, do NOT fall back
+                    // to index — that's exactly the swap we're preventing.
+                    if (!targetDiv) {
+                        console.warn(`[swap-guard] restore: saved essayId ${savedEssayId} has no matching row; skipping index ${idx} to avoid mis-pairing`);
+                        return;
+                    }
+                } else {
+                    // Legacy save without id map — inject by index.
+                    targetDiv = queryInTab(`#batch-essay-${idx}`);
+                }
+
+                if (targetDiv) {
+                    targetDiv.innerHTML = html;
                     // Pass tabId so the 250ms-delayed reattach targets the
                     // correct tab even during multi-tab restore iteration.
-                    reattachHandlers(idx, tabId);
+                    reattachHandlers(targetIdx, tabId);
                 }
             });
         }
@@ -867,6 +932,7 @@
         }
 
         const renderedHTML = {};
+        const renderedHTMLEssayIds = {}; // index -> essayId, for swap-safe restore re-pairing
         const highlightsTabHTML = {};
         const highlightsContentHTML = {};
         if (!omitHTML) {
@@ -875,6 +941,13 @@
                 const hasContent = div && div.innerHTML.trim() && div.innerHTML.trim() !== 'Loading formatted result...';
                 if (hasContent) {
                     renderedHTML[i] = div.innerHTML;
+                    // Record which essay this captured HTML belongs to, so that
+                    // on restore we inject it into the row with the matching
+                    // essayId rather than blindly by index (which slides if any
+                    // essay was missing).
+                    if (div.dataset && div.dataset.essayId) {
+                        renderedHTMLEssayIds[i] = div.dataset.essayId;
+                    }
                 }
                 const hlTabDiv = queryInTab(`#highlights-tab-content-${i}`);
                 if (hlTabDiv && hlTabDiv.dataset.loaded === 'true' && hlTabDiv.innerHTML.trim() && hlTabDiv.innerHTML.trim() !== 'Loading highlights...') {
@@ -913,6 +986,7 @@
         return {
             essaySnapshots,
             renderedHTML,
+            renderedHTMLEssayIds,
             highlightsTabHTML,
             highlightsContentHTML,
             completedEssays,
@@ -998,6 +1072,7 @@
             currentBatchData: batchDataForPayload,
             essaySnapshots: primaryDOMState.essaySnapshots,
             renderedHTML: primaryDOMState.renderedHTML,
+            renderedHTMLEssayIds: primaryDOMState.renderedHTMLEssayIds,
             highlightsTabHTML: primaryDOMState.highlightsTabHTML,
             highlightsContentHTML: primaryDOMState.highlightsContentHTML,
             // Per-tab score overrides are now captured inside gatherTabDOMState
