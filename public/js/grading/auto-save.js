@@ -17,6 +17,15 @@
     let formLocked = false;
     const DEBOUNCE_MS = 2500;
 
+    // Auth-expired state: when the server rejects a save with 401/403, the
+    // session has lapsed. Retrying the same request is futile (it will 401
+    // forever), so we stop the retry loop, stash the unsaved payload durably,
+    // and prompt re-authentication. Once re-authed, we flush the stash.
+    let authExpired = false;
+    // localStorage key under which the last unsaved payload is mirrored, so a
+    // tab close/crash before re-auth doesn't lose the graded work.
+    const PENDING_SAVE_KEY = 'gradingTool.pendingSave.v1';
+
     // --- Public API ---
 
     function initialize() {
@@ -75,7 +84,56 @@
         // and stale/empty payloads have been overwriting good DB data.
         // Debounced saves (2.5s) and immediate saves cover all edit scenarios.
 
+        // Recover an orphaned stash: if a previous session lost auth and the
+        // user closed the tab before re-authenticating, their unsaved work is
+        // still in localStorage. On this fresh load auth may be healthy again
+        // (they logged in to get here), so try to flush it. Done after restore
+        // so the live state, if any, takes precedence.
+        setTimeout(recoverOrphanedStash, 1500);
+
         console.log('[AutoSave] Initialized');
+    }
+
+    /**
+     * On a fresh page load, if a pending-save stash exists from a prior
+     * auth-expired session, upload it (auth is presumably healthy now). Only
+     * uploads the stashed payload when there's no live grading state that would
+     * be a better source — restore handles the live case.
+     */
+    async function recoverOrphanedStash() {
+        const stash = readPendingSaveStash();
+        if (!stash || !stash.payload) return;
+        // If the current page already has live grading state, a normal save
+        // will capture it; just clear the older stash to avoid clobbering.
+        const live = buildPayload();
+        const liveHasResults = !!(live && live.sessionData &&
+            live.sessionData.currentBatchData &&
+            live.sessionData.currentBatchData.batchResult &&
+            live.sessionData.currentBatchData.batchResult.results &&
+            live.sessionData.currentBatchData.batchResult.results.length);
+        if (liveHasResults) {
+            console.log('[AutoSave] live state present on load — discarding older orphaned stash');
+            clearPendingSaveStash();
+            return;
+        }
+        try {
+            console.log('[AutoSave] recovering orphaned stash from a prior session…');
+            const resp = await fetch('/api/grading-session', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(stash.payload),
+            });
+            if (resp.ok) {
+                clearPendingSaveStash();
+                updateBannerStatus('Recovered and saved work from your previous session.', 'ok');
+                console.log('[AutoSave] orphaned stash recovered successfully');
+            } else if (resp.status === 401 || resp.status === 403) {
+                handleAuthExpired(stash.payload);
+            }
+            // Other errors: leave the stash in place to retry on next load.
+        } catch (e) {
+            console.warn('[AutoSave] orphaned stash recovery error:', e && e.message);
+        }
     }
 
     /**
@@ -865,6 +923,196 @@
         }
     }
 
+    // --- Auth-expired handling (preserve work + re-auth) ---
+
+    /** Mirror the unsaved payload to localStorage so it survives a tab close. */
+    function writePendingSaveStash(payload) {
+        try {
+            localStorage.setItem(PENDING_SAVE_KEY, JSON.stringify({
+                savedAt: Date.now(),
+                payload,
+            }));
+        } catch (e) {
+            // localStorage can throw (quota/private mode). The in-flight memory
+            // copy still covers the common case; log and continue.
+            console.warn('[AutoSave] could not stash pending save to localStorage:', e && e.message);
+        }
+    }
+
+    /** Remove the localStorage stash (after a successful flush or fresh save). */
+    function clearPendingSaveStash() {
+        try { localStorage.removeItem(PENDING_SAVE_KEY); } catch (e) { /* ignore */ }
+    }
+
+    /** Read a previously-stashed payload, if any. */
+    function readPendingSaveStash() {
+        try {
+            const raw = localStorage.getItem(PENDING_SAVE_KEY);
+            if (!raw) return null;
+            const parsed = JSON.parse(raw);
+            return parsed && parsed.payload ? parsed : null;
+        } catch (e) {
+            return null;
+        }
+    }
+
+    /**
+     * Enter the auth-expired state: stop the futile retry loop, stash the
+     * unsaved work durably, and prompt the user to re-authenticate. Idempotent
+     * — repeated 401s won't re-prompt or re-stash redundantly.
+     */
+    function handleAuthExpired(payload) {
+        // Always refresh the stash with the latest payload.
+        if (payload) writePendingSaveStash(payload);
+
+        if (authExpired) return; // already prompting
+        authExpired = true;
+
+        // Halt any pending retry/debounce — they would only 401 again.
+        if (retryTimer) { clearTimeout(retryTimer); retryTimer = null; }
+        clearDebounce();
+
+        console.warn('[AutoSave] auth expired — halting retries, prompting re-auth');
+        showReauthPrompt();
+    }
+
+    /**
+     * Show a blocking re-authentication overlay. The user's work is NOT lost —
+     * it's stashed locally and will be saved the moment they sign back in.
+     * Passwordless login: they re-enter their email, we POST /auth/login
+     * (which re-sets the session + signed cookies on this same page), then we
+     * flush the stashed payload. No navigation, so the in-memory grading state
+     * is preserved.
+     */
+    function showReauthPrompt() {
+        if (document.getElementById('reauth-overlay')) return;
+
+        const overlay = document.createElement('div');
+        overlay.id = 'reauth-overlay';
+        overlay.style.cssText =
+            'position:fixed;inset:0;z-index:100000;display:flex;align-items:center;justify-content:center;' +
+            'background:rgba(0,0,0,0.55);backdrop-filter:blur(2px);';
+
+        const prefillEmail =
+            (document.getElementById('userEmail')?.textContent || '').trim();
+        const emailLooksValid = /@/.test(prefillEmail);
+
+        overlay.innerHTML = `
+            <div style="background:#fff;max-width:440px;width:90%;border-radius:10px;padding:24px;box-shadow:0 8px 30px rgba(0,0,0,0.25);font-family:'Inter',Arial,sans-serif;">
+                <h2 style="margin:0 0 8px;font-size:18px;color:#721c24;">Your session expired</h2>
+                <p style="margin:0 0 16px;font-size:14px;line-height:1.5;color:#333;">
+                    <strong>Your graded work is safe</strong> — it's saved on this device and will be
+                    uploaded the moment you sign back in. Please re-enter your email to continue.
+                    Don't close or refresh this page until you see "All changes saved".
+                </p>
+                <input id="reauth-email" type="email" placeholder="you@example.com"
+                       value="${emailLooksValid ? prefillEmail.replace(/"/g, '&quot;') : ''}"
+                       style="width:100%;box-sizing:border-box;padding:10px 12px;font-size:14px;border:1px solid #ccc;border-radius:6px;margin-bottom:12px;" />
+                <div id="reauth-error" style="display:none;color:#dc3545;font-size:13px;margin-bottom:10px;"></div>
+                <button id="reauth-submit"
+                        style="width:100%;padding:10px;font-size:15px;font-weight:600;background:#007bff;color:#fff;border:none;border-radius:6px;cursor:pointer;">
+                    Sign in &amp; save my work
+                </button>
+            </div>`;
+        document.body.appendChild(overlay);
+
+        const emailInput = overlay.querySelector('#reauth-email');
+        const submitBtn = overlay.querySelector('#reauth-submit');
+        const errEl = overlay.querySelector('#reauth-error');
+        emailInput.focus();
+
+        const submit = async () => {
+            const email = (emailInput.value || '').trim();
+            if (!/@/.test(email)) {
+                errEl.textContent = 'Please enter a valid email address.';
+                errEl.style.display = 'block';
+                return;
+            }
+            submitBtn.disabled = true;
+            submitBtn.textContent = 'Signing in…';
+            errEl.style.display = 'none';
+            const ok = await attemptReauth(email);
+            if (ok) {
+                overlay.remove();
+            } else {
+                submitBtn.disabled = false;
+                submitBtn.textContent = 'Sign in & save my work';
+                errEl.textContent = 'Sign-in failed. Please check your email and try again.';
+                errEl.style.display = 'block';
+            }
+        };
+        submitBtn.addEventListener('click', submit);
+        emailInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') submit(); });
+    }
+
+    /**
+     * Re-authenticate in place via the passwordless login endpoint. On success
+     * the server re-sets the session + signed cookies, so subsequent saves are
+     * authorized. Returns true on success.
+     */
+    async function attemptReauth(email) {
+        try {
+            const resp = await fetch('/auth/login', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ email }),
+            });
+            if (!resp.ok) {
+                console.warn('[AutoSave] re-auth failed:', resp.status);
+                return false;
+            }
+            console.log('[AutoSave] re-auth successful — flushing stashed work');
+            authExpired = false;
+            await flushPendingSave();
+            return true;
+        } catch (e) {
+            console.warn('[AutoSave] re-auth error:', e && e.message);
+            return false;
+        }
+    }
+
+    /**
+     * After re-auth, save the user's work. We prefer the CURRENT in-memory
+     * state (most up to date), falling back to the localStorage stash if the
+     * live payload can't be built. Clears the stash on success.
+     */
+    async function flushPendingSave() {
+        let payload = buildPayload();
+        if (!payload) {
+            const stash = readPendingSaveStash();
+            payload = stash && stash.payload;
+        }
+        if (!payload) {
+            clearPendingSaveStash();
+            updateBannerStatus('Signed back in. No unsaved changes to upload.', 'ok');
+            return;
+        }
+        try {
+            const resp = await fetch('/api/grading-session', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload),
+            });
+            if (resp.ok) {
+                lastSuccessfulSaveTime = Date.now();
+                hasPendingChanges = false;
+                clearPendingSaveStash();
+                updateBannerStatus('All changes saved', 'ok');
+                console.log('[AutoSave] stashed work flushed successfully after re-auth');
+            } else if (resp.status === 401 || resp.status === 403) {
+                // Still unauthorized — re-prompt (stash retained).
+                authExpired = false; // allow handleAuthExpired to re-enter
+                handleAuthExpired(payload);
+            } else {
+                updateBannerStatus('Signed in, but saving failed. Do not refresh — retrying…', 'warn');
+                scheduleRetry();
+            }
+        } catch (e) {
+            updateBannerStatus('Signed in, but saving failed. Do not refresh — retrying…', 'warn');
+            scheduleRetry();
+        }
+    }
+
     /**
      * Look up essay data by index. Prefers the batch's originating tab
      * when a batch is currently streaming (via BatchProcessingModule
@@ -1118,6 +1366,15 @@
             console.log(`[AutoSaveDiag] doSave[${source}]: skipped (isSaving=${isSaving}, isRestoring=${isRestoring})`);
             return;
         }
+        // While auth is expired, do not hit the server — every request would
+        // 401. We keep the latest payload stashed (updated below) so the user
+        // can keep editing; the stash flushes once they re-authenticate.
+        if (authExpired) {
+            const pending = buildPayload();
+            if (pending) writePendingSaveStash(pending);
+            console.log(`[AutoSaveDiag] doSave[${source}]: skipped (auth expired) — work stashed locally`);
+            return;
+        }
         const payload = buildPayload();
         if (!payload) {
             console.log(`[AutoSaveDiag] doSave[${source}]: no payload to save`);
@@ -1132,7 +1389,12 @@
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(payload),
             });
-            if (!resp.ok) {
+            if (resp.status === 401 || resp.status === 403) {
+                // Auth lapsed. Retrying is pointless — the same credentials
+                // will 401 every time. Stash the work and prompt re-auth.
+                console.warn('[AutoSave] Save rejected (auth expired):', resp.status);
+                handleAuthExpired(payload);
+            } else if (!resp.ok) {
                 console.warn('[AutoSave] Save failed:', resp.status);
                 updateBannerStatus('Changes failed to auto-save, sorry. Do not refresh or close the page.', 'warn');
                 scheduleRetry();
@@ -1140,6 +1402,8 @@
                 console.log('[AutoSave] Save successful');
                 lastSuccessfulSaveTime = Date.now();
                 hasPendingChanges = false;
+                // A successful save means auth is healthy; clear any stash.
+                clearPendingSaveStash();
                 updateBannerStatus('All changes saved', 'ok');
             }
         } catch (err) {
