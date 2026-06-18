@@ -175,7 +175,16 @@ function createStudentRowHTML(essay, index, statusIcon) {
                     <span id="grade-details-${index}-arrow" style="font-size: 14px; transition: transform 0.3s; display: inline-block;">▼</span>
                     <span style="font-size: 18px;">${statusIcon}</span>
                     <span style="font-weight: 600; color: ${textColor}; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: 16px;">${essay.studentName}</span>
-                    ${!essay.success ? '<span style="color: #721c24; font-size: 14px; white-space: nowrap; font-weight: 500;">(Failed)</span>' : ''}
+                    ${!essay.success ? `
+                    <span id="student-status-${index}" class="student-status" style="display: flex; align-items: center; gap: 8px;">
+                        <span style="color: #721c24; font-size: 14px; white-space: nowrap; font-weight: 500;">(Did not return)</span>
+                        <button onclick="event.stopPropagation(); window.BatchProcessingModule.retryEssay(${retryArgs})"
+                                style="padding: 4px 10px; font-size: 12px; background: #007bff; color: white; border: none; border-radius: 4px; cursor: pointer; white-space: nowrap;"
+                                onmouseover="this.style.background='#0056b3'"
+                                onmouseout="this.style.background='#007bff'">
+                            Retry
+                        </button>
+                    </span>` : ''}
                 </div>
                 <div style="display: flex; align-items: center; gap: 12px; flex-shrink: 0;">
                     <label style="display: flex; align-items: center; gap: 6px; margin: 0; cursor: pointer;" onclick="event.stopPropagation();">

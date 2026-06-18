@@ -780,6 +780,34 @@ async function processEssayChunk(chunkData, globalOffset) {
     return new Promise((resolve, reject) => {
         let processedResults = [];
         let timeoutId;
+        let reader; // hoisted so finishChunk() can cancel the stream
+        // Guard so the chunk resolves exactly once. The chunk can now be
+        // finished by any of: the 'complete' event, the stream 'done' close,
+        // OR the per-essay watchdog completing the last pending essay (so a
+        // server that never closes the stream — the real infinite-load — still
+        // lets the batch finish and the post-grade auto-save fire).
+        let settled = false;
+        function finishChunk() {
+            if (settled) return;
+            settled = true;
+            clearTimeout(timeoutId);
+            clearAllPerEssayTimers();
+            try { reader && reader.cancel && reader.cancel(); } catch (e) { /* best-effort */ }
+            resolve({
+                success: true,
+                results: buildAlignedChunkResults(),
+                totalEssays: chunkData.essays.length
+            });
+        }
+        // Resolve the chunk once every submitted essay has a terminal result,
+        // regardless of whether the server has closed the stream.
+        function resolveIfAllDone() {
+            for (let i = 0; i < chunkData.essays.length; i++) {
+                if (processedResults[i] === undefined) return; // still waiting on someone
+            }
+            console.log('[AutoSaveDiag] chunk all essays terminal — resolving without waiting for stream close');
+            finishChunk();
+        }
         const TIMEOUT_MS = 1200000; // 20 minutes - allow server to complete large batches
 
         // Per-essay watchdog timers, keyed by local chunk index. Each starts
@@ -820,6 +848,9 @@ async function processEssayChunk(chunkData, globalOffset) {
             if (window.BatchProcessingModule) {
                 window.BatchProcessingModule.updateEssayStatus(gIdx, false, 'Essay did not return — please retry', eid);
             }
+            // If this was the last pending essay, finish the chunk now rather
+            // than waiting for a stream close that may never come.
+            resolveIfAllDone();
         }
         // Build a results array with exactly one entry per submitted essay,
         // positionally aligned to chunkData.essays. Missing slots become
@@ -862,6 +893,7 @@ async function processEssayChunk(chunkData, globalOffset) {
                 missingCount: chunkData.essays.length - processedResults.length,
                 timestamp: new Date().toISOString()
             });
+            if (settled) return;
             reject(new Error(`SSE timeout after 20 minutes. Processed ${processedResults.length}/${chunkData.essays.length} essays.`));
         }, TIMEOUT_MS);
 
@@ -878,27 +910,22 @@ async function processEssayChunk(chunkData, globalOffset) {
                 throw new Error(`HTTP ${response.status}: ${response.statusText}`);
             }
 
-            const reader = response.body.getReader();
+            reader = response.body.getReader();
             const decoder = new TextDecoder();
             let buffer = '';
 
             function readStream() {
                 return reader.read().then(({ done, value }) => {
                     if (done) {
-                        clearTimeout(timeoutId);
-                        clearAllPerEssayTimers();
-                        // Stream closed. Reconcile: emit one aligned result per
-                        // submitted essay, synthesizing an explicit failure for
-                        // any that never returned (so the stream closing without
-                        // a 'complete' event can't leave gaps that slide later
-                        // results onto earlier students, and no spinner survives).
-                        resolve({
-                            success: true,
-                            results: buildAlignedChunkResults(),
-                            totalEssays: chunkData.essays.length
-                        });
+                        // Stream closed. finishChunk() reconciles into one
+                        // aligned result per submitted essay (failures synthesized
+                        // for any that never returned) and is idempotent via the
+                        // settled guard, so it's safe if the watchdog already
+                        // resolved the chunk.
+                        finishChunk();
                         return;
                     }
+                    if (settled) return; // chunk already resolved; stop reading
 
                     // Process the streamed data
                     buffer += decoder.decode(value, { stream: true });
@@ -925,6 +952,9 @@ async function processEssayChunk(chunkData, globalOffset) {
             clearTimeout(timeoutId);
             clearAllPerEssayTimers();
             console.error('❌ SSE fetch error:', error.message);
+            // If the watchdog already resolved this chunk, ignore the late
+            // stream error (e.g. our own reader.cancel()).
+            if (settled) return;
             reject(error);
         });
 
@@ -1015,16 +1045,9 @@ async function processEssayChunk(chunkData, globalOffset) {
                         break;
 
                     case 'complete':
-                        clearTimeout(timeoutId);
-                        clearAllPerEssayTimers();
-
-                        // One aligned entry per submitted essay (never collapsed;
-                        // missing slots become explicit, student-bound failures).
-                        resolve({
-                            success: true,
-                            totalEssays: chunkData.essays.length,
-                            results: buildAlignedChunkResults()
-                        });
+                        // finishChunk() builds one aligned entry per submitted
+                        // essay (never collapsed) and is idempotent.
+                        finishChunk();
                         break;
 
                     case 'error':
@@ -1058,6 +1081,9 @@ async function processEssayChunk(chunkData, globalOffset) {
                         if (window.BatchProcessingModule && globalErrorIndex !== undefined) {
                             window.BatchProcessingModule.updateEssayStatus(globalErrorIndex, false, data.error, erroredEssayId);
                         }
+                        // If this error completed the last pending essay, finish
+                        // the chunk without waiting for a stream close.
+                        resolveIfAllDone();
                         break;
 
                     default:

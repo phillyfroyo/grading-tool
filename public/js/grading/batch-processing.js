@@ -424,14 +424,51 @@ function updateEssayStatus(index, success, error = null, essayId = null) {
             </svg>
         `;
 
-        // Enable the download button for successful essays
+        // Clear any leftover FAILED styling from the row. This matters when a
+        // restored failed row is retried successfully: the restore renderer
+        // baked in a red ✗ icon, red student name, and pink header background
+        // for the failure state, and updating only the inner status would leave
+        // the row looking failed-but-checked (contradictory). Reset it to the
+        // normal success appearance.
         const studentRow = tabScopedQuery(`#student-row-${index}`);
         if (studentRow) {
+            const header = studentRow.querySelector('.student-header-clickable');
+            if (header) {
+                // Restore the neutral (success) header background + hover.
+                header.style.background = '#f8f9fa';
+                header.setAttribute('onmouseover', "this.style.backgroundColor='#e9ecef'");
+                header.setAttribute('onmouseout', "this.style.backgroundColor='#f8f9fa'");
+                // Student-name span was rendered red (#721c24) for failures.
+                const nameSpan = header.querySelector('span[style*="721c24"], span[style*="font-weight: 600"]');
+                if (nameSpan) nameSpan.style.color = '#333';
+                // Clear the standalone failure (✗) icon — the 18px span that
+                // holds the restore-time statusIcon. The green check already
+                // lives in #student-status, so emptying this avoids a
+                // double-checkmark on a retried row.
+                const iconSpan = header.querySelector('span[style*="font-size: 18px"]');
+                if (iconSpan) {
+                    iconSpan.innerHTML = '';
+                }
+            }
+
             const downloadBtn = studentRow.querySelector('button[onclick*="downloadIndividualEssay"]');
             if (downloadBtn) {
                 downloadBtn.disabled = false;
                 downloadBtn.style.background = '#007bff';
                 downloadBtn.style.cursor = 'pointer';
+            } else if (header) {
+                // A restored failed row had no Download button (only success
+                // rows render one). After a successful retry, add it so the
+                // user can download the now-graded essay.
+                const controls = header.querySelector('div[style*="flex-shrink: 0"]')
+                    || header.lastElementChild;
+                if (controls && !controls.querySelector('button[onclick*="downloadIndividualEssay"]')) {
+                    const btn = document.createElement('button');
+                    btn.setAttribute('onclick', `event.stopPropagation(); downloadIndividualEssay(${index})`);
+                    btn.style.cssText = 'background: #007bff; color: white; border: none; padding: 8px 14px; border-radius: 6px; font-size: 14px; cursor: pointer; white-space: nowrap; font-weight: 600;';
+                    btn.textContent = 'Download';
+                    controls.appendChild(btn);
+                }
             }
         }
 
@@ -1282,8 +1319,79 @@ async function retryEssay(index, essayId = null) {
                 if (retryEssayId) window[`essayData_${retryEssayId}`] = retrySnapshot;
             }
 
-            // Update status to success
+            // CRITICAL for persistence: also flip the matching entry in
+            // currentBatchData.results from failed → success. The autosave
+            // snapshots currentBatchData, and restore reads result.success to
+            // decide whether a row is graded or a failure placeholder. Without
+            // this, a retried essay saves its content but its result still says
+            // success:false, so a refresh reverts it to the failed state.
+            const liveBatchData = (retryTabState && retryTabState.currentBatchData)
+                || (window.TabStore && window.TabStore.active()?.currentBatchData)
+                || window.currentBatchData;
+            const results = liveBatchData && liveBatchData.batchResult && liveBatchData.batchResult.results;
+            if (Array.isArray(results)) {
+                let entry = retryEssayId ? results.find(r => r && r.essayId === retryEssayId) : null;
+                if (!entry) entry = results[index];
+                if (entry) {
+                    entry.success = true;
+                    entry.error = null;
+                    entry.result = result;
+                    if (retryEssayId && !entry.essayId) entry.essayId = retryEssayId;
+                    console.log(`[AutoSaveDiag] retry: flipped currentBatchData result to success for ${entry.studentName || index}`);
+                } else {
+                    console.warn('[AutoSaveDiag] retry: could not find matching result entry to mark success');
+                }
+            }
+
+            // Update status to success (resets the failed-row styling).
             updateEssayStatus(index, true, null, retryEssayId);
+
+            // Render the freshly-graded essay into the row, replacing the
+            // "did not return" placeholder. Without this the status flips to
+            // success but the body still shows the failure message.
+            essayLoadingLock[index] = false;
+            const reloadDiv = tabScopedQuery(`#batch-essay-${index}`);
+            if (reloadDiv) {
+                // Clear the placeholder so loadEssayDetails' alreadyLoaded guard
+                // doesn't short-circuit and so stale content can't linger.
+                reloadDiv.innerHTML = '';
+            }
+            loadEssayDetails(index, retryEssayId);
+
+            // Persist the recovered essay. loadEssayDetails fetches /format
+            // asynchronously, so we must wait for the formatted content to
+            // actually render before saving — otherwise the snapshot would
+            // capture the loading spinner (and a refresh would revert to the
+            // failed placeholder). Poll for the rendered content, then save.
+            (function saveAfterRetryRender() {
+                const SAVE_POLL_MS = 150;
+                const SAVE_MAX_MS = 8000;
+                const startedAt = Date.now();
+                const poll = () => {
+                    const div = tabScopedQuery(`#batch-essay-${index}`);
+                    const rendered = div && div.querySelector(`.formatted-essay-content[data-essay-index="${index}"]`);
+                    if (rendered) {
+                        // Small buffer for loadEssayDetails' own 200ms setup
+                        // timeout (event wiring) before snapshotting.
+                        setTimeout(() => {
+                            if (window.AutoSaveModule && window.AutoSaveModule.saveImmediately) {
+                                console.log(`[AutoSaveDiag] retry render complete for index ${index} — firing saveImmediately`);
+                                window.AutoSaveModule.saveImmediately();
+                            }
+                        }, 300);
+                        return;
+                    }
+                    if (Date.now() - startedAt > SAVE_MAX_MS) {
+                        console.warn(`[AutoSaveDiag] retry save: content did not render within ${SAVE_MAX_MS}ms for index ${index}; saving anyway`);
+                        if (window.AutoSaveModule && window.AutoSaveModule.saveImmediately) {
+                            window.AutoSaveModule.saveImmediately();
+                        }
+                        return;
+                    }
+                    setTimeout(poll, SAVE_POLL_MS);
+                };
+                poll();
+            })();
 
         } else {
             throw new Error(result.error || 'Grading returned unsuccessful');
