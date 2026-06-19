@@ -17,6 +17,15 @@
     let formLocked = false;
     const DEBOUNCE_MS = 2500;
 
+    // Auth-expired state: when the server rejects a save with 401/403, the
+    // session has lapsed. Retrying the same request is futile (it will 401
+    // forever), so we stop the retry loop, stash the unsaved payload durably,
+    // and prompt re-authentication. Once re-authed, we flush the stash.
+    let authExpired = false;
+    // localStorage key under which the last unsaved payload is mirrored, so a
+    // tab close/crash before re-auth doesn't lose the graded work.
+    const PENDING_SAVE_KEY = 'gradingTool.pendingSave.v1';
+
     // --- Public API ---
 
     function initialize() {
@@ -75,7 +84,56 @@
         // and stale/empty payloads have been overwriting good DB data.
         // Debounced saves (2.5s) and immediate saves cover all edit scenarios.
 
+        // Recover an orphaned stash: if a previous session lost auth and the
+        // user closed the tab before re-authenticating, their unsaved work is
+        // still in localStorage. On this fresh load auth may be healthy again
+        // (they logged in to get here), so try to flush it. Done after restore
+        // so the live state, if any, takes precedence.
+        setTimeout(recoverOrphanedStash, 1500);
+
         console.log('[AutoSave] Initialized');
+    }
+
+    /**
+     * On a fresh page load, if a pending-save stash exists from a prior
+     * auth-expired session, upload it (auth is presumably healthy now). Only
+     * uploads the stashed payload when there's no live grading state that would
+     * be a better source — restore handles the live case.
+     */
+    async function recoverOrphanedStash() {
+        const stash = readPendingSaveStash();
+        if (!stash || !stash.payload) return;
+        // If the current page already has live grading state, a normal save
+        // will capture it; just clear the older stash to avoid clobbering.
+        const live = buildPayload();
+        const liveHasResults = !!(live && live.sessionData &&
+            live.sessionData.currentBatchData &&
+            live.sessionData.currentBatchData.batchResult &&
+            live.sessionData.currentBatchData.batchResult.results &&
+            live.sessionData.currentBatchData.batchResult.results.length);
+        if (liveHasResults) {
+            console.log('[AutoSave] live state present on load — discarding older orphaned stash');
+            clearPendingSaveStash();
+            return;
+        }
+        try {
+            console.log('[AutoSave] recovering orphaned stash from a prior session…');
+            const resp = await fetch('/api/grading-session', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(stash.payload),
+            });
+            if (resp.ok) {
+                clearPendingSaveStash();
+                updateBannerStatus('Welcome back — we’ve saved your previous work', 'ok');
+                console.log('[AutoSave] orphaned stash recovered successfully');
+            } else if (resp.status === 401 || resp.status === 403) {
+                handleAuthExpired(stash.payload);
+            }
+            // Other errors: leave the stash in place to retry on next load.
+        } catch (e) {
+            console.warn('[AutoSave] orphaned stash recovery error:', e && e.message);
+        }
     }
 
     /**
@@ -377,16 +435,81 @@
             }
         }
 
-        // Inject saved rendered HTML (skip /format call)
+        // Inject saved rendered HTML (skip /format call).
+        //
+        // Swap-safety: each captured HTML chunk recorded which essayId it
+        // belongs to (renderedHTMLEssayIds). On restore we inject it into the
+        // row whose data-essay-id matches — NOT blindly by index. If a saved
+        // essay failed/dropped, indices in the skeleton may not line up with
+        // the saved sparse map; pairing by id guarantees a student's rendered
+        // essay can only land in that student's row.
+        //
+        // Legacy saves (no renderedHTMLEssayIds) fall back to index injection,
+        // which is safe ONLY for complete batches — see the count check below.
         if (tabData.renderedHTML) {
+            const idMap = tabData.renderedHTMLEssayIds || null;
+
+            // Legacy safety gate: a save made before essayIds existed (no idMap)
+            // can only be restored by index, which is safe ONLY if the batch was
+            // complete (no failed/missing essays). If a legacy save was partial,
+            // index injection could slide a student's essay onto another student
+            // — so we refuse to inject and leave the failure placeholders the
+            // skeleton already rendered. Newer saves (with idMap) pair by id and
+            // are always safe, so this gate doesn't apply to them.
+            let legacyUnsafe = false;
+            if (!idMap) {
+                const results = tabData.currentBatchData?.batchResult?.results || [];
+                const anyFailed = results.some(r => r && r.success === false);
+                const renderedCount = Object.keys(tabData.renderedHTML).length;
+                const successCount = results.filter(r => r && r.success).length;
+                // Unsafe if any essay failed, or fewer rendered chunks than
+                // successes (a gap that would slide under index injection).
+                legacyUnsafe = anyFailed || (results.length > 0 && renderedCount < successCount);
+                if (legacyUnsafe) {
+                    console.warn('[swap-guard] legacy save (no essayIds) is partial/has failures — skipping index-based HTML restore to avoid mis-pairing; affected students show the retry placeholder');
+                }
+            }
+
+            if (legacyUnsafe) {
+                // Skip injection entirely; the skeleton's per-student placeholders stand.
+            } else
             Object.entries(tabData.renderedHTML).forEach(([indexStr, html]) => {
+                if (!html) return;
                 const idx = parseInt(indexStr, 10);
-                const essayDiv = queryInTab(`#batch-essay-${idx}`);
-                if (essayDiv && html) {
-                    essayDiv.innerHTML = html;
+                const savedEssayId = idMap ? idMap[indexStr] : null;
+
+                let targetDiv = null;
+                let targetIdx = idx;
+
+                if (savedEssayId) {
+                    // Scan all batch-essay divs in the tab for a matching data-essay-id.
+                    const candidates = window.TabStore
+                        ? window.TabStore.queryAllInTab(tabId, '[id^="batch-essay-"][data-essay-id]')
+                        : document.querySelectorAll('[id^="batch-essay-"][data-essay-id]');
+                    for (const div of candidates) {
+                        if (div.dataset.essayId === savedEssayId) {
+                            targetDiv = div;
+                            const m = /batch-essay-(\d+)/.exec(div.id || '');
+                            if (m) targetIdx = parseInt(m[1], 10);
+                            break;
+                        }
+                    }
+                    // If we had an id but found no matching row, do NOT fall back
+                    // to index — that's exactly the swap we're preventing.
+                    if (!targetDiv) {
+                        console.warn(`[swap-guard] restore: saved essayId ${savedEssayId} has no matching row; skipping index ${idx} to avoid mis-pairing`);
+                        return;
+                    }
+                } else {
+                    // Legacy save without id map — inject by index.
+                    targetDiv = queryInTab(`#batch-essay-${idx}`);
+                }
+
+                if (targetDiv) {
+                    targetDiv.innerHTML = html;
                     // Pass tabId so the 250ms-delayed reattach targets the
                     // correct tab even during multi-tab restore iteration.
-                    reattachHandlers(idx, tabId);
+                    reattachHandlers(targetIdx, tabId);
                 }
             });
         }
@@ -800,6 +923,195 @@
         }
     }
 
+    // --- Auth-expired handling (preserve work + re-auth) ---
+
+    /** Mirror the unsaved payload to localStorage so it survives a tab close. */
+    function writePendingSaveStash(payload) {
+        try {
+            localStorage.setItem(PENDING_SAVE_KEY, JSON.stringify({
+                savedAt: Date.now(),
+                payload,
+            }));
+        } catch (e) {
+            // localStorage can throw (quota/private mode). The in-flight memory
+            // copy still covers the common case; log and continue.
+            console.warn('[AutoSave] could not stash pending save to localStorage:', e && e.message);
+        }
+    }
+
+    /** Remove the localStorage stash (after a successful flush or fresh save). */
+    function clearPendingSaveStash() {
+        try { localStorage.removeItem(PENDING_SAVE_KEY); } catch (e) { /* ignore */ }
+    }
+
+    /** Read a previously-stashed payload, if any. */
+    function readPendingSaveStash() {
+        try {
+            const raw = localStorage.getItem(PENDING_SAVE_KEY);
+            if (!raw) return null;
+            const parsed = JSON.parse(raw);
+            return parsed && parsed.payload ? parsed : null;
+        } catch (e) {
+            return null;
+        }
+    }
+
+    /**
+     * Enter the auth-expired state: stop the futile retry loop, stash the
+     * unsaved work durably, and prompt the user to re-authenticate. Idempotent
+     * — repeated 401s won't re-prompt or re-stash redundantly.
+     */
+    function handleAuthExpired(payload) {
+        // Always refresh the stash with the latest payload.
+        if (payload) writePendingSaveStash(payload);
+
+        if (authExpired) return; // already prompting
+        authExpired = true;
+
+        // Halt any pending retry/debounce — they would only 401 again.
+        if (retryTimer) { clearTimeout(retryTimer); retryTimer = null; }
+        clearDebounce();
+
+        console.warn('[AutoSave] auth expired — halting retries, prompting re-auth');
+        showReauthPrompt();
+    }
+
+    /**
+     * Show a blocking re-authentication overlay. The user's work is NOT lost —
+     * it's stashed locally and will be saved the moment they sign back in.
+     * Passwordless login: they re-enter their email, we POST /auth/login
+     * (which re-sets the session + signed cookies on this same page), then we
+     * flush the stashed payload. No navigation, so the in-memory grading state
+     * is preserved.
+     */
+    function showReauthPrompt() {
+        if (document.getElementById('reauth-overlay')) return;
+
+        const overlay = document.createElement('div');
+        overlay.id = 'reauth-overlay';
+        overlay.style.cssText =
+            'position:fixed;inset:0;z-index:100000;display:flex;align-items:center;justify-content:center;' +
+            'background:rgba(0,0,0,0.55);backdrop-filter:blur(2px);';
+
+        const prefillEmail =
+            (document.getElementById('userEmail')?.textContent || '').trim();
+        const emailLooksValid = /@/.test(prefillEmail);
+
+        overlay.innerHTML = `
+            <div style="background:#fff;max-width:440px;width:90%;border-radius:10px;padding:24px;box-shadow:0 8px 30px rgba(0,0,0,0.25);font-family:'Inter',Arial,sans-serif;">
+                <h2 style="margin:0 0 8px;font-size:18px;color:#2d6a2d;">Please sign back in</h2>
+                <p style="margin:0 0 16px;font-size:14px;line-height:1.5;color:#333;">
+                    Whoops, you've been signed out. Don't worry, your changes have been
+                    saved. Please enter your email address to sign back in.
+                </p>
+                <input id="reauth-email" type="email" placeholder="Enter your email"
+                       value="${emailLooksValid ? prefillEmail.replace(/"/g, '&quot;') : ''}"
+                       style="width:100%;box-sizing:border-box;padding:10px 12px;font-size:14px;border:1px solid #ccc;border-radius:6px;margin-bottom:12px;" />
+                <div id="reauth-error" style="display:none;color:#dc3545;font-size:13px;margin-bottom:10px;"></div>
+                <button id="reauth-submit"
+                        style="width:100%;padding:10px;font-size:15px;font-weight:600;background:#007bff;color:#fff;border:none;border-radius:6px;cursor:pointer;">
+                    Sign back in
+                </button>
+            </div>`;
+        document.body.appendChild(overlay);
+
+        const emailInput = overlay.querySelector('#reauth-email');
+        const submitBtn = overlay.querySelector('#reauth-submit');
+        const errEl = overlay.querySelector('#reauth-error');
+        emailInput.focus();
+
+        const submit = async () => {
+            const email = (emailInput.value || '').trim();
+            if (!/@/.test(email)) {
+                errEl.textContent = 'Please enter a valid email address.';
+                errEl.style.display = 'block';
+                return;
+            }
+            submitBtn.disabled = true;
+            submitBtn.textContent = 'Signing in…';
+            errEl.style.display = 'none';
+            const ok = await attemptReauth(email);
+            if (ok) {
+                overlay.remove();
+            } else {
+                submitBtn.disabled = false;
+                submitBtn.textContent = 'Sign back in';
+                errEl.textContent = 'That didn’t work. Please check your email and try again.';
+                errEl.style.display = 'block';
+            }
+        };
+        submitBtn.addEventListener('click', submit);
+        emailInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') submit(); });
+    }
+
+    /**
+     * Re-authenticate in place via the passwordless login endpoint. On success
+     * the server re-sets the session + signed cookies, so subsequent saves are
+     * authorized. Returns true on success.
+     */
+    async function attemptReauth(email) {
+        try {
+            const resp = await fetch('/auth/login', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ email }),
+            });
+            if (!resp.ok) {
+                console.warn('[AutoSave] re-auth failed:', resp.status);
+                return false;
+            }
+            console.log('[AutoSave] re-auth successful — flushing stashed work');
+            authExpired = false;
+            await flushPendingSave();
+            return true;
+        } catch (e) {
+            console.warn('[AutoSave] re-auth error:', e && e.message);
+            return false;
+        }
+    }
+
+    /**
+     * After re-auth, save the user's work. We prefer the CURRENT in-memory
+     * state (most up to date), falling back to the localStorage stash if the
+     * live payload can't be built. Clears the stash on success.
+     */
+    async function flushPendingSave() {
+        let payload = buildPayload();
+        if (!payload) {
+            const stash = readPendingSaveStash();
+            payload = stash && stash.payload;
+        }
+        if (!payload) {
+            clearPendingSaveStash();
+            updateBannerStatus('You’re back in — everything’s saved', 'ok');
+            return;
+        }
+        try {
+            const resp = await fetch('/api/grading-session', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload),
+            });
+            if (resp.ok) {
+                lastSuccessfulSaveTime = Date.now();
+                hasPendingChanges = false;
+                clearPendingSaveStash();
+                updateBannerStatus('All changes saved', 'ok');
+                console.log('[AutoSave] stashed work flushed successfully after re-auth');
+            } else if (resp.status === 401 || resp.status === 403) {
+                // Still unauthorized — re-prompt (stash retained).
+                authExpired = false; // allow handleAuthExpired to re-enter
+                handleAuthExpired(payload);
+            } else {
+                updateBannerStatus('You’re back in. Still saving — please keep this page open…', 'warn');
+                scheduleRetry();
+            }
+        } catch (e) {
+            updateBannerStatus('You’re back in. Still saving — please keep this page open…', 'warn');
+            scheduleRetry();
+        }
+    }
+
     /**
      * Look up essay data by index. Prefers the batch's originating tab
      * when a batch is currently streaming (via BatchProcessingModule
@@ -867,6 +1179,7 @@
         }
 
         const renderedHTML = {};
+        const renderedHTMLEssayIds = {}; // index -> essayId, for swap-safe restore re-pairing
         const highlightsTabHTML = {};
         const highlightsContentHTML = {};
         if (!omitHTML) {
@@ -875,6 +1188,13 @@
                 const hasContent = div && div.innerHTML.trim() && div.innerHTML.trim() !== 'Loading formatted result...';
                 if (hasContent) {
                     renderedHTML[i] = div.innerHTML;
+                    // Record which essay this captured HTML belongs to, so that
+                    // on restore we inject it into the row with the matching
+                    // essayId rather than blindly by index (which slides if any
+                    // essay was missing).
+                    if (div.dataset && div.dataset.essayId) {
+                        renderedHTMLEssayIds[i] = div.dataset.essayId;
+                    }
                 }
                 const hlTabDiv = queryInTab(`#highlights-tab-content-${i}`);
                 if (hlTabDiv && hlTabDiv.dataset.loaded === 'true' && hlTabDiv.innerHTML.trim() && hlTabDiv.innerHTML.trim() !== 'Loading highlights...') {
@@ -913,6 +1233,7 @@
         return {
             essaySnapshots,
             renderedHTML,
+            renderedHTMLEssayIds,
             highlightsTabHTML,
             highlightsContentHTML,
             completedEssays,
@@ -998,6 +1319,7 @@
             currentBatchData: batchDataForPayload,
             essaySnapshots: primaryDOMState.essaySnapshots,
             renderedHTML: primaryDOMState.renderedHTML,
+            renderedHTMLEssayIds: primaryDOMState.renderedHTMLEssayIds,
             highlightsTabHTML: primaryDOMState.highlightsTabHTML,
             highlightsContentHTML: primaryDOMState.highlightsContentHTML,
             // Per-tab score overrides are now captured inside gatherTabDOMState
@@ -1043,6 +1365,15 @@
             console.log(`[AutoSaveDiag] doSave[${source}]: skipped (isSaving=${isSaving}, isRestoring=${isRestoring})`);
             return;
         }
+        // While auth is expired, do not hit the server — every request would
+        // 401. We keep the latest payload stashed (updated below) so the user
+        // can keep editing; the stash flushes once they re-authenticate.
+        if (authExpired) {
+            const pending = buildPayload();
+            if (pending) writePendingSaveStash(pending);
+            console.log(`[AutoSaveDiag] doSave[${source}]: skipped (auth expired) — work stashed locally`);
+            return;
+        }
         const payload = buildPayload();
         if (!payload) {
             console.log(`[AutoSaveDiag] doSave[${source}]: no payload to save`);
@@ -1057,19 +1388,26 @@
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(payload),
             });
-            if (!resp.ok) {
+            if (resp.status === 401 || resp.status === 403) {
+                // Auth lapsed. Retrying is pointless — the same credentials
+                // will 401 every time. Stash the work and prompt re-auth.
+                console.warn('[AutoSave] Save rejected (auth expired):', resp.status);
+                handleAuthExpired(payload);
+            } else if (!resp.ok) {
                 console.warn('[AutoSave] Save failed:', resp.status);
-                updateBannerStatus('Changes failed to auto-save, sorry. Do not refresh or close the page.', 'warn');
+                updateBannerStatus('Couldn’t save just now — please keep this page open while we try again.', 'warn');
                 scheduleRetry();
             } else {
                 console.log('[AutoSave] Save successful');
                 lastSuccessfulSaveTime = Date.now();
                 hasPendingChanges = false;
+                // A successful save means auth is healthy; clear any stash.
+                clearPendingSaveStash();
                 updateBannerStatus('All changes saved', 'ok');
             }
         } catch (err) {
             console.warn('[AutoSave] Save error:', err);
-            updateBannerStatus('Changes failed to auto-save, sorry. Do not refresh or close the page.', 'warn');
+            updateBannerStatus('Couldn’t save just now — please keep this page open while we try again.', 'warn');
             scheduleRetry();
         } finally {
             isSaving = false;
@@ -1148,6 +1486,32 @@
                         window.TextSelectionModule.handleBatchTextSelection(e, index);
                     }
                 });
+            }
+
+            // The restored HTML is a saved snapshot that may carry stale category
+            // labels/order in the button row and the "Highlight Meanings" key.
+            // Rebuild both from the current single source of truth so previously-
+            // saved essays reflect the latest categories. The essay's highlight
+            // marks (the real data) are untouched; their colors come from the
+            // generated categories.css regardless of the saved inline styles.
+            const categoryButtonsContainer = queryScoped(`#categoryButtons-${index}`);
+            if (categoryButtonsContainer && window.CategorySelectionModule &&
+                typeof window.CategorySelectionModule.createCategoryButtons === 'function') {
+                categoryButtonsContainer.innerHTML =
+                    window.CategorySelectionModule.createCategoryButtons(index) +
+                    `<button id="clearSelectionBtn-${index}" onclick="clearSelection(${index})" style="background: #f5f5f5; color: #666; border: 2px solid #ccc; padding: 8px 12px; border-radius: 4px; cursor: pointer; margin-left: 10px;">Clear Selection</button>`;
+            }
+
+            // Rebuild the "Highlight Meanings" legend from the source of truth.
+            // The legend lives inside the restored #batch-essay-N subtree.
+            if (essayContainer && typeof createColorLegend === 'function') {
+                const oldLegend = essayContainer.querySelector('.color-legend');
+                if (oldLegend) {
+                    const tmp = document.createElement('div');
+                    tmp.innerHTML = createColorLegend();
+                    const fresh = tmp.querySelector('.color-legend');
+                    if (fresh) oldLegend.replaceWith(fresh);
+                }
             }
 
             // Category buttons

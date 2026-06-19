@@ -1,0 +1,83 @@
+/* ===================================================================
+   Correction-guide category colors — GENERATED, do not edit by hand.
+   Edit shared/categories.json, then run: npm run gen:categories
+   Single source of truth shared with public/js/categories.js.
+   =================================================================== */
+
+mark[data-category="grammar"],
+mark[data-type="grammar"] {
+    background: transparent !important;
+    color: #FF00FF !important;
+    font-weight: bold !important;
+}
+.legend-grammar { color: #FF00FF !important; background: transparent !important; }
+.highlight-entry.grammar-error { border-left-color: #FF00FF !important; }
+
+mark[data-category="mechanics"],
+mark[data-type="mechanics"] {
+    background: #D3D3D3 !important;
+    color: #000000 !important;
+    padding: 2px 0 !important;
+    border-radius: 2px !important;
+}
+.legend-mechanics { background-color: #D3D3D3 !important; color: #000000 !important; padding: 2px 6px !important; border-radius: 3px !important; }
+.highlight-entry.mechanics-error { border-left-color: #D3D3D3 !important; }
+
+mark[data-category="spelling"],
+mark[data-type="spelling"] {
+    background: transparent !important;
+    color: #FF0000 !important;
+    font-weight: bold !important;
+}
+.legend-spelling { color: #FF0000 !important; background: transparent !important; }
+.highlight-entry.spelling-error { border-left-color: #FF0000 !important; }
+
+mark[data-category="vocabulary"],
+mark[data-type="vocabulary"] {
+    background: transparent !important;
+    color: #00B0F0 !important;
+    font-weight: bold !important;
+}
+.legend-vocabulary { color: #00B0F0 !important; background: transparent !important; }
+.highlight-entry.vocabulary-error { border-left-color: #00B0F0 !important; }
+
+mark[data-category="fluency"],
+mark[data-type="fluency"] {
+    background: #00FFFF !important;
+    color: #000000 !important;
+    padding: 2px 0 !important;
+    border-radius: 2px !important;
+}
+.legend-fluency { background-color: #00FFFF !important; color: #000000 !important; padding: 2px 6px !important; border-radius: 3px !important; }
+.highlight-entry.fluency-error { border-left-color: #00FFFF !important; }
+
+mark[data-category="professor-comments"],
+mark[data-type="professor-comments"] {
+    background: #FFFF00 !important;
+    color: #000000 !important;
+    padding: 2px 0 !important;
+    border-radius: 2px !important;
+}
+.legend-professor-comments { background-color: #FFFF00 !important; color: #000000 !important; padding: 2px 6px !important; border-radius: 3px !important; }
+.highlight-entry.professor-comments-error { border-left-color: #FFFF00 !important; }
+
+mark[data-category="redundancy"],
+mark[data-type="redundancy"] {
+    background: #00FF00 !important;
+    color: #000000 !important;
+    padding: 2px 0 !important;
+    border-radius: 2px !important;
+}
+.legend-redundancy { background-color: #00FF00 !important; color: #000000 !important; padding: 2px 6px !important; border-radius: 3px !important; }
+.highlight-entry.redundancy-error { border-left-color: #00FF00 !important; }
+
+mark[data-category="delete"],
+mark[data-type="delete"] {
+    background: transparent !important;
+    color: #000000 !important;
+    font-weight: bold !important;
+    text-decoration: line-through !important;
+    font-weight: bold !important;
+}
+.legend-delete { color: #000000 !important; background: transparent !important; text-decoration: line-through !important; }
+.highlight-entry.delete-error { border-left-color: #000000 !important; }

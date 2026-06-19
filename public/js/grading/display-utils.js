@@ -101,17 +101,17 @@ function createCategoryButtons(essayIndex = '') {
         return window.CategorySelectionModule.createCategoryButtons(essayIndex);
     }
 
-    // Fallback implementation
+    // Fallback implementation — generated from the single source of truth.
     const dataAttr = essayIndex ? ` data-essay-index="${essayIndex}"` : '';
 
-    return `
-        <button class="category-btn" data-category="grammar"${dataAttr} style="background: transparent; color: #FF8C00; border: 2px solid #FF8C00; padding: 8px 12px; border-radius: 20px; cursor: pointer; font-weight: bold; transition: all 0.2s;">Grammar</button>
-        <button class="category-btn" data-category="vocabulary"${dataAttr} style="background: transparent; color: #00A36C; border: 2px solid #00A36C; padding: 8px 12px; border-radius: 20px; cursor: pointer; font-weight: bold; transition: all 0.2s;">Vocab</button>
-        <button class="category-btn" data-category="spelling"${dataAttr} style="background: transparent; color: #DC143C; border: 2px solid #DC143C; padding: 8px 12px; border-radius: 20px; cursor: pointer; font-weight: bold; transition: all 0.2s;">Spelling</button>
-        <button class="category-btn" data-category="mechanics"${dataAttr} style="background: #D3D3D3; color: #000000; border: 2px solid #D3D3D3; padding: 8px 12px; border-radius: 20px; cursor: pointer; font-weight: bold; transition: all 0.2s;">Mechanics</button>
-        <button class="category-btn" data-category="fluency"${dataAttr} style="background: #87CEEB; color: #000000; border: 2px solid #87CEEB; padding: 8px 12px; border-radius: 20px; cursor: pointer; font-weight: bold; transition: all 0.2s;">Fluency</button>
-        <button class="category-btn" data-category="delete"${dataAttr} style="background: transparent; color: #000000; border: 2px solid #000000; padding: 8px 12px; border-radius: 20px; cursor: pointer; font-weight: bold; text-decoration: line-through; transition: all 0.2s;">Delete</button>
-    `;
+    return window.CATEGORIES.getManualCategories().map(category => {
+        const style = window.CATEGORIES.getCategoryStyle(category.id);
+        const isFill = style.background !== 'transparent';
+        const bgColor = isFill ? style.background : 'transparent';
+        const textColor = isFill ? 'black' : style.color;
+        const decoration = style.strikethrough ? 'text-decoration: line-through;' : '';
+        return `<button class="category-btn" data-category="${category.id}"${dataAttr} style="background: ${bgColor}; color: ${textColor}; border: 2px solid ${category.color}; padding: 8px 12px; border-radius: 20px; cursor: pointer; font-weight: bold; transition: all 0.2s; ${decoration}">${category.shortName || category.name}</button>`;
+    }).join('\n        ');
 }
 
 /**
@@ -119,15 +119,22 @@ function createCategoryButtons(essayIndex = '') {
  * @returns {string} HTML string for color legend
  */
 function createColorLegend() {
+    // Generated from the single source of truth (window.CATEGORIES).
+    const swatches = window.CATEGORIES.getManualCategories().map((category, i) => {
+        const style = window.CATEGORIES.getCategoryStyle(category.id);
+        const isFill = style.background !== 'transparent';
+        const marginLeft = i === 0 ? '10px' : '15px';
+        const decoration = style.strikethrough ? ' text-decoration: line-through;' : '';
+        const styleAttr = isFill
+            ? `background: ${style.background}; color: #000; padding: 2px 6px; border-radius: 3px; font-weight: bold; margin-left: ${marginLeft};${decoration}`
+            : `color: ${style.color}; font-weight: bold; margin-left: ${marginLeft}; background: transparent;${decoration}`;
+        return `<mark class="legend-${category.id}" data-category="${category.id}" style="${styleAttr}">${category.name}</mark>`;
+    }).join('\n            ');
+
     return `
         <div class="color-legend" style="padding: 10px 15px; border-top: 1px solid #ddd; background: #f9f9f9; font-size: 12px; user-select: none; pointer-events: none;">
             <strong>Highlight Meanings:</strong>
-            <mark class="legend-grammar" data-category="grammar" style="color: #FF8C00; font-weight: bold; margin-left: 10px; background: transparent;">grammar</mark>
-            <mark class="legend-vocabulary" data-category="vocabulary" style="color: #00A36C; font-weight: bold; margin-left: 15px; background: transparent;">vocabulary</mark>
-            <mark class="legend-spelling" data-category="spelling" style="color: #DC143C; font-weight: bold; margin-left: 15px; background: transparent;">spelling</mark>
-            <mark class="legend-mechanics" data-category="mechanics" style="background: #D3D3D3; color: #000; padding: 2px 6px; border-radius: 3px; font-weight: bold; margin-left: 15px;">mechanics</mark>
-            <mark class="legend-fluency" data-category="fluency" style="background: #87CEEB; color: #000; padding: 2px 6px; border-radius: 3px; font-weight: bold; margin-left: 15px;">fluency</mark>
-            <mark class="legend-delete" data-category="delete" style="color: #000; text-decoration: line-through; font-weight: bold; margin-left: 15px; background: transparent;">delete</mark>
+            ${swatches}
         </div>
     `;
 }
@@ -142,9 +149,12 @@ function createColorLegend() {
 function createStudentRowHTML(essay, index, statusIcon) {
     const backgroundColor = essay.success ? '#f8f9fa' : '#fff5f5';
     const textColor = essay.success ? '#333' : '#721c24';
+    const essayId = essay.essayId || '';
+    // Retry args carry the stable essayId so a retry re-grades the right student.
+    const retryArgs = essayId ? `${index}, '${essayId}'` : `${index}`;
 
     return `
-        <div class="student-row" style="border: 2px solid #ddd; margin: 10px 0; border-radius: 6px; overflow: hidden;">
+        <div class="student-row" id="student-row-${index}" data-essay-id="${essayId}" data-student-name="${(essay.studentName || '').replace(/"/g, '&quot;')}" style="border: 2px solid #ddd; margin: 10px 0; border-radius: 6px; overflow: hidden;">
             <!-- Student Name Header (clickable to expand grade details) -->
             <div class="student-header-clickable" onclick="toggleTab('grade-details-${index}', ${index})" style="
                 padding: 12px 18px;
@@ -165,7 +175,16 @@ function createStudentRowHTML(essay, index, statusIcon) {
                     <span id="grade-details-${index}-arrow" style="font-size: 14px; transition: transform 0.3s; display: inline-block;">▼</span>
                     <span style="font-size: 18px;">${statusIcon}</span>
                     <span style="font-weight: 600; color: ${textColor}; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: 16px;">${essay.studentName}</span>
-                    ${!essay.success ? '<span style="color: #721c24; font-size: 14px; white-space: nowrap; font-weight: 500;">(Failed)</span>' : ''}
+                    ${!essay.success ? `
+                    <span id="student-status-${index}" class="student-status" style="display: flex; align-items: center; gap: 8px;">
+                        <span style="color: #721c24; font-size: 14px; white-space: nowrap; font-weight: 500;">(Did not return)</span>
+                        <button onclick="event.stopPropagation(); window.BatchProcessingModule.retryEssay(${retryArgs})"
+                                style="padding: 4px 10px; font-size: 12px; background: #007bff; color: white; border: none; border-radius: 4px; cursor: pointer; white-space: nowrap;"
+                                onmouseover="this.style.background='#0056b3'"
+                                onmouseout="this.style.background='#007bff'">
+                            Retry
+                        </button>
+                    </span>` : ''}
                 </div>
                 <div style="display: flex; align-items: center; gap: 12px; flex-shrink: 0;">
                     <label style="display: flex; align-items: center; gap: 6px; margin: 0; cursor: pointer;" onclick="event.stopPropagation();">
@@ -184,7 +203,7 @@ function createStudentRowHTML(essay, index, statusIcon) {
                 transition: max-height 0.3s ease-out;
                 background: white;
             ">
-                <div id="batch-essay-${index}" style="padding: 15px;">Loading formatted result...</div>
+                <div id="batch-essay-${index}" data-essay-id="${essayId}" style="padding: 15px;">Loading formatted result...</div>
             </div>
 
             <!-- Highlights Management Tab -->
@@ -233,7 +252,22 @@ function createStudentRowHTML(essay, index, statusIcon) {
                 <div id="highlights-tab-content-${index}" style="padding: 15px;">Loading highlights...</div>
             </div>
             ` : `
-            <div style="padding: 15px; color: #721c24;">Error: ${essay.error}</div>
+            <!-- Failed / never-returned essay: clear, student-bound placeholder
+                 with a retry that re-grades this exact student (by essayId). -->
+            <div id="grade-details-${index}" class="tab-content" style="max-height: 0; overflow: hidden; transition: max-height 0.3s ease-out; background: white;">
+                <div id="batch-essay-${index}" data-essay-id="${essayId}" style="padding: 15px;">
+                    <div style="padding: 14px; border: 1px dashed #dc3545; border-radius: 6px; background: #fff5f5; color: #842029; font-size: 14px; line-height: 1.5;">
+                        <strong>This essay did not return.</strong> We're sorry — nothing was graded for this student.
+                        ${essay.error ? `<div style="font-size: 12px; color: #a06; margin-top: 6px;">${essay.error}</div>` : ''}
+                        <div style="margin-top: 10px;">
+                            <button onclick="window.BatchProcessingModule.retryEssay(${retryArgs})"
+                                    style="padding: 6px 14px; font-size: 13px; background: #007bff; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: 600;">
+                                Retry this essay
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
             `}
         </div>
     `;
@@ -603,11 +637,10 @@ function createHighlightsLegendHTML(highlightsData) {
                 return;
             }
 
-            // Format categories
-            const categoryNames = highlight.categories.map(cat => {
-                const catLower = (cat || '').toString().toLowerCase();
-                return catLower.charAt(0).toUpperCase() + catLower.slice(1);
-            });
+            // Format categories using the single source of truth (display names).
+            const categoryNames = highlight.categories.map(cat =>
+                window.CATEGORIES.getCategoryName(cat)
+            );
 
             let categoryText = '';
             if (categoryNames.length === 1) {
@@ -619,16 +652,10 @@ function createHighlightsLegendHTML(highlightsData) {
                 categoryText = categoryNames.join(', ') + ', & ' + lastCategory + ' Error';
             }
 
-            // Determine CSS class for color coding
+            // Color-coding accent: use the primary category's swatch color.
             const primaryCategory = (highlight.categories[0] || '').toString().toLowerCase();
-            const borderColor = {
-                'grammar': '#FF8C00',
-                'vocabulary': '#00A36C',
-                'spelling': '#DC143C',
-                'mechanics': '#D3D3D3',
-                'fluency': '#87CEEB',
-                'delete': '#000000'
-            }[primaryCategory] || '#667eea';
+            const primaryCat = window.CATEGORIES.getCategory(primaryCategory);
+            const borderColor = primaryCat ? primaryCat.color : '#667eea';
 
             // Entry text - escape HTML entities to prevent breaking
             const safeText = (highlight.text || '').toString()

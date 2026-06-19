@@ -169,15 +169,9 @@ function selectBatchCategory(category, essayIndex) {
  * @returns {Object} Color styling object
  */
 function getOriginalCategoryColor(category) {
-    const colorMap = {
-        grammar: { background: 'transparent', color: '#FF8C00' },
-        vocabulary: { background: 'transparent', color: '#00A36C' },
-        mechanics: { background: '#D3D3D3', color: '#000000' },
-        spelling: { background: 'transparent', color: '#DC143C' },
-        fluency: { background: '#87CEEB', color: '#000000' },
-        delete: { background: 'transparent', color: '#000000' }
-    };
-    return colorMap[category] || { background: 'transparent', color: '#000000' };
+    // Derived from the single source of truth (window.CATEGORIES).
+    const style = window.CATEGORIES.getCategoryStyle(category);
+    return { background: style.background, color: style.color };
 }
 
 /**
@@ -208,14 +202,13 @@ function clearBatchCategorySelection(essayIndex) {
  * @returns {Array} Array of category objects
  */
 function getAvailableCategories() {
-    return [
-        { id: 'grammar', name: 'Grammar', color: '#FF8C00' },
-        { id: 'vocabulary', name: 'Vocab', color: '#00A36C' },
-        { id: 'spelling', name: 'Spelling', color: '#DC143C' },
-        { id: 'mechanics', name: 'Mechanics', color: '#D3D3D3' },
-        { id: 'fluency', name: 'Fluency', color: '#87CEEB' },
-        { id: 'delete', name: 'Delete', color: '#000000' }
-    ];
+    // Read from the single source of truth (window.CATEGORIES / shared/categories.json).
+    return window.CATEGORIES.getManualCategories().map(c => ({
+        id: c.id,
+        name: c.name,
+        shortName: c.shortName || c.name,
+        color: c.color
+    }));
 }
 
 /**
@@ -228,20 +221,17 @@ function createCategoryButtons(essayIndex = '') {
     const categories = getAvailableCategories();
 
     return categories.map(category => {
-        const isDelete = category.id === 'delete';
-        const isMechanics = category.id === 'mechanics';
-        const isFluency = category.id === 'fluency';
-
-        const bgColor = isMechanics || isFluency ? category.color : 'transparent';
-        const textColor = isMechanics || isFluency ? 'black' : category.color;
-        const decoration = isDelete ? 'text-decoration: line-through;' : '';
+        const style = window.CATEGORIES.getCategoryStyle(category.id);
+        const bgColor = style.background;
+        const textColor = style.background === 'transparent' ? style.color : 'black';
+        const decoration = style.strikethrough ? 'text-decoration: line-through;' : '';
 
         return `
             <button class="category-btn" data-category="${category.id}"${dataAttr}
                     style="background: ${bgColor}; color: ${textColor}; border: 2px solid ${category.color};
                            padding: 8px 12px; border-radius: 20px; cursor: pointer; font-weight: bold;
                            transition: all 0.2s; ${decoration}">
-                ${category.name}
+                ${category.shortName}
             </button>
         `;
     }).join('');
@@ -258,8 +248,8 @@ function initializeCategorySelection(containerId, essayIndex = null) {
 
     const buttonsHTML = createCategoryButtons(essayIndex || '');
     container.innerHTML = buttonsHTML + (essayIndex !== null ?
-        `<button id="clearSelectionBtn-${essayIndex}" onclick="clearSelection(${essayIndex})" style="background: #f5f5f5; color: #666; border: 2px solid #ccc; padding: 8px 12px; border-radius: 4px; cursor: pointer; margin-left: 10px;">Clear</button>` :
-        `<button id="clearSelectionBtn" onclick="clearSelection()" style="background: #f5f5f5; color: #666; border: 2px solid #ccc; padding: 8px 12px; border-radius: 4px; cursor: pointer; margin-left: 10px;">Clear</button>`
+        `<button id="clearSelectionBtn-${essayIndex}" onclick="clearSelection(${essayIndex})" style="background: #f5f5f5; color: #666; border: 2px solid #ccc; padding: 8px 12px; border-radius: 4px; cursor: pointer; margin-left: 10px;">Clear Selection</button>` :
+        `<button id="clearSelectionBtn" onclick="clearSelection()" style="background: #f5f5f5; color: #666; border: 2px solid #ccc; padding: 8px 12px; border-radius: 4px; cursor: pointer; margin-left: 10px;">Clear Selection</button>`
     );
 
     // Setup event listeners

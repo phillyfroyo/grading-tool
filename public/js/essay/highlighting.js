@@ -49,15 +49,11 @@
  * @returns {Object|null} Category data object or null
  */
 function getCategoryData(category) {
-    const categories = {
-        'grammar': { color: '#FF8C00', name: 'Grammar Error' },
-        'vocabulary': { color: '#00A36C', name: 'Vocabulary Error' },
-        'mechanics': { color: '#D3D3D3', name: 'Mechanics Error' },
-        'spelling': { color: '#DC143C', name: 'Spelling Error' },
-        'fluency': { color: '#87CEEB', name: 'Fluency Error' },
-        'delete': { color: '#000000', name: 'Delete Word' }
-    };
-    return categories[category] || null;
+    // Read from the single source of truth (window.CATEGORIES). `color` is the
+    // category's swatch color (used for button borders / accents).
+    const cat = window.CATEGORIES.getCategory(category);
+    if (!cat) return null;
+    return { color: cat.color, name: cat.name };
 }
 
 /**
@@ -304,14 +300,16 @@ function applyBatchHighlight(range, text, category, essayIndex) {
  * @param {string} primaryCategory - Primary category
  */
 function updateHighlightVisualStyling(element, primaryCategory, allCategories = null) {
-    const categoryStyles = {
-        grammar: { color: '#FF8C00', backgroundColor: 'rgba(255, 140, 0, 0.3)' },
-        vocabulary: { color: '#00A36C', backgroundColor: 'rgba(0, 163, 108, 0.3)' },
-        mechanics: { backgroundColor: '#D3D3D3', color: '#000000' },
-        spelling: { color: '#DC143C', backgroundColor: 'rgba(220, 20, 60, 0.3)' },
-        fluency: { backgroundColor: '#87CEEB', color: '#000000' },
-        delete: { textDecoration: 'line-through', color: '#000000', fontWeight: 'bold' }
-    };
+    // Build the rendered CSS for a category from the single source of truth.
+    function styleFor(catId) {
+        const s = window.CATEGORIES.getCategoryStyle(catId);
+        const css = { color: s.color, backgroundColor: s.background };
+        if (s.strikethrough) {
+            css.textDecoration = 'line-through';
+            css.fontWeight = 'bold';
+        }
+        return css;
+    }
 
     // Reset all category-related styles first to prevent style bleed from previous category
     element.style.color = '';
@@ -321,9 +319,8 @@ function updateHighlightVisualStyling(element, primaryCategory, allCategories = 
     element.style.boxShadow = '';
     element.style.borderBottom = '';
 
-    const style = categoryStyles[primaryCategory];
-    if (style) {
-        Object.assign(element.style, style);
+    if (window.CATEGORIES.getCategory(primaryCategory)) {
+        Object.assign(element.style, styleFor(primaryCategory));
     }
 
     // Check for multi-category - add visual indicator
@@ -331,9 +328,10 @@ function updateHighlightVisualStyling(element, primaryCategory, allCategories = 
     if (categories.length > 1) {
         // Multi-category highlight: add dashed underline and box shadow to indicate multiple errors
         const secondaryCategory = categories[1];
-        const secondaryStyle = categoryStyles[secondaryCategory];
-        if (secondaryStyle) {
-            const secondaryColor = secondaryStyle.color || '#666';
+        const secondaryCat = window.CATEGORIES.getCategory(secondaryCategory);
+        if (secondaryCat) {
+            // Use the secondary category's swatch color as the indicator accent.
+            const secondaryColor = secondaryCat.color || '#666';
             element.style.borderBottom = `2px dashed ${secondaryColor}`;
             element.style.boxShadow = `inset 0 0 0 1px ${secondaryColor}`;
         }
@@ -408,15 +406,19 @@ function renderResizePreview() {
     const highlightTxt = fullText.substring(elementStart, elementEnd);
     const trailingText = fullText.substring(elementEnd, ctxEnd);
 
-    // ── Category style map (modal preview: black text, category-colored background) ──
-    const catStyles = {
-        grammar:    'background:rgba(255,140,0,0.3);color:#000;',
-        vocabulary: 'background:rgba(0,163,108,0.3);color:#000;',
-        mechanics:  'background:#D3D3D3;color:#000;',
-        spelling:   'background:rgba(220,20,60,0.3);color:#000;',
-        fluency:    'background:#87CEEB;color:#000;',
-        delete:     'background:rgba(0,0,0,0.15);text-decoration:line-through;color:#000;font-weight:bold;'
-    };
+    // ── Resize-preview style for a category, derived from the single source of
+    //    truth (window.CATEGORIES): fill categories show their fill, text
+    //    categories show colored text. ──
+    function previewStyleFor(catId) {
+        const s = window.CATEGORIES.getCategoryStyle(catId);
+        if (s.strikethrough) {
+            return `background:${s.background !== 'transparent' ? s.background : 'rgba(0,0,0,0.15)'};text-decoration:line-through;color:${s.color};font-weight:bold;`;
+        }
+        if (s.background !== 'transparent') {
+            return `background:${s.background};color:#000;`;
+        }
+        return `background:transparent;color:${s.color};font-weight:bold;`;
+    }
 
     // ── Build style for the active highlight (use modal's live category selection) ──
     const modal = document.getElementById('editModal');
@@ -425,16 +427,13 @@ function renderResizePreview() {
     const categories = modalCats.length > 0 ? modalCats
         : (element ? (element.dataset.category || '').split(',').filter(c => c.trim()) : []);
     const primaryCat = categories[0] || 'grammar';
-    let markStyle = catStyles[primaryCat] || '';
+    let markStyle = window.CATEGORIES.getCategory(primaryCat) ? previewStyleFor(primaryCat) : '';
 
     // Multi-category: add secondary category indicators (matches updateHighlightVisualStyling)
     if (categories.length > 1) {
         const secondaryCat = categories[1];
-        const secondaryColors = {
-            grammar: '#FF8C00', vocabulary: '#00A36C', mechanics: '#000',
-            spelling: '#DC143C', fluency: '#000', delete: '#000'
-        };
-        const secColor = secondaryColors[secondaryCat] || '#666';
+        const secCatData = window.CATEGORIES.getCategory(secondaryCat);
+        const secColor = secCatData ? secCatData.color : '#666';
         markStyle += `border-bottom:2px dashed ${secColor};box-shadow:inset 0 0 0 1px ${secColor};`;
     }
 
@@ -946,29 +945,21 @@ function showHighlightEditModal(element, currentCategories) {
         }
     });
 
-    // Create category buttons
-    const categories = [
-        { id: 'grammar', name: 'Grammar Error', color: '#FF8C00' },
-        { id: 'vocabulary', name: 'Vocabulary Error', color: '#00A36C' },
-        { id: 'mechanics', name: 'Mechanics Error', color: '#D3D3D3' },
-        { id: 'spelling', name: 'Spelling Error', color: '#DC143C' },
-        { id: 'fluency', name: 'Fluency Error', color: '#87CEEB' },
-        { id: 'delete', name: 'Delete Word', color: '#000000' }
-    ];
+    // Create category buttons from the single source of truth (window.CATEGORIES).
+    const categories = window.CATEGORIES.getManualCategories();
 
     modalCategoryButtons.innerHTML = categories.map(category => {
         const isSelected = currentCategories.includes(category.id);
-        const isMechanics = category.id === 'mechanics';
-        const isFluency = category.id === 'fluency';
-        const isDelete = category.id === 'delete';
+        const style = window.CATEGORIES.getCategoryStyle(category.id);
+        const isFill = style.background !== 'transparent';
 
         const bgColor = isSelected
             ? category.color
-            : (isMechanics || isFluency ? category.color : 'transparent');
+            : (isFill ? style.background : 'transparent');
         const textColor = isSelected
             ? 'white'
-            : (isMechanics || isFluency ? 'black' : category.color);
-        const decoration = isDelete ? 'text-decoration: line-through;' : '';
+            : (isFill ? 'black' : style.color);
+        const decoration = style.strikethrough ? 'text-decoration: line-through;' : '';
         const selectedClass = isSelected ? 'modal-category-selected' : '';
 
         return `
@@ -976,7 +967,7 @@ function showHighlightEditModal(element, currentCategories) {
                     style="background: ${bgColor}; color: ${textColor}; border: 2px solid ${category.color};
                            padding: 6px 14px; border-radius: 16px; cursor: pointer; font-weight: 600;
                            transition: all 0.2s; font-size: 13px; ${decoration}; position: relative;">
-                ${category.name}
+                ${category.shortName || category.name}
                 ${isSelected ? '<span class="checkmark" style="position: absolute; top: -4px; right: -4px; background: #28a745; color: white; border-radius: 50%; width: 16px; height: 16px; display: flex; align-items: center; justify-content: center; font-size: 10px; font-weight: bold;">✓</span>' : ''}
             </button>
         `;
@@ -1238,6 +1229,15 @@ const EXPLANATION_SUGGESTIONS = {
     delete: [
         'Unnecessary word — remove it.',
         'Not a word.'
+    ],
+    redundancy: [
+        'Redundant — this repeats an idea already stated.',
+        'Remove the repetition.',
+        'Say this once.'
+    ],
+    'professor-comments': [
+        'See my comment.',
+        'Let\'s discuss this in class.'
     ]
 };
 
@@ -1314,19 +1314,11 @@ function toggleModalCategory(category) {
     const categoryBtn = modal.querySelector(`[data-category="${category}"]`);
     if (categoryBtn) {
         const isSelected = selectedCategories.includes(category);
-        const categories = [
-            { id: 'grammar', color: '#FF8C00' },
-            { id: 'vocabulary', color: '#00A36C' },
-            { id: 'mechanics', color: '#D3D3D3' },
-            { id: 'spelling', color: '#DC143C' },
-            { id: 'fluency', color: '#87CEEB' },
-            { id: 'delete', color: '#000000' }
-        ];
-
-        const categoryData = categories.find(c => c.id === category);
+        // Derived from the single source of truth (window.CATEGORIES).
+        const categoryData = window.CATEGORIES.getCategory(category);
         if (categoryData) {
-            const isMechanics = category === 'mechanics';
-            const isFluency = category === 'fluency';
+            const style = window.CATEGORIES.getCategoryStyle(category);
+            const isFill = style.background !== 'transparent';
 
             if (isSelected) {
                 categoryBtn.style.backgroundColor = categoryData.color;
@@ -1338,8 +1330,8 @@ function toggleModalCategory(category) {
                     categoryBtn.innerHTML += '<span class="checkmark" style="position: absolute; top: -4px; right: -4px; background: #28a745; color: white; border-radius: 50%; width: 16px; height: 16px; display: flex; align-items: center; justify-content: center; font-size: 10px; font-weight: bold;">✓</span>';
                 }
             } else {
-                categoryBtn.style.backgroundColor = (isMechanics || isFluency) ? categoryData.color : 'transparent';
-                categoryBtn.style.color = (isMechanics || isFluency) ? 'black' : categoryData.color;
+                categoryBtn.style.backgroundColor = isFill ? style.background : 'transparent';
+                categoryBtn.style.color = isFill ? 'black' : style.color;
                 categoryBtn.classList.remove('modal-category-selected');
                 // Remove checkmark if present
                 const checkmark = categoryBtn.querySelector('.checkmark');

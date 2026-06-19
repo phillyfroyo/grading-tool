@@ -283,14 +283,15 @@ function escapeHtml(text) {
  * @returns {string} HTML string for category buttons
  */
 function createManualCategoryButtons() {
-    return `
-        <button class="category-btn" data-category="grammar" style="background: transparent; color: #FF8C00; border: 2px solid #FF8C00; padding: 8px 12px; border-radius: 20px; cursor: pointer; font-weight: bold; transition: all 0.2s;">Grammar Error</button>
-        <button class="category-btn" data-category="vocabulary" style="background: transparent; color: #00A36C; border: 2px solid #00A36C; padding: 8px 12px; border-radius: 20px; cursor: pointer; font-weight: bold; transition: all 0.2s;">Vocabulary Error</button>
-        <button class="category-btn" data-category="spelling" style="background: transparent; color: #DC143C; border: 2px solid #DC143C; padding: 8px 12px; border-radius: 20px; cursor: pointer; font-weight: bold; transition: all 0.2s;">Spelling Error</button>
-        <button class="category-btn" data-category="mechanics" style="background: #D3D3D3; color: #000000; border: 2px solid #D3D3D3; padding: 8px 12px; border-radius: 20px; cursor: pointer; font-weight: bold; transition: all 0.2s;">Mechanics Error</button>
-        <button class="category-btn" data-category="fluency" style="background: #87CEEB; color: #000000; border: 2px solid #87CEEB; padding: 8px 12px; border-radius: 20px; cursor: pointer; font-weight: bold; transition: all 0.2s;">Fluency Error</button>
-        <button class="category-btn" data-category="delete" style="background: transparent; color: #000000; border: 2px solid #000000; padding: 8px 12px; border-radius: 20px; cursor: pointer; font-weight: bold; text-decoration: line-through; transition: all 0.2s;">Delete Word</button>
-    `;
+    // Generated from the single source of truth (window.CATEGORIES).
+    return window.CATEGORIES.getManualCategories().map(category => {
+        const style = window.CATEGORIES.getCategoryStyle(category.id);
+        const isFill = style.background !== 'transparent';
+        const bgColor = isFill ? style.background : 'transparent';
+        const textColor = isFill ? 'black' : style.color;
+        const decoration = style.strikethrough ? 'text-decoration: line-through;' : '';
+        return `<button class="category-btn" data-category="${category.id}" style="background: ${bgColor}; color: ${textColor}; border: 2px solid ${category.color}; padding: 8px 12px; border-radius: 20px; cursor: pointer; font-weight: bold; transition: all 0.2s; ${decoration}">${category.shortName || category.name}</button>`;
+    }).join('\n        ');
 }
 
 /**
@@ -298,15 +299,22 @@ function createManualCategoryButtons() {
  * @returns {string} HTML string for color legend
  */
 function createManualColorLegend() {
+    // Generated from the single source of truth (window.CATEGORIES).
+    const swatches = window.CATEGORIES.getManualCategories().map((category, i) => {
+        const style = window.CATEGORIES.getCategoryStyle(category.id);
+        const isFill = style.background !== 'transparent';
+        const marginLeft = i === 0 ? '10px' : '15px';
+        const decoration = style.strikethrough ? ' text-decoration: line-through;' : '';
+        const styleAttr = isFill
+            ? `background: ${style.background}; color: #000; padding: 2px 6px; border-radius: 3px; font-weight: bold; margin-left: ${marginLeft};${decoration}`
+            : `color: ${style.color}; font-weight: bold; margin-left: ${marginLeft};${decoration}`;
+        return `<span style="${styleAttr}">${category.name}</span>`;
+    }).join('\n            ');
+
     return `
         <div style="padding: 10px 15px; border-top: 1px solid #ddd; background: #f9f9f9; font-size: 12px;">
             <strong>Highlight Meanings:</strong>
-            <span style="color: #FF8C00; font-weight: bold; margin-left: 10px;">grammar</span>
-            <span style="color: #00A36C; font-weight: bold; margin-left: 15px;">vocabulary</span>
-            <span style="color: #DC143C; font-weight: bold; margin-left: 15px;">spelling</span>
-            <span style="background: #D3D3D3; color: #000; padding: 2px 6px; border-radius: 3px; font-weight: bold; margin-left: 15px;">mechanics</span>
-            <span style="background: #87CEEB; color: #000; padding: 2px 6px; border-radius: 3px; font-weight: bold; margin-left: 15px;">fluency</span>
-            <span style="color: #000; text-decoration: line-through; font-weight: bold; margin-left: 15px;">delete</span>
+            ${swatches}
         </div>
     `;
 }

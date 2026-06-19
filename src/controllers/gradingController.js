@@ -153,6 +153,7 @@ async function handleBatchGrade(req, res) {
         finalResult.studentNickname = essay.studentNickname;
 
         results.push({
+          essayId: essay.essayId,
           success: true,
           studentName: essay.studentName,
           studentNickname: essay.studentNickname,
@@ -161,6 +162,7 @@ async function handleBatchGrade(req, res) {
       } catch (error) {
         console.error(`❌ Error grading essay ${i + 1} for ${essay.studentName}:`, error);
         results.push({
+          essayId: essay.essayId,
           success: false,
           studentName: essay.studentName,
           studentNickname: essay.studentNickname,
@@ -267,6 +269,7 @@ async function handleStreamingBatchGrade(req, res, { essays, prompt, classProfil
         res.write(`data: ${JSON.stringify({
           type: 'processing',
           index: globalIndex,
+          essayId: essay.essayId,
           studentName: essay.studentName,
           message: `Processing ${essay.studentName} (Batch ${currentBatch}/${totalBatches})...`,
           batch: currentBatch,
@@ -296,6 +299,7 @@ async function handleStreamingBatchGrade(req, res, { essays, prompt, classProfil
 
           return {
             index: globalIndex,
+            essayId: essay.essayId,
             success: true,
             studentName: essay.studentName,
             studentNickname: essay.studentNickname,
@@ -307,6 +311,7 @@ async function handleStreamingBatchGrade(req, res, { essays, prompt, classProfil
 
           return {
             index: globalIndex,
+            essayId: essay.essayId,
             success: false,
             studentName: essay.studentName,
             studentNickname: essay.studentNickname,
@@ -329,6 +334,7 @@ async function handleStreamingBatchGrade(req, res, { essays, prompt, classProfil
         console.error(`❌ Promise rejected for essay ${globalIndex + 1}:`, result.reason);
         return {
           index: globalIndex,
+          essayId: essay?.essayId,
           success: false,
           studentName: essay?.studentName || `Student ${globalIndex + 1}`,
           studentNickname: essay?.studentNickname || '',

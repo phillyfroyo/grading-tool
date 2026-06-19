@@ -4,6 +4,46 @@
  */
 
 /**
+ * Generate the print/PDF CSS for all highlight categories from the single
+ * source of truth (window.CATEGORIES). Produces:
+ *   - mark[data-category=...] / mark[data-type=...]  → essay highlight colors
+ *   - .legend-<id>                                   → top highlight-key swatches
+ *   - .highlight-entry.<id>-error                    → error-list border accent
+ * so colors persist identically across the PDF essay, key, and error list.
+ */
+function buildCategoryPrintCSS() {
+    if (!window.CATEGORIES) return '';
+    return window.CATEGORIES.getManualCategories().map(category => {
+        const s = window.CATEGORIES.getCategoryStyle(category.id);
+        const isFill = s.background !== 'transparent';
+        const strike = s.strikethrough ? '\n                    text-decoration: line-through !important;' : '';
+
+        // Essay highlight mark
+        const markBody = isFill
+            ? `background: ${s.background} !important;
+                    color: #000000 !important;
+                    border: none !important;
+                    padding: 1px 2px !important;
+                    border-radius: 2px !important;${strike}`
+            : `background: transparent !important;
+                    color: ${s.color} !important;
+                    border: none !important;
+                    font-weight: bold !important;${strike}`;
+
+        // Top-key legend swatch
+        const legendBody = isFill
+            ? `background: ${s.background} !important; color: #000000 !important; padding: 2px 4px !important;${s.strikethrough ? ' text-decoration: line-through !important;' : ''}`
+            : `color: ${s.color} !important; font-weight: bold !important;${s.strikethrough ? ' text-decoration: line-through !important;' : ''}`;
+
+        return `mark[data-category="${category.id}"], mark[data-type="${category.id}"] {
+                    ${markBody}
+                }
+                .legend-${category.id} { ${legendBody} }
+                .highlight-entry.${category.id}-error { border-left-color: ${category.color}; }`;
+    }).join('\n                ');
+}
+
+/**
  * Export single essay to PDF
  */
 function exportToPDF() {
@@ -419,53 +459,10 @@ function openPrintDialog(resultsDiv, studentName) {
                     vertical-align: super;
                     margin-left: 1px;
                 }
-                /* Ensure all highlights are visible with appropriate category colors */
-                mark[data-category="grammar"], mark[data-type="grammar"] {
-                    background: transparent !important;
-                    color: #FF8C00 !important;
-                    border: none !important;
-                    font-weight: bold !important;
-                }
-                mark[data-category="vocabulary"], mark[data-type="vocabulary"] {
-                    background: transparent !important;
-                    color: #00A36C !important;
-                    border: none !important;
-                    font-weight: bold !important;
-                }
-                mark[data-category="spelling"], mark[data-type="spelling"] {
-                    background: transparent !important;
-                    color: #DC143C !important;
-                    border: none !important;
-                    font-weight: bold !important;
-                }
-                mark[data-category="mechanics"], mark[data-type="mechanics"] {
-                    background: #D3D3D3 !important;
-                    color: #000000 !important;
-                    border: none !important;
-                    padding: 1px 2px !important;
-                    border-radius: 2px !important;
-                }
-                mark[data-category="fluency"], mark[data-type="fluency"] {
-                    background: #87CEEB !important;
-                    color: #000000 !important;
-                    border: none !important;
-                    padding: 1px 2px !important;
-                    border-radius: 2px !important;
-                }
-                mark[data-category="delete"], mark[data-type="delete"] {
-                    background: transparent !important;
-                    color: #000000 !important;
-                    border: none !important;
-                    text-decoration: line-through !important;
-                    padding: 0 !important;
-                }
-                /* Legend labels with colors */
-                .legend-grammar { color: #FF8C00 !important; font-weight: bold !important; }
-                .legend-vocabulary { color: #00A36C !important; font-weight: bold !important; }
-                .legend-spelling { color: #DC143C !important; font-weight: bold !important; }
-                .legend-mechanics { background: #D3D3D3 !important; color: #000000 !important; padding: 2px 4px !important; }
-                .legend-fluency { background: #87CEEB !important; color: #000000 !important; padding: 2px 4px !important; }
-                .legend-delete { text-decoration: line-through !important; color: #000000 !important; }
+                /* Category highlight colors, top-key swatches, and error-list
+                   accents — generated from the single source of truth so the
+                   PDF essay, key, and error list always agree. */
+                ${buildCategoryPrintCSS()}
                 /* Fallback for any mark elements */
                 mark {
                     background: transparent !important;
@@ -514,24 +511,8 @@ function openPrintDialog(resultsDiv, studentName) {
                     page-break-inside: avoid;
                     break-inside: avoid;
                 }
-                .highlight-entry.grammar-error {
-                    border-left-color: #FF8C00;
-                }
-                .highlight-entry.vocabulary-error {
-                    border-left-color: #00A36C;
-                }
-                .highlight-entry.spelling-error {
-                    border-left-color: #DC143C;
-                }
-                .highlight-entry.mechanics-error {
-                    border-left-color: #D3D3D3;
-                }
-                .highlight-entry.fluency-error {
-                    border-left-color: #87CEEB;
-                }
-                .highlight-entry.delete-error {
-                    border-left-color: #000000;
-                }
+                /* .highlight-entry.<id>-error border accents are generated by
+                   buildCategoryPrintCSS() above (single source of truth). */
                 .highlight-number-text {
                     font-weight: bold;
                     color: #333;
@@ -739,23 +720,31 @@ function processHighlightsForPDF(content) {
         const notes = mark.dataset.notes || mark.dataset.message || mark.title || ''; // backwards compatibility
         const originalText = mark.dataset.originalText || mark.textContent || '';
 
-        // Only process highlights that have notes/explanations for numbering
-        if (notes && notes.trim() && !notes.toLowerCase().includes('click to edit')) {
-            // Add number to the highlight
-            mark.setAttribute('data-highlight-number', highlightNumber);
+        // Include every highlight in the numbered error list. The only
+        // highlights left out are those the user excluded via the "Manage
+        // Highlights and Corrections" section (data-excludeFromPdf, handled
+        // above). Highlights with no correction/explanation are still listed
+        // (the legend renderer omits those fields when empty). The "click to
+        // edit ..." placeholder is the default title on an un-annotated
+        // highlight — treat it as no notes, not as content.
+        const realNotes = (notes && !notes.toLowerCase().includes('click to edit'))
+            ? notes.trim()
+            : '';
 
-            // Store highlight data
-            highlightsData.push({
-                number: highlightNumber,
-                text: originalText.trim(),
-                categories: categories,
-                correction: correction.trim(),
-                explanation: explanation.trim(),
-                notes: notes.trim() // backwards compatibility
-            });
+        // Add number to the highlight
+        mark.setAttribute('data-highlight-number', highlightNumber);
 
-            highlightNumber++;
-        }
+        // Store highlight data
+        highlightsData.push({
+            number: highlightNumber,
+            text: originalText.trim(),
+            categories: categories,
+            correction: correction.trim(),
+            explanation: explanation.trim(),
+            notes: realNotes // backwards compatibility
+        });
+
+        highlightNumber++;
 
         // Keep category/type attributes for styling but clean up interactive attributes
         mark.removeAttribute('onclick');
@@ -765,6 +754,20 @@ function processHighlightsForPDF(content) {
         mark.removeAttribute('onmouseover');
         mark.removeAttribute('onmouseout');
         mark.style.cursor = 'default';
+
+        // Strip stale inline category styling so the generated print CSS
+        // (buildCategoryPrintCSS, keyed on data-category) fully governs the
+        // appearance. Without this, an essay saved when a category was a fill
+        // keeps inline background/color baked into its marks and prints with
+        // the old style. The data-category attribute is preserved.
+        mark.style.removeProperty('background');
+        mark.style.removeProperty('background-color');
+        mark.style.removeProperty('color');
+        mark.style.removeProperty('padding');
+        mark.style.removeProperty('border-radius');
+        mark.style.removeProperty('text-decoration');
+        mark.style.removeProperty('box-shadow');
+        mark.style.removeProperty('border-bottom');
 
         // Remove any event listeners
         const newMark = mark.cloneNode(true);
@@ -935,6 +938,26 @@ function enhanceContentForPDF(content, studentName, originalContent = null) {
     // Add spacing and border to color legend for PDF
     const colorLegend = tempDiv.querySelector('.color-legend');
     if (colorLegend) {
+        // Rebuild the legend swatches from the single source of truth so a PDF
+        // exported from a previously-saved essay reflects current category
+        // labels/styles (the cloned legend may carry stale inline styles).
+        if (typeof createColorLegend === 'function') {
+            const tmp = document.createElement('div');
+            tmp.innerHTML = createColorLegend();
+            const fresh = tmp.querySelector('.color-legend');
+            if (fresh) {
+                colorLegend.innerHTML = fresh.innerHTML;
+            }
+        } else {
+            // Fallback: strip stale inline styling from each swatch so the
+            // generated .legend-<id> rules govern.
+            colorLegend.querySelectorAll('mark[data-category]').forEach(sw => {
+                sw.style.removeProperty('background');
+                sw.style.removeProperty('background-color');
+                sw.style.removeProperty('color');
+                sw.style.removeProperty('text-decoration');
+            });
+        }
         // Get existing styles and append new ones with !important
         const existingStyles = colorLegend.getAttribute('style') || '';
         colorLegend.setAttribute('style', existingStyles + ' margin-top: 25px !important; padding-top: 15px !important; border-top: 1px solid #999 !important;');
@@ -1491,15 +1514,11 @@ function enhanceContentForPDF(content, studentName, originalContent = null) {
  * @returns {string} Display name
  */
 function getCategoryDisplayName(category) {
-    const categoryMap = {
-        'grammar': 'Grammar Error',
-        'vocabulary': 'Vocabulary Error',
-        'spelling': 'Spelling Error',
-        'mechanics': 'Mechanics Error',
-        'fluency': 'Fluency Error',
-        'delete': 'Delete Word'
-    };
-    return categoryMap[category] || category.charAt(0).toUpperCase() + category.slice(1);
+    // Display names come from the single source of truth (window.CATEGORIES).
+    if (window.CATEGORIES) {
+        return window.CATEGORIES.getCategoryName(category);
+    }
+    return category.charAt(0).toUpperCase() + category.slice(1);
 }
 
 /**

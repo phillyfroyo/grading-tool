@@ -17,6 +17,22 @@
 let currentBatchOriginTabId = null;
 
 /**
+ * Generate a stable, unique per-essay identifier. Used to bind grading
+ * results to the correct student regardless of array position, retries, or
+ * dropped/failed essays. Uses crypto.randomUUID when available, with a
+ * collision-resistant fallback for older browsers.
+ */
+function generateEssayId() {
+    if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+        return 'essay-' + crypto.randomUUID();
+    }
+    // Fallback: timestamp + two random segments (no Date.now collisions across a single batch)
+    return 'essay-' + Date.now().toString(36) + '-' +
+        Math.random().toString(36).slice(2, 10) + '-' +
+        Math.random().toString(36).slice(2, 10);
+}
+
+/**
  * Get the tab ID to use for state writes during batch streaming. Returns
  * the originating tab if a batch is currently in progress, else falls
  * back to the currently active tab (safe default for edge cases).
@@ -276,6 +292,13 @@ async function handleGradingFormSubmission(e) {
             const individualName = studentNameField ? studentNameField.value.trim() : '';
             const individualNickname = studentNicknameField ? studentNicknameField.value.trim() : '';
             studentTexts.push({
+                // Stable per-essay identity. This UUID is the ONLY thing that
+                // binds a result back to its student — never array position —
+                // so a dropped/failed/retried essay can't slide results onto
+                // the wrong student name. Threaded through: batchData →
+                // backend (echoed on every SSE event) → DOM (data-essay-id) →
+                // essayData/renderedHTML → auto-save/restore.
+                essayId: generateEssayId(),
                 text: textarea.value.trim(),
                 studentName: individualName || `${studentName} ${index + 1}`.trim(),
                 studentNickname: individualNickname
@@ -405,6 +428,7 @@ async function handleGradingFormSubmission(e) {
 
             const batchData = {
                 essays: studentTexts.map(essay => ({
+                    essayId: essay.essayId,
                     studentText: essay.text,
                     studentName: essay.studentName,
                     studentNickname: essay.studentNickname
@@ -713,12 +737,27 @@ async function streamBatchGradingSimple(batchData) {
         } catch (error) {
             console.error(`❌ Chunk failed: Essays ${chunkStart + 1}-${chunkEnd}:`, error.message);
 
-            // Mark failed essays in UI
-            for (let i = chunkStart; i < chunkEnd; i++) {
+            // Append an explicit failed result for EVERY essay in the failed
+            // chunk, bound to its essayId. Without this, the failed chunk
+            // contributes nothing to allResults and every later chunk's essays
+            // shift up into these slots — a silent student/grade swap. Keeping
+            // the array positionally complete (1:1 with batchData.essays) is
+            // what makes pairing safe.
+            chunkEssays.forEach((submitted, i) => {
+                const globalIndex = chunkStart + i;
+                allResults.push({
+                    essayId: submitted.essayId,
+                    success: false,
+                    error: `Chunk failed: ${error.message}`,
+                    result: null,
+                    studentName: submitted.studentName,
+                    studentNickname: submitted.studentNickname,
+                    index: globalIndex
+                });
                 if (window.BatchProcessingModule) {
-                    window.BatchProcessingModule.updateEssayStatus(i, false, `Chunk failed: ${error.message}`);
+                    window.BatchProcessingModule.updateEssayStatus(globalIndex, false, `Chunk failed: ${error.message}`, submitted.essayId);
                 }
-            }
+            });
 
             // Continue with next chunk instead of failing entire batch
             processedCount = chunkEnd;
@@ -741,7 +780,108 @@ async function processEssayChunk(chunkData, globalOffset) {
     return new Promise((resolve, reject) => {
         let processedResults = [];
         let timeoutId;
+        let reader; // hoisted so finishChunk() can cancel the stream
+        // Guard so the chunk resolves exactly once. The chunk can now be
+        // finished by any of: the 'complete' event, the stream 'done' close,
+        // OR the per-essay watchdog completing the last pending essay (so a
+        // server that never closes the stream — the real infinite-load — still
+        // lets the batch finish and the post-grade auto-save fire).
+        let settled = false;
+        function finishChunk() {
+            if (settled) return;
+            settled = true;
+            clearTimeout(timeoutId);
+            clearAllPerEssayTimers();
+            try { reader && reader.cancel && reader.cancel(); } catch (e) { /* best-effort */ }
+            resolve({
+                success: true,
+                results: buildAlignedChunkResults(),
+                totalEssays: chunkData.essays.length
+            });
+        }
+        // Resolve the chunk once every submitted essay has a terminal result,
+        // regardless of whether the server has closed the stream.
+        function resolveIfAllDone() {
+            for (let i = 0; i < chunkData.essays.length; i++) {
+                if (processedResults[i] === undefined) return; // still waiting on someone
+            }
+            console.log('[AutoSaveDiag] chunk all essays terminal — resolving without waiting for stream close');
+            finishChunk();
+        }
         const TIMEOUT_MS = 1200000; // 20 minutes - allow server to complete large batches
+
+        // Per-essay watchdog timers, keyed by local chunk index. Each starts
+        // when that essay's 'processing' event arrives (i.e. it was actually
+        // sent to GPT — NOT at submit time, so queued essays don't false-fail),
+        // and is cleared by its 'result' or 'error' event. If it fires, the
+        // essay never came back: mark it failed, bound to the correct student
+        // via essayId, so the user sees a clear placeholder + retry instead of
+        // an infinite spinner that could desync on refresh.
+        const PER_ESSAY_TIMEOUT_MS = 120000; // 120s after an essay is sent to GPT
+        const perEssayTimers = {};
+        function clearPerEssayTimer(localIdx) {
+            if (perEssayTimers[localIdx]) {
+                clearTimeout(perEssayTimers[localIdx]);
+                delete perEssayTimers[localIdx];
+            }
+        }
+        function clearAllPerEssayTimers() {
+            Object.keys(perEssayTimers).forEach(k => clearTimeout(perEssayTimers[k]));
+            for (const k in perEssayTimers) delete perEssayTimers[k];
+        }
+        function failEssayTimedOut(localIdx) {
+            // Only act if no terminal result was recorded for this essay.
+            if (processedResults[localIdx] !== undefined) return;
+            const submitted = chunkData.essays[localIdx];
+            const gIdx = globalOffset + localIdx;
+            const eid = submitted && submitted.essayId;
+            console.error(`⏱️ Per-essay timeout: "${submitted && submitted.studentName}" (essayId ${eid}) did not return within ${PER_ESSAY_TIMEOUT_MS / 1000}s of being sent to GPT`);
+            processedResults[localIdx] = {
+                essayId: eid,
+                success: false,
+                error: 'Essay did not return (timed out after being sent for grading)',
+                result: null,
+                studentName: submitted && submitted.studentName,
+                studentNickname: submitted && submitted.studentNickname,
+                index: gIdx
+            };
+            if (window.BatchProcessingModule) {
+                window.BatchProcessingModule.updateEssayStatus(gIdx, false, 'Essay did not return — please retry', eid);
+            }
+            // If this was the last pending essay, finish the chunk now rather
+            // than waiting for a stream close that may never come.
+            resolveIfAllDone();
+        }
+        // Build a results array with exactly one entry per submitted essay,
+        // positionally aligned to chunkData.essays. Missing slots become
+        // explicit failures bound to the correct essayId/student. Used by both
+        // the 'complete' event and the stream-close ('done') path so neither
+        // can produce a collapsed/sparse array (the swap vector).
+        function buildAlignedChunkResults() {
+            return chunkData.essays.map((submitted, localIdx) => {
+                const r = processedResults[localIdx];
+                if (r !== undefined) {
+                    return {
+                        essayId: r.essayId || submitted.essayId,
+                        success: r.success,
+                        error: r.error,
+                        result: r.result,
+                        studentName: r.studentName || submitted.studentName,
+                        studentNickname: r.studentNickname ?? submitted.studentNickname,
+                        index: r.index
+                    };
+                }
+                return {
+                    essayId: submitted.essayId,
+                    success: false,
+                    error: 'Essay did not return',
+                    result: null,
+                    studentName: submitted.studentName,
+                    studentNickname: submitted.studentNickname,
+                    index: globalOffset + localIdx
+                };
+            });
+        }
         // Note: Server-Sent Events (SSE) bypass Vercel's normal 10s timeout for serverless functions
 
         // Set up timeout detection - mainly for detecting stalled connections
@@ -753,6 +893,7 @@ async function processEssayChunk(chunkData, globalOffset) {
                 missingCount: chunkData.essays.length - processedResults.length,
                 timestamp: new Date().toISOString()
             });
+            if (settled) return;
             reject(new Error(`SSE timeout after 20 minutes. Processed ${processedResults.length}/${chunkData.essays.length} essays.`));
         }, TIMEOUT_MS);
 
@@ -769,21 +910,22 @@ async function processEssayChunk(chunkData, globalOffset) {
                 throw new Error(`HTTP ${response.status}: ${response.statusText}`);
             }
 
-            const reader = response.body.getReader();
+            reader = response.body.getReader();
             const decoder = new TextDecoder();
             let buffer = '';
 
             function readStream() {
                 return reader.read().then(({ done, value }) => {
                     if (done) {
-                        clearTimeout(timeoutId);
-                        resolve({
-                            success: true,
-                            results: processedResults,
-                            totalEssays: chunkData.essays.length
-                        });
+                        // Stream closed. finishChunk() reconciles into one
+                        // aligned result per submitted essay (failures synthesized
+                        // for any that never returned) and is idempotent via the
+                        // settled guard, so it's safe if the watchdog already
+                        // resolved the chunk.
+                        finishChunk();
                         return;
                     }
+                    if (settled) return; // chunk already resolved; stop reading
 
                     // Process the streamed data
                     buffer += decoder.decode(value, { stream: true });
@@ -808,7 +950,11 @@ async function processEssayChunk(chunkData, globalOffset) {
             return readStream();
         }).catch(error => {
             clearTimeout(timeoutId);
+            clearAllPerEssayTimers();
             console.error('❌ SSE fetch error:', error.message);
+            // If the watchdog already resolved this chunk, ignore the late
+            // stream error (e.g. our own reader.cancel()).
+            if (settled) return;
             reject(error);
         });
 
@@ -818,9 +964,19 @@ async function processEssayChunk(chunkData, globalOffset) {
                     break;
 
                 case 'processing':
+                    // This essay was just sent to GPT — start its watchdog.
+                    if (data.index !== undefined) {
+                        clearPerEssayTimer(data.index);
+                        perEssayTimers[data.index] = setTimeout(
+                            () => failEssayTimedOut(data.index),
+                            PER_ESSAY_TIMEOUT_MS
+                        );
+                    }
                     break;
 
                 case 'result':
+                        // Terminal event for this essay — stop its watchdog.
+                        clearPerEssayTimer(data.index);
                         const globalResultIndex = data.index + globalOffset;
 
                         // Adjust data index to global position
@@ -840,24 +996,37 @@ async function processEssayChunk(chunkData, globalOffset) {
                         // land in the wrong tab. getBatchWriteTabState() returns
                         // the tab that started the batch regardless of the
                         // current active tab.
-                        if (data.success && chunkData.essays[data.index]) {
+                        // Resolve the stable essayId: prefer the backend echo,
+                        // fall back to the submitted essay (same object we sent).
+                        const submittedEssay = chunkData.essays[data.index];
+                        const resolvedEssayId = data.essayId || (submittedEssay && submittedEssay.essayId);
+                        adjustedData.essayId = resolvedEssayId;
+
+                        if (data.success && submittedEssay) {
                             const streamSnapshot = {
                                 essay: {
                                     success: true,
+                                    essayId: resolvedEssayId,
                                     result: data.result,
-                                    studentName: data.studentName || chunkData.essays[data.index].studentName
+                                    studentName: data.studentName || submittedEssay.studentName
                                 },
                                 originalData: {
-                                    ...chunkData.essays[data.index],
+                                    ...submittedEssay,
+                                    essayId: resolvedEssayId,
                                     index: globalResultIndex,
                                     classProfile: chunkData.classProfile || null
                                 }
                             };
                             const streamTabState = getBatchWriteTabState();
+                            // Key essayData by BOTH the stable essayId (primary,
+                            // swap-proof) and the global index (legacy lookups
+                            // still in place during the migration).
                             if (streamTabState) {
                                 streamTabState.essayData[globalResultIndex] = streamSnapshot;
+                                if (resolvedEssayId) streamTabState.essayData[resolvedEssayId] = streamSnapshot;
                             } else {
                                 window[`essayData_${globalResultIndex}`] = streamSnapshot;
+                                if (resolvedEssayId) window[`essayData_${resolvedEssayId}`] = streamSnapshot;
                             }
                         }
 
@@ -876,36 +1045,45 @@ async function processEssayChunk(chunkData, globalOffset) {
                         break;
 
                     case 'complete':
-                        clearTimeout(timeoutId);
-
-                        // Create result object
-                        const chunkResult = {
-                            success: true,
-                            totalEssays: chunkData.essays.length,
-                            results: processedResults.filter(r => r !== undefined).map(r => ({
-                                success: r.success,
-                                error: r.error,
-                                result: r.result,
-                                studentName: r.studentName,
-                                index: r.index
-                            }))
-                        };
-
-                        resolve(chunkResult);
+                        // finishChunk() builds one aligned entry per submitted
+                        // essay (never collapsed) and is idempotent.
+                        finishChunk();
                         break;
 
                     case 'error':
+                        // Terminal event for this essay — stop its watchdog.
+                        if (data.index !== undefined) clearPerEssayTimer(data.index);
                         const globalErrorIndex = data.index !== undefined ? data.index + globalOffset : undefined;
+                        const erroredEssay = data.index !== undefined ? chunkData.essays[data.index] : undefined;
+                        const erroredEssayId = data.essayId || (erroredEssay && erroredEssay.essayId);
                         console.error('❌ Backend streaming error:', {
                             error: data.error,
                             localIndex: data.index,
                             globalIndex: globalErrorIndex,
+                            essayId: erroredEssayId,
                             chunkSize: chunkData.essays.length,
                             globalOffset
                         });
-                        if (window.BatchProcessingModule && globalErrorIndex !== undefined) {
-                            window.BatchProcessingModule.updateEssayStatus(globalErrorIndex, false, data.error);
+                        // Record the failure in the positional results array so
+                        // the 'complete' handler emits it (bound to essayId)
+                        // instead of synthesizing a generic failure.
+                        if (data.index !== undefined) {
+                            processedResults[data.index] = {
+                                essayId: erroredEssayId,
+                                success: false,
+                                error: data.error,
+                                result: null,
+                                studentName: data.studentName || (erroredEssay && erroredEssay.studentName),
+                                studentNickname: erroredEssay && erroredEssay.studentNickname,
+                                index: globalErrorIndex
+                            };
                         }
+                        if (window.BatchProcessingModule && globalErrorIndex !== undefined) {
+                            window.BatchProcessingModule.updateEssayStatus(globalErrorIndex, false, data.error, erroredEssayId);
+                        }
+                        // If this error completed the last pending essay, finish
+                        // the chunk without waiting for a stream close.
+                        resolveIfAllDone();
                         break;
 
                     default:
@@ -990,15 +1168,24 @@ function processBatchResultQueue() {
     window.batchQueueProcessor = setTimeout(() => {
         const data = window.batchResultQueue.shift();
 
-        // Update the UI for this essay
+        // Resolve the DOM row by the stable essayId (swap-safe). Fall back to
+        // the result's index only if the id can't be matched (legacy/no-id).
+        const targetIndex = (window.BatchProcessingModule
+            && window.BatchProcessingModule.resolveRowIndexByEssayId
+            && data.essayId != null)
+            ? (window.BatchProcessingModule.resolveRowIndexByEssayId(data.essayId) ?? data.index)
+            : data.index;
+
+        // Update the UI for this essay (pass essayId so status lands on the
+        // correct student even if positions shifted).
         if (window.BatchProcessingModule) {
-            window.BatchProcessingModule.updateEssayStatus(data.index, data.success, data.error);
+            window.BatchProcessingModule.updateEssayStatus(targetIndex, data.success, data.error, data.essayId);
         }
 
         // Pre-load the essay content so users can click and view it right away
         if (data.success) {
             if (window.BatchProcessingModule && window.BatchProcessingModule.loadEssayDetails) {
-                window.BatchProcessingModule.loadEssayDetails(data.index);
+                window.BatchProcessingModule.loadEssayDetails(targetIndex, data.essayId);
             }
         }
 

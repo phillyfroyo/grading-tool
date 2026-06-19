@@ -1,3 +1,7 @@
+// Highlight color mapping — derived from the single source of truth
+// (shared/categories.json via grader/categories.js). Do not hard-code colors here.
+import { correctionGuideColors } from './categories.js';
+
 // Embedded rubric data - no file dependencies!
 // NOTE: Keep weights in sync with rubric.json
 const rubric = {
@@ -52,21 +56,6 @@ const rubric = {
       "weight": 15
     }
   }
-};
-
-// Simplified color mapping for highlighting
-const correctionGuideColors = {
-  'grammar': { color: '#FF8C00', backgroundColor: 'transparent', name: 'Grammar' }, // Orange text
-  'vocabulary': { color: '#00A36C', backgroundColor: 'transparent', name: 'Vocabulary' }, // Green text
-  'mechanics': { color: '#000000', backgroundColor: '#D3D3D3', name: 'Mechanics' }, // Gray highlight
-  'mechanics-punctuation': { color: '#000000', backgroundColor: '#D3D3D3', name: 'Mechanics' }, // Gray highlight
-  'spelling': { color: '#DC143C', backgroundColor: 'transparent', name: 'Spelling' }, // Red text
-  'fluency': { color: '#000000', backgroundColor: '#87CEEB', name: 'Fluency' }, // Blue highlight
-  'needs-rephrasing': { color: '#000000', backgroundColor: '#87CEEB', name: 'Fluency' }, // Blue highlight
-  'redundancy': { color: '#000000', backgroundColor: '#87CEEB', name: 'Fluency' }, // Blue highlight
-  'non-suitable-words': { color: '#000000', backgroundColor: '#87CEEB', name: 'Fluency' }, // Blue highlight
-  'professor-comments': { color: '#000000', backgroundColor: '#FACC15', name: "Comments" },
-  'delete': { color: '#000000', backgroundColor: 'transparent', name: 'Delete', strikethrough: true } // Black strikethrough
 };
 
 export function formatGradedEssay(studentText, gradingResults, options = {}) {
