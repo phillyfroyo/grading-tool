@@ -125,7 +125,7 @@
             });
             if (resp.ok) {
                 clearPendingSaveStash();
-                updateBannerStatus('Recovered and saved work from your previous session.', 'ok');
+                updateBannerStatus('Welcome back — we’ve saved your previous work', 'ok');
                 console.log('[AutoSave] orphaned stash recovered successfully');
             } else if (resp.status === 401 || resp.status === 403) {
                 handleAuthExpired(stash.payload);
@@ -999,19 +999,18 @@
 
         overlay.innerHTML = `
             <div style="background:#fff;max-width:440px;width:90%;border-radius:10px;padding:24px;box-shadow:0 8px 30px rgba(0,0,0,0.25);font-family:'Inter',Arial,sans-serif;">
-                <h2 style="margin:0 0 8px;font-size:18px;color:#721c24;">Your session expired</h2>
+                <h2 style="margin:0 0 8px;font-size:18px;color:#2d6a2d;">Please sign back in</h2>
                 <p style="margin:0 0 16px;font-size:14px;line-height:1.5;color:#333;">
-                    <strong>Your graded work is safe</strong> — it's saved on this device and will be
-                    uploaded the moment you sign back in. Please re-enter your email to continue.
-                    Don't close or refresh this page until you see "All changes saved".
+                    Whoops, you've been signed out. Don't worry, your changes have been
+                    saved. Please enter your email address to sign back in.
                 </p>
-                <input id="reauth-email" type="email" placeholder="you@example.com"
+                <input id="reauth-email" type="email" placeholder="Enter your email"
                        value="${emailLooksValid ? prefillEmail.replace(/"/g, '&quot;') : ''}"
                        style="width:100%;box-sizing:border-box;padding:10px 12px;font-size:14px;border:1px solid #ccc;border-radius:6px;margin-bottom:12px;" />
                 <div id="reauth-error" style="display:none;color:#dc3545;font-size:13px;margin-bottom:10px;"></div>
                 <button id="reauth-submit"
                         style="width:100%;padding:10px;font-size:15px;font-weight:600;background:#007bff;color:#fff;border:none;border-radius:6px;cursor:pointer;">
-                    Sign in &amp; save my work
+                    Sign back in
                 </button>
             </div>`;
         document.body.appendChild(overlay);
@@ -1036,8 +1035,8 @@
                 overlay.remove();
             } else {
                 submitBtn.disabled = false;
-                submitBtn.textContent = 'Sign in & save my work';
-                errEl.textContent = 'Sign-in failed. Please check your email and try again.';
+                submitBtn.textContent = 'Sign back in';
+                errEl.textContent = 'That didn’t work. Please check your email and try again.';
                 errEl.style.display = 'block';
             }
         };
@@ -1084,7 +1083,7 @@
         }
         if (!payload) {
             clearPendingSaveStash();
-            updateBannerStatus('Signed back in. No unsaved changes to upload.', 'ok');
+            updateBannerStatus('You’re back in — everything’s saved', 'ok');
             return;
         }
         try {
@@ -1104,11 +1103,11 @@
                 authExpired = false; // allow handleAuthExpired to re-enter
                 handleAuthExpired(payload);
             } else {
-                updateBannerStatus('Signed in, but saving failed. Do not refresh — retrying…', 'warn');
+                updateBannerStatus('You’re back in. Still saving — please keep this page open…', 'warn');
                 scheduleRetry();
             }
         } catch (e) {
-            updateBannerStatus('Signed in, but saving failed. Do not refresh — retrying…', 'warn');
+            updateBannerStatus('You’re back in. Still saving — please keep this page open…', 'warn');
             scheduleRetry();
         }
     }
@@ -1396,7 +1395,7 @@
                 handleAuthExpired(payload);
             } else if (!resp.ok) {
                 console.warn('[AutoSave] Save failed:', resp.status);
-                updateBannerStatus('Changes failed to auto-save, sorry. Do not refresh or close the page.', 'warn');
+                updateBannerStatus('Couldn’t save just now — please keep this page open while we try again.', 'warn');
                 scheduleRetry();
             } else {
                 console.log('[AutoSave] Save successful');
@@ -1408,7 +1407,7 @@
             }
         } catch (err) {
             console.warn('[AutoSave] Save error:', err);
-            updateBannerStatus('Changes failed to auto-save, sorry. Do not refresh or close the page.', 'warn');
+            updateBannerStatus('Couldn’t save just now — please keep this page open while we try again.', 'warn');
             scheduleRetry();
         } finally {
             isSaving = false;
