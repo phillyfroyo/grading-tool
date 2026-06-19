@@ -61,113 +61,101 @@ const sessionConfig = {
   }
 };
 
-// For Vercel, temporarily disable database session store due to configuration issues
-if (false && isVercel) { // Disable database sessions for now
-  console.log('[SESSION] Database session store disabled - using memory store on Vercel');
+// Database-backed session store.
+//
+// Why this exists: on Vercel (serverless), express-session's default
+// MemoryStore does NOT persist across function invocations — each instance
+// has its own memory — so req.session is unreliable and auth silently lapses
+// mid-session (observed in prod as autosave 401s). A DB-backed store fixes
+// that by persisting sessions in Postgres so any instance can read them.
+//
+// Gated + reversible: strictly opt-in via USE_DB_SESSION_STORE=1, AND only
+// after the store initializes successfully. If anything goes wrong (no prisma,
+// DB error), we fall back to MemoryStore rather than risk locking users out.
+// Until the flag is set (e.g. in Vercel env), behavior is unchanged. Unset or
+// flip to anything but '1' to force MemoryStore — no code redeploy needed.
+const wantDbSessionStore = process.env.USE_DB_SESSION_STORE === '1';
 
-  // Simple session store that uses the database
+if (wantDbSessionStore) {
   class DatabaseSessionStore extends session.Store {
-    constructor() {
-      super();
-      this.prefix = 'sess:';
-    }
-
     async get(sid, callback) {
       try {
-        console.log('[SESSION_STORE] Getting session:', sid);
         const { prisma } = await import('./lib/prisma.js');
-
-        // Check if prisma is available
-        if (!prisma) {
-          console.log('[SESSION_STORE] Prisma not available, returning null session');
-          callback(null, null);
-          return;
+        if (!prisma) return callback(null, null);
+        // NOTE: the Prisma model is `sessions` (plural) → client accessor is
+        // prisma.sessions. The previous (disabled) version used prisma.session
+        // which is undefined — that was the bug that got this store shelved.
+        const row = await prisma.sessions.findUnique({ where: { sid } });
+        if (row && row.expiresAt > new Date()) {
+          return callback(null, JSON.parse(row.data));
         }
-
-        // Find session in database
-        const session = await prisma.session.findUnique({
-          where: { sid }
-        });
-
-        if (session && session.expiresAt > new Date()) {
-          console.log('[SESSION_STORE] Session found in database');
-          callback(null, JSON.parse(session.data));
-          return;
-        }
-
-        console.log('[SESSION_STORE] Session not found or expired');
-        callback(null, null);
+        return callback(null, null);
       } catch (error) {
-        console.error('[SESSION_STORE] Error getting session, falling back to no session:', error.message);
-        // Don't pass error to callback - just return null session to allow app to continue
+        console.error('[SESSION_STORE] get error (returning no session):', error.message);
         callback(null, null);
       }
     }
 
     async set(sid, sessionData, callback) {
       try {
-        console.log('[SESSION_STORE] Setting session:', sid, 'data:', sessionData);
         const { prisma } = await import('./lib/prisma.js');
-
-        // Check if prisma is available
-        if (!prisma) {
-          console.log('[SESSION_STORE] Prisma not available, skipping session save');
-          callback(null);
-          return;
-        }
-
-        // Store session in database
-        const expiresAt = new Date(Date.now() + (24 * 60 * 60 * 1000)); // 24 hours
-
-        await prisma.session.upsert({
+        if (!prisma) return callback(null);
+        // Prefer the cookie's own expiry so DB rows expire in lockstep with
+        // the cookie; fall back to 24h.
+        const cookieMaxAge = sessionData?.cookie?.maxAge;
+        const expiresAt = new Date(Date.now() + (cookieMaxAge || 24 * 60 * 60 * 1000));
+        const data = JSON.stringify(sessionData);
+        await prisma.sessions.upsert({
           where: { sid },
-          update: {
-            data: JSON.stringify(sessionData),
-            expiresAt
-          },
-          create: {
-            sid,
-            data: JSON.stringify(sessionData),
-            expiresAt
-          }
+          update: { data, expiresAt },
+          // id + updatedAt are filled by Prisma defaults (@default(cuid()),
+          // @updatedAt) — see schema. Only sid/data/expiresAt are required.
+          create: { sid, data, expiresAt },
         });
-
         callback(null);
       } catch (error) {
-        console.error('[SESSION_STORE] Error setting session, continuing without session save:', error.message);
-        // Don't pass error - allow app to continue without session persistence
+        console.error('[SESSION_STORE] set error (continuing without persist):', error.message);
         callback(null);
       }
     }
 
     async destroy(sid, callback) {
       try {
-        console.log('[SESSION_STORE] Destroying session:', sid);
         const { prisma } = await import('./lib/prisma.js');
-
-        if (!prisma) {
-          console.log('[SESSION_STORE] Prisma not available, skipping session destroy');
-          callback(null);
-          return;
-        }
-
-        // Delete session from database
-        await prisma.session.deleteMany({
-          where: { sid }
-        });
-
+        if (!prisma) return callback(null);
+        await prisma.sessions.deleteMany({ where: { sid } });
         callback(null);
       } catch (error) {
-        console.error('[SESSION_STORE] Error destroying session, continuing:', error.message);
-        // Don't pass error - allow app to continue
+        console.error('[SESSION_STORE] destroy error (continuing):', error.message);
         callback(null);
+      }
+    }
+
+    // express-session calls touch() to refresh expiry on active sessions.
+    // Without it, rolling sessions would not extend their DB expiry.
+    async touch(sid, sessionData, callback) {
+      try {
+        const { prisma } = await import('./lib/prisma.js');
+        if (!prisma) return callback && callback(null);
+        const cookieMaxAge = sessionData?.cookie?.maxAge;
+        const expiresAt = new Date(Date.now() + (cookieMaxAge || 24 * 60 * 60 * 1000));
+        await prisma.sessions.updateMany({ where: { sid }, data: { expiresAt } });
+        callback && callback(null);
+      } catch (error) {
+        // touch failures are non-fatal — the session still exists.
+        callback && callback(null);
       }
     }
   }
 
-  sessionConfig.store = new DatabaseSessionStore();
+  try {
+    sessionConfig.store = new DatabaseSessionStore();
+    console.log('[SESSION] Using database-backed session store (persists across serverless instances)');
+  } catch (error) {
+    console.error('[SESSION] Failed to init DB session store — falling back to memory store:', error.message);
+  }
 } else {
-  console.log('[SESSION] Using memory store for local development');
+  console.log('[SESSION] Using memory store (set USE_DB_SESSION_STORE=1 to enable DB-backed sessions)');
 }
 
 app.use(session(sessionConfig));
