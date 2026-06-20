@@ -502,6 +502,24 @@ function updateTotalScore(essayIndex = null, tabId) {
     if (overallScoreElement) {
         // Use the same simple format as the initial display to maintain consistency
         overallScoreElement.innerHTML = `${totalPoints}/${totalMaxPoints}`;
+
+        // Recolor the overall score so it tracks the new total (greener as the
+        // grade rises, redder as it falls). Use getCategoryScoreColor — it
+        // matches the backend formatter's getScoreColor palette exactly, so the
+        // live color is identical to the AI-rendered one (window.getScoreColor
+        // is a DIFFERENT bootstrap palette and must NOT be used here). The
+        // overall score is out of 100, so totalPoints is already a percentage.
+        // Purely cosmetic; wrapped so a recolor error can't affect the score
+        // path above.
+        try {
+            const colorFn = window.getCategoryScoreColor;
+            if (typeof colorFn === 'function' && totalMaxPoints > 0) {
+                const pct = Math.round((totalPoints / totalMaxPoints) * 100);
+                overallScoreElement.style.color = colorFn(pct);
+            }
+        } catch (e) {
+            console.warn('[updateTotalScore] overall recolor skipped:', e && e.message);
+        }
     }
 
     // Update individual category displays if needed
