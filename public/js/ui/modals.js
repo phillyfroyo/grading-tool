@@ -291,11 +291,23 @@ class ModalManager {
         let currentX, currentY, initialX, initialY;
         let xOffset = 0, yOffset = 0;
 
-        // Ensure the modal is positioned correctly for dragging
+        // The Edit Highlight modal anchors its TOP edge at a fixed offset
+        // (rather than vertical centering) so the modal's top stays put when its
+        // content height changes — e.g. when explanation suggestions appear or
+        // disappear. A centered (translateY(-50%)) modal grows from the middle
+        // and shifts upward as it gets taller; anchoring the top means it only
+        // grows downward. Other modals keep centering (nicer for small dialogs).
+        const anchorTop = modalElement.id === 'editModal';
+
         modalContent.style.position = 'absolute';
-        modalContent.style.top = '50%';
         modalContent.style.left = '50%';
-        modalContent.style.transform = 'translate(-50%, -50%)';
+        if (anchorTop) {
+            modalContent.style.top = '8vh';
+            modalContent.style.transform = 'translate(-50%, 0)';
+        } else {
+            modalContent.style.top = '50%';
+            modalContent.style.transform = 'translate(-50%, -50%)';
+        }
 
         modalHeader.style.cursor = 'move';
         modalHeader.style.userSelect = 'none';
@@ -335,7 +347,10 @@ class ModalManager {
                 xOffset = currentX;
                 yOffset = currentY;
 
-                modalContent.style.transform = `translate(calc(-50% + ${currentX}px), calc(-50% + ${currentY}px))`;
+                // Preserve each modal's vertical baseline while dragging:
+                // top-anchored modals translate from 0, centered ones from -50%.
+                const baseY = anchorTop ? '0px' : '-50%';
+                modalContent.style.transform = `translate(calc(-50% + ${currentX}px), calc(${baseY} + ${currentY}px))`;
             }
         };
 

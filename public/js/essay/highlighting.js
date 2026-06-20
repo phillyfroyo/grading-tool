@@ -406,6 +406,10 @@ function renderResizePreview() {
     const highlightTxt = fullText.substring(elementStart, elementEnd);
     const trailingText = fullText.substring(elementEnd, ctxEnd);
 
+    // Expose the current highlighted text so the modal's copy button can grab
+    // it (it changes as the highlight is resized via drag).
+    _resizeState.highlightTxt = highlightTxt;
+
     // ── Resize-preview style for a category, derived from the single source of
     //    truth (window.CATEGORIES): fill categories show their fill, text
     //    categories show colored text. ──
@@ -923,6 +927,42 @@ function showHighlightEditModal(element, currentCategories) {
         renderResizePreview();
     }
 
+    // Wire the "copy highlighted text" button (once). Copies the current
+    // highlighted text — which can change as the highlight is resized — so it
+    // always reads from the live _resizeState at click time.
+    const copyBtn = document.getElementById('copyHighlightedTextBtn');
+    if (copyBtn && !copyBtn.dataset.listenerAdded) {
+        copyBtn.dataset.listenerAdded = 'true';
+        copyBtn.addEventListener('click', async function (e) {
+            e.preventDefault();
+            e.stopPropagation();
+            const text = (_resizeState && _resizeState.highlightTxt) || '';
+            if (!text) return;
+            try {
+                if (navigator.clipboard && navigator.clipboard.writeText) {
+                    await navigator.clipboard.writeText(text);
+                } else {
+                    // Fallback for older browsers / non-secure contexts.
+                    const ta = document.createElement('textarea');
+                    ta.value = text;
+                    ta.style.position = 'fixed';
+                    ta.style.opacity = '0';
+                    document.body.appendChild(ta);
+                    ta.select();
+                    document.execCommand('copy');
+                    document.body.removeChild(ta);
+                }
+                // Brief visual confirmation: swap icon to a checkmark.
+                const original = copyBtn.innerHTML;
+                copyBtn.innerHTML = '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#28a745" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"></path></svg>';
+                copyBtn.title = 'Copied!';
+                setTimeout(() => { copyBtn.innerHTML = original; copyBtn.title = 'Copy highlighted text'; }, 1200);
+            } catch (err) {
+                console.warn('[copyHighlightedText] copy failed:', err && err.message);
+            }
+        });
+    }
+
     // Store reference to the element being edited (AFTER clearing state)
     modal.dataset.editingElement = element.id;
 
@@ -1266,13 +1306,16 @@ function updateExplanationSuggestions() {
         }
     });
 
+    // Suggestions sit at the very bottom of the modal (below the Save row), so
+    // they can flow at natural height — growing/shrinking them never shifts the
+    // locked elements above. Collapse the area entirely when there are none.
     if (suggestions.length === 0) {
         container.style.display = 'none';
         container.innerHTML = '';
         return;
     }
-
     container.style.display = 'flex';
+
     container.innerHTML = suggestions.map(function (s) {
         return '<button type="button" class="explanation-suggestion-btn">' +
             s + '</button>';

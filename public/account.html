@@ -437,10 +437,18 @@
                 <h3 class="modal-title" style="font-size: 20px;">Edit Highlight</h3>
                 <button class="modal-close-btn" style="width: 36px; height: 36px; font-size: 20px;">×</button>
             </div>
-            <div class="modal-body" style="padding: 24px; overflow-y: auto; flex: 1; min-height: 0;">
+            <div class="modal-body" style="padding: 24px; overflow-y: auto; flex: 1; min-height: 0; scrollbar-gutter: stable;">
                 <!-- Display highlighted text -->
-                <div style="margin-bottom: 16px; padding: 12px; background: #f8f9fa; border-radius: 8px; border-left: 4px solid #667eea;">
+                <div style="position: relative; margin-bottom: 16px; padding: 12px; background: #f8f9fa; border-radius: 8px; border-left: 4px solid #667eea;">
                     <label style="font-size: 14px; font-weight: bold; color: #495057; display: block; margin-bottom: 4px;">Highlighted Text:</label>
+                    <button id="copyHighlightedTextBtn" type="button" title="Copy highlighted text"
+                            style="position: absolute; top: 8px; right: 8px; width: 28px; height: 28px; padding: 0; border: 1px solid #ced4da; border-radius: 6px; background: #fff; cursor: pointer; display: flex; align-items: center; justify-content: center; color: #667eea; box-shadow: 0 1px 2px rgba(0,0,0,0.08);"
+                            onmouseover="this.style.background='#eef0fb'" onmouseout="this.style.background='#fff'">
+                        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                            <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+                        </svg>
+                    </button>
                     <div id="highlightedTextDisplay" style="font-size: 15px; color: #212529; line-height: 1.5;"></div>
                 </div>
 
@@ -452,13 +460,17 @@
 
                 <label for="editExplanation" style="font-size: 14px; font-weight: bold; margin-top: 12px; margin-bottom: 6px; display: block;">Explanation:</label>
                 <textarea id="editExplanation" rows="1" spellcheck="true" style="width: 100%; padding: 8px 12px; border: 2px solid #e9ecef; border-radius: 8px; font-size: 16px; line-height: 1.5; resize: none; overflow: hidden; box-sizing: border-box;" placeholder="Why is this incorrect? (optional)"></textarea>
-                <div id="explanationSuggestions" style="display: none; flex-wrap: wrap; gap: 6px; margin-top: 8px;"></div>
 
                 <div style="margin-top: 16px; text-align: right;">
                     <button class="modal-save-btn" style="background: #28a745; color: white; border: none; padding: 10px 20px; border-radius: 6px; cursor: pointer; margin-right: 10px; font-size: 15px; font-weight: 600;">Save</button>
                     <button class="modal-remove-btn" style="background: #dc3545; color: white; border: none; padding: 10px 20px; border-radius: 6px; cursor: pointer; margin-right: 10px; font-size: 15px; font-weight: 600;">Remove Highlight</button>
                     <button class="modal-cancel-btn" style="background: #6c757d; color: white; border: none; padding: 10px 20px; border-radius: 6px; cursor: pointer; font-size: 15px; font-weight: 600;">Cancel</button>
                 </div>
+
+                <!-- Explanation suggestions live at the very bottom of the modal,
+                     below the Save row, so growing/shrinking them (as categories
+                     are toggled) never shifts the locked elements above. -->
+                <div id="explanationSuggestions" style="display: flex; flex-wrap: wrap; gap: 6px; margin-top: 16px;"></div>
             </div>
         </div>
     </div>
