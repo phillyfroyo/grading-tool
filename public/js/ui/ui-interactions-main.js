@@ -196,6 +196,70 @@ function getScoreColor(percentage) {
 }
 
 /**
+ * Color for a category score, matching the palette the backend formatter
+ * (grader/formatter.js getScoreColor) uses at initial render — so a score
+ * recolored after a manual edit looks identical to one the AI returned.
+ * @param {number} percentage - Score percentage (0–100)
+ * @returns {string} Hex color
+ */
+function getCategoryScoreColor(percentage) {
+    if (percentage >= 90) return '#22C55E'; // Green - Excellent
+    if (percentage >= 80) return '#84CC16'; // Light green - Good
+    if (percentage >= 70) return '#EAB308'; // Yellow - Satisfactory
+    if (percentage >= 60) return '#F97316'; // Orange - Needs improvement
+    return '#EF4444'; // Red - Unsatisfactory
+}
+
+/**
+ * Recompute and apply the score color for a category, so manually edited
+ * scores update their color live (a higher score turns green, a lower one
+ * red — matching how the AI's grades are colored). Targets both the editable
+ * number input and its sibling "/max" span.
+ *
+ * @param {HTMLElement} inputEl - the .editable-score input that changed, OR an
+ *   .editable-stat-score span ("points/max" format).
+ */
+function recolorCategoryScore(inputEl) {
+  try {
+    if (!inputEl) return;
+    let points, max;
+
+    if (inputEl.classList && inputEl.classList.contains('editable-stat-score')) {
+        // "points/max" text span
+        const m = (inputEl.textContent || '').match(/([\d.]+)\s*\/\s*([\d.]+)/);
+        if (!m) return;
+        points = parseFloat(m[1]);
+        max = parseFloat(m[2]);
+    } else {
+        // number input
+        points = parseFloat(inputEl.value);
+        max = parseFloat(inputEl.max) || parseFloat(inputEl.dataset.outOf) || 0;
+    }
+    if (!isFinite(points) || !isFinite(max) || max <= 0) return;
+
+    const pct = Math.round((points / max) * 100);
+    const color = getCategoryScoreColor(pct);
+
+    inputEl.style.color = color;
+
+    // Recolor the adjacent "/max" span. It sits just after the
+    // .score-input-container, as a sibling inside the same score wrapper.
+    const container = inputEl.closest('.score-input-container');
+    const wrapper = container ? container.parentElement : inputEl.parentElement;
+    if (wrapper) {
+        wrapper.querySelectorAll('span').forEach(span => {
+            if (/^\s*\/\s*[\d.]+\s*$/.test(span.textContent || '')) {
+                span.style.color = color;
+            }
+        });
+    }
+  } catch (e) {
+    // Purely cosmetic — never let a recolor error affect grading/editing.
+    console.warn('[recolorCategoryScore] skipped:', e && e.message);
+  }
+}
+
+/**
  * Helper function to count words in text
  * @param {string} text - Text to count words in
  * @returns {number} Word count
@@ -300,6 +364,8 @@ window.clearManualForm = clearManualForm;
 window.displayManualGradingResults = displayManualGradingResults;
 window.testManualGrading = testManualGrading;
 window.getScoreColor = getScoreColor;
+window.getCategoryScoreColor = getCategoryScoreColor;
+window.recolorCategoryScore = recolorCategoryScore;
 window.countWords = countWords;
 window.escapeHtml = escapeHtml;
 

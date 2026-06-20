@@ -323,6 +323,7 @@ function editStat(element, statType) {
         if (scoreMatch && element.closest('.category-feedback, .category-item')) {
             const points = parseFloat(scoreMatch[1]);
             const maxPoints = parseFloat(scoreMatch[2]);
+
             const categoryElement = element.closest('.category-feedback, .category-item');
             const category = categoryElement?.dataset?.category || element.dataset?.category;
 
@@ -362,6 +363,11 @@ function editStat(element, statType) {
             } else if (window.ManualGradingModule && window.ManualGradingModule.updateManualTotalScore) {
                 window.ManualGradingModule.updateManualTotalScore();
             }
+
+            // Recolor the score to track the new value (green for high, red for
+            // low). Runs LAST — after all data + total updates — so it can never
+            // interfere with the grading/score path.
+            if (window.recolorCategoryScore) window.recolorCategoryScore(element);
         } else {
             // For non-score stat edits, just update the display
             // Update total score in case this affects calculations

@@ -150,6 +150,11 @@ function setupEditableElements(gradingResult, originalData) {
 
             // Recalculate total score
             updateTotalScore();
+
+            // Recolor this category's score so the color tracks the new value
+            // (a raised score turns green, a lowered one red). Runs LAST so it
+            // can never interfere with the score/total update path above.
+            if (window.recolorCategoryScore) window.recolorCategoryScore(this);
         });
     });
 
@@ -331,6 +336,11 @@ function setupBatchEditableElements(gradingResult, originalData, essayIndex, tab
 
                     // Recalculate total score for this specific essay in this specific tab
                     updateTotalScore(currentEssayIndex, eventTabId);
+
+                    // Recolor this category's score to track the new value.
+                    // Runs LAST so it can never interfere with the score/total
+                    // update path above.
+                    if (window.recolorCategoryScore) window.recolorCategoryScore(this);
                 });
             }
         });

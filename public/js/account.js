@@ -374,6 +374,38 @@ function initEditingModules(container) {
     }
 }
 
+// Recolor a category score so it tracks the value after a manual edit
+// (green for high, red for low) — matching the palette the backend formatter
+// uses at initial render. Self-contained so the account page doesn't need the
+// full UI-interactions module.
+function recolorAccountScore(inputEl) {
+  try {
+    if (!inputEl) return;
+    var points = parseFloat(inputEl.value);
+    var max = parseFloat(inputEl.max) || 0;
+    if (!isFinite(points) || !isFinite(max) || max <= 0) return;
+    var pct = Math.round((points / max) * 100);
+    var color = pct >= 90 ? '#22C55E'
+              : pct >= 80 ? '#84CC16'
+              : pct >= 70 ? '#EAB308'
+              : pct >= 60 ? '#F97316'
+              : '#EF4444';
+    inputEl.style.color = color;
+    var container = inputEl.closest('.score-input-container');
+    var wrapper = container ? container.parentElement : inputEl.parentElement;
+    if (wrapper) {
+        wrapper.querySelectorAll('span').forEach(function (span) {
+            if (/^\s*\/\s*[\d.]+\s*$/.test(span.textContent || '')) {
+                span.style.color = color;
+            }
+        });
+    }
+  } catch (e) {
+    // Purely cosmetic — never let a recolor error affect grading/editing.
+    console.warn('[recolorAccountScore] skipped:', e && e.message);
+  }
+}
+
 function setupScoreListeners(container) {
     container.querySelectorAll('.editable-score').forEach(function (input) {
         // Skip if already wired
@@ -386,6 +418,7 @@ function setupScoreListeners(container) {
             if (newPoints < 0) this.value = 0;
             if (newPoints > maxPoints) this.value = maxPoints;
             recalcTotalScore(container);
+            recolorAccountScore(this); // cosmetic, runs last
         });
     });
 
