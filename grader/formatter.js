@@ -9,15 +9,15 @@ const rubric = {
     "grammar": {
       "id": "grammar",
       "name": "Grammar",
-      "color": "#FF8C00",
-      "backgroundColor": "#FFF3E0",
+      "color": "#FF00FF",
+      "backgroundColor": "#FCE4FF",
       "weight": 15
     },
     "vocabulary": {
       "id": "vocabulary",
       "name": "Vocabulary",
-      "color": "#00A36C",
-      "backgroundColor": "#E8F5E9",
+      "color": "#00B0F0",
+      "backgroundColor": "#E1F5FE",
       "weight": 15
     },
     "spelling": {
