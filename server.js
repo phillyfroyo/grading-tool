@@ -8,6 +8,7 @@ console.log("[BOOT] Node version:", process.version);
 console.log("[BOOT] Platform:", process.platform);
 
 import express from "express";
+import compression from "compression";
 import morgan from "morgan";
 import session from "express-session";
 import cookieParser from "cookie-parser";
@@ -38,6 +39,25 @@ app.use((req, res, next) => {
   console.log(`[REQUEST] ${req.method} ${req.url} from ${req.get('User-Agent')?.substring(0, 50) || 'Unknown'}`);
   next();
 });
+
+// Gzip responses. This is the fix for Vercel FUNCTION_PAYLOAD_TOO_LARGE (413)
+// on GET /api/grading-session: a saved session blob (all essays' rendered HTML
+// across tabs) can exceed Vercel's ~4.5MB function-response limit. gzip shrinks
+// that JSON ~7x (rendered HTML is highly repetitive), giving large headroom.
+//
+// CRITICAL: must NOT compress Server-Sent Events (the grading stream). Buffering
+// an event-stream would delay/break live grading. The filter below explicitly
+// skips any response whose Content-Type is text/event-stream, then falls back
+// to compression's default filter for everything else.
+app.use(compression({
+  filter: (req, res) => {
+    const type = res.getHeader('Content-Type');
+    if (typeof type === 'string' && type.includes('text/event-stream')) {
+      return false; // never compress SSE / live grading streams
+    }
+    return compression.filter(req, res);
+  },
+}));
 
 app.use(express.json({ limit: config.api.requestLimit }));
 app.use(express.urlencoded({ extended: true, limit: config.api.requestLimit }));
