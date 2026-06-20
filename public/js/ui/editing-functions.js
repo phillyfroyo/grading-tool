@@ -469,10 +469,182 @@ function setupEditableElements() {
     });
 }
 
+/**
+ * Locate the .teacher-notes block associated with a suggestion chip button.
+ * The chip can live in two places:
+ *   1. As a sibling row right after the .teacher-notes block (in the result).
+ *   2. Inside the edit-teacher-notes modal (no .teacher-notes nearby) — in that
+ *      case the modal records the target element it was opened for.
+ * @param {HTMLElement} btn - the .teacher-notes-suggestion-btn
+ * @returns {HTMLElement|null}
+ */
+function findTeacherNotesBlockForChip(btn) {
+    if (!btn) return null;
+
+    // Case 1: chip is a sibling row inside the same grading summary.
+    const summary = btn.closest('.grading-summary');
+    if (summary) {
+        const block = summary.querySelector('.teacher-notes.editable-section') ||
+                      summary.querySelector('.teacher-notes');
+        if (block) return block;
+    }
+
+    // Case 2: chip is inside the teacher-notes modal — resolve the target the
+    // modal was opened for (set by openTeacherNotesModal).
+    const modal = document.getElementById('teacherNotesModal');
+    if (modal && modal.dataset.targetElement) {
+        const target = document.getElementById(modal.dataset.targetElement);
+        if (target) return target;
+    }
+
+    // Fallback: nearest ancestor (covers the legacy nested-chip layout).
+    return btn.closest('.teacher-notes');
+}
+
+/**
+ * Write a teacher-note value into a note block exactly the way the inline/modal
+ * editors do, so the result is indistinguishable from a manual edit (same
+ * dataset, content span, styling, grading-data update, and autosave event).
+ * @param {HTMLElement} notesBlock - the .teacher-notes element
+ * @param {string} noteText
+ */
+function commitTeacherNote(notesBlock, noteText) {
+    if (!notesBlock) return;
+    const note = (noteText || '').trim();
+
+    notesBlock.dataset.teacherNotes = note;
+    const contentElement = notesBlock.querySelector('.teacher-notes-content');
+    if (contentElement) {
+        contentElement.textContent = note || 'Click to add teacher notes';
+    }
+
+    if (note) {
+        notesBlock.style.backgroundColor = '#fff3cd';
+        notesBlock.title = 'Teacher notes: ' + note.substring(0, 100) +
+                           (note.length > 100 ? '...' : '');
+    } else {
+        notesBlock.style.backgroundColor = '';
+        notesBlock.title = 'Click to edit teacher notes';
+    }
+
+    // Persist to grading data (active tab first, legacy global fallback)
+    const activeTabState = window.TabStore && window.TabStore.active();
+    if (activeTabState && activeTabState.currentGradingData) {
+        activeTabState.currentGradingData.teacher_notes = note;
+    } else if (window.currentGradingData) {
+        window.currentGradingData.teacher_notes = note;
+    }
+
+    // If the edit-teacher-notes modal is open for THIS block, keep its textarea
+    // in sync so a toggle updates the text the teacher is editing, not just the
+    // note behind the modal.
+    const modal = document.getElementById('teacherNotesModal');
+    if (modal && modal.dataset.targetElement === notesBlock.id) {
+        const textArea = document.getElementById('teacherNotesText');
+        if (textArea) {
+            textArea.value = note;
+            // Re-fit height if the editor auto-resizes.
+            if (textArea.style.height) {
+                textArea.style.height = 'auto';
+                textArea.style.height = textArea.scrollHeight + 'px';
+            }
+        }
+    }
+
+    // auto-save.js debounces a save on this event.
+    if (window.eventBus && typeof window.eventBus.emit === 'function') {
+        window.eventBus.emit('teacher-notes:saved', { element: notesBlock, notes: note });
+    }
+}
+
+/**
+ * Update every "Focus on …" toggle pill bound to a given note block so they all
+ * reflect the current mode and label. Pills carry both versions of the note
+ * (data-note-two / data-note-one) and a data-mode marker. There can be two
+ * pills live at once: the sibling row in the result, and the one in the modal.
+ * @param {HTMLElement} notesBlock
+ * @param {string} mode - 'two' (showing 2-cat note) or 'one'
+ */
+function syncTeacherNotesPills(notesBlock, mode) {
+    const noteTwo = (notesBlock.dataset.teacherNotesPrimary || '');
+    const noteOne = (notesBlock.dataset.teacherNotesSuggestion || '');
+
+    // The sibling pill lives in the same grading summary as the note block.
+    const summary = notesBlock.closest('.grading-summary');
+    const pills = [];
+    if (summary) {
+        summary.querySelectorAll('.teacher-notes-suggestion-btn').forEach((p) => pills.push(p));
+    }
+    // The modal pill targets this block via the modal's dataset.targetElement.
+    const modal = document.getElementById('teacherNotesModal');
+    if (modal && modal.dataset.targetElement === notesBlock.id) {
+        const modalPill = document.getElementById('teacherNotesSuggestionChip');
+        if (modalPill && pills.indexOf(modalPill) === -1) pills.push(modalPill);
+    }
+
+    pills.forEach((pill) => {
+        pill.dataset.noteTwo = noteTwo;
+        pill.dataset.noteOne = noteOne;
+        pill.dataset.mode = mode;
+        // Label offers the OTHER focus than what's currently applied.
+        pill.textContent = (mode === 'two') ? 'Focus on one category' : 'Focus on two categories';
+    });
+}
+
+/**
+ * Toggle a teacher note between its two-category and one-category versions.
+ * Continuously interchangeable: each click swaps to the other version and
+ * relabels every bound pill, so the teacher can flip back and forth freely.
+ * @param {HTMLElement} pill - the clicked .teacher-notes-suggestion-btn
+ */
+function toggleTeacherNotesFocus(pill) {
+    if (!pill) return;
+    const notesBlock = findTeacherNotesBlockForChip(pill);
+    if (!notesBlock) return;
+
+    // Resolve both versions. The pill is the primary source (it always carries
+    // both); fall back to the note block's datasets.
+    const noteTwo = pill.dataset.noteTwo || notesBlock.dataset.teacherNotesPrimary || '';
+    const noteOne = pill.dataset.noteOne || notesBlock.dataset.teacherNotesSuggestion || '';
+    if (!noteTwo || !noteOne) return;
+
+    const currentMode = pill.dataset.mode || 'two';
+    const nextMode = currentMode === 'two' ? 'one' : 'two';
+    const nextNote = nextMode === 'one' ? noteOne : noteTwo;
+
+    commitTeacherNote(notesBlock, nextNote);
+    syncTeacherNotesPills(notesBlock, nextMode);
+    console.log(`✅ Toggled teacher note focus → ${nextMode === 'one' ? 'one category' : 'two categories'}`);
+}
+
+// Back-compat alias (older callers referenced applyTeacherNotesSuggestion).
+function applyTeacherNotesSuggestion(notesBlock) {
+    const summary = notesBlock && notesBlock.closest('.grading-summary');
+    const pill = summary && summary.querySelector('.teacher-notes-suggestion-btn');
+    if (pill) toggleTeacherNotesFocus(pill);
+}
+
+// One-time delegated listener: a click on a "Focus on …" pill toggles the note.
+// stopPropagation keeps the click off the note block's edit handler. Delegation
+// means it works for essays rendered after page load (batch grading, My Essays
+// restore) on both index.html and account.html. The pill stays in place (it's a
+// toggle), and the modal stays open so the teacher can keep flipping.
+if (!window.__teacherNotesSuggestionWired) {
+    window.__teacherNotesSuggestionWired = true;
+    document.addEventListener('click', (e) => {
+        const btn = e.target.closest && e.target.closest('.teacher-notes-suggestion-btn');
+        if (!btn) return;
+        e.stopPropagation();
+        e.preventDefault();
+        toggleTeacherNotesFocus(btn);
+    });
+}
+
 // Export functions for module usage
 window.EditingFunctionsModule = {
     editTeacherNotes,
     editStat,
     makeElementEditable,
-    setupEditableElements
+    setupEditableElements,
+    applyTeacherNotesSuggestion
 };

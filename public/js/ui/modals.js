@@ -416,6 +416,33 @@ class ModalManager {
             textArea.value = currentText;
         }
 
+        // Populate the "Focus on …" toggle pill for this essay (if any). The two
+        // versions of the note live on the target block's datasets
+        // (data-teacher-notes-primary = 2-cat, data-teacher-notes-suggestion =
+        // 1-cat); show the pill only when both exist. The current mode is derived
+        // from which version the note currently matches. Clicking is handled by
+        // the delegated listener in editing-functions.js, which resolves the
+        // target via this modal's dataset.targetElement.
+        const suggestionBox = document.getElementById('teacherNotesSuggestionBox');
+        const suggestionChip = document.getElementById('teacherNotesSuggestionChip');
+        const noteTwo = (element.dataset.teacherNotesPrimary || '').trim();
+        const noteOne = (element.dataset.teacherNotesSuggestion || '').trim();
+        if (suggestionBox && suggestionChip) {
+            if (noteTwo && noteOne) {
+                const current = (element.dataset.teacherNotes || '').trim();
+                const mode = current === noteOne ? 'one' : 'two';
+                suggestionChip.dataset.noteTwo = noteTwo;
+                suggestionChip.dataset.noteOne = noteOne;
+                suggestionChip.dataset.mode = mode;
+                suggestionChip.textContent = (mode === 'two')
+                    ? 'Focus on one category'
+                    : 'Focus on two categories';
+                suggestionBox.style.display = '';
+            } else {
+                suggestionBox.style.display = 'none';
+            }
+        }
+
         // Store target element reference
         modal.element.dataset.targetElement = element.id;
 

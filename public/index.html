@@ -247,6 +247,13 @@
                     <button class="modal-save-btn" style="background: #28a745; color: white; border: none; padding: 12px 22px; border-radius: 6px; cursor: pointer; margin-right: 10px; font-size: 17px; font-weight: 600;">Save</button>
                     <button class="modal-cancel-btn" style="background: #6c757d; color: white; border: none; padding: 12px 22px; border-radius: 6px; cursor: pointer; font-size: 17px; font-weight: 600;">Cancel</button>
                 </div>
+                <!-- Toggle pill (populated per-essay when the modal opens) -->
+                <div id="teacherNotesSuggestionBox" style="margin-top: 18px; display: none;">
+                    <div style="font-size: 13px; color: #6c757d; margin-bottom: 6px;">Suggestion:</div>
+                    <button type="button" id="teacherNotesSuggestionChip" class="teacher-notes-suggestion-btn explanation-suggestion-btn"
+                            data-mode="two"
+                            title="Click to switch the note's focus">Focus on one category</button>
+                </div>
             </div>
         </div>
     </div>
@@ -463,9 +470,9 @@
     <!-- UI Modules (ES6) -->
     <script src="/js/ui/tab-store.js?v=1"></script>
     <script src="/js/ui/tab-management.js?v=14"></script>
-    <script src="/js/ui/modals.js?v=19"></script>
+    <script src="/js/ui/modals.js?v=21"></script>
     <script src="/js/ui/form-handling.js?v=31"></script>
-    <script src="/js/ui/editing-functions.js?v=15"></script>
+    <script src="/js/ui/editing-functions.js?v=18"></script>
     <script src="/js/ui/manual-grading.js?v=16"></script>
     <script src="/js/ui/ui-interactions-main.js?v=15"></script>
 

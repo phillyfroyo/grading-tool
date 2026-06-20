@@ -77,7 +77,7 @@ async function handleApiGrade(req, res) {
       total: finalResult.total,
       meta: finalResult.meta,
       teacher_notes: finalResult.teacher_notes,
-      encouragement_next_steps: finalResult.encouragement_next_steps,
+      teacher_notes_suggestion: finalResult.teacher_notes_suggestion,
       inline_issues: finalResult.inline_issues,
       formattedText: finalResult.formattedText,
       feedbackSummary: finalResult.feedbackSummary,

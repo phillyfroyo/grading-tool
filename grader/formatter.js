@@ -63,7 +63,7 @@ export function formatGradedEssay(studentText, gradingResults, options = {}) {
   console.log(`Student text length: ${studentText.length}`);
   console.log(`Number of inline issues: ${(gradingResults.inline_issues || []).length}`);
   
-  const { meta, scores, total, inline_issues, teacher_notes, encouragement_next_steps } = gradingResults;
+  const { meta, scores, total, inline_issues, teacher_notes, teacher_notes_suggestion } = gradingResults;
 
   // Normalize text and fix offsets ONCE to ensure consistency
   const normalizedText = studentText.normalize('NFC');
@@ -73,7 +73,7 @@ export function formatGradedEssay(studentText, gradingResults, options = {}) {
   const formattedText = renderWithOffsets(normalizedText, correctedIssues, options);
 
   // Generate feedback summary with new format
-  const feedbackHtml = generateFeedbackSummary(scores, total, meta, teacher_notes, encouragement_next_steps, options);
+  const feedbackHtml = generateFeedbackSummary(scores, total, meta, teacher_notes, teacher_notes_suggestion, options);
 
   return {
     formattedText: formattedText,
@@ -809,22 +809,41 @@ function renderSingleHighlight(issue, text, segmentIndex, editable) {
 }
 
 
-function generateFeedbackSummary(scores, total, meta, teacherNotes, encouragementSteps, options = {}) {
+function generateFeedbackSummary(scores, total, meta, teacherNotes, teacherNotesSuggestion, options = {}) {
   const { editable = true } = options;
   const scoreColor = getScoreColor(total?.points || 0);
-  
+
+  // A clean toggle pill that swaps the teacher note between the two-category
+  // primary ("...spelling and mechanics, as these need...") and the
+  // one-category focus ("...spelling, as this needs..."). Both versions ride on
+  // the pill's data attributes so the two are continuously interchangeable —
+  // clicking applies the other version and relabels the pill. Only present when
+  // grading produced a 2-category note (i.e. there is a distinct one-category
+  // alternative). Sibling of the note block (never nested), no-pdf/no-print, and
+  // styled like the edit-highlight suggestion pills. Editable view only.
+  const suggestionRow = (editable && teacherNotesSuggestion)
+    ? `<div class="teacher-notes-suggestion no-pdf no-print" data-note-exclude-from-pdf="true" style="margin: 0 0 8px 0; display: flex;">
+         <button type="button" class="teacher-notes-suggestion-btn explanation-suggestion-btn"
+                 data-note-two="${escapeHtml(teacherNotes || '')}"
+                 data-note-one="${escapeHtml(teacherNotesSuggestion)}"
+                 data-mode="two"
+                 title="Click to switch the note's focus">Focus on one category</button>
+       </div>`
+    : '';
+
   let html = `
     <div class="grading-summary">
       <div class="overall-score" style="color: ${scoreColor}; font-size: 1.5em; font-weight: bold; text-align: center; margin: 10px 0 8px 0;">
         ${total?.points || 0}/${total?.out_of || 100}
       </div>
 
-      <div class="teacher-notes editable-section" style="background: #e8f5e8; padding: 10px 12px; border-radius: 6px; margin: 0 0 8px 0; border-left: 4px solid #4CAF50; cursor: pointer; border: 2px solid transparent; font-size: 14px;" onclick="editTeacherNotes(this)" title="Click to edit teacher notes" data-teacher-notes="${escapeHtml(teacherNotes || '')}">
+      <div class="teacher-notes editable-section" style="background: #e8f5e8; padding: 10px 12px; border-radius: 6px; margin: 0 0 8px 0; border-left: 4px solid #4CAF50; cursor: pointer; border: 2px solid transparent; font-size: 14px;" onclick="editTeacherNotes(this)" title="Click to edit teacher notes" data-teacher-notes="${escapeHtml(teacherNotes || '')}" data-teacher-notes-primary="${escapeHtml(teacherNotes || '')}" data-teacher-notes-suggestion="${escapeHtml(teacherNotesSuggestion || '')}">
         <strong class="teacher-notes-label" style="font-size: 14px;">📝 Teacher Notes:</strong>
         <span class="teacher-notes-content" style="font-size: 14px;">${escapeHtml(teacherNotes || 'Click to add teacher notes')}</span>
         <span class="edit-indicator" style="font-size: 10px; margin-left: 5px; color: #666;">✎</span>
       </div>
-      
+      ${suggestionRow}
+
       <div class="stats-row" style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; margin: 8px 0 6px 0;">
         <div class="stat-box" style="padding: 6px; background: #e3f2fd; border-radius: 4px; text-align: center; font-size: 12px;" title="${meta?.word_count || 'N/A'} words">
           <strong>📊 Words</strong><br>

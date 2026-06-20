@@ -32,6 +32,80 @@ const openai = new OpenAI({
 });
 
 /**
+ * Build the teacher_notes summary line(s) algorithmically.
+ *
+ * Teacher notes follow a tight, deterministic formula, so we assemble them in
+ * code rather than asking GPT (which sometimes drifted from the format — wrong
+ * sentence count, missing name prefix, stray exclamation marks). Structure:
+ *
+ *   [Name - ] [intro by score band] [sentence naming the weakest categories]
+ *   See detailed notes below the color-coded essay.
+ *
+ * Returns BOTH:
+ *   - primary:    the default note, calling out the top 2 error categories
+ *                 ("...grammar and spelling, as these need the most attention.")
+ *   - suggestion: an alternate note calling out only the #1 category
+ *                 ("...grammar, as this needs the most attention."), offered as
+ *                 a one-click swap in the UI (teachers often narrow to one).
+ *                 null when there's 0 or 1 error category (no alternate needed).
+ *
+ * Per-category rationales (Category Breakdown) remain GPT-generated.
+ *
+ * @param {Object} args
+ * @param {number} args.totalPoints  - Final total score out of 100.
+ * @param {Object} args.errorCounts  - { category: count } from error detection.
+ * @param {string} args.studentName  - Student nickname/name, or '' if none.
+ * @returns {{ primary: string, suggestion: string|null }}
+ */
+function generateTeacherNotes({ totalPoints, errorCounts, studentName }) {
+  const name = (studentName && studentName.trim()) ? studentName.trim() : '';
+  const namePrefix = name ? `${name} - ` : '';
+  const CLOSING = 'See detailed notes below the color-coded essay.';
+
+  // Intro by score band — kept identical to the previous GPT prompt wording.
+  // 0-49 intentionally has no intro.
+  const score = Number.isFinite(totalPoints) ? totalPoints : 0;
+  let intro = '';
+  if (score >= 90) intro = 'Excellent work overall.';
+  else if (score >= 80) intro = 'Great job overall.';
+  else if (score >= 70) intro = 'I think you did a great job overall.';
+  else if (score >= 60) intro = 'Good work here.';
+  else if (score >= 50) intro = 'Not too bad overall.';
+  // 0-49: intro stays ''
+  const lead = intro ? `${intro} ` : '';
+
+  // Weakest categories: the 1-2 categories with the most detected errors.
+  const sorted = Object.entries(errorCounts || {})
+    .filter(([, count]) => count > 0)
+    .sort((a, b) => b[1] - a[1]);
+  const topCats = sorted.slice(0, 2).map(([cat]) => cat);
+
+  // Build the "areas to work on" sentence for a given set of categories.
+  // Grammar-correct: "this needs" for one category, "these need" for two.
+  const middleFor = (cats) => {
+    if (cats.length === 0) return '';
+    const list = cats.length === 2 ? `${cats[0]} and ${cats[1]}` : cats[0];
+    const subject = cats.length === 2 ? 'these need' : 'this needs';
+    return `Let's work on ${list}, as ${subject} the most attention.`;
+  };
+
+  const assemble = (middle) =>
+    `${namePrefix}${lead}${middle ? middle + ' ' : ''}${CLOSING}`.replace(/\s+/g, ' ').trim();
+
+  // Primary note: top 2 categories (or 1 if only one has errors; or none).
+  const primary = assemble(middleFor(topCats));
+
+  // Suggestion: only meaningful when there are 2 top categories — offer the
+  // single-category (#1) alternative. With 0 or 1 category there's nothing to
+  // narrow to, so no suggestion.
+  const suggestion = topCats.length === 2
+    ? assemble(middleFor([topCats[0]]))
+    : null;
+
+  return { primary, suggestion };
+}
+
+/**
  * Convert simple error format to system format (for compatibility)
  */
 function convertToSystemFormat(simpleErrors, studentText) {
@@ -356,9 +430,24 @@ export async function gradeEssaySimple(studentText, classProfile, progressCallba
     const gradingResult = JSON.parse(gradingResponse.choices[0].message.content);
     console.log(`✅ Final score: ${gradingResult.total?.points || gradingResult.score}/100`);
 
+    // Teacher notes are generated algorithmically (not by GPT) — the format is
+    // a tight, deterministic formula and the inputs (total score, error counts,
+    // student name) are all known here. This guarantees the exact structure
+    // every time. Per-category rationales remain GPT-generated.
+    // `suggestion` is the single-category alternative (top error only), offered
+    // as a one-click swap in the UI; null when there aren't 2 error categories.
+    const { primary: teacherNotes, suggestion: teacherNotesSuggestion } =
+      generateTeacherNotes({
+        totalPoints: gradingResult.total?.points ?? gradingResult.score ?? 0,
+        errorCounts,
+        studentName: studentNickname,
+      });
+
     // Combine results in the same format as grader-two-step.js
     const finalResult = {
-      ...gradingResult, // Contains scores, total, teacher_notes, etc.
+      ...gradingResult, // Contains scores, total, etc.
+      teacher_notes: teacherNotes, // override GPT's with the algorithmic version
+      teacher_notes_suggestion: teacherNotesSuggestion, // 1-category alternative (or null)
       inline_issues: errorDetection.inline_issues,
       corrected_text_minimal: errorDetection.corrected_text_minimal,
       meta: {
