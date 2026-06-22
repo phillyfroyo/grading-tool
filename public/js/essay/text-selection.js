@@ -98,6 +98,21 @@ function applyHighlightToSelection() {
     console.log('Range:', selectedRange);
     console.log('Category:', selectedCategory);
 
+    // Block new highlights once the session is at the save-size ceiling — a
+    // new highlight would grow the payload past what can be saved, so it would
+    // silently fail to persist. Tell the teacher how to free up space instead.
+    if (window.AutoSaveModule && window.AutoSaveModule.isPayloadOverBudget
+        && window.AutoSaveModule.isPayloadOverBudget()) {
+        if (window.AutoSaveModule.showToast) {
+            window.AutoSaveModule.showToast(
+                'This session is full — new highlights can’t be saved.\nDownload ' +
+                '(PDF) the essays you want, then refresh and start a fresh session.',
+                'error'
+            );
+        }
+        return;
+    }
+
     if (!selectedRange || !selectedCategory) {
         console.log('❌ Missing range or category');
         return;
@@ -126,6 +141,21 @@ function applyHighlightToSelection() {
  * @param {number} essayIndex - Essay index
  */
 function applyBatchHighlightToSelection(essayIndex) {
+    // Block new highlights once the session is at the save-size ceiling (see
+    // applyHighlightToSelection). This is the batch path — the common case for
+    // large multi-essay sessions, which are the ones that hit the ceiling.
+    if (window.AutoSaveModule && window.AutoSaveModule.isPayloadOverBudget
+        && window.AutoSaveModule.isPayloadOverBudget()) {
+        if (window.AutoSaveModule.showToast) {
+            window.AutoSaveModule.showToast(
+                'This session is full — new highlights can’t be saved.\nDownload ' +
+                '(PDF) the essays you want, then refresh and start a fresh session.',
+                'error'
+            );
+        }
+        return;
+    }
+
     const range = window[`selectedRange_${essayIndex}`];
     const category = window[`selectedCategory_${essayIndex}`];
 

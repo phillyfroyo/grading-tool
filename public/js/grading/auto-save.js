@@ -26,6 +26,20 @@
     // tab close/crash before re-auth doesn't lose the graded work.
     const PENDING_SAVE_KEY = 'gradingTool.pendingSave.v1';
 
+    // --- Payload-size budget (prevents Vercel 4.5MB 413s) ---
+    // Vercel's serverless request/response body limit is ~4.5MB. We budget below
+    // that to leave headroom for JSON overhead and to keep the GET (load) of the
+    // same blob under the limit too. When a session's payload approaches the
+    // ceiling we warn the teacher; at the ceiling we block edits that would grow
+    // it further (new highlights, comment/note text) so they never make changes
+    // that silently fail to save. Already-saved work is unaffected; score edits
+    // (tiny, stored as scoreOverrides) stay allowed.
+    const PAYLOAD_CEILING_BYTES = 3_800_000;       // hard stop (≈3.8MB)
+    const PAYLOAD_WARN_BYTES = 3_000_000;          // ~80% — start warning
+    let payloadOverBudget = false;                 // true once at/over ceiling
+    let payloadBudgetWarned = false;               // dedupe the warning toast
+    let lastPayloadBytes = 0;                       // diagnostics
+
     // --- Public API ---
 
     function initialize() {
@@ -1180,8 +1194,16 @@
 
         const renderedHTML = {};
         const renderedHTMLEssayIds = {}; // index -> essayId, for swap-safe restore re-pairing
-        const highlightsTabHTML = {};
-        const highlightsContentHTML = {};
+        // NOTE: We intentionally do NOT capture the highlights-tab or
+        // highlights-content HTML anymore. Both are derived views, regenerated
+        // on demand from the essay's <mark> elements by populateHighlightsContent
+        // (display-utils.js) when the user opens the highlights tab/section.
+        // Since every manual highlight edit lives in those marks — which are
+        // inside renderedHTML, captured below — storing the rendered highlight
+        // HTML was pure duplication (2 extra full-HTML copies per essay) and a
+        // major driver of the 4.5MB payload 413s. Restore lazy-regenerates them,
+        // so nothing is lost. (removeAllStates is still captured below so the
+        // "remove all" toggle re-applies after regeneration.)
         if (!omitHTML) {
             for (let i = 0; i < resultCount; i++) {
                 const div = queryInTab(`#batch-essay-${i}`);
@@ -1195,14 +1217,6 @@
                     if (div.dataset && div.dataset.essayId) {
                         renderedHTMLEssayIds[i] = div.dataset.essayId;
                     }
-                }
-                const hlTabDiv = queryInTab(`#highlights-tab-content-${i}`);
-                if (hlTabDiv && hlTabDiv.dataset.loaded === 'true' && hlTabDiv.innerHTML.trim() && hlTabDiv.innerHTML.trim() !== 'Loading highlights...') {
-                    highlightsTabHTML[i] = hlTabDiv.innerHTML;
-                }
-                const hlContentInner = queryInTab(`#highlights-content-${i}-inner`);
-                if (hlContentInner && hlContentInner.dataset.populated === 'true' && hlContentInner.innerHTML.trim()) {
-                    highlightsContentHTML[i] = hlContentInner.innerHTML;
                 }
             }
         }
@@ -1234,8 +1248,6 @@
             essaySnapshots,
             renderedHTML,
             renderedHTMLEssayIds,
-            highlightsTabHTML,
-            highlightsContentHTML,
             completedEssays,
             removeAllStates,
             scoreOverrides,
@@ -1315,13 +1327,18 @@
         }
         const primaryDOMState = gatherTabDOMState(primaryTabId, primaryTabState, omitHTML);
 
+        // Legacy sessionData (primary tab only). The current restore path uses
+        // tabStoreSnapshot (below); this block is only consumed by the
+        // pre-Phase-7 legacy restore fallback (when no tabStoreSnapshot exists).
+        // We keep renderedHTML here so that fallback still restores fully, but
+        // drop highlightsTabHTML/highlightsContentHTML — those are regenerated
+        // from the essay marks on restore (populateHighlightsContent), so
+        // storing them is pure duplication. See gatherTabDOMState.
         const sessionData = {
             currentBatchData: batchDataForPayload,
             essaySnapshots: primaryDOMState.essaySnapshots,
             renderedHTML: primaryDOMState.renderedHTML,
             renderedHTMLEssayIds: primaryDOMState.renderedHTMLEssayIds,
-            highlightsTabHTML: primaryDOMState.highlightsTabHTML,
-            highlightsContentHTML: primaryDOMState.highlightsContentHTML,
             // Per-tab score overrides are now captured inside gatherTabDOMState
             // for each tab. Legacy sessionData reflects the primary tab only,
             // which matches how old singleton-based saves worked.
@@ -1356,6 +1373,69 @@
     }
 
     /**
+     * Measure the serialized payload against the size budget and update the
+     * over-budget state, warning the teacher as they approach the ceiling and
+     * flipping the edit-block on at it. Byte length is measured as UTF-8 (what
+     * actually travels on the wire), not string length.
+     * @param {string} body - the JSON.stringify'd payload
+     */
+    function evaluatePayloadBudget(body) {
+        let bytes;
+        try {
+            bytes = (typeof TextEncoder !== 'undefined')
+                ? new TextEncoder().encode(body).length
+                : body.length; // fallback: approx (ASCII-ish)
+        } catch (e) {
+            bytes = body.length;
+        }
+        lastPayloadBytes = bytes;
+
+        if (bytes >= PAYLOAD_CEILING_BYTES) {
+            if (!payloadOverBudget) {
+                payloadOverBudget = true;
+                showToast(
+                    'This grading session is full and can no longer save new ' +
+                    'highlights or comments.\nDownload (PDF) the essays you want ' +
+                    'to keep, then refresh and start a fresh session for the rest.',
+                    'error'
+                );
+            }
+        } else {
+            // Back under the ceiling (e.g. an essay was cleared) — re-enable edits.
+            if (payloadOverBudget) {
+                payloadOverBudget = false;
+                showToast('Saving is back to normal — you can edit again.', 'ok');
+            }
+            if (bytes >= PAYLOAD_WARN_BYTES) {
+                if (!payloadBudgetWarned) {
+                    payloadBudgetWarned = true;
+                    showToast(
+                        'This grading session is getting large. To keep saving ' +
+                        'reliably, finish and clear some essays soon.',
+                        'warn'
+                    );
+                }
+            } else {
+                // Comfortably under — reset the one-shot warning.
+                payloadBudgetWarned = false;
+            }
+        }
+
+        console.log(`[AutoSave] payload size: ${(bytes / 1_000_000).toFixed(2)}MB ` +
+            `(ceiling ${(PAYLOAD_CEILING_BYTES / 1_000_000).toFixed(1)}MB, overBudget=${payloadOverBudget})`);
+    }
+
+    /**
+     * Whether the current session payload is at/over the size ceiling. Edit
+     * handlers that would GROW the payload (new highlights, comment/note text)
+     * consult this to block themselves, so the teacher never makes changes that
+     * would silently fail to save. Returns false if AutoSave isn't active.
+     */
+    function isPayloadOverBudget() {
+        return payloadOverBudget === true;
+    }
+
+    /**
      * Execute a save if not already saving.
      * @param {string} source - Label identifying the caller (for diagnostics).
      */
@@ -1380,13 +1460,17 @@
             return;
         }
 
+        // Serialize once; reuse for both the size check and the request body.
+        const body = JSON.stringify(payload);
+        evaluatePayloadBudget(body);
+
         isSaving = true;
         try {
             console.log(`[AutoSave] Saving session via ${source}…`);
             const resp = await fetch('/api/grading-session', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(payload),
+                body,
             });
             if (resp.status === 401 || resp.status === 403) {
                 // Auth lapsed. Retrying is pointless — the same credentials
@@ -1783,6 +1867,10 @@
         markGradingStarted,
         markGradingFinished,
         isGradingInProgress,
+        // Consulted by edit handlers that would grow the payload (new
+        // highlights, comment/note text) so they can block themselves when the
+        // session is at the size ceiling. See evaluatePayloadBudget.
+        isPayloadOverBudget,
         // Exposed so other modules (e.g. form validation) can surface
         // toast-style messages with consistent styling. Levels: 'ok' (green,
         // 5s), 'warn' (yellow, persistent), 'error' (red, 8s).
