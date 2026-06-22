@@ -1184,11 +1184,22 @@
         const batchData = tabState?.currentBatchData;
         const resultCount = batchData?.batchResult?.results?.length || 0;
 
-        // Gather essayData entries — prefer the tab's own state
+        // Gather essayData entries — prefer the tab's own state.
+        //
+        // tabState.essayData stores each essay TWICE: once under its numeric
+        // index and once under its alphanumeric essayId (see batch-processing.js
+        // — essayData[index] = essayData[resultId] = snapshot), for fast id-based
+        // lookup at runtime. But restore only ever reads the numeric-index keys
+        // (it matches /^essayData_(\d+)$/), so persisting the essayId-keyed copies
+        // doubled the essaySnapshots weight for nothing. Each snapshot holds the
+        // full essay text + grading result, so this duplication was a large chunk
+        // of the payload. Persist ONLY the numeric-index entries.
         const essaySnapshots = {};
         if (tabState && tabState.essayData) {
             for (const [idx, ed] of Object.entries(tabState.essayData)) {
-                if (ed) essaySnapshots[`essayData_${idx}`] = ed;
+                if (ed && /^\d+$/.test(String(idx))) {
+                    essaySnapshots[`essayData_${idx}`] = ed;
+                }
             }
         }
 
