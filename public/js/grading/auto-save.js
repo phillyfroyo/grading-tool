@@ -26,19 +26,27 @@
     // tab close/crash before re-auth doesn't lose the graded work.
     const PENDING_SAVE_KEY = 'gradingTool.pendingSave.v1';
 
-    // --- Payload-size budget (prevents Vercel 4.5MB 413s) ---
-    // Vercel's serverless request/response body limit is ~4.5MB. We budget below
-    // that to leave headroom for JSON overhead and to keep the GET (load) of the
-    // same blob under the limit too. When a session's payload approaches the
-    // ceiling we warn the teacher; at the ceiling we block edits that would grow
-    // it further (new highlights, comment/note text) so they never make changes
-    // that silently fail to save. Already-saved work is unaffected; score edits
-    // (tiny, stored as scoreOverrides) stay allowed.
-    const PAYLOAD_CEILING_BYTES = 3_800_000;       // hard stop (≈3.8MB)
-    const PAYLOAD_WARN_BYTES = 3_000_000;          // ~80% — start warning
+    // --- Payload-size budget + capacity meter (prevents Vercel 4.5MB 413s) ---
+    // Vercel's serverless request/response body limit is ~4.5MB. The autosave
+    // serializes the WHOLE session (all tabs) into one request, so total size is
+    // what matters. We budget below 4.5MB for headroom (JSON overhead + keeping
+    // the GET/load of the same blob under the limit too). "Capacity" is measured
+    // against this ceiling: 100% = the hard stop. We surface it as a persistent
+    // chip and escalating warnings so the teacher can finish/clear tabs before
+    // saving fails — instead of being blindsided. At 100% we block edits that
+    // grow the payload (new highlights); score edits (tiny, via scoreOverrides)
+    // and already-saved work are unaffected.
+    const PAYLOAD_CEILING_BYTES = 3_800_000;       // 100% capacity / hard stop (≈3.8MB)
     let payloadOverBudget = false;                 // true once at/over ceiling
-    let payloadBudgetWarned = false;               // dedupe the warning toast
-    let lastPayloadBytes = 0;                       // diagnostics
+    let lastPayloadBytes = 0;                       // diagnostics + chip
+    let lastCapacityBucket = -1;                    // highest threshold toast shown
+    // Threshold buckets (percent of ceiling) → escalating guidance. Only fire on
+    // an UPWARD crossing into a higher bucket, so the teacher isn't spammed.
+    const CAPACITY_THRESHOLDS = [
+        { pct: 70, level: 'warn',  msg: 'Autosave is at {P}% capacity. Plan to finish and clear some essays soon.' },
+        { pct: 85, level: 'warn',  msg: 'Autosave is at {P}% capacity. Download completed essays and clear a finished tab to keep saving reliably.' },
+        { pct: 95, level: 'warn',  msg: 'Autosave is nearly full ({P}%). Clear a finished tab now to avoid interrupting saves.' },
+    ];
 
     // --- Public API ---
 
@@ -902,7 +910,16 @@
      * a brief toast confirming grading is complete.
      */
     function showClearButton(statusText) {
-        showToast(statusText || 'Session restored', 'ok');
+        // Append ambient autosave-capacity awareness after grading completes, so
+        // the teacher can see how full the session is and decide whether to keep
+        // adding tabs. Only when we have a measured size and it's worth noting.
+        let text = statusText || 'Session restored';
+        const pct = getCapacityPercent();
+        if (lastPayloadBytes > 0 && pct >= 1) {
+            text += `\nAutosave capacity: ${Math.min(100, pct)}%` +
+                (pct >= 70 ? ' — consider downloading & clearing a finished tab.' : '.');
+        }
+        showToast(text, pct >= 90 ? 'warn' : 'ok');
     }
 
     /**
@@ -1384,9 +1401,18 @@
     }
 
     /**
-     * Measure the serialized payload against the size budget and update the
-     * over-budget state, warning the teacher as they approach the ceiling and
-     * flipping the edit-block on at it. Byte length is measured as UTF-8 (what
+     * Current autosave capacity as a percent of the ceiling (0–100+, clamped at
+     * display time). 100% = the hard stop. Exposed for the grading-complete
+     * banner.
+     */
+    function getCapacityPercent() {
+        return Math.round((lastPayloadBytes / PAYLOAD_CEILING_BYTES) * 100);
+    }
+
+    /**
+     * Measure the serialized payload against the budget, update the persistent
+     * capacity chip, fire escalating warnings on upward threshold crossings, and
+     * flip the edit-block at the ceiling. Byte length is measured as UTF-8 (what
      * actually travels on the wire), not string length.
      * @param {string} body - the JSON.stringify'd payload
      */
@@ -1400,40 +1426,97 @@
             bytes = body.length;
         }
         lastPayloadBytes = bytes;
+        const pct = getCapacityPercent();
+
+        // Update the persistent chip every save.
+        updateCapacityChip(pct);
 
         if (bytes >= PAYLOAD_CEILING_BYTES) {
+            // At/over the ceiling — block payload-growing edits.
             if (!payloadOverBudget) {
                 payloadOverBudget = true;
                 showToast(
-                    'This grading session is full and can no longer save new ' +
-                    'highlights or comments.\nDownload (PDF) the essays you want ' +
-                    'to keep, then refresh and start a fresh session for the rest.',
+                    'Autosave is full (100%). New highlights can’t be saved.\n' +
+                    'Download (PDF) the essays you want, then clear a finished tab ' +
+                    'or start a fresh session for the rest.',
                     'error'
                 );
             }
         } else {
-            // Back under the ceiling (e.g. an essay was cleared) — re-enable edits.
+            // Back under the ceiling (e.g. a tab was cleared) — re-enable edits.
             if (payloadOverBudget) {
                 payloadOverBudget = false;
-                showToast('Saving is back to normal — you can edit again.', 'ok');
+                showToast('Autosave is back under capacity — you can add highlights again.', 'ok');
             }
-            if (bytes >= PAYLOAD_WARN_BYTES) {
-                if (!payloadBudgetWarned) {
-                    payloadBudgetWarned = true;
-                    showToast(
-                        'This grading session is getting large. To keep saving ' +
-                        'reliably, finish and clear some essays soon.',
-                        'warn'
-                    );
+            // Escalating threshold toasts. Fire only when crossing UP into a
+            // higher bucket than the highest one we've already warned at. To
+            // avoid spam when the payload jitters a hair around a boundary
+            // (saves vary ±~1% save-to-save), we only RE-ARM a bucket once
+            // capacity has dropped a clear margin (HYSTERESIS) below its
+            // threshold — i.e. the teacher actually freed space (cleared a tab),
+            // not just noise.
+            const HYSTERESIS = 3; // percentage points
+            let bucket = -1;
+            for (let i = 0; i < CAPACITY_THRESHOLDS.length; i++) {
+                if (pct >= CAPACITY_THRESHOLDS[i].pct) bucket = i;
+            }
+            if (bucket > lastCapacityBucket) {
+                const t = CAPACITY_THRESHOLDS[bucket];
+                showToast(t.msg.replace('{P}', String(pct)), t.level);
+                lastCapacityBucket = bucket;
+            } else if (bucket < lastCapacityBucket) {
+                // Only step the armed level down past a threshold the payload has
+                // dropped clearly below — so re-entry must be a genuine re-climb.
+                while (lastCapacityBucket >= 0 &&
+                       pct < CAPACITY_THRESHOLDS[lastCapacityBucket].pct - HYSTERESIS) {
+                    lastCapacityBucket--;
                 }
-            } else {
-                // Comfortably under — reset the one-shot warning.
-                payloadBudgetWarned = false;
             }
+            // (equal bucket → do nothing: no re-fire, no re-arm)
         }
 
         console.log(`[AutoSave] payload size: ${(bytes / 1_000_000).toFixed(2)}MB ` +
-            `(ceiling ${(PAYLOAD_CEILING_BYTES / 1_000_000).toFixed(1)}MB, overBudget=${payloadOverBudget})`);
+            `(${pct}% of ceiling ${(PAYLOAD_CEILING_BYTES / 1_000_000).toFixed(1)}MB, overBudget=${payloadOverBudget})`);
+    }
+
+    /**
+     * Render/update the persistent "Autosave capacity" chip in the tab bar.
+     * Color shifts green → amber → red as capacity climbs; at 90%+ it appends an
+     * action hint. Created lazily on first use; no-op if the tab bar is absent.
+     * @param {number} pct
+     */
+    function updateCapacityChip(pct) {
+        try {
+            const bar = document.getElementById('gradingTabBar');
+            if (!bar) return;
+
+            let chip = document.getElementById('autosaveCapacityChip');
+            if (!chip) {
+                chip = document.createElement('div');
+                chip.id = 'autosaveCapacityChip';
+                chip.title = 'How full the autosave for this session is. ' +
+                    'When it nears 100%, download finished essays and clear a tab.';
+                chip.style.cssText =
+                    'margin-left:auto;display:inline-flex;align-items:center;gap:6px;' +
+                    'font-family:"Inter",Arial,sans-serif;font-size:12px;font-weight:600;' +
+                    'padding:3px 10px;border-radius:12px;white-space:nowrap;align-self:center;';
+                bar.appendChild(chip);
+            }
+
+            const clamped = Math.min(100, Math.max(0, pct));
+            let color, bg;
+            if (clamped < 70) { color = '#2d6a2d'; bg = 'rgba(209,243,209,0.9)'; }
+            else if (clamped < 90) { color = '#856404'; bg = 'rgba(255,243,205,0.95)'; }
+            else { color = '#721c24'; bg = 'rgba(248,215,218,0.97)'; }
+
+            const hint = clamped >= 90 ? ' — clear a finished tab' : '';
+            chip.style.color = color;
+            chip.style.background = bg;
+            chip.textContent = `Autosave ${clamped}%${hint}`;
+        } catch (e) {
+            // Cosmetic only — never let the chip break saving.
+            console.warn('[AutoSave] capacity chip update skipped:', e && e.message);
+        }
     }
 
     /**
@@ -1882,6 +1965,9 @@
         // highlights, comment/note text) so they can block themselves when the
         // session is at the size ceiling. See evaluatePayloadBudget.
         isPayloadOverBudget,
+        // Current autosave capacity as a percent of the ceiling — used by the
+        // grading-complete banner to show ambient capacity awareness.
+        getCapacityPercent,
         // Exposed so other modules (e.g. form validation) can surface
         // toast-style messages with consistent styling. Levels: 'ok' (green,
         // 5s), 'warn' (yellow, persistent), 'error' (red, 8s).
