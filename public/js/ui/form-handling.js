@@ -311,27 +311,23 @@ async function handleGradingFormSubmission(e) {
         return;
     }
 
-    // Per-tab essay cap. Autosave serializes the whole session (all tabs) into
-    // one request; past ~24 essays the payload exceeds Vercel's 4.5MB limit and
-    // saves start failing. Capping each tab at MAX_ESSAYS_PER_TAB keeps every
-    // tab independently saveable and gives the teacher an escape route (finish a
-    // tab, download/clear it, continue in another). The capacity meter tracks
-    // the cross-tab total separately. Counts essays already graded in this tab
-    // plus the new batch.
+    // Per-tab essay cap is enforced at ADD time in essay-management.js (the
+    // "Add another essay" button + counter stop at MAX_ESSAYS_PER_TAB), so a
+    // teacher can't build an over-limit batch and only discover it here at
+    // "Grade". As a silent safety net for any path that bypasses the add-time UI
+    // (e.g. programmatic), clamp here without a disruptive error modal: grade the
+    // first MAX_ESSAYS_PER_TAB and warn via the lightweight toast.
     const MAX_ESSAYS_PER_TAB = 10;
-    const activeTabState = window.TabStore && window.TabStore.active();
-    const existingInTab = activeTabState?.currentBatchData?.batchResult?.results?.length || 0;
-    if (existingInTab + studentTexts.length > MAX_ESSAYS_PER_TAB) {
-        const remaining = Math.max(0, MAX_ESSAYS_PER_TAB - existingInTab);
-        const msg = existingInTab > 0
-            ? `This tab already has ${existingInTab} essay${existingInTab === 1 ? '' : 's'}. ` +
-              `To keep autosave reliable, each tab holds up to ${MAX_ESSAYS_PER_TAB}. ` +
-              `You can add ${remaining} more here — open a new tab (the + button) for the rest.`
-            : `To keep autosave reliable, grade up to ${MAX_ESSAYS_PER_TAB} essays per tab. ` +
-              `You submitted ${studentTexts.length}. Please grade ${MAX_ESSAYS_PER_TAB} or fewer here ` +
-              `and use a new tab (the + button) for the rest.`;
-        showError(msg, 'Too many essays for one tab');
-        return;
+    if (studentTexts.length > MAX_ESSAYS_PER_TAB) {
+        const dropped = studentTexts.length - MAX_ESSAYS_PER_TAB;
+        studentTexts.length = MAX_ESSAYS_PER_TAB;
+        if (window.AutoSaveModule && window.AutoSaveModule.showToast) {
+            window.AutoSaveModule.showToast(
+                `Grading the first ${MAX_ESSAYS_PER_TAB} essays (max per tab). ` +
+                `Move the other ${dropped} to a new tab.`,
+                'warn'
+            );
+        }
     }
 
 

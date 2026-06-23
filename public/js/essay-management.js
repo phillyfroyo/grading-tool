@@ -6,6 +6,14 @@
 // Global essay state
 let essayCount = 1;
 
+// Max essays per tab. The autosave serializes the whole session into one
+// request; past ~24 essays it exceeds Vercel's 4.5MB limit. Capping each tab
+// keeps every tab independently saveable. Enforced here at ADD time (so the
+// teacher can't build an over-limit batch and only discover it at "Grade") —
+// the friendly counterpart to the size-based guard in auto-save.js. Keep this
+// in sync with MAX_ESSAYS_PER_TAB in form-handling.js.
+const MAX_ESSAYS_PER_TAB = 10;
+
 /**
  * Add another essay input to the form
  * @param {number} count - Number of essays to add (default: 1)
@@ -16,6 +24,16 @@ function addAnotherEssay(count = 1) {
 
     // Ensure count is a positive integer
     count = Math.max(1, Math.min(50, parseInt(count) || 1));
+
+    // Never exceed the per-tab cap. Only add as many rows as remain — so adding
+    // 1-at-a-time or N-at-once both stop cleanly at MAX_ESSAYS_PER_TAB. Count the
+    // active tab's actual rows (robust across tab switches).
+    const remaining = Math.max(0, MAX_ESSAYS_PER_TAB - activeTabEssayRowCount());
+    count = Math.min(count, remaining);
+    if (count <= 0) {
+        updateAddEssayControls();
+        return;
+    }
 
     for (let i = 0; i < count; i++) {
         const newIndex = essayCount;
@@ -50,6 +68,51 @@ function addAnotherEssay(count = 1) {
 
     // Show remove buttons for all essays when there's more than one
     updateRemoveButtons();
+    // Refresh the add-essay button / counter state against the cap.
+    updateAddEssayControls();
+}
+
+/**
+ * Enable/disable the "Add another essay" button and clamp the count input so a
+ * tab can never exceed MAX_ESSAYS_PER_TAB. At the cap, the button is disabled
+ * and greyed; otherwise the count input's max is set to how many rows remain
+ * (so the up-arrow and typed values can't overshoot). Scoped to the active tab.
+ */
+/**
+ * Live count of essay rows in the ACTIVE tab's form. Counting the DOM (rather
+ * than trusting the global `essayCount`, which isn't per-tab) keeps the cap
+ * correct even after switching between tabs.
+ */
+function activeTabEssayRowCount() {
+    const rows = window.TabStore
+        ? window.TabStore.activeQueryAll('.essay-entry')
+        : document.querySelectorAll('.essay-entry');
+    return rows ? rows.length : 0;
+}
+
+function updateAddEssayControls() {
+    const q = (sel) => window.TabStore ? window.TabStore.activeQuery(sel) : document.querySelector(sel);
+    const remaining = Math.max(0, MAX_ESSAYS_PER_TAB - activeTabEssayRowCount());
+
+    const btn = q('#addEssayBtn');
+    if (btn) {
+        const atCap = remaining <= 0;
+        btn.disabled = atCap;
+        btn.style.opacity = atCap ? '0.5' : '';
+        btn.style.cursor = atCap ? 'not-allowed' : '';
+        btn.title = atCap
+            ? `You've reached ${MAX_ESSAYS_PER_TAB} essays for this tab. Open a new tab (the + button) for more.`
+            : '';
+    }
+
+    const input = q('#essayCountInput');
+    if (input) {
+        // Cap how many can be requested at once to what's left.
+        input.max = String(Math.max(1, remaining));
+        if ((parseInt(input.value) || 1) > remaining) {
+            input.value = String(Math.max(1, remaining));
+        }
+    }
 }
 
 /**
@@ -93,6 +156,8 @@ function renumberEssays() {
         }
     });
     essayCount = essays.length;
+    // Removing an essay frees a slot — refresh the add button / counter cap.
+    updateAddEssayControls();
 }
 
 /**
@@ -280,14 +345,18 @@ function setupEssayManagement() {
     // Using blur instead of input so users can clear the field to type a new number
     if (essayCountInput) {
         essayCountInput.addEventListener('blur', () => {
+            const cap = Math.max(1, MAX_ESSAYS_PER_TAB - activeTabEssayRowCount()); // rows left
             let value = parseInt(essayCountInput.value);
             if (isNaN(value) || value < 1) {
                 essayCountInput.value = 1;
-            } else if (value > 50) {
-                essayCountInput.value = 50;
+            } else if (value > cap) {
+                essayCountInput.value = cap;
             }
         });
     }
+
+    // Set initial button/counter state against the cap.
+    updateAddEssayControls();
 }
 
 /**
@@ -361,6 +430,8 @@ window.EssayManagementModule = {
     removeEssay,
     renumberEssays,
     updateRemoveButtons,
+    updateAddEssayControls,
+    MAX_ESSAYS_PER_TAB,
     displayStudentNamesProgressively,
     markStudentComplete,
     collectEssaysFromForm,
