@@ -1418,45 +1418,6 @@
     }
 
     /**
-     * TEMP DIAGNOSTIC (Issue #2). Break the payload size down by contributor so
-     * we can compare a fresh-grade save against a post-Keep-restore save and see
-     * which part drifts. Sizes are UTF-8 bytes of each sub-tree's JSON.
-     * Remove once the capacity-drift cause is confirmed.
-     */
-    function logPayloadBreakdown(source, payload) {
-        const enc = (typeof TextEncoder !== 'undefined') ? new TextEncoder() : null;
-        const bytesOf = (obj) => {
-            if (obj === undefined || obj === null) return 0;
-            const s = JSON.stringify(obj);
-            return enc ? enc.encode(s).length : s.length;
-        };
-        const tabs = (payload.tabStoreSnapshot && payload.tabStoreSnapshot.tabs) || [];
-        let rendered = 0, snapshots = 0, batch = 0, other = 0, total = 0;
-        const perTab = [];
-        for (const t of tabs) {
-            const r = bytesOf(t.renderedHTML);
-            const s = bytesOf(t.essaySnapshots);
-            const b = bytesOf(t.currentBatchData);
-            const whole = bytesOf(t);
-            rendered += r; snapshots += s; batch += b; other += (whole - r - s - b);
-            total += whole;
-            perTab.push({
-                id: t.id,
-                renderedKB: +(r / 1024).toFixed(1),
-                snapshotsKB: +(s / 1024).toFixed(1),
-                batchKB: +(b / 1024).toFixed(1),
-            });
-        }
-        const kb = (n) => +(n / 1024).toFixed(1);
-        console.log(
-            `[PayloadBreakdown:${source}] total≈${kb(total)}KB | ` +
-            `renderedHTML=${kb(rendered)}KB, essaySnapshots=${kb(snapshots)}KB, ` +
-            `currentBatchData=${kb(batch)}KB, other=${kb(other)}KB`,
-            perTab
-        );
-    }
-
-    /**
      * Measure the serialized payload against the budget, update the persistent
      * capacity chip, fire escalating warnings on upward threshold crossings, and
      * flip the edit-block at the ceiling. Byte length is measured as UTF-8 (what
@@ -1604,14 +1565,6 @@
         // Serialize once; reuse for both the size check and the request body.
         const body = JSON.stringify(payload);
         evaluatePayloadBudget(body);
-
-        // TEMP DIAGNOSTIC (Issue #2 capacity-drift investigation) — remove after
-        // we've captured a grade-vs-restore comparison on preview. Logs the
-        // payload size broken down by contributor so we can see which part grows
-        // across a Keep-restore (suspected: re-rendered renderedHTML).
-        try {
-            logPayloadBreakdown(source, payload);
-        } catch (e) { /* never let diagnostics break a save */ }
 
         isSaving = true;
         try {
