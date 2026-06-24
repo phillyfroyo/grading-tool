@@ -445,6 +445,79 @@ function setupBatchEditableElements(gradingResult, originalData, essayIndex, tab
 }
 
 /**
+ * Gap-resilient delegated handler for batch score/feedback edits.
+ *
+ * WHY THIS EXISTS: the per-input listeners in setupBatchEditableElements are
+ * the primary path, but on a Keep-restore they're attached behind two stacked
+ * 250ms setTimeouts (auto-save.js reattachHandlers → setupBatchEditableElements).
+ * For ~500ms after restore the inputs are visible and editable but unwired. An
+ * edit in that window changed the input's value but never wrote it into
+ * tabState.batchGradingData — so the overall grade didn't recompute live, and
+ * the next autosave persisted the STALE override. After a refresh the edit
+ * silently reverted. (The document-level input listener in auto-save.js fired a
+ * save, but it reads batchGradingData, which was never updated.)
+ *
+ * This document-level delegated listener closes that gap: it resolves the tab,
+ * essay index, and category straight from the edited element, writes the value
+ * into batchGradingData, and recomputes the total — with zero dependency on the
+ * per-input listeners having attached yet. It is idempotent with them (writing
+ * the same value twice is a no-op), and it only acts on inputs that live inside
+ * a #batch-essay-N container, so the single-essay path is untouched.
+ */
+function handleDelegatedBatchEdit(target) {
+    const container = target.closest && target.closest('[id^="batch-essay-"]');
+    if (!container) return; // not a batch essay edit — leave to other handlers
+
+    const m = /^batch-essay-(\d+)$/.exec(container.id || '');
+    if (!m) return;
+    const essayIndex = parseInt(m[1], 10);
+    const category = target.dataset && target.dataset.category;
+    if (!category) return;
+
+    const eventTabId = resolveTabId(target);
+    const batchData = getBatchDataForTab(eventTabId);
+    const entry = batchData[essayIndex];
+    // If the essay's grading data hasn't been populated yet, there's nothing to
+    // safely write into — the per-input path (which also seeds batchData) will
+    // take over once setupBatchEditableElements runs. Bail rather than guess.
+    if (!entry || !entry.gradingData || !entry.gradingData.scores ||
+        !entry.gradingData.scores[category]) {
+        return;
+    }
+
+    if (target.classList.contains('editable-score')) {
+        const maxPoints = parseFloat(target.max) || 15;
+        let v = parseFloat(target.value);
+        if (Number.isNaN(v)) return; // mid-edit empty field — don't clobber
+        if (v < 0) { v = 0; target.value = 0; }
+        if (v > maxPoints) { v = maxPoints; target.value = maxPoints; }
+        entry.gradingData.scores[category].points = v;
+        updateTotalScore(essayIndex, eventTabId);
+        if (window.recolorCategoryScore) window.recolorCategoryScore(target);
+    } else if (target.classList.contains('editable-feedback')) {
+        entry.gradingData.scores[category].rationale = target.value;
+    }
+}
+
+// Register the delegated handler once. Uses the capture phase so it runs
+// regardless of whether the per-input listeners (added later, on the bubble
+// phase) exist yet — and because it's idempotent, double-handling is harmless.
+let _delegatedBatchEditWired = false;
+function ensureDelegatedBatchEditListener() {
+    if (_delegatedBatchEditWired) return;
+    _delegatedBatchEditWired = true;
+    document.addEventListener('input', function (e) {
+        const t = e.target;
+        if (!t || !t.classList) return;
+        if (t.classList.contains('editable-score') ||
+            t.classList.contains('editable-feedback')) {
+            handleDelegatedBatchEdit(t);
+        }
+    }, true);
+}
+ensureDelegatedBatchEditListener();
+
+/**
  * Update total score display
  * @param {number} essayIndex - Optional essay index for batch processing
  * @param {string} [tabId] - Optional tab ID. When omitted, resolves via fallback chain.
