@@ -97,23 +97,33 @@ function updateAddEssayControls() {
     const btn = q('#addEssayBtn');
     if (btn) {
         const atCap = remaining <= 0;
-        const capMsg = `${MAX_ESSAYS_PER_TAB} essays max per tab. You can open a new tab to grade more essays.`;
-        // NOTE: a native `title` tooltip does NOT show on a `disabled` button —
-        // the browser swallows hover events. So instead of disabling the button,
-        // mark it inert (aria-disabled + a class the click handler checks) and
-        // put the tooltip on a wrapper that still receives hover. This keeps the
-        // explanatory hover working at the cap.
+        // Plain disabled button (no glitchy hover hacks). The explanation lives
+        // in a small static helper line shown next to the button at the cap —
+        // see below — since browsers suppress title tooltips on disabled buttons.
         btn.classList.toggle('at-cap', atCap);
-        btn.setAttribute('aria-disabled', atCap ? 'true' : 'false');
-        btn.disabled = false; // keep enabled so hover/tooltip work; click is gated
+        btn.disabled = atCap;
         btn.style.opacity = atCap ? '0.5' : '';
         btn.style.cursor = atCap ? 'not-allowed' : '';
-        btn.title = atCap ? capMsg : '';
 
-        // Ensure a hover-tooltip wrapper carries the title too (covers browsers
-        // that still suppress the title on the button itself).
+        // Static helper note (created lazily) instead of a hover tooltip.
         const holder = btn.parentElement;
-        if (holder) holder.title = atCap ? capMsg : '';
+        if (holder) {
+            let note = holder.querySelector('.add-essay-cap-note');
+            if (atCap) {
+                if (!note) {
+                    note = document.createElement('span');
+                    note.className = 'add-essay-cap-note';
+                    note.style.cssText =
+                        'margin-left:10px;font-size:12px;color:#856404;font-style:italic;';
+                    holder.appendChild(note);
+                }
+                note.textContent =
+                    `${MAX_ESSAYS_PER_TAB} essays max per tab — open a new tab to grade more.`;
+                note.style.display = '';
+            } else if (note) {
+                note.style.display = 'none';
+            }
+        }
     }
 
     const input = q('#essayCountInput');
@@ -313,10 +323,6 @@ function setupEssayManagement() {
 
     if (addEssayBtn && essayCountInput) {
         addEssayBtn.addEventListener('click', () => {
-            // At the cap the button is kept enabled (so its hover tooltip shows)
-            // but marked inert — ignore the click here. addAnotherEssay also
-            // clamps, so this is belt-and-suspenders.
-            if (addEssayBtn.classList.contains('at-cap')) return;
             const count = parseInt(essayCountInput.value) || 1;
             addAnotherEssay(count);
         });
