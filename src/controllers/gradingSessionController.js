@@ -26,11 +26,16 @@ async function handleSaveGradingSession(req, res) {
     return res.status(400).json({ error: 'activeTab and sessionData are required' });
   }
 
-  const rhKeys = sessionData?.renderedHTML ? Object.keys(sessionData.renderedHTML) : [];
+  // renderedHTML now lives ONLY in tabStoreSnapshot per tab (the legacy
+  // sessionData copy was dropped to halve payload size — see auto-save.js
+  // buildPayload). Log per-tab rendered-HTML key counts from the snapshot.
+  const tabRhCounts = (tabStoreSnapshot?.tabs || []).map(t => ({
+    id: t.id,
+    renderedHTMLKeys: t.renderedHTML ? Object.keys(t.renderedHTML).length : 0,
+  }));
   console.log('[GRADING_SESSION] Save - activeTab:', activeTab,
     'tabs:', tabStoreSnapshot?.tabs?.length || 'none',
-    'renderedHTML keys:', rhKeys,
-    'renderedHTML lengths:', rhKeys.map(k => (sessionData.renderedHTML[k] || '').length));
+    'per-tab renderedHTML:', JSON.stringify(tabRhCounts));
 
   // Phase 7: include tabStoreSnapshot in the saved session data.
   // The service stores the entire sessionData JSON blob; we nest

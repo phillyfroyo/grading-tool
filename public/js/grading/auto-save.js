@@ -1356,17 +1356,25 @@
         const primaryDOMState = gatherTabDOMState(primaryTabId, primaryTabState, omitHTML);
 
         // Legacy sessionData (primary tab only). The current restore path uses
-        // tabStoreSnapshot (below); this block is only consumed by the
-        // pre-Phase-7 legacy restore fallback (when no tabStoreSnapshot exists).
-        // We keep renderedHTML here so that fallback still restores fully, but
-        // drop highlightsTabHTML/highlightsContentHTML — those are regenerated
-        // from the essay marks on restore (populateHighlightsContent), so
-        // storing them is pure duplication. See gatherTabDOMState.
+        // tabStoreSnapshot (below); this block is ONLY consumed by the
+        // pre-Phase-7 legacy restore fallback (when a build that predates
+        // tabStoreSnapshot reads one of our saves — i.e. a rollback). The
+        // modern path never reads it.
+        //
+        // We intentionally DROP the primary tab's renderedHTML (+ essayIds)
+        // here. It is a full byte-for-byte duplicate of
+        // tabStoreSnapshot.tabs[primary].renderedHTML and was the single
+        // largest payload contributor — for a single-tab session it roughly
+        // DOUBLED the rendered-HTML cost (measured: ~430KB of a 0.94MB 7-essay
+        // save), eating the very ceiling headroom this branch exists to
+        // protect. The rollback fallback still restores with NO data loss:
+        // currentBatchData + essaySnapshots below are enough for pre-Phase-7
+        // code to rebuild each essay by re-rendering through /format (slower,
+        // but lossless). highlightsTabHTML/highlightsContentHTML were already
+        // dropped earlier for the same regenerable-duplication reason.
         const sessionData = {
             currentBatchData: batchDataForPayload,
             essaySnapshots: primaryDOMState.essaySnapshots,
-            renderedHTML: primaryDOMState.renderedHTML,
-            renderedHTMLEssayIds: primaryDOMState.renderedHTMLEssayIds,
             // Per-tab score overrides are now captured inside gatherTabDOMState
             // for each tab. Legacy sessionData reflects the primary tab only,
             // which matches how old singleton-based saves worked.
