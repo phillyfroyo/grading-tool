@@ -801,13 +801,25 @@
         // Reset ALL grading forms
         document.querySelectorAll('#gradingForm').forEach(f => f.reset());
 
-        // Remove any toast or legacy banner
-        const toast = document.getElementById('auto-save-toast');
-        if (toast) toast.remove();
+        // Remove any toasts (the whole stack) or legacy banner
+        const toastStack = document.getElementById('auto-save-toast-stack');
+        if (toastStack) toastStack.remove();
         const legacyBanner = document.getElementById('auto-save-banner');
         if (legacyBanner) {
             document.body.style.paddingTop = '';
             legacyBanner.remove();
+        }
+
+        // Reset the capacity strip back to its hidden initial state — a cleared
+        // session has nothing to report until the next save.
+        const capStrip = document.getElementById('autosaveCapacityStrip');
+        if (capStrip) {
+            capStrip.hidden = true;
+            capStrip.classList.remove('is-ok', 'is-warn', 'is-full');
+            const fill = document.getElementById('autosaveCapacityFill');
+            const pctEl = document.getElementById('autosaveCapacityPct');
+            if (fill) fill.style.width = '0%';
+            if (pctEl) pctEl.textContent = '0%';
         }
 
         // Clear SingleResultModule batch data
@@ -836,42 +848,68 @@
      * @param {string} text - Message to display
      * @param {'ok'|'warn'} level - Visual style: green for ok, yellow for warn
      */
-    let toastDismissTimer = null;
+    // Toasts now STACK instead of replacing each other. Previously a new toast
+    // instantly removed the old one, so the "Grading complete / capacity" banner
+    // was stolen the moment the next save's "All changes saved" toast fired —
+    // it flashed and vanished. Now each toast lives in a fixed stack (newest on
+    // top); each self-dismisses on its own timer, and when one is removed the
+    // others slide up to fill the gap (the flex column reflows automatically).
+
+    /** Get or create the fixed-position stack that holds all toasts. */
+    function getToastStack() {
+        let stack = document.getElementById('auto-save-toast-stack');
+        if (!stack) {
+            stack = document.createElement('div');
+            stack.id = 'auto-save-toast-stack';
+            stack.style.cssText =
+                'position:fixed;top:12px;left:12px;z-index:9999;' +
+                'display:flex;flex-direction:column;gap:8px;' +
+                'pointer-events:none;'; // wrapper ignores clicks; toasts re-enable
+            document.body.appendChild(stack);
+        }
+        return stack;
+    }
 
     function showToast(text, level) {
-        // Remove any existing toast
-        const existing = document.getElementById('auto-save-toast');
-        if (existing) existing.remove();
-        if (toastDismissTimer) {
-            clearTimeout(toastDismissTimer);
-            toastDismissTimer = null;
-        }
-
-        const toast = document.createElement('div');
-        toast.id = 'auto-save-toast';
+        const stack = getToastStack();
 
         const isWarn = level === 'warn';
         const isError = level === 'error';
-        let bg, border, color, icon;
+
+        // De-dupe: if a toast with identical text is already showing, don't add
+        // a second copy. This matters for persistent warnings (e.g. the same
+        // capacity threshold message would otherwise re-stack on every save).
+        const fullText = text + (isError ? '' : isWarn ? ' ⚠' : ' ✓');
+        const dupes = stack.querySelectorAll('.auto-save-toast');
+        for (const d of dupes) {
+            if (d.dataset.toastText === fullText) {
+                // Refresh its dismiss timer (for non-warn) so it stays the
+                // expected duration from the latest trigger, then bail.
+                if (d._refreshDismiss) d._refreshDismiss();
+                return;
+            }
+        }
+
+        let bg, border, color;
         if (isError) {
             bg = 'rgba(248,215,218,0.97)';
             border = 'rgba(180,80,80,0.5)';
             color = '#721c24';
-            icon = '';
         } else if (isWarn) {
             bg = 'rgba(255,243,205,0.95)';
             border = 'rgba(200,170,80,0.4)';
             color = '#856404';
-            icon = ' ⚠';
         } else {
             bg = 'rgba(209,243,209,0.95)';
             border = 'rgba(100,180,100,0.4)';
             color = '#2d6a2d';
-            icon = ' ✓';
         }
 
+        const toast = document.createElement('div');
+        toast.className = 'auto-save-toast';
+        toast.dataset.toastText = fullText;
         toast.style.cssText =
-            'position:fixed;top:12px;left:12px;z-index:9999;' +
+            'pointer-events:auto;' +
             'padding:10px 18px;border-radius:6px;' +
             'font-family:"Inter","Helvetica Neue",Arial,sans-serif;' +
             'font-size:13px;font-weight:500;letter-spacing:0.01em;' +
@@ -880,26 +918,31 @@
             'transition:opacity 0.3s ease;opacity:0;' +
             'white-space:pre-line;max-width:420px;' +
             `background:${bg};border:1px solid ${border};color:${color};`;
+        toast.textContent = fullText;
 
-        toast.textContent = text + icon;
-        document.body.appendChild(toast);
+        // Newest on top: insert at the start of the stack.
+        stack.insertBefore(toast, stack.firstChild);
 
         // Fade in
-        requestAnimationFrame(() => {
-            toast.style.opacity = '1';
-        });
+        requestAnimationFrame(() => { toast.style.opacity = '1'; });
 
-        // Auto-dismiss: 5s for success, 8s for errors (longer — users need
-        // time to read a multi-line validation message). Warnings stay until
-        // replaced by the next toast.
+        const dismiss = () => {
+            toast.style.opacity = '0';
+            setTimeout(() => { if (toast.parentNode) toast.remove(); }, 300);
+        };
+
+        // Auto-dismiss: 5s for success, 8s for errors (longer — users need time
+        // to read a multi-line validation message). Warnings persist (no timer)
+        // since they describe an ongoing condition the teacher should act on.
+        let dismissTimer = null;
         if (!isWarn) {
             const dismissMs = isError ? 8000 : 5000;
-            toastDismissTimer = setTimeout(() => {
-                toast.style.opacity = '0';
-                setTimeout(() => {
-                    if (toast.parentNode) toast.remove();
-                }, 300);
-            }, dismissMs);
+            const arm = () => {
+                if (dismissTimer) clearTimeout(dismissTimer);
+                dismissTimer = setTimeout(dismiss, dismissMs);
+            };
+            arm();
+            toast._refreshDismiss = arm; // used by the de-dupe path above
         }
     }
 
@@ -1488,42 +1531,43 @@
     }
 
     /**
-     * Render/update the persistent "Autosave capacity" chip in the tab bar.
-     * Color shifts green → amber → red as capacity climbs; at 90%+ it appends an
-     * action hint. Created lazily on first use; no-op if the tab bar is absent.
+     * Update the persistent "Session autosave" capacity strip that sits ABOVE
+     * the tab row (markup in index.html: #autosaveCapacityStrip). Drives the
+     * label color, the progress-bar fill, and the percent text. Color shifts
+     * green → amber → red as capacity climbs. Hidden until the first save (when
+     * there's nothing to report). No-op if the strip is absent.
+     *
+     * Moved here from a chip inside the tab bar: that chip was appendChild'd
+     * into #gradingTabBar, which renderTabBar() wipes via innerHTML on every
+     * tab add/close/rename — so it kept getting destroyed and fought the tab
+     * flex layout ("weird things" with multiple tabs). A dedicated strip is
+     * stable and has room for a label + info tooltip.
      * @param {number} pct
      */
     function updateCapacityChip(pct) {
         try {
-            const bar = document.getElementById('gradingTabBar');
-            if (!bar) return;
+            const strip = document.getElementById('autosaveCapacityStrip');
+            if (!strip) return;
 
-            let chip = document.getElementById('autosaveCapacityChip');
-            if (!chip) {
-                chip = document.createElement('div');
-                chip.id = 'autosaveCapacityChip';
-                chip.title = 'How full the autosave for this session is. ' +
-                    'When it nears 100%, download finished essays and clear a tab.';
-                chip.style.cssText =
-                    'margin-left:auto;display:inline-flex;align-items:center;gap:6px;' +
-                    'font-family:"Inter",Arial,sans-serif;font-size:12px;font-weight:600;' +
-                    'padding:3px 10px;border-radius:12px;white-space:nowrap;align-self:center;';
-                bar.appendChild(chip);
-            }
+            const fill = document.getElementById('autosaveCapacityFill');
+            const pctEl = document.getElementById('autosaveCapacityPct');
 
             const clamped = Math.min(100, Math.max(0, pct));
-            let color, bg;
-            if (clamped < 70) { color = '#2d6a2d'; bg = 'rgba(209,243,209,0.9)'; }
-            else if (clamped < 90) { color = '#856404'; bg = 'rgba(255,243,205,0.95)'; }
-            else { color = '#721c24'; bg = 'rgba(248,215,218,0.97)'; }
 
-            const hint = clamped >= 90 ? ' — clear a finished tab' : '';
-            chip.style.color = color;
-            chip.style.background = bg;
-            chip.textContent = `Autosave ${clamped}%${hint}`;
+            // Reveal on first real measurement.
+            if (strip.hidden) strip.hidden = false;
+
+            // Color band → CSS class (styles live in styles.css).
+            strip.classList.remove('is-ok', 'is-warn', 'is-full');
+            if (clamped < 70) strip.classList.add('is-ok');
+            else if (clamped < 90) strip.classList.add('is-warn');
+            else strip.classList.add('is-full');
+
+            if (fill) fill.style.width = clamped + '%';
+            if (pctEl) pctEl.textContent = clamped + '%';
         } catch (e) {
-            // Cosmetic only — never let the chip break saving.
-            console.warn('[AutoSave] capacity chip update skipped:', e && e.message);
+            // Cosmetic only — never let the strip break saving.
+            console.warn('[AutoSave] capacity strip update skipped:', e && e.message);
         }
     }
 

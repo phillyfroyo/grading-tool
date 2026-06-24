@@ -20,6 +20,77 @@
     margin-bottom: 0;
 }
 
+/* ===== AUTOSAVE CAPACITY STRIP ===== */
+/* Sits above the tab row. Shows how full the current grading session's
+   autosave is, in plain language, with a progress bar + info tooltip.
+   Color band (green/amber/red) is set by the .is-ok / .is-warn / .is-full
+   class toggled in auto-save.js updateCapacityChip(). */
+.autosave-capacity-strip {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 5px 10px;
+    margin-bottom: 4px;
+    font-family: "Inter", "Helvetica Neue", Arial, sans-serif;
+    font-size: 12px;
+    font-weight: 600;
+    color: #5f6368;
+}
+.autosave-capacity-strip[hidden] { display: none; }
+
+.autosave-capacity-label {
+    white-space: nowrap;
+    letter-spacing: 0.01em;
+}
+
+.autosave-capacity-meter {
+    position: relative;
+    width: 120px;
+    height: 7px;
+    border-radius: 4px;
+    background: rgba(0, 0, 0, 0.08);
+    overflow: hidden;
+    flex: 0 0 auto;
+}
+.autosave-capacity-fill {
+    display: block;
+    height: 100%;
+    width: 0%;
+    border-radius: 4px;
+    transition: width 0.35s ease, background-color 0.35s ease;
+}
+
+.autosave-capacity-pct {
+    min-width: 32px;
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+}
+
+.autosave-capacity-info {
+    border: none;
+    background: transparent;
+    color: #9aa0a6;
+    cursor: help;
+    font-size: 14px;
+    line-height: 1;
+    padding: 0 2px;
+    border-radius: 50%;
+    transition: color 0.2s ease;
+}
+.autosave-capacity-info:hover,
+.autosave-capacity-info:focus-visible {
+    color: #1a73e8;
+    outline: none;
+}
+
+/* Color bands. Label + percent text and the fill bar shift together. */
+.autosave-capacity-strip.is-ok   { color: #2d6a2d; }
+.autosave-capacity-strip.is-ok   .autosave-capacity-fill { background: #34a853; }
+.autosave-capacity-strip.is-warn { color: #8a6d0b; }
+.autosave-capacity-strip.is-warn .autosave-capacity-fill { background: #f0b429; }
+.autosave-capacity-strip.is-full { color: #a50e0e; }
+.autosave-capacity-strip.is-full .autosave-capacity-fill { background: #ea4335; }
+
 .tab-button {
     flex: 1;
     padding: 10px 16px;
