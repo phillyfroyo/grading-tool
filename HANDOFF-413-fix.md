@@ -5,13 +5,26 @@ _(This doc has grown messy across sessions — it is due for a cleanup pass. The
 
 ---
 
-## ⭐ NEW (2026-06-25) — Full-scale load test PASSED + two findings
+## ⭐ CURRENT STATE (2026-06-25) — load test PASSED; branch ready to merge; lots of polish since
 
 ### Load test result: the 413 fix works
 Ran the exact 30 essays that 413'd a real user (North campus, cristina.martinez), plus 7-8 more, across multiple tabs of ≤10. Every save returned **"Save successful," never a 413.** Payload scaled cleanly:
 - 10 essays = 34%, 20 = 57%, 30 = 86%, 33 = 88%, **40 = 110%** (4.17MB, over our 3.8MB ceiling but still under Vercel's real ~4.5MB limit).
 - At 110% the over-budget guard correctly flipped `overBudget=true` and blocked further payload-growing edits.
 - The efficiency/de-dup work is doing exactly what it was designed for. This is the proof point for the midterms ship.
+
+### Both pre-merge gate items now PASS
+1. **Highlights survive a refresh** — verified repeatedly this session (restoring graded sessions is how we found/fixed the dead-controls bug below). Highlights regenerate from marks correctly.
+2. **Payload monitoring + never 413** — the load test above. The capacity pill + the new single capacity banner track it live.
+
+So the branch is **functionally ready to merge**. Remaining is the user's own continued heavy-usage monitoring (things can still surface under real load). Merge command is in the gate section below.
+
+### Polish / fixes added AFTER the original 413 work (this session, all committed on the branch)
+- **Autosave capacity PILL redesign** — compact pill pinned to the right of the tab bar (a permanent sibling of `.tab-list`, so `renderTabBar()` can't clobber it). System-ui font, tinted color bands, app-standard `.info-icon[data-tooltip]` tooltip with edge-aware positioning. Shows the **true %** including **above 100%** (e.g. "Autosave 110%") with a distinct darker-red `.is-over` band.
+- **Capacity BANNER consolidation** — replaced the old stacked per-threshold warning toasts (which left "86%" and "88%" coexisting) with ONE self-updating `#auto-save-capacity` banner: warn at 70%+ (amber, sticky-dismiss for the session), full at 100%+ (red, persists with NO timer, dismissable but re-shows on re-crossing). Removed `CAPACITY_THRESHOLDS`/hysteresis machinery and the old "Autosave capacity: X%" line on the grading-complete banner (the pill covers it).
+- **Save banner consolidation** — "Saving…" and "All changes saved" are now ONE in-place banner (`updateSaveStatus`), not two coexisting toasts. Restore shows "Session restored — all prior changes have been saved"; "Grading complete" is suppressed during restore.
+- **Dead-controls-after-restore FIX (important correctness fix)** — after a session restore, the category score +/- arrows, the category-note PDF-include toggle, and NEW-highlight creation could go unresponsive (per-element listeners lost on the restore re-render, no delegated fallback). Fixed by giving all three **document-level delegated handlers** (race-immune): `ensureDelegatedArrowStepListener` (single-result.js), delegated toggle in `setupCategoryNoteToggleListeners` (display-utils.js), `ensureDelegatedHighlightMouseup` (text-selection.js). NOTE: this is the class of "intermittent unresponsiveness" the original user reported alongside the 413s — watch for any OTHER control showing the same pattern; the fix template is "delegate it on document."
+- **Cleanups** — de-duped `MAX_ESSAYS_PER_TAB` (single source of truth in essay-management.js), fixed stale `max=50` in the new-tab template, de-duped the over-budget highlight guard, removed dead sentinels.
 
 ### FINDING 1 — The capacity-% "jitter" on tab switch is NOT a bug (legitimate payload variance)
 **Symptom observed:** the autosave % rises/falls as you move between tabs — e.g. 86% with a full 10-essay tab active, drops to 79% when a new EMPTY tab is opened/active, and would climb back if you re-enter a full tab. Looked alarming; it is not.
@@ -29,8 +42,8 @@ So whichever tab is **active at save time** gets its `currentBatchData` + `essay
 - 🔧 **Latent efficiency opportunity (deferred, not for midterms):** dropping that legacy `sessionData` duplicate would (a) make every save ~270KB lighter = more ceiling headroom, AND (b) kill the jitter at its source. BUT it touches the rollback safety net, so it needs its own branch + testing. Do NOT bundle into cosmetic work.
 - The planned **single self-updating capacity banner** (see memory `project_banner_capacity_rework`) makes the pill and banner always agree, which hides the jitter cosmetically — enough for midterms.
 
-### FINDING 2 — `public/js/grading/auto-save.js` is too big; needs a refactor (NOTE ONLY — do not start)
-This file has become a giant (save lifecycle, payload build/de-dup, multi-tab restore, reattach handlers, capacity/budget, toasts/banners, stash recovery all in one). It is hard to navigate and was the locus of several recent bugs. **A structured refactor (splitting by concern) is warranted — but is explicitly NOT to be attempted right now.** Just flagging it so it's on the radar. No effort on the refactor until deliberately scheduled; midterms stability comes first.
+### FINDING 2 — `public/js/grading/auto-save.js` is too big; refactor is being PLANNED (not yet executed)
+This file (~2200 lines, one IIFE, ~43 functions, lots of shared closure state) does save lifecycle, payload build/de-dup, multi-tab restore, reattach handlers, capacity/budget, toasts/banners, and auth/stash recovery all in one. It's hard to navigate and was the locus of several recent bugs. As of 2026-06-25 a **deep refactor PLAN is being researched** (function clusters, shared-state map, public-API surface, proposed split boundaries, per-step risk + phasing, and a go-now-vs-defer-past-midterms recommendation). **No refactor code yet** — the plan is so the user can make an informed surgical-and-safe-enough-to-do-now decision. Midterms stability comes first; the restore/reattach cluster is the highest-risk region to touch.
 
 ---
 
@@ -59,14 +72,14 @@ All client-side; the server round-trips the blob opaquely (no server change need
 5. **10-essays-per-tab cap at ADD time** (`7c6155c`): the "Add another essay" button + counter stop at 10, so a teacher can't build an over-limit batch and only discover it at "Grade." Label changed to "(up to 10 essays per tab)". Removed the old disruptive submit-time error modal (replaced with a silent clamp + light toast safety net).
 6. **Cap helper note** (`842fee3` then `d8da6c6`): at the cap the button is `disabled` + a small static italic note appears ("10 essays max per tab — open a new tab to grade more."). NOTE: browsers don't show `title` tooltips on disabled buttons — that's why the first tooltip attempt (`842fee3`) looked glitchy; `d8da6c6` replaced it with the static note.
 
-## What's left BEFORE merging to prod (the gate)
+## Merging to prod (the gate — BOTH ITEMS NOW PASS, see CURRENT STATE above)
 
-The user must smoke-test **on the Vercel preview** (not local — the 413 is a Vercel platform limit that doesn't exist locally). Two must-pass checks:
+The pre-merge gate was two preview smoke-tests; both have passed (see CURRENT STATE). Recorded here for reference / re-verification after any further change:
 
-1. **Highlights survive a refresh.** Grade a few essays, add several highlights, let autosave fire (`Save successful` in console), **refresh**, choose **Keep**, reopen highlights → they must all still be there (now regenerated from marks). This is the main correctness risk from the de-dup work.
-2. **Payload monitoring renders + saves cleanly.** Capacity chip in tab bar shows live %; grading-complete banner appends "Autosave capacity: X%"; pushing toward the limit (10/tab across tabs) climbs green→amber→red with threshold toasts; **always `Save successful`, never 413**. (With the 10/tab cap, a 413 is now effectively unreachable in normal use — that's the point.)
+1. **Highlights survive a refresh.** Grade a few essays, add several highlights, let autosave fire (`Save successful` in console), **refresh**, choose **Keep**, reopen highlights → they must all still be there (regenerated from marks). The main correctness risk from the de-dup work. ✅
+2. **Payload monitoring + never 413.** Capacity pill shows live %; the single capacity banner warns 70%+ / full 100%+; pushing past the limit never 413s, always `Save successful`. ✅ (Verified by the full load test.)
 
-If both pass → **merge `fix-413-payload` → main → push (Vercel auto-deploys prod).** It's a clean fast-forward:
+To ship → **merge `fix-413-payload` → main → push (Vercel auto-deploys prod).** It's a clean fast-forward:
 ```
 git checkout main && git pull --ff-only origin main
 git merge --ff-only fix-413-payload && git push origin main
@@ -78,16 +91,18 @@ The real ceiling-raiser: make highlight edits write back to **structured data** 
 
 ## Key files & symbols
 
-- `public/js/grading/auto-save.js` — `buildPayload`, `gatherTabDOMState` (de-dups), `evaluatePayloadBudget` + `updateCapacityChip` + `getCapacityPercent` + `isPayloadOverBudget` (Layer 3), `showClearButton` (banner capacity line). Constants: `PAYLOAD_CEILING_BYTES = 3_800_000`, `CAPACITY_THRESHOLDS`.
-- `public/js/essay-management.js` — `MAX_ESSAYS_PER_TAB = 10`, `addAnotherEssay` (clamp), `updateAddEssayControls` (disable + static note), `activeTabEssayRowCount` (live per-tab count).
-- `public/js/ui/form-handling.js` — submit-time silent clamp safety net (`MAX_ESSAYS_PER_TAB = 10` — keep in sync).
-- `public/js/essay/text-selection.js` — `applyHighlightToSelection` / `applyBatchHighlightToSelection` block new highlights when `isPayloadOverBudget()`.
+- `public/js/grading/auto-save.js` — the big one (~2200 lines; **flagged for a planned refactor, see below**). `buildPayload`, `gatherTabDOMState` (de-dups), `evaluatePayloadBudget` + `getCapacityPercent` + `isPayloadOverBudget` (budget), `updateCapacityChip` (the pill, shows true % incl. >100% via `.is-over`), `updateCapacityBanner` (the single self-updating capacity banner), `updateSaveStatus` (single Saving…/All-saved banner), `showClearButton` (grading-complete / restore banner). Constant: `PAYLOAD_CEILING_BYTES = 3_800_000`. (The old `CAPACITY_THRESHOLDS`/hysteresis are GONE.)
+- `public/js/grading/single-result.js` — `ensureDelegatedArrowStepListener` (delegated score +/- arrows), `setupBatchEditableElements`, `handleDelegatedBatchEdit` (delegated score-input fallback — the pattern the dead-controls fix copies).
+- `public/js/grading/display-utils.js` — `setupCategoryNoteToggleListeners` (now ONE delegated click handler) + `applyCategoryNoteToggle`.
+- `public/js/essay/text-selection.js` — `ensureDelegatedHighlightMouseup` (delegated new-highlight creation); `isHighlightingBlockedByBudget` (shared over-budget guard) used by `applyHighlightToSelection` / `applyBatchHighlightToSelection`.
+- `public/js/essay-management.js` — `MAX_ESSAYS_PER_TAB = 10` (single source of truth, exported on `window.EssayManagementModule`), `addAnotherEssay` (clamp), `updateAddEssayControls`, `activeTabEssayRowCount`.
+- `public/js/ui/form-handling.js` — submit-time silent clamp safety net; reads `MAX_ESSAYS_PER_TAB` from EssayManagementModule (no longer a duplicated literal).
 - `src/controllers/gradingSessionController.js` + `src/services/gradingSessionService.js` — server save/load (opaque blob; no change needed).
-- Restore path: `auto-save.js` `restoreTabDOM` re-renders via `displayBatchResults` (calls `/format`); highlight-HTML restore blocks are guarded (`if (tabData.highlightsTabHTML)`) so absent fields just lazy-regenerate.
+- Restore path: `auto-save.js` `restoreTabDOM` re-renders via `displayBatchResults` (calls `/format`); `reattachHandlers` re-wires per-essay handlers; the three controls above are now document-delegated so they survive restore regardless of reattach timing. Legacy highlight-HTML restore blocks are guarded + documented as read-only back-compat.
 
 ## Testing approach used
 
-No test suite in repo. Verification was Playwright harnesses against the served page + Node unit checks of pure logic (budget state machine, threshold hysteresis, cap clamping, tooltip/note state). `node --check` on every edited file. ENV note: the harness tmpfs filled up once — redirect `TMPDIR` to a real-disk dir (e.g. `$PWD/.tmprun`) if Playwright/ENOSPC bites; clean it up after.
+No test suite in repo. Verification = `node --check` on every edited file + manual testing on the running app / Vercel preview (the 413 is a Vercel platform limit that doesn't reproduce locally). The big proof was the user's full load test (the real 30-essay 413 case + more). ENV note: redirect `TMPDIR` to a real-disk dir (e.g. `$PWD/.tmprun`) if any harness hits ENOSPC; clean it up after.
 
 ## Working-style reminders (from the user, important)
 
