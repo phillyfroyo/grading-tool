@@ -188,7 +188,7 @@
         clearDebounce();
         hasPendingChanges = true;
         if (!options || !options.quiet) {
-            updateBannerStatus('Saving\u2026', 'ok');
+            updateSaveStatus('Saving\u2026', 'pending');
         }
         return doSave('saveImmediately');
     }
@@ -993,6 +993,70 @@
         showToast(text, level || 'ok');
     }
 
+    /**
+     * Single, reusable banner for the SAVE lifecycle (Saving… → All changes
+     * saved → or Couldn't save…). Unlike showToast (which stacks a new toast per
+     * call), this updates ONE persistent element in place, so "Saving…" and
+     * "All changes saved" never coexist as two contradictory banners — the same
+     * banner just changes text and color.
+     *
+     * It lives at the top of the same top-left stack as the other toasts.
+     * 'pending' (Saving…) has no auto-dismiss — it stays until the outcome
+     * replaces it. 'ok'/'warn' auto-dismiss after a short read.
+     *
+     * @param {string} text
+     * @param {'pending'|'ok'|'warn'} state
+     */
+    function updateSaveStatus(text, state) {
+        const stack = getToastStack();
+
+        let banner = document.getElementById('auto-save-status');
+        if (!banner) {
+            banner = document.createElement('div');
+            banner.id = 'auto-save-status';
+            banner.className = 'auto-save-toast'; // share dismissal/query class
+            banner.style.cssText =
+                'pointer-events:auto;padding:10px 18px;border-radius:6px;' +
+                'font-family:"Inter","Helvetica Neue",Arial,sans-serif;' +
+                'font-size:13px;font-weight:500;letter-spacing:0.01em;' +
+                'box-shadow:0 2px 8px rgba(0,0,0,0.12);' +
+                'backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);' +
+                'transition:opacity 0.3s ease,background-color 0.25s ease,' +
+                'border-color 0.25s ease,color 0.25s ease;opacity:0;' +
+                'white-space:pre-line;max-width:420px;';
+        }
+        // Always keep it at the top of the stack.
+        stack.insertBefore(banner, stack.firstChild);
+
+        const isWarn = state === 'warn';
+        const suffix = state === 'pending' ? '' : isWarn ? ' ⚠' : ' ✓';
+        let bg, border, color;
+        if (isWarn) {
+            bg = 'rgba(255,243,205,0.95)'; border = 'rgba(200,170,80,0.4)'; color = '#856404';
+        } else {
+            bg = 'rgba(209,243,209,0.95)'; border = 'rgba(100,180,100,0.4)'; color = '#2d6a2d';
+        }
+        banner.style.background = bg;
+        banner.style.borderTop = banner.style.borderRight = banner.style.borderBottom =
+            banner.style.borderLeft = '1px solid ' + border;
+        banner.style.color = color;
+        banner.textContent = text + suffix;
+        requestAnimationFrame(() => { banner.style.opacity = '1'; });
+
+        // Manage auto-dismiss. Resolved states ('ok'/'warn') fade after a short
+        // read. 'pending' (Saving…) normally stays until the outcome replaces
+        // it, but gets a long SAFETY fade so it can't get stuck on screen if a
+        // doSave path returns early without reporting an outcome (auth expired,
+        // no payload, save already in flight).
+        if (saveStatusTimer) { clearTimeout(saveStatusTimer); saveStatusTimer = null; }
+        const fadeMs = state === 'pending' ? 15000 : 5000;
+        saveStatusTimer = setTimeout(() => {
+            banner.style.opacity = '0';
+            setTimeout(() => { if (banner.parentNode) banner.remove(); }, 300);
+        }, fadeMs);
+    }
+    let saveStatusTimer = null;
+
     // --- Internal helpers ---
 
     let retryTimer = null;
@@ -1190,7 +1254,7 @@
                 lastSuccessfulSaveTime = Date.now();
                 hasPendingChanges = false;
                 clearPendingSaveStash();
-                updateBannerStatus('All changes saved', 'ok');
+                updateSaveStatus('All changes saved', 'ok');
                 console.log('[AutoSave] stashed work flushed successfully after re-auth');
             } else if (resp.status === 401 || resp.status === 403) {
                 // Still unauthorized — re-prompt (stash retained).
@@ -1658,7 +1722,7 @@
                 handleAuthExpired(payload);
             } else if (!resp.ok) {
                 console.warn('[AutoSave] Save failed:', resp.status);
-                updateBannerStatus('Couldn’t save just now — please keep this page open while we try again.', 'warn');
+                updateSaveStatus('Couldn’t save just now — please keep this page open while we try again.', 'warn');
                 scheduleRetry();
             } else {
                 console.log('[AutoSave] Save successful');
@@ -1666,11 +1730,11 @@
                 hasPendingChanges = false;
                 // A successful save means auth is healthy; clear any stash.
                 clearPendingSaveStash();
-                updateBannerStatus('All changes saved', 'ok');
+                updateSaveStatus('All changes saved', 'ok');
             }
         } catch (err) {
             console.warn('[AutoSave] Save error:', err);
-            updateBannerStatus('Couldn’t save just now — please keep this page open while we try again.', 'warn');
+            updateSaveStatus('Couldn’t save just now — please keep this page open while we try again.', 'warn');
             scheduleRetry();
         } finally {
             isSaving = false;
