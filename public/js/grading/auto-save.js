@@ -552,7 +552,14 @@
             });
         }
 
-        // Inject saved highlights tab HTML
+        // Inject saved highlights tab HTML.
+        // NOTE: read-only back-compat for LEGACY payloads. This branch stopped
+        // capturing highlightsTabHTML/highlightsContentHTML (they're regenerable
+        // from the essay marks via populateHighlightsContent, and were doubling
+        // the payload size this fix exists to shrink), so saves written from here
+        // on never contain these fields and this block no-ops. It still fires for
+        // sessions saved BEFORE the branch; absent fields just lazily regenerate.
+        // Remove once old saved sessions have aged out.
         if (tabData.highlightsTabHTML) {
             Object.entries(tabData.highlightsTabHTML).forEach(([indexStr, html]) => {
                 const hlTabDiv = queryInTab(`#highlights-tab-content-${indexStr}`);
@@ -564,7 +571,9 @@
             });
         }
 
-        // Inject saved highlights content (grade-details section)
+        // Inject saved highlights content (grade-details section).
+        // Same legacy-payload back-compat as highlightsTabHTML above — no-ops for
+        // saves written from this branch on.
         if (tabData.highlightsContentHTML) {
             Object.entries(tabData.highlightsContentHTML).forEach(([indexStr, html]) => {
                 const hlInner = queryInTab(`#highlights-content-${indexStr}-inner`);
