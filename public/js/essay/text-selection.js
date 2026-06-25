@@ -286,10 +286,54 @@ function getSelectedCategory(essayIndex) {
     return selectedCategory;
 }
 
+/**
+ * Document-level delegated mouseup handler for creating NEW highlights in the
+ * color-coded essay. The per-element mouseup listeners (setupTextSelection /
+ * setupBatchTextSelection, and the restore-path copies in auto-save.js /
+ * batch-processing.js) are lost whenever the essay's results HTML is re-injected
+ * (e.g. session restore) and not reliably re-attached — leaving new-highlight
+ * creation dead until a page refresh, even though EXISTING highlights (wired
+ * separately) still work. Delegating on document resolves the essay content at
+ * mouseup time, so new-highlight creation survives any innerHTML swap.
+ *
+ * Mirrors the restore-path handler's logic: route to batch vs single by the
+ * presence of data-essay-index, and ignore mouseups that land on an existing
+ * highlight (those are handled by the highlight click/edit handlers).
+ * Registered once; idempotent with any surviving per-element listeners because
+ * the underlying handlers only act on a real, non-collapsed text selection.
+ */
+let _highlightMouseupDelegated = false;
+function ensureDelegatedHighlightMouseup() {
+    if (_highlightMouseupDelegated) return;
+    _highlightMouseupDelegated = true;
+    document.addEventListener('mouseup', function (e) {
+        const content = e.target.closest && e.target.closest('.formatted-essay-content');
+        if (!content) return;
+
+        // Don't start a new highlight when the mouseup landed on an existing
+        // highlight span/mark — that interaction belongs to the edit handlers.
+        if (e.target.tagName === 'SPAN' || e.target.tagName === 'MARK') return;
+        if (e.target.closest('span[data-category], mark[data-category]')) {
+            // Allow it only if the user actually made a fresh text selection.
+            const sel = window.getSelection();
+            if (!(sel && sel.rangeCount > 0 && !sel.isCollapsed)) return;
+        }
+
+        const idxAttr = content.getAttribute('data-essay-index');
+        if (idxAttr !== null && idxAttr !== '') {
+            handleBatchTextSelection(e, parseInt(idxAttr, 10));
+        } else {
+            handleTextSelection(e);
+        }
+    });
+}
+ensureDelegatedHighlightMouseup();
+
 // Export functions for module usage
 window.TextSelectionModule = {
     setupTextSelection,
     setupBatchTextSelection,
+    ensureDelegatedHighlightMouseup,
     handleTextSelection,
     handleBatchTextSelection,
     applyHighlightToSelection,

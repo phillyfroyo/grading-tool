@@ -1774,22 +1774,13 @@
 
         setTimeout(() => {
             const essayData = readEssayData(index);
-            if (!essayData) {
-                console.warn(`[ReattachDiag] index=${index} tab=${scopedTabId}: BAILED — readEssayData returned null. No listeners attached.`);
-                return;
-            }
+            if (!essayData) return;
             const { essay, originalData } = essayData;
 
             // Strip "already initialized" data attributes from injected HTML.
             // Event listeners don't survive innerHTML injection, but these marker
             // attributes do — causing setup functions to skip re-attaching listeners.
             const essayContainer = queryScoped(`#batch-essay-${index}`);
-            console.log(`[ReattachDiag] index=${index} tab=${scopedTabId}: running. essayContainer found=${!!essayContainer}` +
-                (essayContainer ? `, pre-strip listenersAttached=${essayContainer.dataset.listenersAttached}, ` +
-                `#[data-listener-added]=${essayContainer.querySelectorAll('[data-listener-added]').length}, ` +
-                `#[data-listener-setup]=${essayContainer.querySelectorAll('[data-listener-setup]').length}, ` +
-                `#arrows=${essayContainer.querySelectorAll('.arrow-up-area,.arrow-down-area').length}, ` +
-                `#togglePdfBtn=${essayContainer.querySelectorAll('.toggle-note-pdf-btn').length}` : ''));
             if (essayContainer) {
                 essayContainer.removeAttribute('data-listeners-attached');
                 essayContainer.querySelectorAll('[data-listener-added]').forEach(
@@ -1910,16 +1901,12 @@
             // Pass scopedTabId so per-tab batchGradingData writes land in the
             // correct tab even though the active tab may have changed during
             // the 250ms setTimeout (multi-tab restore iterates tabs).
-            const canSetupEditable = !!(
+            if (
                 window.SingleResultModule &&
                 window.SingleResultModule.setupBatchEditableElements &&
                 essay &&
                 originalData
-            );
-            console.log(`[ReattachDiag] index=${index}: setupBatchEditableElements call? ${canSetupEditable}` +
-                ` (hasModule=${!!(window.SingleResultModule && window.SingleResultModule.setupBatchEditableElements)},` +
-                ` hasEssay=${!!essay}, hasEssayResult=${!!(essay && essay.result)}, hasOriginalData=${!!originalData})`);
-            if (canSetupEditable) {
+            ) {
                 window.SingleResultModule.setupBatchEditableElements(
                     essay.result,
                     originalData,

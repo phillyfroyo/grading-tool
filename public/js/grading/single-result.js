@@ -158,42 +158,9 @@ function setupEditableElements(gradingResult, originalData) {
         });
     });
 
-    // Add listeners for arrow click areas (only if not already added)
-    document.querySelectorAll('.arrow-up-area:not([data-listener-added]), .arrow-down-area:not([data-listener-added])').forEach(arrow => {
-        arrow.dataset.listenerAdded = 'true';
-        arrow.addEventListener('click', function(e) {
-            e.stopPropagation(); // Prevent event bubbling
-            e.preventDefault(); // Prevent default behavior
-
-            const input = this.parentElement.querySelector('.editable-score');
-            if (input) {
-                // Store current value
-                const currentValue = parseFloat(input.value) || 0;
-                const max = parseFloat(input.max) || 15;
-                const min = parseFloat(input.min) || 0;
-
-                // Calculate new value (increment by 1)
-                let newValue;
-                if (this.classList.contains('arrow-up-area')) {
-                    newValue = Math.min(currentValue + 1, max);
-                } else if (this.classList.contains('arrow-down-area')) {
-                    newValue = Math.max(currentValue - 1, min);
-                }
-
-                // Set the new value and let the input event handler take care of the rest
-                if (newValue !== currentValue) {
-                    input.value = newValue;
-
-                    // Trigger input event to let existing listeners handle the update.
-                    // Must bubble so the document-level autosave listener in
-                    // auto-save.js sees the change — non-bubbling events stay
-                    // on the input element and never reach the doc handler,
-                    // which silently skips autosave for arrow-button edits.
-                    input.dispatchEvent(new Event('input', { bubbles: true }));
-                }
-            }
-        });
-    });
+    // Arrow stepper clicks are handled by the document-level delegated listener
+    // (ensureDelegatedArrowStepListener) so they survive results-HTML re-injection
+    // on restore. No per-element listener needed here.
 
     // Setup editing functions integration
     if (window.EditingFunctionsModule) {
@@ -292,12 +259,9 @@ function setupBatchEditableElements(gradingResult, originalData, essayIndex, tab
         originalData: { ...originalData }
     };
 
-    console.log(`[EditableDiag] setupBatchEditableElements index=${essayIndex} tab=${resolvedTabId}: essayContainer=${!!essayContainer}` +
-        (essayContainer ? `, listenersAttached=${essayContainer.dataset.listenersAttached}` : ''));
     if (essayContainer) {
         // Check if we've already set up listeners for this container
         if (essayContainer.dataset.listenersAttached === 'true') {
-            console.warn(`[EditableDiag] index=${essayIndex}: EARLY RETURN — listenersAttached already true. Arrows + note toggle NOT reattached.`);
             return;
         }
 
@@ -348,45 +312,10 @@ function setupBatchEditableElements(gradingResult, originalData, essayIndex, tab
             }
         });
 
-        // Add listeners for arrow click areas within this essay container
-        const _arrowsToWire = essayContainer.querySelectorAll('.arrow-up-area:not([data-listener-added]), .arrow-down-area:not([data-listener-added])');
-        console.log(`[EditableDiag] index=${essayIndex}: wiring ${_arrowsToWire.length} arrow(s) ` +
-            `(of ${essayContainer.querySelectorAll('.arrow-up-area,.arrow-down-area').length} total in container)`);
-        _arrowsToWire.forEach(arrow => {
-            arrow.dataset.listenerAdded = 'true';
-            arrow.addEventListener('click', function(e) {
-                e.stopPropagation(); // Prevent event bubbling
-                e.preventDefault(); // Prevent default behavior
-
-                const input = this.parentElement.querySelector('.editable-score');
-                if (input) {
-                    // Store current value
-                    const currentValue = parseFloat(input.value) || 0;
-                    const max = parseFloat(input.max) || 15;
-                    const min = parseFloat(input.min) || 0;
-
-                    // Calculate new value (increment by 1)
-                    let newValue;
-                    if (this.classList.contains('arrow-up-area')) {
-                        newValue = Math.min(currentValue + 1, max);
-                    } else if (this.classList.contains('arrow-down-area')) {
-                        newValue = Math.max(currentValue - 1, min);
-                    }
-
-                    // Set the new value and let the input event handler take care of the rest
-                    if (newValue !== currentValue) {
-                        input.value = newValue;
-
-                        // Trigger input event to let existing listeners handle the update.
-                        // Must bubble so the document-level autosave listener in
-                        // auto-save.js sees the change — non-bubbling events stay
-                        // on the input element and never reach the doc handler,
-                        // which silently skips autosave for arrow-button edits.
-                        input.dispatchEvent(new Event('input', { bubbles: true }));
-                    }
-                }
-            });
-        });
+        // Arrow stepper clicks are handled by the document-level delegated
+        // listener (ensureDelegatedArrowStepListener), so they survive the
+        // results-HTML re-injection that happens on session restore. No
+        // per-element listener is attached here.
     }
 
     // Add listeners for feedback textareas within the specific essay container
@@ -522,6 +451,53 @@ function ensureDelegatedBatchEditListener() {
     }, true);
 }
 ensureDelegatedBatchEditListener();
+
+/**
+ * Document-level delegated click handler for the category score +/- arrow
+ * steppers (.arrow-up-area / .arrow-down-area). The per-element click listeners
+ * (attached in setupBatchEditableElements / single-result render) are lost when
+ * a tab's results HTML is re-injected (e.g. session restore) and not reliably
+ * re-attached, leaving the arrows dead until a page refresh. This delegated
+ * handler resolves the arrow at click time, so stepping always works regardless
+ * of per-element reattachment.
+ *
+ * It mirrors the old per-element logic exactly: step the sibling .editable-score
+ * by ±1 within its min/max and dispatch a bubbling 'input' event, which the
+ * score update + autosave handlers already act on. This is now the ONLY arrow
+ * handler (the per-element ones were removed), so there's no double-step risk.
+ * Registered once.
+ */
+let _arrowStepDelegated = false;
+function ensureDelegatedArrowStepListener() {
+    if (_arrowStepDelegated) return;
+    _arrowStepDelegated = true;
+    document.addEventListener('click', function (e) {
+        const arrow = e.target.closest && e.target.closest('.arrow-up-area, .arrow-down-area');
+        if (!arrow) return;
+        // Only category-SCORE steppers. The essay-COUNT stepper on the form uses
+        // the same arrow classes but carries .essay-counter-arrow + data-target
+        // and is driven by its own handler in essay-management.js — leave it be.
+        if (arrow.classList.contains('essay-counter-arrow') || arrow.dataset.target) return;
+
+        const input = arrow.parentElement && arrow.parentElement.querySelector('.editable-score');
+        if (!input) return; // not a score stepper context
+        e.preventDefault();
+        const currentValue = parseFloat(input.value) || 0;
+        const max = parseFloat(input.max) || 15;
+        const min = parseFloat(input.min) || 0;
+        let newValue = currentValue;
+        if (arrow.classList.contains('arrow-up-area')) {
+            newValue = Math.min(currentValue + 1, max);
+        } else if (arrow.classList.contains('arrow-down-area')) {
+            newValue = Math.max(currentValue - 1, min);
+        }
+        if (newValue !== currentValue) {
+            input.value = newValue;
+            input.dispatchEvent(new Event('input', { bubbles: true }));
+        }
+    }, true);
+}
+ensureDelegatedArrowStepListener();
 
 /**
  * Update total score display

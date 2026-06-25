@@ -1034,57 +1034,66 @@ function updateRemoveAllCheckboxState(container) {
  * Setup toggle PDF button listeners for category notes (auto-filled rationales)
  * Called after grading results are displayed
  */
+/**
+ * Toggle whether a category's note is included in the PDF. Self-contained: reads
+ * and flips the button's own state and updates the sibling textarea styling.
+ * Called by the document-level delegated click handler below (and previously by
+ * per-button listeners — see the note on setupCategoryNoteToggleListeners).
+ * @param {HTMLElement} button - the clicked .toggle-note-pdf-btn
+ */
+function applyCategoryNoteToggle(button) {
+    const isCurrentlyExcluded = button.dataset.excluded === 'true';
+    const newExcludedState = !isCurrentlyExcluded;
+
+    // Find the parent category-feedback div
+    const categoryDiv = button.closest('.category-feedback');
+    if (categoryDiv) {
+        categoryDiv.dataset.noteExcludeFromPdf = newExcludedState ? 'true' : 'false';
+    }
+
+    // Find the textarea for this category
+    const textarea = categoryDiv?.querySelector('.editable-feedback');
+
+    // Update button appearance
+    button.dataset.excluded = newExcludedState;
+    if (newExcludedState) {
+        // Excluded state - green "Add" button, grayed textarea
+        button.style.background = '#28a745';
+        button.textContent = '+';
+        if (textarea) {
+            textarea.style.textDecoration = 'line-through';
+            textarea.style.opacity = '0.6';
+        }
+    } else {
+        // Included state - red "Remove" button, normal textarea
+        button.style.background = '#dc3545';
+        button.textContent = '-';
+        if (textarea) {
+            textarea.style.textDecoration = 'none';
+            textarea.style.opacity = '1';
+        }
+    }
+}
+
+/**
+ * Register ONE document-level delegated click handler for the category-note
+ * PDF-include toggle buttons. Replaces the old per-button listeners, which were
+ * lost whenever a tab's results HTML was re-injected (e.g. session restore) and
+ * not reliably re-attached — leaving the +/- buttons dead until a page refresh.
+ * Delegating on document resolves the button at click time, so it survives any
+ * innerHTML swap. Registered once; idempotent.
+ */
+let _noteToggleDelegated = false;
 function setupCategoryNoteToggleListeners() {
-    const toggleButtons = document.querySelectorAll('.toggle-note-pdf-btn');
-    let _wired = 0, _skipped = 0;
-
-    toggleButtons.forEach((button, index) => {
-        // Skip if already set up
-        if (button.dataset.listenerSetup === 'true') { _skipped++; return; }
-        button.dataset.listenerSetup = 'true';
-        _wired++;
-
-        button.addEventListener('click', function(event) {
-            event.preventDefault();
-            event.stopPropagation();
-
-            const category = this.dataset.category;
-            const isCurrentlyExcluded = this.dataset.excluded === 'true';
-            const newExcludedState = !isCurrentlyExcluded;
-
-            // Find the parent category-feedback div
-            const categoryDiv = this.closest('.category-feedback');
-            if (categoryDiv) {
-                categoryDiv.dataset.noteExcludeFromPdf = newExcludedState ? 'true' : 'false';
-            }
-
-            // Find the textarea for this category
-            const textarea = categoryDiv?.querySelector('.editable-feedback');
-
-            // Update button appearance
-            this.dataset.excluded = newExcludedState;
-            if (newExcludedState) {
-                // Excluded state - green "Add" button, grayed textarea
-                this.style.background = '#28a745';
-                this.textContent = '+';
-                if (textarea) {
-                    textarea.style.textDecoration = 'line-through';
-                    textarea.style.opacity = '0.6';
-                }
-            } else {
-                // Included state - red "Remove" button, normal textarea
-                this.style.background = '#dc3545';
-                this.textContent = '-';
-                if (textarea) {
-                    textarea.style.textDecoration = 'none';
-                    textarea.style.opacity = '1';
-                }
-            }
-
-        });
-    });
-    console.log(`[ToggleDiag] setupCategoryNoteToggleListeners: ${toggleButtons.length} btn(s) total, ` +
-        `wired=${_wired}, skipped(listenerSetup already true)=${_skipped}`);
+    if (_noteToggleDelegated) return;
+    _noteToggleDelegated = true;
+    document.addEventListener('click', function (e) {
+        const btn = e.target.closest && e.target.closest('.toggle-note-pdf-btn');
+        if (!btn) return;
+        e.preventDefault();
+        e.stopPropagation();
+        applyCategoryNoteToggle(btn);
+    }, true);
 }
 
 // Make the function globally available
