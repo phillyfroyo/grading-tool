@@ -127,6 +127,11 @@ function renderTabBar() {
     const bar = document.getElementById('gradingTabBar');
     if (!bar || !window.TabStore) return;
 
+    // Render the tab items into the dedicated .tab-list lane, NOT the whole
+    // bar — the bar also holds the always-present capacity pill, which must
+    // survive this rebuild. Fall back to the bar itself for older markup.
+    const list = document.getElementById('gradingTabList') || bar;
+
     const tabs = window.TabStore.all();
     const activeId = window.TabStore.activeId();
 
@@ -153,7 +158,7 @@ function renderTabBar() {
     const disabledAttr = atCap ? ' disabled title="Maximum 10 tabs reached"' : ' title="New tab"';
     parts.push(`<button type="button" class="tab-add-btn" id="tabAddBtn"${disabledAttr}>+</button>`);
 
-    bar.innerHTML = parts.join('');
+    list.innerHTML = parts.join('');
 }
 
 /** Escape HTML entities in a string for safe insertion into innerHTML. */

@@ -747,6 +747,24 @@ async function initializeProfiles() {
         }
     }
 
+    // Shared by both hover and click popups: moving onto the popup cancels any
+    // pending hover dismissal (so longer tooltips can be read), and leaving a
+    // hover popup dismisses it immediately. Click popups ignore mouseleave —
+    // they're dismissed by clicking elsewhere.
+    function attachHoverDismissHandlers(popup) {
+        popup.addEventListener('mouseenter', function() {
+            if (hoverDismissTimer) {
+                clearTimeout(hoverDismissTimer);
+                hoverDismissTimer = null;
+            }
+        });
+        popup.addEventListener('mouseleave', function() {
+            if (popup.dataset.mode === 'hover') {
+                removeAnyTooltip();
+            }
+        });
+    }
+
     function createTooltipPopup(text, mode, icon) {
         const popup = document.createElement('div');
         popup.className = 'info-tooltip-popup';
@@ -754,41 +772,47 @@ async function initializeProfiles() {
         popup.textContent = text;
 
         if (mode === 'hover') {
-            // Position just below and slightly right of the icon.
+            // Position just below the icon. Default opens to the bottom-RIGHT
+            // (left edge under the icon). For icons near the right edge of the
+            // viewport — e.g. the right-anchored autosave pill — that would push
+            // the popup off-screen and scrunch the text, so we flip it to open
+            // bottom-LEFT (right edge under the icon) when it wouldn't fit.
+            // The flip decision needs the popup's real width, which we only know
+            // once it's in the DOM, so set base styles, append, measure, place.
             const rect = icon.getBoundingClientRect();
             const top = rect.bottom + 8;
-            const left = rect.left;
             popup.style.cssText =
-                'position:fixed;top:' + top + 'px;left:' + left + 'px;' +
+                'position:fixed;top:' + top + 'px;left:0;visibility:hidden;' +
                 'background:#333;color:#fff;padding:10px 14px;border-radius:6px;font-size:13px;' +
                 'font-style:normal;font-weight:400;line-height:1.5;max-width:280px;z-index:10000;' +
                 'box-shadow:0 4px 12px rgba(0,0,0,0.2);pointer-events:auto;';
-        } else {
-            // Click mode: centered on screen, matches previous behavior.
-            popup.style.cssText =
-                'position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);' +
-                'background:#333;color:#fff;padding:14px 18px;border-radius:6px;font-size:14px;' +
-                'font-style:normal;font-weight:400;line-height:1.6;width:320px;z-index:10000;' +
-                'box-shadow:0 4px 12px rgba(0,0,0,0.2);pointer-events:auto;';
+            document.body.appendChild(popup);
+
+            const margin = 8; // keep clear of the viewport edge
+            const popupWidth = popup.offsetWidth;
+            let left = rect.left;
+            // Flip to bottom-left if opening right would overflow the viewport.
+            if (left + popupWidth + margin > window.innerWidth) {
+                left = rect.right - popupWidth;
+            }
+            // Never let it run off the left edge either.
+            if (left < margin) left = margin;
+            popup.style.left = left + 'px';
+            popup.style.visibility = 'visible';
+
+            attachHoverDismissHandlers(popup);
+            return popup;
         }
 
-        // If the cursor moves onto the popup, cancel any pending hover dismissal
-        // so the user can read longer tooltips without them vanishing.
-        popup.addEventListener('mouseenter', function() {
-            if (hoverDismissTimer) {
-                clearTimeout(hoverDismissTimer);
-                hoverDismissTimer = null;
-            }
-        });
-        // Leaving the popup itself dismisses it immediately (hover mode only —
-        // click-mode popups are dismissed by clicking elsewhere).
-        popup.addEventListener('mouseleave', function() {
-            if (popup.dataset.mode === 'hover') {
-                removeAnyTooltip();
-            }
-        });
+        // Click mode: centered on screen, matches previous behavior.
+        popup.style.cssText =
+            'position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);' +
+            'background:#333;color:#fff;padding:14px 18px;border-radius:6px;font-size:14px;' +
+            'font-style:normal;font-weight:400;line-height:1.6;width:320px;z-index:10000;' +
+            'box-shadow:0 4px 12px rgba(0,0,0,0.2);pointer-events:auto;';
 
         document.body.appendChild(popup);
+        attachHoverDismissHandlers(popup);
         return popup;
     }
 
@@ -796,6 +820,13 @@ async function initializeProfiles() {
     document.addEventListener('mouseover', function(e) {
         const icon = e.target.closest('.info-icon[data-tooltip]');
         if (!icon) return;
+
+        // Ignore movement that stays WITHIN the same icon (e.g. crossing onto a
+        // nested child like the autosave pill's glyph span). relatedTarget is
+        // where the cursor came from; if that's inside this same icon, nothing
+        // meaningful changed. Without this, entering a child fires a redundant
+        // mouseover that races the mouseout-scheduled dismiss below.
+        if (icon.contains(e.relatedTarget)) return;
 
         // If a tooltip is already showing for this exact icon, do nothing.
         const existing = document.querySelector('.info-tooltip-popup');
@@ -811,6 +842,12 @@ async function initializeProfiles() {
     document.addEventListener('mouseout', function(e) {
         const icon = e.target.closest('.info-icon[data-tooltip]');
         if (!icon) return;
+
+        // Ignore movement that stays WITHIN the same icon. relatedTarget is
+        // where the cursor is going; if it's still inside this icon (e.g. onto
+        // the nested glyph span), the user hasn't actually left — don't schedule
+        // a dismiss, or the card flickers off when hovering dead-center.
+        if (icon.contains(e.relatedTarget)) return;
 
         const popup = document.querySelector('.info-tooltip-popup');
         if (!popup || popup.dataset.mode !== 'hover') return;

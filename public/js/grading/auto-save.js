@@ -113,6 +113,12 @@
         // so the live state, if any, takes precedence.
         setTimeout(recoverOrphanedStash, 1500);
 
+        // Reveal the capacity pill on load for a restored session, so its
+        // fullness is visible immediately rather than only after the user's
+        // first edit. Deferred so any session restore (async: modal → /format
+        // re-render) has populated the DOM first. No-op on an empty fresh form.
+        setTimeout(refreshCapacityDisplay, 1800);
+
         console.log('[AutoSave] Initialized');
     }
 
@@ -810,16 +816,14 @@
             legacyBanner.remove();
         }
 
-        // Reset the capacity strip back to its hidden initial state — a cleared
+        // Reset the capacity pill back to its hidden initial state — a cleared
         // session has nothing to report until the next save.
-        const capStrip = document.getElementById('autosaveCapacityStrip');
-        if (capStrip) {
-            capStrip.hidden = true;
-            capStrip.classList.remove('is-ok', 'is-warn', 'is-full');
-            const fill = document.getElementById('autosaveCapacityFill');
-            const pctEl = document.getElementById('autosaveCapacityPct');
-            if (fill) fill.style.width = '0%';
-            if (pctEl) pctEl.textContent = '0%';
+        const capChip = document.getElementById('autosaveCapacityChip');
+        if (capChip) {
+            capChip.hidden = true;
+            capChip.classList.remove('is-ok', 'is-warn', 'is-full');
+            const t = document.getElementById('autosaveCapacityChipText');
+            if (t) t.textContent = 'Autosave 0%';
         }
 
         // Clear SingleResultModule batch data
@@ -1531,43 +1535,61 @@
     }
 
     /**
-     * Update the persistent "Session autosave" capacity strip that sits ABOVE
-     * the tab row (markup in index.html: #autosaveCapacityStrip). Drives the
-     * label color, the progress-bar fill, and the percent text. Color shifts
-     * green → amber → red as capacity climbs. Hidden until the first save (when
-     * there's nothing to report). No-op if the strip is absent.
+     * Measure current capacity and reveal the pill WITHOUT performing a network
+     * save. Used on page load so a restored session shows its capacity right
+     * away, instead of the pill staying hidden until the user's first edit (the
+     * old behavior — the chip only updated inside doSave()). Skips entirely when
+     * there's no real grading content yet, so an empty fresh form doesn't show a
+     * "0%" pill until there's actually something to report.
+     */
+    function refreshCapacityDisplay() {
+        const payload = buildPayload();
+        const hasResults = !!(payload && payload.sessionData &&
+            payload.sessionData.currentBatchData &&
+            payload.sessionData.currentBatchData.batchResult &&
+            payload.sessionData.currentBatchData.batchResult.results &&
+            payload.sessionData.currentBatchData.batchResult.results.length);
+        if (!hasResults) return; // nothing graded yet — keep the pill hidden
+        evaluatePayloadBudget(JSON.stringify(payload));
+    }
+
+    /**
+     * Update the always-present "Autosave N%" capacity pill anchored to the
+     * RIGHT edge of the tab bar (markup in index.html: #autosaveCapacityChip).
+     * Color shifts green → amber → red as capacity climbs; at 90%+ it appends a
+     * short action hint. Hidden until there's something to report — revealed on
+     * page load for a restored session (refreshCapacityDisplay) or on the first
+     * save, whichever comes first.
      *
-     * Moved here from a chip inside the tab bar: that chip was appendChild'd
-     * into #gradingTabBar, which renderTabBar() wipes via innerHTML on every
-     * tab add/close/rename — so it kept getting destroyed and fought the tab
-     * flex layout ("weird things" with multiple tabs). A dedicated strip is
-     * stable and has room for a label + info tooltip.
+     * The pill is a permanent sibling of the .tab-list lane, so renderTabBar()
+     * — which rewrites only .tab-list's innerHTML — never destroys it. CSS
+     * pins it right and forbids it from shrinking, and caps the tab lane to the
+     * space left of it, so tabs compress to fit instead of pushing the pill
+     * around or off-screen (the old "weird things with multiple tabs").
      * @param {number} pct
      */
     function updateCapacityChip(pct) {
         try {
-            const strip = document.getElementById('autosaveCapacityStrip');
-            if (!strip) return;
+            const chip = document.getElementById('autosaveCapacityChip');
+            if (!chip) return;
 
-            const fill = document.getElementById('autosaveCapacityFill');
-            const pctEl = document.getElementById('autosaveCapacityPct');
-
+            const textEl = document.getElementById('autosaveCapacityChipText') || chip;
             const clamped = Math.min(100, Math.max(0, pct));
 
             // Reveal on first real measurement.
-            if (strip.hidden) strip.hidden = false;
+            if (chip.hidden) chip.hidden = false;
 
-            // Color band → CSS class (styles live in styles.css).
-            strip.classList.remove('is-ok', 'is-warn', 'is-full');
-            if (clamped < 70) strip.classList.add('is-ok');
-            else if (clamped < 90) strip.classList.add('is-warn');
-            else strip.classList.add('is-full');
+            // Color band → CSS class.
+            chip.classList.remove('is-ok', 'is-warn', 'is-full');
+            if (clamped < 70) chip.classList.add('is-ok');
+            else if (clamped < 90) chip.classList.add('is-warn');
+            else chip.classList.add('is-full');
 
-            if (fill) fill.style.width = clamped + '%';
-            if (pctEl) pctEl.textContent = clamped + '%';
+            const hint = clamped >= 90 ? ' — clear a tab' : '';
+            textEl.textContent = `Autosave ${clamped}%${hint}`;
         } catch (e) {
-            // Cosmetic only — never let the strip break saving.
-            console.warn('[AutoSave] capacity strip update skipped:', e && e.message);
+            // Cosmetic only — never let the chip break saving.
+            console.warn('[AutoSave] capacity chip update skipped:', e && e.message);
         }
     }
 
