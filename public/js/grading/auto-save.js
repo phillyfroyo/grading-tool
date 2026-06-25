@@ -762,8 +762,10 @@
                 });
             }, 400);
 
-            // Show clear button
-            showClearButton();
+            // Restore confirmation banner. Worded to reassure: a restorable
+            // session is one that was already persisted server-side, so prior
+            // work is safe. (No actual save fires here — this is a load.)
+            showClearButton('Session restored — all prior changes have been saved');
 
             // Delay clearing isRestoring until after reattachHandlers timeouts
             // and applyScoreOverrides event dispatches have settled
@@ -2044,6 +2046,10 @@
         markGradingStarted,
         markGradingFinished,
         isGradingInProgress,
+        // True while a saved session is being restored/re-rendered. Lets the
+        // re-render path (displayBatchResults) suppress its "Grading complete"
+        // banner during restore — restore shows its own banner instead.
+        isRestoring: () => isRestoring,
         // Consulted by edit handlers that would grow the payload (new
         // highlights, comment/note text) so they can block themselves when the
         // session is at the size ceiling. See evaluatePayloadBudget.

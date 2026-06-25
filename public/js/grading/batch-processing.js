@@ -652,8 +652,12 @@ function displayBatchResults(batchResult, originalData) {
         });
     }
 
-    // Show auto-save banner
-    if (window.AutoSaveModule) {
+    // Show the "Grading complete" banner — but NOT during a session restore.
+    // restoreTabDOM() also routes through displayBatchResults() to re-render
+    // restored essays; in that case "Grading complete" is wrong (nothing was
+    // just graded) and restore shows its own banner instead.
+    if (window.AutoSaveModule &&
+        !(window.AutoSaveModule.isRestoring && window.AutoSaveModule.isRestoring())) {
         window.AutoSaveModule.showClearButton('Grading complete');
     }
 }
