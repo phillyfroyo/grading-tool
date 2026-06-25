@@ -114,3 +114,48 @@ No test suite in repo. Verification = `node --check` on every edited file + manu
 ## Related future work (noted, not started)
 
 - **Admin dashboard** for usage/errors/cost (see memory `admin_dashboard_idea.md`). Blocked on data gaps: no per-event grading log (sessions are overwritten, so lifetime essay counts aren't recoverable), no campus field on `users`, no token/cost capture. First step is instrumentation, not UI.
+- **Legacy `sessionData` duplicate removal** (efficiency) — see Finding 1 above. Dropping the legacy block's `currentBatchData`+`essaySnapshots` would lighten every save by ~270KB AND remove the capacity-% jitter at its source. Touches the pre-Phase-7 rollback safety net, so it needs its own branch + testing. Not for midterms.
+
+---
+
+## 📋 REFACTOR PLAN — `public/js/grading/auto-save.js` (researched 2026-06-25; Phase 1 on-ramp DONE, rest DEFERRED)
+
+Full plan from a deep code analysis, saved so it can be executed post-midterms without re-deriving. **Status:** the safe Phase-1 on-ramp (cluster-map comment + hoisting 3 stray state `let`s) is committed (`5e576ee`). Everything structural below is DEFERRED — do not split files before midterms / before a test harness exists.
+
+### Why it's scary (the crux)
+File is ~2218 lines, one IIFE, ~43 functions exposing `window.AutoSaveModule`. Size isn't the obstacle — **shared mutable closure flags are.** A handful of flags cross-link the hardest clusters and are read inside hot paths (`doSave`, `buildPayload`, `loadAndRestore`):
+- `isRestoring` (save lifecycle ↔ restore ↔ public getter)
+- `authExpired`, `retryTimer` (save lifecycle ↔ auth)
+- `gradingInProgress` (grading-state → payload build → public)
+- `capacityFullDismissed` (capacity → banner UI)
+
+Splitting these into separate files means converting closure `let`s into a shared `window.AutoSaveState` object — a large, non-mechanical edit on exactly the restore/auth code where the recent bugs lived. With no test suite, that's the wrong risk before a real teacher relies on the save path.
+
+### Function clusters (the cluster map also lives at the top of the file)
+- **A. Save lifecycle:** `saveImmediately`, `debouncedSave`, `doSave`, `scheduleRetry`, `clearDebounce`
+- **B. Payload build/de-dup:** `buildPayload`, `gatherTabDOMState`, `readEssayData`, `countEssayDataGlobals`, `payloadHasResults`
+- **C. Restore & reattach (HIGHEST RISK):** `peekSavedSession`, `promptRestoreIfSaved`, `loadAndRestore`, `restoreTabDOM`, `reattachHandlers`, `reattachHighlightsHandlers`, `setupRemoveAllCheckboxFromAutoSave`, `applyScoreOverrides`
+- **D. Capacity/budget:** `evaluatePayloadBudget`, `getCapacityPercent`, `refreshCapacityDisplay`, `updateCapacityChip`, `isPayloadOverBudget`
+- **E. Toasts/banners:** `getToastStack`, `showToast`, `showClearButton`, `updateBannerStatus`, `updateSaveStatus`, `updateCapacityBanner`
+- **F. Auth-expiry & stash:** `write/clear/readPendingSaveStash`, `recoverOrphanedStash`, `handleAuthExpired`, `showReauthPrompt`, `attemptReauth`, `flushPendingSave`
+- **G. Grading-state & lock:** `markGradingStarted/Finished`, `isGradingInProgress`, `setFormLocked`, `clearSavedSession`
+- **H. Wiring:** `initialize`
+
+### Public API stability requirement
+`window.AutoSaveModule` exposes 15 members; **11 are called externally** and must keep identical signatures+timing after any split: `initialize`, `promptRestoreIfSaved` (index.html); `saveImmediately`, `setFormLocked`, `showClearButton`, `isGradingInProgress`, `markGradingStarted`, `markGradingFinished` (form-handling.js); `saveImmediately` quiet (tab-management.js); `saveImmediately`, `showClearButton`, `isRestoring` (batch-processing.js); `showToast`, `isPayloadOverBudget` (text-selection.js). A split keeps these on `window.AutoSaveModule` via a thin facade. New split files must load at/after auto-save.js's slot in index.html (after all the `window.*Module` deps it calls, before profiles.js).
+
+### Three options (risk spectrum)
+1. **In-place reorg (LOW):** one file/IIFE, group functions by cluster + hoist stray state. Zero behavior risk, pure move-diff. **← Phase-1 on-ramp already did the cluster map + hoist; the physical function reorder was intentionally SKIPPED (a 2000-line shuffle is hard to review safely without tests; the cluster map gives ~90% of the navigability benefit at ~1% of the risk).**
+2. **Extract Cluster E (UI) to `auto-save-ui.js` (MEDIUM):** ~190 genuinely-independent lines (`getToastStack`…`updateCapacityBanner`). Adds a `window.AutoSaveUI` global + facade re-export of `showToast`/`showClearButton`, and one seam: `capacityFullDismissed` is written by both E (dismiss) and D (`evaluatePayloadBudget`) — resolve with an explicit setter. **First genuinely-structural step; reasonable post-midterms.** (Cluster F/auth is NOT a clean leaf — it shares `authExpired`/`retryTimer` with A — do not extract it.)
+3. **Full module split (HIGH):** core + payload + restore + ui + stash with a shared `window.AutoSaveState` object. Converts ~6 closure vars to cross-file mutable state across the riskiest clusters. **Defer until a test harness exists.**
+
+### Phasing (verify each via `node --check` + a golden-path run: grade → reload → restore → edit score → save; diff the `[AutoSave]` console lines against a pre-change baseline)
+- **Phase 0:** establish green baseline + record golden-path console lines.
+- **Phase 1 (DONE, `5e576ee`):** cluster-map comment + hoist `saveStatusTimer`/`capacityWarnDismissed`/`capacityFullDismissed`. (Physical function reorder skipped — optional later.)
+- **Phase 2 (LOW):** delete confirmed-dead code (e.g. verify `countEssayDataGlobals` callers first).
+- **Phase 3 (MEDIUM, post-midterms):** extract Cluster E → `auto-save-ui.js`; resolve the `capacityFullDismissed` seam; re-export public UI members on the facade.
+- **Phase 4 (MED-HIGH, defer):** extract Cluster B (payload); introduces a `gradingInProgress` seam.
+- **Phase 5 (HIGH, NEVER before midterms / never without tests):** Cluster C (restore/reattach) and F (auth). These carry the cross-cluster flags and the timing-fragile 250ms/500ms reattach `setTimeout`s; this is where recent bugs lived. Leave in core.
+
+### Bottom line
+Do NOT structurally split before midterms. The Phase-1 on-ramp (committed) buys the readability that prompted this without touching execution. Post-midterms, Phase 3 (extract UI) is the first reasonable structural step; Phases 4–5 should wait for a basic test harness. Lowest-risk next step if momentum is wanted: nothing further is needed pre-midterms — stability first.
