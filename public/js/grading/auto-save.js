@@ -2,6 +2,24 @@
  * Auto-Save Module
  * Persists grading session data to the database so results survive page reloads.
  * Exposes window.AutoSaveModule.
+ *
+ * ── CLUSTER MAP (concern groups; this file is large and a structured split is
+ *    planned — see HANDOFF-413-fix.md. Until then, use this map to navigate.) ──
+ *   A. Save lifecycle ....... saveImmediately, debouncedSave, doSave, scheduleRetry, clearDebounce
+ *   B. Payload build/de-dup .. buildPayload, gatherTabDOMState, readEssayData,
+ *                              countEssayDataGlobals, payloadHasResults
+ *   C. Restore & reattach .... peekSavedSession, promptRestoreIfSaved, loadAndRestore,
+ *      (HIGHEST RISK)          restoreTabDOM, reattachHandlers, reattachHighlightsHandlers,
+ *                              setupRemoveAllCheckboxFromAutoSave, applyScoreOverrides
+ *   D. Capacity / budget ..... evaluatePayloadBudget, getCapacityPercent,
+ *                              refreshCapacityDisplay, updateCapacityChip, isPayloadOverBudget
+ *   E. Toasts / banners ...... getToastStack, showToast, showClearButton,
+ *                              updateBannerStatus, updateSaveStatus, updateCapacityBanner
+ *   F. Auth-expiry & stash ... write/clear/readPendingSaveStash, recoverOrphanedStash,
+ *                              handleAuthExpired, showReauthPrompt, attemptReauth, flushPendingSave
+ *   G. Grading-state & lock .. markGradingStarted/Finished, isGradingInProgress,
+ *                              setFormLocked, clearSavedSession
+ *   H. Wiring ................ initialize
  */
 (function () {
     'use strict';
@@ -42,6 +60,15 @@
     // Capacity guidance is shown via the single self-updating banner
     // (updateCapacityBanner): one element, live %, warn at 70%+, full at 100%+.
     // (Replaced the old per-threshold stacked toasts + CAPACITY_THRESHOLDS.)
+
+    // --- Banner/toast UI state (used by Cluster E: updateSaveStatus / updateCapacityBanner) ---
+    let saveStatusTimer = null;                    // dismiss timer for the save-status banner
+    // Capacity-banner dismissals. The warning (70–99%) is dismissable AND sticky:
+    // once the teacher dismisses it, it stays gone for the rest of the session
+    // (they rely on the omnipresent pill). The full banner (≥100%) is dismissable
+    // but NOT sticky — it re-shows whenever capacity is at/over the ceiling.
+    let capacityWarnDismissed = false; // sticky: warning dismissed for the session
+    let capacityFullDismissed = false; // transient: cleared whenever we drop <100%
 
     // --- Public API ---
 
@@ -1050,15 +1077,6 @@
             setTimeout(() => { if (banner.parentNode) banner.remove(); }, 300);
         }, fadeMs);
     }
-    let saveStatusTimer = null;
-
-    // Capacity-banner state. The warning (70–99%) is dismissable AND sticky:
-    // once the teacher dismisses it, it stays gone for the rest of the session
-    // (they rely on the omnipresent pill). The full banner (≥100%) is dismissable
-    // but NOT sticky — it re-shows whenever capacity is at/over the ceiling,
-    // because it's critical.
-    let capacityWarnDismissed = false; // sticky: warning dismissed for the session
-    let capacityFullDismissed = false; // transient: cleared whenever we drop <100%
 
     /**
      * Single, reusable CAPACITY banner — sibling concept to updateSaveStatus.
