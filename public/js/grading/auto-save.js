@@ -123,6 +123,20 @@
     }
 
     /**
+     * True if a built payload actually contains graded results (vs. an empty
+     * fresh form). Used to decide whether there's live grading state worth
+     * acting on — by stash recovery and the on-load capacity reveal.
+     * @param {object|null} payload - output of buildPayload()
+     */
+    function payloadHasResults(payload) {
+        return !!(payload && payload.sessionData &&
+            payload.sessionData.currentBatchData &&
+            payload.sessionData.currentBatchData.batchResult &&
+            payload.sessionData.currentBatchData.batchResult.results &&
+            payload.sessionData.currentBatchData.batchResult.results.length);
+    }
+
+    /**
      * On a fresh page load, if a pending-save stash exists from a prior
      * auth-expired session, upload it (auth is presumably healthy now). Only
      * uploads the stashed payload when there's no live grading state that would
@@ -134,11 +148,7 @@
         // If the current page already has live grading state, a normal save
         // will capture it; just clear the older stash to avoid clobbering.
         const live = buildPayload();
-        const liveHasResults = !!(live && live.sessionData &&
-            live.sessionData.currentBatchData &&
-            live.sessionData.currentBatchData.batchResult &&
-            live.sessionData.currentBatchData.batchResult.results &&
-            live.sessionData.currentBatchData.batchResult.results.length);
+        const liveHasResults = payloadHasResults(live);
         if (liveHasResults) {
             console.log('[AutoSave] live state present on load — discarding older orphaned stash');
             clearPendingSaveStash();
@@ -1544,12 +1554,7 @@
      */
     function refreshCapacityDisplay() {
         const payload = buildPayload();
-        const hasResults = !!(payload && payload.sessionData &&
-            payload.sessionData.currentBatchData &&
-            payload.sessionData.currentBatchData.batchResult &&
-            payload.sessionData.currentBatchData.batchResult.results &&
-            payload.sessionData.currentBatchData.batchResult.results.length);
-        if (!hasResults) return; // nothing graded yet — keep the pill hidden
+        if (!payloadHasResults(payload)) return; // nothing graded yet — keep the pill hidden
         evaluatePayloadBudget(JSON.stringify(payload));
     }
 
@@ -1571,9 +1576,9 @@
     function updateCapacityChip(pct) {
         try {
             const chip = document.getElementById('autosaveCapacityChip');
-            if (!chip) return;
+            const textEl = document.getElementById('autosaveCapacityChipText');
+            if (!chip || !textEl) return;
 
-            const textEl = document.getElementById('autosaveCapacityChipText') || chip;
             const clamped = Math.min(100, Math.max(0, pct));
 
             // Reveal on first real measurement.
