@@ -8,6 +8,29 @@ let selectedRange = null;
 let selectedCategory = null;
 
 /**
+ * Block a new highlight when the session is at the autosave save-size ceiling:
+ * a new highlight would grow the payload past what can be saved, so it would
+ * silently fail to persist. Shows a toast telling the teacher how to free space
+ * and returns true (the caller should bail); returns false when highlighting is
+ * OK. Shared by the single and batch highlight paths so the guard and its
+ * message live in one place.
+ */
+function isHighlightingBlockedByBudget() {
+    if (window.AutoSaveModule && window.AutoSaveModule.isPayloadOverBudget
+        && window.AutoSaveModule.isPayloadOverBudget()) {
+        if (window.AutoSaveModule.showToast) {
+            window.AutoSaveModule.showToast(
+                'This session is full — new highlights can’t be saved.\nDownload ' +
+                '(PDF) the essays you want, then refresh and start a fresh session.',
+                'error'
+            );
+        }
+        return true;
+    }
+    return false;
+}
+
+/**
  * Setup text selection handling for single essays
  */
 function setupTextSelection() {
@@ -98,20 +121,10 @@ function applyHighlightToSelection() {
     console.log('Range:', selectedRange);
     console.log('Category:', selectedCategory);
 
-    // Block new highlights once the session is at the save-size ceiling — a
-    // new highlight would grow the payload past what can be saved, so it would
-    // silently fail to persist. Tell the teacher how to free up space instead.
-    if (window.AutoSaveModule && window.AutoSaveModule.isPayloadOverBudget
-        && window.AutoSaveModule.isPayloadOverBudget()) {
-        if (window.AutoSaveModule.showToast) {
-            window.AutoSaveModule.showToast(
-                'This session is full — new highlights can’t be saved.\nDownload ' +
-                '(PDF) the essays you want, then refresh and start a fresh session.',
-                'error'
-            );
-        }
-        return;
-    }
+    // Block new highlights once the session is at the save-size ceiling — a new
+    // highlight would grow the payload past what can be saved and silently fail
+    // to persist.
+    if (isHighlightingBlockedByBudget()) return;
 
     if (!selectedRange || !selectedCategory) {
         console.log('❌ Missing range or category');
@@ -144,17 +157,7 @@ function applyBatchHighlightToSelection(essayIndex) {
     // Block new highlights once the session is at the save-size ceiling (see
     // applyHighlightToSelection). This is the batch path — the common case for
     // large multi-essay sessions, which are the ones that hit the ceiling.
-    if (window.AutoSaveModule && window.AutoSaveModule.isPayloadOverBudget
-        && window.AutoSaveModule.isPayloadOverBudget()) {
-        if (window.AutoSaveModule.showToast) {
-            window.AutoSaveModule.showToast(
-                'This session is full — new highlights can’t be saved.\nDownload ' +
-                '(PDF) the essays you want, then refresh and start a fresh session.',
-                'error'
-            );
-        }
-        return;
-    }
+    if (isHighlightingBlockedByBudget()) return;
 
     const range = window[`selectedRange_${essayIndex}`];
     const category = window[`selectedCategory_${essayIndex}`];
