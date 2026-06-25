@@ -1,6 +1,38 @@
 # Handoff — 413 autosave payload fix (branch `fix-413-payload`)
 
-_Last updated: 2026-06-24. Written for the next Claude session so work can resume cleanly._
+_Last updated: 2026-06-25. Written for the next Claude session so work can resume cleanly._
+_(This doc has grown messy across sessions — it is due for a cleanup pass. The newest findings are pinned at the very top; older sections below may overlap or lag.)_
+
+---
+
+## ⭐ NEW (2026-06-25) — Full-scale load test PASSED + two findings
+
+### Load test result: the 413 fix works
+Ran the exact 30 essays that 413'd a real user (North campus, cristina.martinez), plus 7-8 more, across multiple tabs of ≤10. Every save returned **"Save successful," never a 413.** Payload scaled cleanly:
+- 10 essays = 34%, 20 = 57%, 30 = 86%, 33 = 88%, **40 = 110%** (4.17MB, over our 3.8MB ceiling but still under Vercel's real ~4.5MB limit).
+- At 110% the over-budget guard correctly flipped `overBudget=true` and blocked further payload-growing edits.
+- The efficiency/de-dup work is doing exactly what it was designed for. This is the proof point for the midterms ship.
+
+### FINDING 1 — The capacity-% "jitter" on tab switch is NOT a bug (legitimate payload variance)
+**Symptom observed:** the autosave % rises/falls as you move between tabs — e.g. 86% with a full 10-essay tab active, drops to 79% when a new EMPTY tab is opened/active, and would climb back if you re-enter a full tab. Looked alarming; it is not.
+
+**Root cause (verified, not assumed):** `buildPayload()` in `public/js/grading/auto-save.js` correctly loops **all** tabs and captures each tab's `renderedHTML` via `gatherTabDOMState` → `TabStore.queryInTab(tabId, …)`, which reads each tab's pane by `data-tab-id` regardless of whether the tab is visible/active (confirmed in `tab-store.js queryInTab`). So **no tab's data is ever dropped** — every graded tab persists in `tabStoreSnapshot.tabs[]`, which is what the modern restore path reads.
+
+The variance comes from the **legacy `sessionData` block** (auto-save.js ~line 1502), which is built ONLY from the **primary tab** (`primaryTabId = batchOriginId || activeId()`):
+- `currentBatchData: batchDataForPayload` ← primary (active) tab's full results array (the heavy object)
+- `essaySnapshots: primaryDOMState.essaySnapshots` ← primary tab's snapshots
+
+So whichever tab is **active at save time** gets its `currentBatchData` + `essaySnapshots` duplicated into this legacy block. Active full tab → +~270KB → higher %. Active empty tab → block ~empty → ~270KB lower. The duplicate is **already present** in `tabStoreSnapshot.tabs[activeTab]`; the legacy block is a backward-compat copy read ONLY by a pre-Phase-7 rollback restore (the modern path never reads it). Earlier de-dup work already dropped the legacy block's `renderedHTML` (and the highlights HTML) for this same reason; `currentBatchData`+`essaySnapshots` are what still ride along.
+
+**Conclusions:**
+- ✅ No data loss, restore is safe, every save succeeded. The % is "honest but jittery" — it reflects real payload size, which legitimately varies with the active tab.
+- 🔧 **Latent efficiency opportunity (deferred, not for midterms):** dropping that legacy `sessionData` duplicate would (a) make every save ~270KB lighter = more ceiling headroom, AND (b) kill the jitter at its source. BUT it touches the rollback safety net, so it needs its own branch + testing. Do NOT bundle into cosmetic work.
+- The planned **single self-updating capacity banner** (see memory `project_banner_capacity_rework`) makes the pill and banner always agree, which hides the jitter cosmetically — enough for midterms.
+
+### FINDING 2 — `public/js/grading/auto-save.js` is too big; needs a refactor (NOTE ONLY — do not start)
+This file has become a giant (save lifecycle, payload build/de-dup, multi-tab restore, reattach handlers, capacity/budget, toasts/banners, stash recovery all in one). It is hard to navigate and was the locus of several recent bugs. **A structured refactor (splitting by concern) is warranted — but is explicitly NOT to be attempted right now.** Just flagging it so it's on the radar. No effort on the refactor until deliberately scheduled; midterms stability comes first.
+
+---
 
 ## TL;DR / where we are
 
