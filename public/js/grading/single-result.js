@@ -292,9 +292,12 @@ function setupBatchEditableElements(gradingResult, originalData, essayIndex, tab
         originalData: { ...originalData }
     };
 
+    console.log(`[EditableDiag] setupBatchEditableElements index=${essayIndex} tab=${resolvedTabId}: essayContainer=${!!essayContainer}` +
+        (essayContainer ? `, listenersAttached=${essayContainer.dataset.listenersAttached}` : ''));
     if (essayContainer) {
         // Check if we've already set up listeners for this container
         if (essayContainer.dataset.listenersAttached === 'true') {
+            console.warn(`[EditableDiag] index=${essayIndex}: EARLY RETURN — listenersAttached already true. Arrows + note toggle NOT reattached.`);
             return;
         }
 
@@ -346,7 +349,10 @@ function setupBatchEditableElements(gradingResult, originalData, essayIndex, tab
         });
 
         // Add listeners for arrow click areas within this essay container
-        essayContainer.querySelectorAll('.arrow-up-area:not([data-listener-added]), .arrow-down-area:not([data-listener-added])').forEach(arrow => {
+        const _arrowsToWire = essayContainer.querySelectorAll('.arrow-up-area:not([data-listener-added]), .arrow-down-area:not([data-listener-added])');
+        console.log(`[EditableDiag] index=${essayIndex}: wiring ${_arrowsToWire.length} arrow(s) ` +
+            `(of ${essayContainer.querySelectorAll('.arrow-up-area,.arrow-down-area').length} total in container)`);
+        _arrowsToWire.forEach(arrow => {
             arrow.dataset.listenerAdded = 'true';
             arrow.addEventListener('click', function(e) {
                 e.stopPropagation(); // Prevent event bubbling

@@ -1036,11 +1036,13 @@ function updateRemoveAllCheckboxState(container) {
  */
 function setupCategoryNoteToggleListeners() {
     const toggleButtons = document.querySelectorAll('.toggle-note-pdf-btn');
+    let _wired = 0, _skipped = 0;
 
     toggleButtons.forEach((button, index) => {
         // Skip if already set up
-        if (button.dataset.listenerSetup === 'true') return;
+        if (button.dataset.listenerSetup === 'true') { _skipped++; return; }
         button.dataset.listenerSetup = 'true';
+        _wired++;
 
         button.addEventListener('click', function(event) {
             event.preventDefault();
@@ -1081,6 +1083,8 @@ function setupCategoryNoteToggleListeners() {
 
         });
     });
+    console.log(`[ToggleDiag] setupCategoryNoteToggleListeners: ${toggleButtons.length} btn(s) total, ` +
+        `wired=${_wired}, skipped(listenerSetup already true)=${_skipped}`);
 }
 
 // Make the function globally available
