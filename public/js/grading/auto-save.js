@@ -1779,15 +1779,16 @@
 
             // Strip "already initialized" data attributes from injected HTML.
             // Event listeners don't survive innerHTML injection, but these marker
-            // attributes do — causing setup functions to skip re-attaching listeners.
+            // attributes do — causing setup functions to skip re-attaching the
+            // per-element listeners that are still attached that way (the score
+            // INPUTs via data-listener-added, the container guard via
+            // data-listeners-attached). The arrow steppers, note PDF toggle, and
+            // new-highlight mouseup are now document-delegated and need no strip.
             const essayContainer = queryScoped(`#batch-essay-${index}`);
             if (essayContainer) {
                 essayContainer.removeAttribute('data-listeners-attached');
                 essayContainer.querySelectorAll('[data-listener-added]').forEach(
                     el => el.removeAttribute('data-listener-added')
-                );
-                essayContainer.querySelectorAll('[data-listener-setup]').forEach(
-                    el => el.removeAttribute('data-listener-setup')
                 );
             }
 
@@ -1897,10 +1898,9 @@
                 );
             }
 
-            // Editable score inputs (also calls setupCategoryNoteToggleListeners internally).
-            // Pass scopedTabId so per-tab batchGradingData writes land in the
-            // correct tab even though the active tab may have changed during
-            // the 250ms setTimeout (multi-tab restore iterates tabs).
+            // Editable score inputs. Pass scopedTabId so per-tab batchGradingData
+            // writes land in the correct tab even though the active tab may have
+            // changed during the 250ms setTimeout (multi-tab restore iterates tabs).
             if (
                 window.SingleResultModule &&
                 window.SingleResultModule.setupBatchEditableElements &&

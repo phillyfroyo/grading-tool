@@ -1099,6 +1099,11 @@ function setupCategoryNoteToggleListeners() {
 // Make the function globally available
 window.setupCategoryNoteToggleListeners = setupCategoryNoteToggleListeners;
 
+// Register the delegated handler once at module load — like the other delegated
+// handlers (arrow steppers, highlight mouseup). The per-render callers are now
+// redundant (the function self-guards), but harmless if any remain.
+setupCategoryNoteToggleListeners();
+
 /**
  * Setup event listeners for highlight changes
  */

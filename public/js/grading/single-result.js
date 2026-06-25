@@ -167,13 +167,8 @@ function setupEditableElements(gradingResult, originalData) {
         window.EditingFunctionsModule.setupEditableElements();
     }
 
-    // Setup category note toggle listeners (for auto-filled rationales)
-    // Use setTimeout to ensure DOM is fully ready
-    setTimeout(() => {
-        if (window.setupCategoryNoteToggleListeners) {
-            window.setupCategoryNoteToggleListeners();
-        }
-    }, 50);
+    // Category-note PDF toggle is handled by a document-level delegated listener
+    // registered once at module load (display-utils.js) — no per-render setup.
 }
 
 /**
@@ -370,13 +365,8 @@ function setupBatchEditableElements(gradingResult, originalData, essayIndex, tab
         window.EditingFunctionsModule.setupEditableElements();
     }
 
-    // Setup category note toggle listeners (for auto-filled rationales)
-    // Use setTimeout to ensure DOM is fully ready
-    setTimeout(() => {
-        if (window.setupCategoryNoteToggleListeners) {
-            window.setupCategoryNoteToggleListeners();
-        }
-    }, 50);
+    // Category-note PDF toggle is handled by a document-level delegated listener
+    // registered once at module load (display-utils.js) — no per-render setup.
 }
 
 /**
