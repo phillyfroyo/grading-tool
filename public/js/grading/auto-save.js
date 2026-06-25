@@ -38,15 +38,10 @@
     // and already-saved work are unaffected.
     const PAYLOAD_CEILING_BYTES = 3_800_000;       // 100% capacity / hard stop (≈3.8MB)
     let payloadOverBudget = false;                 // true once at/over ceiling
-    let lastPayloadBytes = 0;                       // diagnostics + chip
-    let lastCapacityBucket = -1;                    // highest threshold toast shown
-    // Threshold buckets (percent of ceiling) → escalating guidance. Only fire on
-    // an UPWARD crossing into a higher bucket, so the teacher isn't spammed.
-    const CAPACITY_THRESHOLDS = [
-        { pct: 70, level: 'warn',  msg: 'Autosave is at {P}% capacity. Plan to finish and clear some essays soon.' },
-        { pct: 85, level: 'warn',  msg: 'Autosave is at {P}% capacity. Download completed essays and clear a finished tab to keep saving reliably.' },
-        { pct: 95, level: 'warn',  msg: 'Autosave is nearly full ({P}%). Clear a finished tab now to avoid interrupting saves.' },
-    ];
+    let lastPayloadBytes = 0;                       // diagnostics + pill/banner
+    // Capacity guidance is shown via the single self-updating banner
+    // (updateCapacityBanner): one element, live %, warn at 70%+, full at 100%+.
+    // (Replaced the old per-threshold stacked toasts + CAPACITY_THRESHOLDS.)
 
     // --- Public API ---
 
@@ -1057,6 +1052,122 @@
     }
     let saveStatusTimer = null;
 
+    // Capacity-banner state. The warning (70–99%) is dismissable AND sticky:
+    // once the teacher dismisses it, it stays gone for the rest of the session
+    // (they rely on the omnipresent pill). The full banner (≥100%) is dismissable
+    // but NOT sticky — it re-shows whenever capacity is at/over the ceiling,
+    // because it's critical.
+    let capacityWarnDismissed = false; // sticky: warning dismissed for the session
+    let capacityFullDismissed = false; // transient: cleared whenever we drop <100%
+
+    /**
+     * Single, reusable CAPACITY banner — sibling concept to updateSaveStatus.
+     * One element (#auto-save-capacity) that updates its % in place rather than
+     * stacking a new toast per threshold (the old showToast approach left "86%"
+     * and "88%" banners coexisting). Lives in the same top-left stack.
+     *
+     * Two states, by capacity:
+     *  - 'warn' (70–99%): amber, live %, dismissable + STICKY (capacityWarnDismissed).
+     *  - 'full' (≥100%):  red, live %, persists (no timer), dismissable but NOT
+     *                     sticky — re-shows whenever ≥100%.
+     * Below 70% (state null) the banner is removed.
+     *
+     * @param {number} pct - true capacity percent (may exceed 100)
+     */
+    function updateCapacityBanner(pct) {
+        const stack = getToastStack();
+        const existing = document.getElementById('auto-save-capacity');
+
+        const state = pct >= 100 ? 'full' : pct >= 70 ? 'warn' : null;
+
+        // Below the warning floor → nothing to show; clear any existing banner.
+        if (!state) {
+            if (existing) existing.remove();
+            return;
+        }
+
+        // Respect dismissals. Warning dismissal is sticky for the session; the
+        // full banner ignores the warning dismissal (it's too important) but
+        // honors its own transient dismissal until we drop back under 100%.
+        if (state === 'warn' && capacityWarnDismissed) {
+            if (existing) existing.remove();
+            return;
+        }
+        if (state === 'full' && capacityFullDismissed) {
+            if (existing) existing.remove();
+            return;
+        }
+
+        const isFull = state === 'full';
+        const shown = Math.round(pct);
+        const text = isFull
+            ? `Autosave is full (${shown}%). New highlights can’t be saved. ` +
+              `Download completed essays (PDF) and clear a finished tab — or start ` +
+              `a fresh session — to keep working.`
+            : `Autosave is at ${shown}% capacity. Before reaching 100%, download ` +
+              `completed essays and clear a finished tab to keep the app working reliably.`;
+
+        let banner = existing;
+        if (!banner) {
+            banner = document.createElement('div');
+            banner.id = 'auto-save-capacity';
+            banner.className = 'auto-save-toast';
+            banner.style.cssText =
+                'pointer-events:auto;position:relative;padding:10px 34px 10px 18px;' +
+                'border-radius:6px;font-family:"Inter","Helvetica Neue",Arial,sans-serif;' +
+                'font-size:13px;font-weight:500;letter-spacing:0.01em;' +
+                'box-shadow:0 2px 8px rgba(0,0,0,0.12);' +
+                'backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);' +
+                'transition:opacity 0.3s ease,background-color 0.25s ease,' +
+                'border-color 0.25s ease,color 0.25s ease;opacity:0;' +
+                'white-space:pre-line;max-width:420px;';
+
+            const msg = document.createElement('span');
+            msg.className = 'capacity-banner-msg';
+            banner.appendChild(msg);
+
+            const dismiss = document.createElement('button');
+            dismiss.type = 'button';
+            dismiss.className = 'capacity-banner-dismiss';
+            dismiss.setAttribute('aria-label', 'Dismiss');
+            dismiss.textContent = '×';
+            dismiss.style.cssText =
+                'position:absolute;top:4px;right:6px;border:none;background:transparent;' +
+                'font-size:18px;line-height:1;cursor:pointer;color:inherit;opacity:0.55;' +
+                'padding:2px 4px;';
+            dismiss.addEventListener('mouseenter', () => { dismiss.style.opacity = '0.9'; });
+            dismiss.addEventListener('mouseleave', () => { dismiss.style.opacity = '0.55'; });
+            dismiss.addEventListener('click', function () {
+                // Record the dismissal per current state, then remove.
+                if (banner.dataset.state === 'full') capacityFullDismissed = true;
+                else capacityWarnDismissed = true;
+                banner.style.opacity = '0';
+                setTimeout(() => { if (banner.parentNode) banner.remove(); }, 300);
+            });
+            banner.appendChild(dismiss);
+        }
+        banner.dataset.state = state;
+
+        // Color band.
+        let bg, border, color;
+        if (isFull) {
+            bg = 'rgba(248,215,218,0.97)'; border = 'rgba(180,80,80,0.5)'; color = '#721c24';
+        } else {
+            bg = 'rgba(255,243,205,0.95)'; border = 'rgba(200,170,80,0.4)'; color = '#856404';
+        }
+        banner.style.background = bg;
+        banner.style.border = '1px solid ' + border;
+        banner.style.color = color;
+        banner.querySelector('.capacity-banner-msg').textContent =
+            text + (isFull ? ' ⚠' : ' ⚠');
+
+        // Keep at the top of the stack and reveal.
+        stack.insertBefore(banner, stack.firstChild);
+        requestAnimationFrame(() => { banner.style.opacity = '1'; });
+        // No auto-dismiss timer for either state — capacity is a standing
+        // condition; it goes away only on explicit dismiss or dropping <70%.
+    }
+
     // --- Internal helpers ---
 
     let retryTimer = null;
@@ -1563,52 +1674,26 @@
         lastPayloadBytes = bytes;
         const pct = getCapacityPercent();
 
-        // Update the persistent chip every save.
+        // Update the persistent pill every save.
         updateCapacityChip(pct);
 
         if (bytes >= PAYLOAD_CEILING_BYTES) {
             // At/over the ceiling — block payload-growing edits.
-            if (!payloadOverBudget) {
-                payloadOverBudget = true;
-                showToast(
-                    'Autosave is full (100%). New highlights can’t be saved.\n' +
-                    'Download (PDF) the essays you want, then clear a finished tab ' +
-                    'or start a fresh session for the rest.',
-                    'error'
-                );
-            }
+            payloadOverBudget = true;
         } else {
             // Back under the ceiling (e.g. a tab was cleared) — re-enable edits.
-            if (payloadOverBudget) {
-                payloadOverBudget = false;
-                showToast('Autosave is back under capacity — you can add highlights again.', 'ok');
-            }
-            // Escalating threshold toasts. Fire only when crossing UP into a
-            // higher bucket than the highest one we've already warned at. To
-            // avoid spam when the payload jitters a hair around a boundary
-            // (saves vary ±~1% save-to-save), we only RE-ARM a bucket once
-            // capacity has dropped a clear margin (HYSTERESIS) below its
-            // threshold — i.e. the teacher actually freed space (cleared a tab),
-            // not just noise.
-            const HYSTERESIS = 3; // percentage points
-            let bucket = -1;
-            for (let i = 0; i < CAPACITY_THRESHOLDS.length; i++) {
-                if (pct >= CAPACITY_THRESHOLDS[i].pct) bucket = i;
-            }
-            if (bucket > lastCapacityBucket) {
-                const t = CAPACITY_THRESHOLDS[bucket];
-                showToast(t.msg.replace('{P}', String(pct)), t.level);
-                lastCapacityBucket = bucket;
-            } else if (bucket < lastCapacityBucket) {
-                // Only step the armed level down past a threshold the payload has
-                // dropped clearly below — so re-entry must be a genuine re-climb.
-                while (lastCapacityBucket >= 0 &&
-                       pct < CAPACITY_THRESHOLDS[lastCapacityBucket].pct - HYSTERESIS) {
-                    lastCapacityBucket--;
-                }
-            }
-            // (equal bucket → do nothing: no re-fire, no re-arm)
+            payloadOverBudget = false;
+            // We've dropped under 100%, so re-arm the full banner: if capacity
+            // climbs back to the ceiling later, the (non-sticky) full banner
+            // should show again even if it was dismissed before.
+            capacityFullDismissed = false;
         }
+
+        // Drive the single self-updating capacity banner. It shows from 70% up,
+        // morphs warn→full at 100%, tracks the live %, and honors the dismissal
+        // rules (warning sticky for the session; full re-showable). Replaces the
+        // old per-threshold stacked toasts.
+        updateCapacityBanner(pct);
 
         console.log(`[AutoSave] payload size: ${(bytes / 1_000_000).toFixed(2)}MB ` +
             `(${pct}% of ceiling ${(PAYLOAD_CEILING_BYTES / 1_000_000).toFixed(1)}MB, overBudget=${payloadOverBudget})`);
@@ -1649,19 +1734,23 @@
             const textEl = document.getElementById('autosaveCapacityChipText');
             if (!chip || !textEl) return;
 
-            const clamped = Math.min(100, Math.max(0, pct));
+            // Show the TRUE percent, including above 100%, so the teacher sees
+            // they've gone PAST the ceiling (e.g. "Autosave 110%"), not just "at"
+            // it. Only the lower bound is clamped (never negative).
+            const shown = Math.max(0, Math.round(pct));
 
             // Reveal on first real measurement.
             if (chip.hidden) chip.hidden = false;
 
-            // Color band → CSS class.
-            chip.classList.remove('is-ok', 'is-warn', 'is-full');
-            if (clamped < 70) chip.classList.add('is-ok');
-            else if (clamped < 90) chip.classList.add('is-warn');
-            else chip.classList.add('is-full');
+            // Color band → CSS class. Over 100% gets a distinct darker-red band.
+            chip.classList.remove('is-ok', 'is-warn', 'is-full', 'is-over');
+            if (shown < 70) chip.classList.add('is-ok');
+            else if (shown < 90) chip.classList.add('is-warn');
+            else if (shown <= 100) chip.classList.add('is-full');
+            else chip.classList.add('is-over');
 
-            const hint = clamped >= 90 ? ' — clear a tab' : '';
-            textEl.textContent = `Autosave ${clamped}%${hint}`;
+            const hint = shown >= 90 ? ' — clear a tab' : '';
+            textEl.textContent = `Autosave ${shown}%${hint}`;
         } catch (e) {
             // Cosmetic only — never let the chip break saving.
             console.warn('[AutoSave] capacity chip update skipped:', e && e.message);

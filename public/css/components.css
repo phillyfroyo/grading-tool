@@ -92,12 +92,19 @@
                               cursor never crosses an internal child boundary
                               that would churn the delegated hover handlers */
 }
+/* On the dark-red over-100% band the pill text is white, so the badge's
+   currentColor fill would be white-on-white. Invert it: white circle, dark-red
+   glyph, so the "i" stays visible. */
+.autosave-pill.is-over .autosave-pill-info { opacity: 0.9; }
+.autosave-pill.is-over .autosave-pill-info-glyph { color: #a01b0f; }
 
 /* Color bands — soft tinted fill + matching low-opacity border for a light,
-   modern chip rather than a heavy solid block. */
+   modern chip rather than a heavy solid block. .is-over (past 100%) is a
+   distinctly DARKER, more saturated red so "past the line" reads at a glance. */
 .autosave-pill.is-ok   { color: #1e7e34; background: rgba(40,167,69,0.10);  border-color: rgba(40,167,69,0.22); }
 .autosave-pill.is-warn { color: #b8860b; background: rgba(240,180,41,0.14); border-color: rgba(240,180,41,0.30); }
 .autosave-pill.is-full { color: #c0392b; background: rgba(234,67,53,0.12);  border-color: rgba(234,67,53,0.28); }
+.autosave-pill.is-over { color: #fff;    background: #a01b0f;               border-color: #7a140b; }
 
 .tab-button {
     flex: 1;
