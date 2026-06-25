@@ -10,8 +10,9 @@ let essayCount = 1;
 // request; past ~24 essays it exceeds Vercel's 4.5MB limit. Capping each tab
 // keeps every tab independently saveable. Enforced here at ADD time (so the
 // teacher can't build an over-limit batch and only discover it at "Grade") —
-// the friendly counterpart to the size-based guard in auto-save.js. Keep this
-// in sync with MAX_ESSAYS_PER_TAB in form-handling.js.
+// the friendly counterpart to the size-based guard in auto-save.js. This is the
+// single source of truth; it's exported on window.EssayManagementModule and the
+// submit-time clamp in form-handling.js reads it from there.
 const MAX_ESSAYS_PER_TAB = 10;
 
 /**

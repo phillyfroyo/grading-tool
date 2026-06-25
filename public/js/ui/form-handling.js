@@ -317,7 +317,8 @@ async function handleGradingFormSubmission(e) {
     // "Grade". As a silent safety net for any path that bypasses the add-time UI
     // (e.g. programmatic), clamp here without a disruptive error modal: grade the
     // first MAX_ESSAYS_PER_TAB and warn via the lightweight toast.
-    const MAX_ESSAYS_PER_TAB = 10;
+    // Single source of truth: the constant exported by essay-management.js.
+    const MAX_ESSAYS_PER_TAB = window.EssayManagementModule?.MAX_ESSAYS_PER_TAB ?? 10;
     if (studentTexts.length > MAX_ESSAYS_PER_TAB) {
         const dropped = studentTexts.length - MAX_ESSAYS_PER_TAB;
         studentTexts.length = MAX_ESSAYS_PER_TAB;
