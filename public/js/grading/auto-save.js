@@ -974,18 +974,13 @@
      * batch-processing.js after grading completes. In the old design it
      * created a persistent banner with a Clear button. Now it just shows
      * a brief toast confirming grading is complete.
+     *
+     * Autosave-capacity awareness is NOT appended here anymore — the
+     * always-present capacity pill in the tab bar already shows that, so a
+     * "Autosave capacity: X%" line on this banner was redundant.
      */
     function showClearButton(statusText) {
-        // Append ambient autosave-capacity awareness after grading completes, so
-        // the teacher can see how full the session is and decide whether to keep
-        // adding tabs. Only when we have a measured size and it's worth noting.
-        let text = statusText || 'Session restored';
-        const pct = getCapacityPercent();
-        if (lastPayloadBytes > 0 && pct >= 1) {
-            text += `\nAutosave capacity: ${Math.min(100, pct)}%` +
-                (pct >= 70 ? ' — consider downloading & clearing a finished tab.' : '.');
-        }
-        showToast(text, pct >= 90 ? 'warn' : 'ok');
+        showToast(statusText || 'Session restored', 'ok');
     }
 
     /**
