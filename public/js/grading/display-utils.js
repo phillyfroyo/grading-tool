@@ -827,12 +827,8 @@ function refreshHighlightsSection(contentId) {
 function applyRemoveAllToTeacherNoteFor(checkbox) {
     try {
         const mod = window.EditingFunctionsModule;
-        if (!mod || !mod.applyRemoveAllToTeacherNote || !mod.findTeacherNotesBlockForEssay) {
-            console.warn('[RemoveAllNoteDiag] EditingFunctionsModule not ready', !!mod);
-            return;
-        }
+        if (!mod || !mod.applyRemoveAllToTeacherNote || !mod.findTeacherNotesBlockForEssay) return;
         const notesBlock = mod.findTeacherNotesBlockForEssay(checkbox);
-        console.log(`[RemoveAllNoteDiag] applyRemoveAllToTeacherNoteFor: checkbox=${checkbox && checkbox.id}, checked=${checkbox && checkbox.checked}, foundNoteBlock=${!!notesBlock}`);
         if (notesBlock) mod.applyRemoveAllToTeacherNote(notesBlock, !!checkbox.checked);
     } catch (e) {
         console.warn('[DisplayUtils] teacher-note remove-all transform skipped:', e && e.message);
@@ -925,15 +921,13 @@ function setupRemoveAllCheckbox(contentId) {
 
     checkbox.addEventListener('change', function() {
         const isChecked = this.checked;
-        console.log(`[RemoveAllNoteDiag] setupRemoveAllCheckbox change fired: contentId=${contentId}, checked=${isChecked}`);
 
         // Save state to localStorage
         localStorage.setItem(`removeAllFromPDF_${contentId}`, isChecked.toString());
 
-        // Live-update the teacher note (add/subtract the "see detailed notes
-        // below" sentence) so the on-screen note reflects the PDF, and the PDF
-        // exporter just reads the already-correct note from the DOM.
-        applyRemoveAllToTeacherNoteFor(this);
+        // (The teacher-note add/subtract is driven by the document-level
+        // delegated remove-all listener below, so it fires for every checkbox
+        // regardless of which per-element handler is attached.)
 
         // Find the content container
         const contentInner = document.getElementById(`${contentId}-inner`);
@@ -1240,15 +1234,15 @@ window.setupCategoryNoteToggleListeners = setupCategoryNoteToggleListeners;
 // redundant (the function self-guards), but harmless if any remain.
 setupCategoryNoteToggleListeners();
 
-// TEMP DIAGNOSTIC: catch ANY remove-all checkbox change at the document level
-// (capture phase), regardless of which per-element handler is/ isn't attached.
-// This tells us definitively whether the change event fires at all and on what.
+// Document-level delegated handler for "remove all from PDF" checkbox changes.
+// This is the RELIABLE mechanism for the live teacher-note transform: the
+// per-element change handlers (across three setup functions, and lost on restore
+// re-renders) didn't fire consistently, so we drive the note add/subtract from a
+// single delegated listener that catches every .remove-all-checkbox change
+// regardless of attachment. (Same lesson as the restore dead-controls fix.)
 document.addEventListener('change', function (e) {
     const t = e.target;
     if (t && t.classList && t.classList.contains('remove-all-checkbox')) {
-        console.log(`[RemoveAllNoteDiag] DOCUMENT-LEVEL change saw remove-all checkbox: id=${t.id}, checked=${t.checked}, contentId=${t.dataset && t.dataset.contentId}`);
-        // Also drive the note transform here as a fallback, so even if the
-        // per-element handler didn't attach, the note still updates.
         if (window.applyRemoveAllToTeacherNoteFor) window.applyRemoveAllToTeacherNoteFor(t);
     }
 }, true);

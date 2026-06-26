@@ -577,13 +577,12 @@ const TEACHER_NOTE_DETAIL_CLOSING = 'See detailed notes below the color-coded es
  * @param {boolean} isRemoveAll - true if "remove all from PDF" is now checked
  */
 function applyRemoveAllToTeacherNote(notesBlock, isRemoveAll) {
-    if (!notesBlock) { console.warn('[RemoveAllNoteDiag] applyRemoveAllToTeacherNote: no notesBlock'); return; }
+    if (!notesBlock) return;
 
     // Read the current note from the same source commitTeacherNote writes.
     let note = (notesBlock.dataset.teacherNotes || '').trim();
-    console.log(`[RemoveAllNoteDiag] applyRemoveAllToTeacherNote: isRemoveAll=${isRemoveAll}, note="${note.slice(0,60)}…", hasClosing=${note.indexOf(TEACHER_NOTE_DETAIL_CLOSING) !== -1}`);
     // Ignore the placeholder / empty note — nothing to transform.
-    if (!note || note === 'Click to add teacher notes') { console.warn('[RemoveAllNoteDiag] note empty/placeholder — skip'); return; }
+    if (!note || note === 'Click to add teacher notes') return;
 
     const hasClosing = note.indexOf(TEACHER_NOTE_DETAIL_CLOSING) !== -1;
     let next = note;
@@ -603,10 +602,7 @@ function applyRemoveAllToTeacherNote(notesBlock, isRemoveAll) {
     }
 
     if (next !== note) {
-        console.log(`[RemoveAllNoteDiag] committing new note: "${next.slice(0,60)}…"`);
         commitTeacherNote(notesBlock, next);
-    } else {
-        console.log('[RemoveAllNoteDiag] no change needed');
     }
 }
 

@@ -333,13 +333,12 @@ function setupRemoveAllCheckboxForTab(checkbox, contentDiv) {
     // Add change listener
     checkbox.addEventListener('change', function() {
         const isChecked = this.checked;
-        console.log(`[RemoveAllNoteDiag] setupRemoveAllCheckboxForTab change fired: contentId=${contentId}, checked=${isChecked}`);
 
         // Save state to localStorage
         localStorage.setItem(`removeAllFromPDF_${contentId}`, isChecked.toString());
 
-        // Live-update the teacher note to match (add/subtract the closing sentence).
-        if (window.applyRemoveAllToTeacherNoteFor) window.applyRemoveAllToTeacherNoteFor(this);
+        // (Teacher-note add/subtract is driven by the document-level delegated
+        // remove-all listener in display-utils.js.)
 
         const toggleButtons = contentDiv.querySelectorAll('.toggle-pdf-btn');
 
