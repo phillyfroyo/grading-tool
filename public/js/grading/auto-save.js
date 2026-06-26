@@ -2131,6 +2131,7 @@
         // Add change listener
         checkbox.addEventListener('change', function() {
             const checked = this.checked;
+            console.log(`[RemoveAllNoteDiag] setupRemoveAllCheckboxFromAutoSave change fired: contentId=${contentId}, checked=${checked}`);
             localStorage.setItem(`removeAllFromPDF_${contentId}`, checked.toString());
             // Live-update the teacher note to match (add/subtract the closing sentence).
             if (window.applyRemoveAllToTeacherNoteFor) window.applyRemoveAllToTeacherNoteFor(this);

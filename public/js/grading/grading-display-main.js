@@ -333,6 +333,7 @@ function setupRemoveAllCheckboxForTab(checkbox, contentDiv) {
     // Add change listener
     checkbox.addEventListener('change', function() {
         const isChecked = this.checked;
+        console.log(`[RemoveAllNoteDiag] setupRemoveAllCheckboxForTab change fired: contentId=${contentId}, checked=${isChecked}`);
 
         // Save state to localStorage
         localStorage.setItem(`removeAllFromPDF_${contentId}`, isChecked.toString());

@@ -1240,6 +1240,19 @@ window.setupCategoryNoteToggleListeners = setupCategoryNoteToggleListeners;
 // redundant (the function self-guards), but harmless if any remain.
 setupCategoryNoteToggleListeners();
 
+// TEMP DIAGNOSTIC: catch ANY remove-all checkbox change at the document level
+// (capture phase), regardless of which per-element handler is/ isn't attached.
+// This tells us definitively whether the change event fires at all and on what.
+document.addEventListener('change', function (e) {
+    const t = e.target;
+    if (t && t.classList && t.classList.contains('remove-all-checkbox')) {
+        console.log(`[RemoveAllNoteDiag] DOCUMENT-LEVEL change saw remove-all checkbox: id=${t.id}, checked=${t.checked}, contentId=${t.dataset && t.dataset.contentId}`);
+        // Also drive the note transform here as a fallback, so even if the
+        // per-element handler didn't attach, the note still updates.
+        if (window.applyRemoveAllToTeacherNoteFor) window.applyRemoveAllToTeacherNoteFor(t);
+    }
+}, true);
+
 /**
  * Setup event listeners for highlight changes
  */
