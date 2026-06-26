@@ -985,9 +985,26 @@ function applyRemoveAllStateToMarks(essayIndex) {
             ? ['highlights-content']
             : [`highlights-content-${idx}`, `highlights-tab-content-${idx}`];
 
+        // Detect remove-all from EITHER the durable localStorage state OR the
+        // live checkbox. localStorage covers the common same-browser case; the
+        // live-checkbox check covers a session restored in a FRESH browser
+        // (localStorage empty), where restoreTabDOM re-checks the box but doesn't
+        // repopulate localStorage. The tab-variant checkbox id differs from its
+        // contentId (highlights-tab-content-N → highlights-tab-N-remove-all), so
+        // map it the same way restore does.
+        const checkboxIdFor = (cid) => {
+            const tabMatch = cid.match(/^highlights-tab-content-(\d+)$/);
+            return tabMatch ? `highlights-tab-${tabMatch[1]}-remove-all` : `${cid}-remove-all`;
+        };
+
         let removeAll = false;
         for (const cid of contentIds) {
             if (localStorage.getItem(`removeAllFromPDF_${cid}`) === 'true') {
+                removeAll = true;
+                break;
+            }
+            const cb = document.getElementById(checkboxIdFor(cid));
+            if (cb && cb.checked) {
                 removeAll = true;
                 break;
             }
