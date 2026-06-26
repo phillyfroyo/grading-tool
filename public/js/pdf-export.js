@@ -1528,6 +1528,16 @@ function getCategoryDisplayName(category) {
  * @returns {string} HTML content for printing
  */
 function createPrintContent(resultsDiv, studentName) {
+    // Sync the durable "remove all from PDF" state onto the LIVE marks before we
+    // clone. The exporter reads mark.dataset.excludeFromPdf off the clone, but
+    // that attribute is otherwise only written when a teacher opens the
+    // highlights dropdown — so without this, "remove all" was silently ignored
+    // on export-before-opening-the-dropdown. Runs on the live DOM so the clone
+    // inherits correct state. No-op when nothing is marked remove-all.
+    if (window.syncAllRemoveAllStateToMarks) {
+        window.syncAllRemoveAllStateToMarks();
+    }
+
     // Clone the results content
     const clone = resultsDiv.cloneNode(true);
 

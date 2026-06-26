@@ -421,8 +421,13 @@ window.DisplayUtilsModule = {
     createErrorHTML,
     createHighlightsLegendHTML,
     setupTogglePDFListeners,
-    setupRemoveAllCheckbox
+    setupRemoveAllCheckbox,
+    applyRemoveAllStateToMarks,
+    syncAllRemoveAllStateToMarks
 };
+// Global alias so the PDF exporter can sync exclude-state onto marks right
+// before export, independent of whether each highlights dropdown was opened.
+window.syncAllRemoveAllStateToMarks = syncAllRemoveAllStateToMarks;
 
 /**
  * Toggle the highlights and corrections section
@@ -945,6 +950,79 @@ function setupRemoveAllCheckbox(contentId) {
 }
 
 /**
+ * Apply the durable "remove all from PDF" state DIRECTLY onto an essay's
+ * highlight marks, independent of the error-list dropdown being rendered.
+ *
+ * THE BUG THIS FIXES: previously the only code that wrote `excludeFromPdf`
+ * onto the marks (setupRemoveAllCheckbox) iterated the `.toggle-pdf-btn`
+ * buttons, which only exist AFTER the highlights dropdown is lazily populated
+ * (populateHighlightsContent). So if a teacher checked "remove all" (or it was
+ * restored from localStorage) but exported BEFORE ever opening the dropdown,
+ * the marks were never tagged and the PDF included everything. It "only worked
+ * after opening the dropdown" because opening it populated the buttons.
+ *
+ * This reads the durable localStorage state and tags the essay's marks straight
+ * from the essay container — no dropdown/button dependency — so the exporter
+ * (which reads mark.dataset.excludeFromPdf) sees correct state every time.
+ *
+ * @param {number|string} essayIndex - the essay's index (matches
+ *   .formatted-essay-content[data-essay-index] and the contentId suffix).
+ *   Pass '' for the single-essay (non-batch) case.
+ */
+function applyRemoveAllStateToMarks(essayIndex) {
+    try {
+        const idx = (essayIndex === '' || essayIndex === null || essayIndex === undefined)
+            ? '' : String(essayIndex);
+
+        // The two contentId families that carry a remove-all checkbox for this
+        // essay: the grade-details section and the highlights tab. Either being
+        // checked means "remove all" for this essay.
+        const contentIds = idx === ''
+            ? ['highlights-content']
+            : [`highlights-content-${idx}`, `highlights-tab-content-${idx}`];
+
+        let removeAll = false;
+        for (const cid of contentIds) {
+            if (localStorage.getItem(`removeAllFromPDF_${cid}`) === 'true') {
+                removeAll = true;
+                break;
+            }
+        }
+        if (!removeAll) return; // nothing to apply; leave per-mark state as-is
+
+        // Find the essay's marks directly (same selector populateHighlightsContent
+        // uses), NOT via toggle buttons.
+        const essayContainer = idx === ''
+            ? document.querySelector('.formatted-essay-content')
+            : document.querySelector(`.formatted-essay-content[data-essay-index="${idx}"]`);
+        if (!essayContainer) return;
+
+        const marks = essayContainer.querySelectorAll(
+            'mark[data-category], mark[data-type], span[data-category], span[data-type]'
+        );
+        marks.forEach(mark => { mark.dataset.excludeFromPdf = 'true'; });
+    } catch (e) {
+        console.warn('[DisplayUtils] applyRemoveAllStateToMarks skipped:', e && e.message);
+    }
+}
+
+/**
+ * Sync the "remove all from PDF" state onto the marks of EVERY rendered essay.
+ * Called right before a PDF export so the exporter never depends on whether the
+ * teacher happened to open each essay's highlights dropdown first. Cheap and
+ * idempotent; safe to call on every export.
+ */
+function syncAllRemoveAllStateToMarks() {
+    // Single-essay (non-batch) case.
+    applyRemoveAllStateToMarks('');
+    // Batch essays: every rendered .formatted-essay-content[data-essay-index].
+    document.querySelectorAll('.formatted-essay-content[data-essay-index]').forEach(el => {
+        const idx = el.getAttribute('data-essay-index');
+        if (idx !== null && idx !== '') applyRemoveAllStateToMarks(idx);
+    });
+}
+
+/**
  * Setup toggle PDF button listeners for highlights
  * @param {HTMLElement} container - Container element with toggle buttons
  */
@@ -1126,6 +1204,10 @@ function setupHighlightChangeListeners() {
                 refreshHighlightsSection(contentId);
             }
         }
+
+        // Keep the durable remove-all state applied to any new/edited marks, so
+        // it stays correct on screen without waiting for the next export sync.
+        syncAllRemoveAllStateToMarks();
     });
 
     // Listen for highlight removals
@@ -1141,6 +1223,8 @@ function setupHighlightChangeListeners() {
                 refreshHighlightsSection(contentId);
             }
         }
+
+        syncAllRemoveAllStateToMarks();
     });
 }
 
