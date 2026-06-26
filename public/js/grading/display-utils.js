@@ -838,20 +838,24 @@ function setupRemoveAllCheckbox(contentId) {
 
     let isChecked;
 
-    // Priority order:
-    // 1. Use saved localStorage state if it exists (most reliable)
-    // 2. If no saved state but checkbox is checked, respect that (user interacted before content loaded)
-    // 3. Otherwise, default to unchecked
-    if (savedState !== null) {
-        // Restore from localStorage - this is the most reliable source
+    // Resolve the authoritative state. Important guard: NEVER downgrade a box
+    // the user currently has CHECKED unless localStorage EXPLICITLY says 'false'.
+    // Previously, populating the dropdown (which runs this setup) could read
+    // savedState as null/stale for the just-checked first essay and force the
+    // checkbox back to unchecked — the rare "checked, then unchecked itself when
+    // I opened the dropdown" blip. Treat a live-checked box as the user's intent
+    // and persist it, so an ambiguous/missing saved value can't override it.
+    if (currentCheckboxState && savedState !== 'false') {
+        // User has it checked and storage doesn't explicitly say otherwise — keep it.
+        isChecked = true;
+        checkbox.checked = true;
+        localStorage.setItem(`removeAllFromPDF_${contentId}`, 'true');
+    } else if (savedState !== null) {
+        // Not currently checked (or storage explicitly says false): trust storage.
         isChecked = savedState === 'true';
         checkbox.checked = isChecked;
-    } else if (currentCheckboxState) {
-        // User manually checked before content loaded - save this to localStorage
-        isChecked = true;
-        localStorage.setItem(`removeAllFromPDF_${contentId}`, 'true');
     } else {
-        // Default to unchecked
+        // No saved state and not checked → unchecked.
         isChecked = false;
         checkbox.checked = false;
     }
