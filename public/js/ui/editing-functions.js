@@ -714,8 +714,50 @@ function toggleTeacherNotesFocus(pill) {
     const nextNote = nextMode === 'one' ? noteOne : noteTwo;
 
     commitTeacherNote(notesBlock, nextNote);
+    // The Focus versions (data-note-two / data-note-one) always carry the
+    // "See detailed notes below…" closing sentence. If "remove all from PDF" is
+    // active for this essay, re-strip it after the swap so the two features stay
+    // consistent (otherwise toggling Focus would re-add the sentence the
+    // remove-all toggle had removed).
+    if (isRemoveAllActiveForNote(notesBlock)) {
+        applyRemoveAllToTeacherNote(notesBlock, true);
+    }
     syncTeacherNotesPills(notesBlock, nextMode);
     console.log(`✅ Toggled teacher note focus → ${nextMode === 'one' ? 'one category' : 'two categories'}`);
+}
+
+/**
+ * True if "remove all from PDF" is currently active for the essay that owns a
+ * given teacher-note block. The note lives in #student-row-N; the matching
+ * remove-all state is keyed by that same index in localStorage and/or the live
+ * checkbox (either of the two contentId families). Mirrors the detection in
+ * display-utils applyRemoveAllStateToMarks so the two stay consistent.
+ * @param {HTMLElement} notesBlock
+ * @returns {boolean}
+ */
+function isRemoveAllActiveForNote(notesBlock) {
+    try {
+        const row = notesBlock && notesBlock.closest('.student-row');
+        const m = row && (row.id || '').match(/student-row-(\d+)/);
+        if (!m) {
+            // Single-essay (non-batch) layout: check the unindexed contentId.
+            return localStorage.getItem('removeAllFromPDF_highlights-content') === 'true';
+        }
+        const idx = m[1];
+        const cids = [`highlights-content-${idx}`, `highlights-tab-content-${idx}`];
+        for (const cid of cids) {
+            if (localStorage.getItem(`removeAllFromPDF_${cid}`) === 'true') return true;
+            // Live checkbox fallback (fresh-browser restore where localStorage is empty).
+            const cbId = cid.startsWith('highlights-tab-content-')
+                ? `highlights-tab-${idx}-remove-all`
+                : `${cid}-remove-all`;
+            const cb = document.getElementById(cbId);
+            if (cb && cb.checked) return true;
+        }
+        return false;
+    } catch (e) {
+        return false;
+    }
 }
 
 // Back-compat alias (older callers referenced applyTeacherNotesSuggestion).
