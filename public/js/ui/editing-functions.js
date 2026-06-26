@@ -577,12 +577,13 @@ const TEACHER_NOTE_DETAIL_CLOSING = 'See detailed notes below the color-coded es
  * @param {boolean} isRemoveAll - true if "remove all from PDF" is now checked
  */
 function applyRemoveAllToTeacherNote(notesBlock, isRemoveAll) {
-    if (!notesBlock) return;
+    if (!notesBlock) { console.warn('[RemoveAllNoteDiag] applyRemoveAllToTeacherNote: no notesBlock'); return; }
 
     // Read the current note from the same source commitTeacherNote writes.
     let note = (notesBlock.dataset.teacherNotes || '').trim();
+    console.log(`[RemoveAllNoteDiag] applyRemoveAllToTeacherNote: isRemoveAll=${isRemoveAll}, note="${note.slice(0,60)}…", hasClosing=${note.indexOf(TEACHER_NOTE_DETAIL_CLOSING) !== -1}`);
     // Ignore the placeholder / empty note — nothing to transform.
-    if (!note || note === 'Click to add teacher notes') return;
+    if (!note || note === 'Click to add teacher notes') { console.warn('[RemoveAllNoteDiag] note empty/placeholder — skip'); return; }
 
     const hasClosing = note.indexOf(TEACHER_NOTE_DETAIL_CLOSING) !== -1;
     let next = note;
@@ -602,25 +603,59 @@ function applyRemoveAllToTeacherNote(notesBlock, isRemoveAll) {
     }
 
     if (next !== note) {
+        console.log(`[RemoveAllNoteDiag] committing new note: "${next.slice(0,60)}…"`);
         commitTeacherNote(notesBlock, next);
+    } else {
+        console.log('[RemoveAllNoteDiag] no change needed');
     }
 }
 
 /**
- * Resolve an essay's .teacher-notes block from its remove-all checkbox (or from
- * any element inside the essay's container). Walks to the essay's student-row /
- * grading-summary and finds the note block within.
- * @param {HTMLElement} fromEl - the checkbox (or any element in the essay block)
+ * Resolve an essay's .teacher-notes block from its remove-all checkbox.
+ *
+ * IMPORTANT: the remove-all checkbox and the teacher note live in DIFFERENT DOM
+ * subtrees — the checkbox is in the highlights/error-list UI, the note is in the
+ * essay's grading summary — so a .closest() walk from the checkbox does NOT find
+ * the note (this was the original bug: the resolver returned null and the note
+ * never changed). They are only reliably linked by the ESSAY INDEX, which the
+ * checkbox encodes in its id / data-content-id (e.g. highlights-tab-content-3,
+ * highlights-content-3 → index 3). Resolve by index to the essay's note block
+ * (#student-row-N .teacher-notes, scoped to the active tab), with a .closest()
+ * walk only as a last-resort fallback for the single-essay layout.
+ *
+ * @param {HTMLElement} fromEl - the toggled remove-all checkbox
  * @returns {HTMLElement|null}
  */
 function findTeacherNotesBlockForEssay(fromEl) {
     if (!fromEl) return null;
+
+    // Extract the essay index from the checkbox id or its data-content-id.
+    const idSource = fromEl.id || fromEl.dataset?.contentId || '';
+    const m = idSource.match(/(\d+)/);
+    if (m) {
+        const idx = m[1];
+        // Scope to the active tab when TabStore is present (multi-tab safe).
+        const scopeQuery = (sel) => (window.TabStore && window.TabStore.activeQuery
+            ? window.TabStore.activeQuery(sel)
+            : document.querySelector(sel));
+        const row = scopeQuery(`#student-row-${idx}`);
+        if (row) {
+            const note = row.querySelector('.teacher-notes.editable-section') ||
+                         row.querySelector('.teacher-notes');
+            if (note) return note;
+        }
+    }
+
+    // Fallback: single-essay layout where the checkbox and note share an ancestor.
     const container = fromEl.closest('.student-row') || fromEl.closest('.grading-summary');
     if (container) {
         return container.querySelector('.teacher-notes.editable-section') ||
                container.querySelector('.teacher-notes');
     }
-    return null;
+    // Last resort for the non-batch single result: the page's only note block.
+    return document.querySelector('.grading-summary .teacher-notes') ||
+           document.querySelector('.teacher-notes.editable-section') ||
+           document.querySelector('.teacher-notes');
 }
 
 /**

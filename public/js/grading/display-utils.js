@@ -827,8 +827,12 @@ function refreshHighlightsSection(contentId) {
 function applyRemoveAllToTeacherNoteFor(checkbox) {
     try {
         const mod = window.EditingFunctionsModule;
-        if (!mod || !mod.applyRemoveAllToTeacherNote || !mod.findTeacherNotesBlockForEssay) return;
+        if (!mod || !mod.applyRemoveAllToTeacherNote || !mod.findTeacherNotesBlockForEssay) {
+            console.warn('[RemoveAllNoteDiag] EditingFunctionsModule not ready', !!mod);
+            return;
+        }
         const notesBlock = mod.findTeacherNotesBlockForEssay(checkbox);
+        console.log(`[RemoveAllNoteDiag] applyRemoveAllToTeacherNoteFor: checkbox=${checkbox && checkbox.id}, checked=${checkbox && checkbox.checked}, foundNoteBlock=${!!notesBlock}`);
         if (notesBlock) mod.applyRemoveAllToTeacherNote(notesBlock, !!checkbox.checked);
     } catch (e) {
         console.warn('[DisplayUtils] teacher-note remove-all transform skipped:', e && e.message);
@@ -921,6 +925,7 @@ function setupRemoveAllCheckbox(contentId) {
 
     checkbox.addEventListener('change', function() {
         const isChecked = this.checked;
+        console.log(`[RemoveAllNoteDiag] setupRemoveAllCheckbox change fired: contentId=${contentId}, checked=${isChecked}`);
 
         // Save state to localStorage
         localStorage.setItem(`removeAllFromPDF_${contentId}`, isChecked.toString());
