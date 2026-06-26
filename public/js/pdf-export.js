@@ -1041,36 +1041,10 @@ function enhanceContentForPDF(content, studentName, originalContent = null) {
             .replace(/^Teacher Notes:\s*/i, '')
             .replace(/^📝\s*/i, '')  // Remove just the emoji if it's there
             .trim();
-
-        // When this essay has NO highlights surviving into the PDF (i.e. "remove
-        // all from PDF" is in effect, so there's no color-coded error list/legend
-        // below), the algorithmically-generated teacher note's closing sentence
-        // — "See detailed notes below the color-coded essay." — refers to nothing.
-        // Strip it in that case only.
-        //
-        // Read the marks from originalContent (the LIVE resultsDiv), not `content`:
-        // by the time this runs, processHighlightsForPDF has already mutated the
-        // clone's marks, whereas the live DOM still carries the excludeFromPdf
-        // state our pre-export sync wrote. If every mark is excluded (or there are
-        // none), the legend won't render, so the sentence should go.
-        try {
-            const markSource = originalContent || content;
-            const marks = markSource.querySelectorAll(
-                'mark[data-category], mark[data-type], span[data-category], span[data-type]'
-            );
-            let anySurvives = false;
-            marks.forEach(m => {
-                if (m.dataset.excludeFromPdf !== 'true') anySurvives = true;
-            });
-            if (!anySurvives) {
-                notesText = notesText
-                    .replace(/\s*See detailed notes below the color-coded essay\.?/i, '')
-                    .trim();
-            }
-        } catch (e) {
-            // Non-fatal: if the check fails, just leave the note text as-is.
-            console.warn('[PDF] remove-all note-closing strip skipped:', e && e.message);
-        }
+        // NOTE: the "See detailed notes below…" closing sentence is now handled
+        // LIVE in the teacher note when "remove all from PDF" is toggled (see
+        // editing-functions.js applyRemoveAllToTeacherNote). We read whatever the
+        // note currently says — no export-time stripping here.
     }
 
     // Check if after cleaning, we only have default/empty text
@@ -1557,78 +1531,6 @@ function getCategoryDisplayName(category) {
  * @param {string} studentName - Student name
  * @returns {string} HTML content for printing
  */
-/**
- * Per-essay, strip the algorithmic teacher-note closing sentence "See detailed
- * notes below the color-coded essay." when that essay has NO highlights
- * surviving into the PDF (i.e. "remove all from PDF" is in effect), because the
- * sentence then refers to a color-coded list that isn't in the PDF.
- *
- * Operates on `cloneRoot` (what becomes the PDF) but reads exclusion state from
- * `liveRoot` (the on-screen resultsDiv), whose marks still carry excludeFromPdf
- * unmutated. Matches essays by data-essay-index; falls back to a single-essay
- * pass when there are no indexed essay blocks. Best-effort + guarded — never
- * throws into the export path.
- *
- * @param {HTMLElement} cloneRoot - the cloned content being prepared for PDF
- * @param {HTMLElement} liveRoot - the live results container (exclusion source)
- */
-function stripDetailedNotesClosingWhenRemoveAll(cloneRoot, liveRoot) {
-    const CLOSING_RE = /\s*See detailed notes below the color-coded essay\.?/ig;
-    const MARK_SEL = 'mark[data-category], mark[data-type], span[data-category], span[data-type]';
-
-    const essayHasSurvivingMarks = (scope) => {
-        if (!scope) return true; // unknown → assume yes, don't strip
-        const marks = scope.querySelectorAll(MARK_SEL);
-        for (const m of marks) {
-            if (m.dataset.excludeFromPdf !== 'true') return true;
-        }
-        return false;
-    };
-
-    const stripNotesIn = (cloneScope) => {
-        if (!cloneScope) return;
-        cloneScope.querySelectorAll('.teacher-notes, .teacher-notes-content').forEach(el => {
-            if (CLOSING_RE.test(el.textContent)) {
-                // Reset lastIndex (global regex) and replace the text node content.
-                CLOSING_RE.lastIndex = 0;
-                el.textContent = el.textContent.replace(CLOSING_RE, '').trim();
-            }
-            CLOSING_RE.lastIndex = 0;
-        });
-    };
-
-    try {
-        // Batch: per-essay blocks keyed by data-essay-index.
-        const liveEssays = liveRoot
-            ? liveRoot.querySelectorAll('[id^="batch-essay-"], .formatted-essay-content[data-essay-index]')
-            : [];
-        if (liveEssays && liveEssays.length) {
-            liveEssays.forEach(liveEssay => {
-                // Resolve the essay index, then the matching clone block.
-                const idMatch = (liveEssay.id || '').match(/batch-essay-(\d+)/);
-                const idx = idMatch ? idMatch[1] : liveEssay.getAttribute('data-essay-index');
-                if (idx === null || idx === undefined || idx === '') return;
-                // The live exclusion scope: the essay's container.
-                const liveScope = liveRoot.querySelector(`#batch-essay-${idx}`) || liveEssay;
-                if (essayHasSurvivingMarks(liveScope)) return; // some highlights remain — keep sentence
-                // Strip in the matching clone block.
-                const cloneScope = cloneRoot.querySelector(`#batch-essay-${idx}`)
-                    || cloneRoot.querySelector(`.formatted-essay-content[data-essay-index="${idx}"]`)?.closest('[id^="batch-essay-"]')
-                    || cloneRoot;
-                stripNotesIn(cloneScope);
-            });
-            return;
-        }
-
-        // Single-essay (manual/non-indexed): one scope.
-        if (!essayHasSurvivingMarks(liveRoot)) {
-            stripNotesIn(cloneRoot);
-        }
-    } catch (e) {
-        console.warn('[PDF] strip detailed-notes closing skipped:', e && e.message);
-    }
-}
-
 function createPrintContent(resultsDiv, studentName) {
     // Sync the durable "remove all from PDF" state onto the LIVE marks before we
     // clone. The exporter reads mark.dataset.excludeFromPdf off the clone, but
@@ -1646,14 +1548,11 @@ function createPrintContent(resultsDiv, studentName) {
     // Process highlights first (before removing interactive elements)
     const highlightsData = processHighlightsForPDF(clone);
 
-    // When an essay's highlights are all removed from the PDF (no color-coded
-    // error list/legend below), strip the algorithmic teacher-note closing
-    // sentence "See detailed notes below the color-coded essay." — it refers to
-    // nothing. Done per-essay on the CLONE; the survives-check reads the LIVE
-    // resultsDiv (its marks still carry excludeFromPdf, unmutated by
-    // processHighlightsForPDF which only touched the clone). The manual export
-    // path does the equivalent inside enhanceContentForPDF.
-    stripDetailedNotesClosingWhenRemoveAll(clone, resultsDiv);
+    // NOTE: the "See detailed notes below…" closing sentence is now added/removed
+    // LIVE in the teacher note when "remove all from PDF" is toggled (see
+    // editing-functions.js applyRemoveAllToTeacherNote, wired into the remove-all
+    // handlers). The PDF reads the already-correct note from the DOM, so no
+    // export-time stripping is needed here.
 
     // Remove interactive elements
     const buttonsToRemove = clone.querySelectorAll('button, .category-btn, .remove-essay-btn, .manage-profiles-btn, .no-pdf');

@@ -817,6 +817,28 @@ function refreshHighlightsSection(contentId) {
 }
 
 /**
+ * Apply the remove-all teacher-note transform for the essay owning a given
+ * remove-all checkbox. Resolves the essay's .teacher-notes block and adds/
+ * subtracts the closing sentence to match the checkbox state. Shared by all the
+ * remove-all change handlers. Guarded — no-op if the editing module or note
+ * block isn't available.
+ * @param {HTMLElement} checkbox - the toggled remove-all checkbox
+ */
+function applyRemoveAllToTeacherNoteFor(checkbox) {
+    try {
+        const mod = window.EditingFunctionsModule;
+        if (!mod || !mod.applyRemoveAllToTeacherNote || !mod.findTeacherNotesBlockForEssay) return;
+        const notesBlock = mod.findTeacherNotesBlockForEssay(checkbox);
+        if (notesBlock) mod.applyRemoveAllToTeacherNote(notesBlock, !!checkbox.checked);
+    } catch (e) {
+        console.warn('[DisplayUtils] teacher-note remove-all transform skipped:', e && e.message);
+    }
+}
+// Shared by the other remove-all change handlers in grading-display-main.js and
+// auto-save.js so the teacher-note transform is wired uniformly.
+window.applyRemoveAllToTeacherNoteFor = applyRemoveAllToTeacherNoteFor;
+
+/**
  * Setup remove-all checkbox listener
  * @param {string} contentId - ID of the content div
  */
@@ -860,6 +882,11 @@ function setupRemoveAllCheckbox(contentId) {
         checkbox.checked = false;
     }
 
+    // Reflect the determined state in the teacher note (idempotent: only changes
+    // the note if the sentence needs adding/removing), so a restored remove-all
+    // session shows the correct note without a manual toggle.
+    applyRemoveAllToTeacherNoteFor(checkbox);
+
     // Apply the determined state to all highlights
     if (isChecked) {
         const contentInner = document.getElementById(`${contentId}-inner`);
@@ -897,6 +924,11 @@ function setupRemoveAllCheckbox(contentId) {
 
         // Save state to localStorage
         localStorage.setItem(`removeAllFromPDF_${contentId}`, isChecked.toString());
+
+        // Live-update the teacher note (add/subtract the "see detailed notes
+        // below" sentence) so the on-screen note reflects the PDF, and the PDF
+        // exporter just reads the already-correct note from the DOM.
+        applyRemoveAllToTeacherNoteFor(this);
 
         // Find the content container
         const contentInner = document.getElementById(`${contentId}-inner`);

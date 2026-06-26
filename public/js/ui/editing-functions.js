@@ -557,6 +557,72 @@ function commitTeacherNote(notesBlock, noteText) {
     }
 }
 
+// The algorithmic teacher-note closing sentence that points at the color-coded
+// error list/legend. When "remove all from PDF" is on, that list isn't in the
+// PDF, so the sentence refers to nothing and should go.
+const TEACHER_NOTE_DETAIL_CLOSING = 'See detailed notes below the color-coded essay.';
+
+/**
+ * Live-update a teacher note for the "remove all from PDF" state by adding or
+ * subtracting the standard closing sentence — directly in the UI (via
+ * commitTeacherNote), so the on-screen note changes immediately and the PDF
+ * exporter simply reads the already-correct note from the DOM (no export-time
+ * stripping needed).
+ *
+ * Idempotent add/subtract (no stashing): on remove-all the sentence is removed
+ * if present; off remove-all it's appended if absent. Skips empty/placeholder
+ * notes. Self-correcting — can't duplicate the sentence or strip what's absent.
+ *
+ * @param {HTMLElement} notesBlock - the essay's .teacher-notes element
+ * @param {boolean} isRemoveAll - true if "remove all from PDF" is now checked
+ */
+function applyRemoveAllToTeacherNote(notesBlock, isRemoveAll) {
+    if (!notesBlock) return;
+
+    // Read the current note from the same source commitTeacherNote writes.
+    let note = (notesBlock.dataset.teacherNotes || '').trim();
+    // Ignore the placeholder / empty note — nothing to transform.
+    if (!note || note === 'Click to add teacher notes') return;
+
+    const hasClosing = note.indexOf(TEACHER_NOTE_DETAIL_CLOSING) !== -1;
+    let next = note;
+
+    if (isRemoveAll) {
+        // Subtract the sentence if present.
+        if (hasClosing) {
+            next = note.replace(
+                /\s*See detailed notes below the color-coded essay\.?/i, ''
+            ).trim();
+        }
+    } else {
+        // Add it back if absent (and the note isn't empty).
+        if (!hasClosing) {
+            next = (note + ' ' + TEACHER_NOTE_DETAIL_CLOSING).replace(/\s+/g, ' ').trim();
+        }
+    }
+
+    if (next !== note) {
+        commitTeacherNote(notesBlock, next);
+    }
+}
+
+/**
+ * Resolve an essay's .teacher-notes block from its remove-all checkbox (or from
+ * any element inside the essay's container). Walks to the essay's student-row /
+ * grading-summary and finds the note block within.
+ * @param {HTMLElement} fromEl - the checkbox (or any element in the essay block)
+ * @returns {HTMLElement|null}
+ */
+function findTeacherNotesBlockForEssay(fromEl) {
+    if (!fromEl) return null;
+    const container = fromEl.closest('.student-row') || fromEl.closest('.grading-summary');
+    if (container) {
+        return container.querySelector('.teacher-notes.editable-section') ||
+               container.querySelector('.teacher-notes');
+    }
+    return null;
+}
+
 /**
  * Update every "Focus on …" toggle pill bound to a given note block so they all
  * reflect the current mode and label. Pills carry both versions of the note
@@ -646,5 +712,7 @@ window.EditingFunctionsModule = {
     editStat,
     makeElementEditable,
     setupEditableElements,
-    applyTeacherNotesSuggestion
+    applyTeacherNotesSuggestion,
+    applyRemoveAllToTeacherNote,
+    findTeacherNotesBlockForEssay
 };

@@ -337,6 +337,9 @@ function setupRemoveAllCheckboxForTab(checkbox, contentDiv) {
         // Save state to localStorage
         localStorage.setItem(`removeAllFromPDF_${contentId}`, isChecked.toString());
 
+        // Live-update the teacher note to match (add/subtract the closing sentence).
+        if (window.applyRemoveAllToTeacherNoteFor) window.applyRemoveAllToTeacherNoteFor(this);
+
         const toggleButtons = contentDiv.querySelectorAll('.toggle-pdf-btn');
 
         toggleButtons.forEach(button => {

@@ -2132,6 +2132,8 @@
         checkbox.addEventListener('change', function() {
             const checked = this.checked;
             localStorage.setItem(`removeAllFromPDF_${contentId}`, checked.toString());
+            // Live-update the teacher note to match (add/subtract the closing sentence).
+            if (window.applyRemoveAllToTeacherNoteFor) window.applyRemoveAllToTeacherNoteFor(this);
             const toggleButtons = contentDiv.querySelectorAll('.toggle-pdf-btn');
             toggleButtons.forEach(button => {
                 const elementId = button.dataset.elementId;
