@@ -3,6 +3,11 @@
  * Handles inline editing functionality for various elements
  */
 
+// Background tint shown on a teacher-notes block once it has content (i.e. it's
+// been edited/filled in). A very light lavender — distinct from the app's
+// amber warnings and red errors, while keeping the dark note text fully legible.
+const EDITED_NOTE_BG = '#f1ecfb';
+
 /**
  * Edit teacher notes inline
  * @param {HTMLElement} element - Element to edit
@@ -91,7 +96,7 @@ function editTeacherNotes(element) {
                             
                             // Update visual indicators
                             if (notesText.trim()) {
-                                targetElement.style.backgroundColor = '#fff3cd';
+                                targetElement.style.backgroundColor = EDITED_NOTE_BG;
                                 targetElement.title = 'Teacher notes: ' + notesText.substring(0, 100) + (notesText.length > 100 ? '...' : '');
                             } else {
                                 targetElement.style.backgroundColor = '';
@@ -246,7 +251,7 @@ function createTeacherNotesInlineEditor(element) {
         
         // Update visual indicators
         if (newNotes) {
-            element.style.backgroundColor = '#fff3cd';
+            element.style.backgroundColor = EDITED_NOTE_BG;
             element.title = 'Teacher notes: ' + newNotes.substring(0, 100) + (newNotes.length > 100 ? '...' : '');
         } else {
             element.style.backgroundColor = '';
@@ -519,7 +524,7 @@ function commitTeacherNote(notesBlock, noteText) {
     }
 
     if (note) {
-        notesBlock.style.backgroundColor = '#fff3cd';
+        notesBlock.style.backgroundColor = EDITED_NOTE_BG;
         notesBlock.title = 'Teacher notes: ' + note.substring(0, 100) +
                            (note.length > 100 ? '...' : '');
     } else {

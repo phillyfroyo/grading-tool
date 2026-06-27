@@ -488,7 +488,8 @@ class ModalManager {
 
         // Update visual indicator based on content
         if (notesText.trim()) {
-            targetElement.style.backgroundColor = '#fff3cd';
+            // Light lavender "edited" tint — must match EDITED_NOTE_BG in editing-functions.js
+            targetElement.style.backgroundColor = '#f1ecfb';
             targetElement.title = 'Teacher notes: ' + notesText.substring(0, 100) +
                                  (notesText.length > 100 ? '...' : '');
         } else {
