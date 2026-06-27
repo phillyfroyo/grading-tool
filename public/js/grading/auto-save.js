@@ -925,6 +925,23 @@
         return stack;
     }
 
+    /**
+     * Insert a TRANSIENT banner (a save/restore/grading toast or the save-status
+     * banner) at the top of the stack — but BELOW the standing capacity banner
+     * if one is showing. The capacity banner (amber/red) has no auto-dismiss, so
+     * keeping it pinned at the very top stops it from bouncing down and back up
+     * every time a short-lived toast appears above it on each edit/autosave.
+     */
+    function insertTransient(stack, el) {
+        const capacity = document.getElementById('auto-save-capacity');
+        if (capacity && capacity.parentNode === stack) {
+            // Place directly after the capacity banner.
+            stack.insertBefore(el, capacity.nextSibling);
+        } else {
+            stack.insertBefore(el, stack.firstChild);
+        }
+    }
+
     function showToast(text, level) {
         const stack = getToastStack();
 
@@ -971,12 +988,12 @@
             'box-shadow:0 2px 8px rgba(0,0,0,0.12);' +
             'backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);' +
             'transition:opacity 0.3s ease;opacity:0;' +
-            'white-space:pre-line;max-width:420px;' +
+            'white-space:pre-line;width:420px;box-sizing:border-box;' +
             `background:${bg};border:1px solid ${border};color:${color};`;
         toast.textContent = fullText;
 
-        // Newest on top: insert at the start of the stack.
-        stack.insertBefore(toast, stack.firstChild);
+        // Newest on top — but below a standing capacity banner if present.
+        insertTransient(stack, toast);
 
         // Fade in
         requestAnimationFrame(() => { toast.style.opacity = '1'; });
@@ -1053,10 +1070,10 @@
                 'backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);' +
                 'transition:opacity 0.3s ease,background-color 0.25s ease,' +
                 'border-color 0.25s ease,color 0.25s ease;opacity:0;' +
-                'white-space:pre-line;max-width:420px;';
+                'white-space:pre-line;width:420px;box-sizing:border-box;';
         }
-        // Always keep it at the top of the stack.
-        stack.insertBefore(banner, stack.firstChild);
+        // Keep it at the top — but below a standing capacity banner if present.
+        insertTransient(stack, banner);
 
         const isWarn = state === 'warn';
         const suffix = state === 'pending' ? '' : isWarn ? ' ⚠' : ' ✓';
@@ -1146,10 +1163,18 @@
                 'backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);' +
                 'transition:opacity 0.3s ease,background-color 0.25s ease,' +
                 'border-color 0.25s ease,color 0.25s ease;opacity:0;' +
-                'white-space:pre-line;max-width:420px;';
+                'white-space:pre-line;width:420px;box-sizing:border-box;';
 
             const msg = document.createElement('span');
             msg.className = 'capacity-banner-msg';
+            // The text lives in a child <span>, so the global `p, li, span {
+            // font-size: 18px }` rule in main.css overrides the banner div's
+            // inline 13px and renders this banner LARGER than the green save/
+            // restore toasts (whose text is set directly on the div). Re-declare
+            // the toast typography ON the span so it matches the others exactly.
+            msg.style.cssText =
+                'font-family:"Inter","Helvetica Neue",Arial,sans-serif;' +
+                'font-size:13px;font-weight:500;letter-spacing:0.01em;';
             banner.appendChild(msg);
 
             const dismiss = document.createElement('button');
@@ -1187,8 +1212,13 @@
         banner.querySelector('.capacity-banner-msg').textContent =
             text + (isFull ? ' ⚠' : ' ⚠');
 
-        // Keep at the top of the stack and reveal.
-        stack.insertBefore(banner, stack.firstChild);
+        // Keep the capacity banner pinned at the very top of the stack — but
+        // only move it if it isn't already there, so re-running this on every
+        // save (capacity is recomputed each save) doesn't churn the DOM or
+        // flicker. Transient toasts insert BELOW it (see insertTransient).
+        if (stack.firstChild !== banner) {
+            stack.insertBefore(banner, stack.firstChild);
+        }
         requestAnimationFrame(() => { banner.style.opacity = '1'; });
         // No auto-dismiss timer for either state — capacity is a standing
         // condition; it goes away only on explicit dismiss or dropping <70%.
