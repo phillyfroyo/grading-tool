@@ -297,41 +297,27 @@ function displayBatchProgress(batchData) {
                             <div id="batch-essay-${index}" data-essay-id="${essay.essayId || ''}" style="padding: 12px;">${getLoadingMessage()}</div>
                         </div>
 
-                        <!-- Highlights Management Tab -->
+                        <!-- Highlights Management Tab: single full-width clickable
+                             title bar. Mirrors createStudentRowHTML's header in
+                             display-utils.js — the "Remove all from PDF" control
+                             lives INSIDE the dropdown body, not here. No carrot,
+                             hover-fills. -->
                         <div class="tab-header" style="
                             background: #ffffff;
                             border-bottom: 1px solid #ddd;
                             user-select: none;
                         ">
-                            <div style="display: flex; flex-direction: column; flex: 1;">
-                                <!-- Upper section: Title and arrow (clickable for toggle) -->
-                                <div onclick="toggleTab('highlights-tab-${index}', ${index})" style="
-                                    padding: 10px 18px;
-                                    cursor: pointer;
-                                    display: flex;
-                                    align-items: center;
-                                    gap: 8px;
-                                    transition: background-color 0.2s;
-                                " onmouseover="this.style.backgroundColor='#f8f9fa'"
-                                   onmouseout="this.style.backgroundColor='#ffffff'">
-                                    <span id="highlights-tab-${index}-arrow" style="font-size: 14px; transition: transform 0.3s; display: inline-block;">▼</span>
-                                    <span style="font-weight: 600; font-size: 14px;">Manage 'Highlights and Corrections' as seen on the exported PDF</span>
-                                </div>
-                                <!-- Lower section: Checkbox (independent hover) -->
-                                <label style="
-                                    display: flex;
-                                    align-items: center;
-                                    gap: 6px;
-                                    padding: 6px 18px 10px 40px;
-                                    font-size: 13px;
-                                    cursor: pointer;
-                                    transition: background-color 0.2s;
-                                " onclick="event.stopPropagation();"
-                                   onmouseover="this.style.backgroundColor='#f8f9fa'"
-                                   onmouseout="this.style.backgroundColor='#ffffff'">
-                                    <input type="checkbox" id="highlights-tab-${index}-remove-all" class="remove-all-checkbox" data-content-id="highlights-tab-content-${index}" style="cursor: pointer; width: 14px; height: 14px;">
-                                    <span style="color: #666;">Remove all from PDF</span>
-                                </label>
+                            <div onclick="toggleTab('highlights-tab-${index}', ${index})" style="
+                                padding: 12px 18px;
+                                min-height: 44px;
+                                box-sizing: border-box;
+                                cursor: pointer;
+                                display: flex;
+                                align-items: center;
+                                transition: background-color 0.2s;
+                            " onmouseover="this.style.backgroundColor='#e9ecef'"
+                               onmouseout="this.style.backgroundColor='#ffffff'">
+                                <span style="font-weight: 600; font-size: 13px;">Manage 'Highlights and Corrections' as seen on the exported PDF</span>
                             </div>
                         </div>
                         <div id="highlights-tab-${index}" class="tab-content" style="
