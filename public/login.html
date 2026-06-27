@@ -129,8 +129,20 @@
             </div>
         </form>
 
-        <div style="margin-top: 2rem; padding-top: 1.5rem; border-top: 1px solid #eee; font-size: 14px; color: #888;">
-            <div style="font-weight: 600; margin-bottom: 8px; font-size: 18px;">LMGM Version 1.8 Updates - June 2026, Final Exams</div>
+        <div style="margin-top: 2rem; padding-top: 1.5rem; border-top: 1px solid #eee; font-size: 14px; color: #555;">
+            <div style="font-weight: 600; margin-bottom: 8px; font-size: 18px;">LMGM Version 1.9 Updates - Summer 2, Midterm Exams</div>
+            <ul style="margin: 0; padding-left: 18px; line-height: 1.6;">
+                <li>Big grading batches now save and restore reliably. Previously a large batch of essays could quietly fail to save behind the scenes — your work is now compressed and stored safely, so you can grade a full class, close your laptop, and find everything exactly where you left it.</li>
+                <li><strong>New: an autosave capacity meter.</strong> You'll see a small percentage pill in the tab bar showing how full the current session is, with a friendly heads-up as you approach the limit — so a save never fails on you by surprise. Each tab now holds up to 10 essays; download finished essays and clear a tab to free up room.</li>
+                <li>Session restore is smoother: when you reopen the app, the score arrows, toggles, and highlighting all work right away, your scores no longer occasionally revert, and you get a clear "session restored" message instead of a confusing "grading complete."</li>
+                <li>"Remove all from PDF" now works reliably and lives inside the highlights dropdown — open it and watch each highlight get crossed off, so you can see exactly what will be excluded. When you use it, the teacher's note automatically drops its "see detailed notes below" line.</li>
+                <li>An edited teacher's note is now tinted a soft lavender instead of yellow, so it no longer looks like a warning.</li>
+            </ul>
+
+            <button type="button" id="toggle-older-updates" style="margin-top: 18px; background: none; border: none; color: #4a6fa5; font-size: 14px; font-weight: 600; cursor: pointer; padding: 4px 0;">Show older updates ▾</button>
+
+            <div id="older-updates" style="display: none;">
+            <div style="font-weight: 600; margin-bottom: 8px; margin-top: 16px; font-size: 18px;">LMGM Version 1.8 Updates - Summer 1, Final Exams</div>
             <ul style="margin: 0; padding-left: 18px; line-height: 1.6;">
                 <li>Recolored grammar and vocab highlights to match the rubric exactly, and added highlights for 'redundancy' and 'professor's comments'</li>
                 <li>Squashed the two big bugs from last term: essays no longer get auto-saved with the wrong student attached, and the occasional "infinite load" that froze a grading batch is fixed — your work is now preserved and restored reliably even if a session expires mid-grade.</li>
@@ -176,6 +188,7 @@
                 <li>Removed "delete" error type from AI detection, as it was particularly problematic</li>
                 <li>Added funny loading messages, like "🪐 Contemplating reality..."</li>
             </ul>
+            </div><!-- /#older-updates -->
         </div>
     </div>
 
@@ -198,6 +211,19 @@
                 'box-shadow:0 4px 12px rgba(0,0,0,0.2);pointer-events:auto;';
             document.body.appendChild(popup);
         });
+
+        // Older-updates toggle: newest version stays expanded, older ones
+        // collapse behind this button so the panel isn't a wall of text.
+        (function () {
+            var btn = document.getElementById('toggle-older-updates');
+            var older = document.getElementById('older-updates');
+            if (!btn || !older) return;
+            btn.addEventListener('click', function () {
+                var open = older.style.display !== 'none';
+                older.style.display = open ? 'none' : 'block';
+                btn.textContent = open ? 'Show older updates ▾' : 'Hide older updates ▴';
+            });
+        })();
 
         // Check if already authenticated and redirect
         fetch('/auth/status', {
