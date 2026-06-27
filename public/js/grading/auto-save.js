@@ -607,10 +607,18 @@
             });
         }
 
-        // Restore remove-all checkbox states
+        // Restore remove-all checkbox states.
+        // The checkbox now lives INSIDE the (lazily-rendered) highlights dropdown
+        // body, so on restore it usually doesn't exist yet — when the teacher
+        // opens the dropdown it's generated already-checked from localStorage.
+        // So we persist the saved state to localStorage here (the durable source
+        // of truth that export reads via applyRemoveAllStateToMarks), which also
+        // covers a fresh-browser restore where localStorage started empty. If the
+        // checkbox happens to already be in the DOM, reflect it too.
         if (tabData.removeAllStates) {
             Object.entries(tabData.removeAllStates).forEach(([contentId, checked]) => {
                 if (!checked) return;
+                localStorage.setItem(`removeAllFromPDF_${contentId}`, 'true');
                 const cbId = contentId + '-remove-all';
                 const tabMatch = contentId.match(/^highlights-tab-content-(\d+)$/);
                 const actualCbId = tabMatch ? `highlights-tab-${tabMatch[1]}-remove-all` : cbId;

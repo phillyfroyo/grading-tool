@@ -243,7 +243,7 @@ function loadHighlightsTab(index) {
         // (it includes the intro text)
         let html = '';
         if (window.DisplayUtilsModule && window.DisplayUtilsModule.createHighlightsLegendHTML) {
-            html = window.DisplayUtilsModule.createHighlightsLegendHTML(highlightsData);
+            html = window.DisplayUtilsModule.createHighlightsLegendHTML(highlightsData, `highlights-tab-content-${index}`);
         }
 
         contentDiv.innerHTML = html;

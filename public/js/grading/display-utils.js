@@ -206,41 +206,26 @@ function createStudentRowHTML(essay, index, statusIcon) {
                 <div id="batch-essay-${index}" data-essay-id="${essayId}" style="padding: 15px;">Loading formatted result...</div>
             </div>
 
-            <!-- Highlights Management Tab -->
+            <!-- Highlights Management Tab: single full-width clickable title bar.
+                 The "Remove all from PDF" control now lives INSIDE the dropdown
+                 body (top of the highlights list) so teachers always open it and
+                 watch the marks get struck through. No carrot, hover-fills. -->
             <div class="tab-header" style="
                 background: #ffffff;
                 border-bottom: 1px solid #ddd;
                 user-select: none;
             ">
-                <div style="display: flex; flex-direction: column; flex: 1;">
-                    <!-- Upper section: Title and arrow (clickable for toggle) -->
-                    <div onclick="toggleTab('highlights-tab-${index}', ${index})" style="
-                        padding: 10px 18px;
-                        cursor: pointer;
-                        display: flex;
-                        align-items: center;
-                        gap: 8px;
-                        transition: background-color 0.2s;
-                    " onmouseover="this.style.backgroundColor='#f8f9fa'"
-                       onmouseout="this.style.backgroundColor='#ffffff'">
-                        <span id="highlights-tab-${index}-arrow" style="font-size: 14px; transition: transform 0.3s; display: inline-block;">▼</span>
-                        <span style="font-weight: 600; font-size: 14px;">Manage 'Highlights and Corrections' as seen on the exported PDF</span>
-                    </div>
-                    <!-- Lower section: Checkbox (independent hover) -->
-                    <label style="
-                        display: flex;
-                        align-items: center;
-                        gap: 6px;
-                        padding: 6px 18px 10px 40px;
-                        font-size: 13px;
-                        cursor: pointer;
-                        transition: background-color 0.2s;
-                    " onclick="event.stopPropagation();"
-                       onmouseover="this.style.backgroundColor='#f8f9fa'"
-                       onmouseout="this.style.backgroundColor='#ffffff'">
-                        <input type="checkbox" id="highlights-tab-${index}-remove-all" class="remove-all-checkbox" data-content-id="highlights-tab-content-${index}" style="cursor: pointer; width: 14px; height: 14px;">
-                        <span style="color: #666;">Remove all from PDF</span>
-                    </label>
+                <div onclick="toggleTab('highlights-tab-${index}', ${index})" style="
+                    padding: 12px 18px;
+                    min-height: 44px;
+                    box-sizing: border-box;
+                    cursor: pointer;
+                    display: flex;
+                    align-items: center;
+                    transition: background-color 0.2s;
+                " onmouseover="this.style.backgroundColor='#e9ecef'"
+                   onmouseout="this.style.backgroundColor='#ffffff'">
+                <span style="font-weight: 600; font-size: 13px;">Manage 'Highlights and Corrections' as seen on the exported PDF</span>
                 </div>
             </div>
             <div id="highlights-tab-${index}" class="tab-content" style="
@@ -357,38 +342,27 @@ function createHighlightsUISection(essayIndex = '') {
 
     return `
         <div class="highlights-ui-section no-print" style="margin: 20px 0; border: 1px solid #ddd; border-radius: 8px; overflow: hidden;">
+            <!-- Single full-width clickable title bar. The "Remove all from PDF"
+                 control now lives INSIDE the dropdown body (top of the highlights
+                 list). No carrot, hover-fills. -->
             <div
                 onclick="toggleHighlightsSection('${contentId}')"
                 style="
+                    padding: 12px 18px;
+                    min-height: 44px;
+                    box-sizing: border-box;
                     background: #f8f9fa;
-                    padding: 15px 20px;
-                    cursor: pointer;
-                    display: flex;
-                    justify-content: space-between;
-                    align-items: center;
                     border-bottom: 1px solid #ddd;
                     user-select: none;
+                    cursor: pointer;
+                    display: flex;
+                    align-items: center;
+                    transition: background-color 0.2s;
                 "
+                onmouseover="this.style.backgroundColor='#e9ecef'"
+                onmouseout="this.style.backgroundColor='#f8f9fa'"
             >
-                <div style="display: flex; flex-direction: column; gap: 8px;">
-                    <h3 style="margin: 0; font-size: 18px; font-weight: 600;">
-                        Manage 'Highlights and Corrections' as seen on the exported PDF
-                    </h3>
-                    <label
-                        style="display: flex; align-items: center; gap: 8px; font-size: 14px; cursor: pointer;"
-                        onclick="event.stopPropagation();"
-                    >
-                        <input
-                            type="checkbox"
-                            id="${contentId}-remove-all"
-                            class="remove-all-checkbox"
-                            data-content-id="${contentId}"
-                            style="cursor: pointer; width: 16px; height: 16px;"
-                        />
-                        <span style="color: #666;">Remove all from PDF</span>
-                    </label>
-                </div>
-                <span id="${contentId}-arrow" style="font-size: 20px; transition: transform 0.3s;">▼</span>
+                <span style="font-weight: 600; font-size: 13px;">Manage 'Highlights and Corrections' as seen on the exported PDF</span>
             </div>
             <div
                 id="${contentId}"
@@ -437,11 +411,13 @@ function toggleHighlightsSection(contentId) {
     const content = document.getElementById(contentId);
     const arrow = document.getElementById(`${contentId}-arrow`);
 
-    if (!content || !arrow) return;
+    // Arrow is optional now (the redesigned header drops the carrot); only the
+    // content element is required for the toggle to work.
+    if (!content) return;
 
     if (content.style.maxHeight === '0px' || content.style.maxHeight === '') {
         // Expand
-        arrow.style.transform = 'rotate(180deg)';
+        if (arrow) arrow.style.transform = 'rotate(180deg)';
 
         // First, populate content (if not already done)
         populateHighlightsContent(contentId);
@@ -467,7 +443,7 @@ function toggleHighlightsSection(contentId) {
     } else {
         // Collapse
         content.style.maxHeight = '0px';
-        arrow.style.transform = 'rotate(0deg)';
+        if (arrow) arrow.style.transform = 'rotate(0deg)';
 
         // Also recalculate parent student-details height
         const match = contentId.match(/highlights-content-(\d+)/);
@@ -575,7 +551,7 @@ function populateHighlightsContent(contentId) {
     if (highlightsData.length === 0) {
         contentInner.innerHTML = '<p style="color: #999;">No highlights with corrections or explanations found.</p>';
     } else {
-        const generatedHTML = createHighlightsLegendHTML(highlightsData);
+        const generatedHTML = createHighlightsLegendHTML(highlightsData, contentId);
         contentInner.innerHTML = generatedHTML;
 
         // Setup toggle PDF button listeners
@@ -618,15 +594,69 @@ function populateHighlightsContent(contentId) {
  * @param {Array} highlightsData - Array of highlight objects
  * @returns {string} HTML string
  */
-function createHighlightsLegendHTML(highlightsData) {
+/**
+ * Build the "Remove all from PDF" checkbox row shown at the top of a highlights
+ * dropdown. Keeps the exact id / class / data-content-id the rest of the app
+ * wires against. Initial checked state comes from localStorage so it paints
+ * correctly the moment the dropdown opens.
+ * @param {string} contentId - e.g. "highlights-tab-content-0" or "highlights-content-0"
+ * @returns {string} HTML string
+ */
+function createRemoveAllRowHTML(contentId) {
+    // The checkbox id pattern differs by variant; mirror the original ids:
+    //   batch:  highlights-tab-content-N  -> highlights-tab-N-remove-all
+    //   single: highlights-content-N      -> highlights-content-N-remove-all
+    const tabMatch = contentId.match(/^highlights-tab-content-(\d+)$/);
+    const checkboxId = tabMatch
+        ? `highlights-tab-${tabMatch[1]}-remove-all`
+        : `${contentId}-remove-all`;
+
+    const isChecked = localStorage.getItem(`removeAllFromPDF_${contentId}`) === 'true';
+
+    return `
+        <label style="
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 16px;
+            padding: 8px 10px;
+            background: #f8f9fa;
+            border: 1px solid #e3e3e3;
+            border-radius: 6px;
+            font-size: 13px;
+            cursor: pointer;
+        ">
+            <input type="checkbox" id="${checkboxId}" class="remove-all-checkbox"
+                   data-content-id="${contentId}"
+                   style="cursor: pointer; width: 14px; height: 14px; margin: 0;"
+                   ${isChecked ? 'checked' : ''}>
+            <span style="font-weight: 500; color: #555;">Remove all highlights &amp; corrections from the exported PDF</span>
+        </label>
+    `;
+}
+
+function createHighlightsLegendHTML(highlightsData, contentId = '') {
     if (!highlightsData.length) {
         return '';
     }
 
+    // "Remove all from PDF" lives in the dropdown body (not the header), so
+    // teachers who use it always open the list and watch every highlight get
+    // struck through — visual confirmation it worked. It sits just below the
+    // intro line, above the first highlight. The checkbox keeps its original
+    // id/class/data-content-id so all existing wiring (setupRemoveAllCheckbox*,
+    // the delegated change listener, and syncAllRemoveAllStateToMarks) keeps
+    // working unchanged. Initial checked state is read from localStorage here so
+    // it's correct on first paint.
+    const removeAllRow = contentId
+        ? createRemoveAllRowHTML(contentId)
+        : '';
+
     let html = `
-        <p style="margin-bottom: 20px; font-style: italic; color: #666;">
+        <p style="margin-bottom: 16px; color: #444; font-size: 15px;">
             The following numbered highlights correspond to corrections and feedback in the essay above.
         </p>
+        ${removeAllRow}
     `;
 
     try {
