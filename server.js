@@ -25,6 +25,25 @@ const app = express();
 console.log("[CONFIG] Validating configuration...");
 validateConfig();
 
+// Resolve the session/cookie signing secret. SESSION_SECRET signs the auth
+// cookies; if it's weak or guessable, signed cookies can be forged to
+// impersonate any user. When deployed (production OR any Vercel environment) we
+// REQUIRE a real secret from the environment and fail loudly at startup rather
+// than silently fall back to the public dev default below (which is in source
+// control and therefore not a secret at all). Local development still uses the
+// dev default for convenience.
+const DEV_SESSION_SECRET = 'dev-session-secret-key-change-in-production';
+const secretIsMissingOrDefault =
+  !process.env.SESSION_SECRET || process.env.SESSION_SECRET === DEV_SESSION_SECRET;
+if ((isProduction || isVercel) && secretIsMissingOrDefault) {
+  throw new Error(
+    '[SECURITY] SESSION_SECRET must be set to a strong, unique value when deployed. ' +
+    'Refusing to start with a missing or default session secret (it would let signed ' +
+    'auth cookies be forged). Set SESSION_SECRET in the environment (e.g. Vercel env vars).'
+  );
+}
+const SESSION_SECRET = process.env.SESSION_SECRET || DEV_SESSION_SECRET;
+
 // Initialize database connection
 console.log("[DATABASE] Initializing database...");
 await initializeDatabase();
@@ -63,11 +82,11 @@ app.use(express.json({ limit: config.api.requestLimit }));
 app.use(express.urlencoded({ extended: true, limit: config.api.requestLimit }));
 
 // Add cookie parser with signing secret
-app.use(cookieParser(process.env.SESSION_SECRET || 'dev-session-secret-key-change-in-production'));
+app.use(cookieParser(SESSION_SECRET));
 
 // Configure session middleware with custom store for Vercel
 const sessionConfig = {
-  secret: process.env.SESSION_SECRET || 'dev-session-secret-key-change-in-production',
+  secret: SESSION_SECRET,
   resave: false,
   saveUninitialized: true, // Create session even if not modified (needed for Vercel)
   proxy: true, // Trust proxy for Vercel
