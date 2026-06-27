@@ -1070,7 +1070,15 @@
                 'backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);' +
                 'transition:opacity 0.3s ease,background-color 0.25s ease,' +
                 'border-color 0.25s ease,color 0.25s ease;opacity:0;' +
-                'white-space:pre-line;width:420px;box-sizing:border-box;';
+                // Fit-to-text (not a fixed width): the save-lifecycle banner
+                // (Saving… / All changes saved) fires constantly during editing,
+                // so a full-width box every few seconds was overwhelming. The
+                // standing capacity banner keeps its fixed width.
+                // NOTE: the toast stack is a flex column (align-items:stretch),
+                // so a plain max-width still stretches to the stack's width —
+                // align-self:flex-start + width:fit-content is what shrinks it
+                // to the text.
+                'white-space:pre-line;max-width:420px;width:fit-content;align-self:flex-start;';
         }
         // Keep it at the top — but below a standing capacity banner if present.
         insertTransient(stack, banner);
