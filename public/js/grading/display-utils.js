@@ -1082,10 +1082,21 @@ function setupRemoveAllCheckbox(contentId) {
  *   .formatted-essay-content[data-essay-index] and the contentId suffix).
  *   Pass '' for the single-essay (non-batch) case.
  */
-function applyRemoveAllStateToMarks(essayIndex) {
+function applyRemoveAllStateToMarks(essayIndex, tabId) {
     try {
         const idx = (essayIndex === '' || essayIndex === null || essayIndex === undefined)
             ? '' : String(essayIndex);
+
+        // TAB SCOPING (critical): an essay index (0, 1, …) is NOT unique across
+        // tabs — index 0 exists in every tab's pane. Without scoping, the lookups
+        // below would grab whichever tab's checkbox/container matched FIRST, so a
+        // remove-all checked in tab A would tag a same-index essay's marks in tab
+        // B (struck-out highlights + blank PDF). Scope every lookup to tabId. When
+        // no tabId is given (single-essay / no TabStore), fall back to document.
+        const scopedQuery = (selector) => {
+            if (tabId && window.TabStore) return window.TabStore.queryInTab(tabId, selector);
+            return document.querySelector(selector);
+        };
 
         // The two contentId families that carry a remove-all checkbox for this
         // essay: the grade-details section and the highlights tab. Either being
@@ -1094,13 +1105,11 @@ function applyRemoveAllStateToMarks(essayIndex) {
             ? ['highlights-content']
             : [`highlights-content-${idx}`, `highlights-tab-content-${idx}`];
 
-        // Detect remove-all from EITHER the durable localStorage state OR the
-        // live checkbox. localStorage covers the common same-browser case; the
-        // live-checkbox check covers a session restored in a FRESH browser
-        // (localStorage empty), where restoreTabDOM re-checks the box but doesn't
-        // repopulate localStorage. The tab-variant checkbox id differs from its
-        // contentId (highlights-tab-content-N → highlights-tab-N-remove-all), so
-        // map it the same way restore does.
+        // Detect remove-all from EITHER the durable localStorage state (tab-scoped
+        // key) OR the live checkbox (covers a fresh-browser restore where
+        // localStorage is empty but restoreTabDOM re-checked the box). The
+        // tab-variant checkbox id differs from its contentId
+        // (highlights-tab-content-N → highlights-tab-N-remove-all).
         const checkboxIdFor = (cid) => {
             const tabMatch = cid.match(/^highlights-tab-content-(\d+)$/);
             return tabMatch ? `highlights-tab-${tabMatch[1]}-remove-all` : `${cid}-remove-all`;
@@ -1108,11 +1117,11 @@ function applyRemoveAllStateToMarks(essayIndex) {
 
         let removeAll = false;
         for (const cid of contentIds) {
-            if (localStorage.getItem(removeAllStorageKey(cid)) === 'true') {
+            if (localStorage.getItem(removeAllStorageKey(cid, tabId)) === 'true') {
                 removeAll = true;
                 break;
             }
-            const cb = document.getElementById(checkboxIdFor(cid));
+            const cb = scopedQuery(`#${checkboxIdFor(cid)}`);
             if (cb && cb.checked) {
                 removeAll = true;
                 break;
@@ -1121,10 +1130,10 @@ function applyRemoveAllStateToMarks(essayIndex) {
         if (!removeAll) return; // nothing to apply; leave per-mark state as-is
 
         // Find the essay's marks directly (same selector populateHighlightsContent
-        // uses), NOT via toggle buttons.
+        // uses), NOT via toggle buttons — scoped to this tab's pane.
         const essayContainer = idx === ''
-            ? document.querySelector('.formatted-essay-content')
-            : document.querySelector(`.formatted-essay-content[data-essay-index="${idx}"]`);
+            ? scopedQuery('.formatted-essay-content')
+            : scopedQuery(`.formatted-essay-content[data-essay-index="${idx}"]`);
         if (!essayContainer) return;
 
         const marks = essayContainer.querySelectorAll(
@@ -1143,9 +1152,28 @@ function applyRemoveAllStateToMarks(essayIndex) {
  * idempotent; safe to call on every export.
  */
 function syncAllRemoveAllStateToMarks() {
-    // Single-essay (non-batch) case.
+    // Iterate PER TAB so each essay's remove-all state is read and applied within
+    // its OWN tab — never leaking a tab's state onto a same-index essay in another
+    // tab (the cross-tab "struck-out highlights / blank PDF" bug).
+    if (window.TabStore && typeof window.TabStore.all === 'function') {
+        window.TabStore.all().forEach(tab => {
+            const tabId = tab && tab.id;
+            if (!tabId) return;
+            // Single-essay (non-batch) container in this tab, if any.
+            if (window.TabStore.queryInTab(tabId, '.formatted-essay-content:not([data-essay-index])')) {
+                applyRemoveAllStateToMarks('', tabId);
+            }
+            // Batch essays in this tab.
+            window.TabStore.queryAllInTab(tabId, '.formatted-essay-content[data-essay-index]')
+                .forEach(el => {
+                    const idx = el.getAttribute('data-essay-index');
+                    if (idx !== null && idx !== '') applyRemoveAllStateToMarks(idx, tabId);
+                });
+        });
+        return;
+    }
+    // Fallback (no TabStore): document-wide, single-tab behavior.
     applyRemoveAllStateToMarks('');
-    // Batch essays: every rendered .formatted-essay-content[data-essay-index].
     document.querySelectorAll('.formatted-essay-content[data-essay-index]').forEach(el => {
         const idx = el.getAttribute('data-essay-index');
         if (idx !== null && idx !== '') applyRemoveAllStateToMarks(idx);
