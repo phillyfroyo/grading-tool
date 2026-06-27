@@ -139,11 +139,10 @@
                 <li>An edited teacher's note is now tinted a soft lavender instead of yellow, so it no longer looks like a warning.</li>
             </ul>
 
-            <button type="button" id="toggle-older-updates" style="margin-top: 18px; background: none; border: none; color: #4a6fa5; font-size: 14px; font-weight: 600; cursor: pointer; padding: 4px 0;">Show older updates ▾</button>
-
-            <div id="older-updates" style="display: none;">
-            <div style="font-weight: 600; margin-bottom: 8px; margin-top: 16px; font-size: 18px;">LMGM Version 1.8 Updates - Summer 1, Final Exams</div>
-            <ul style="margin: 0; padding-left: 18px; line-height: 1.6;">
+            <!-- Older versions: each title is its own clickable dropdown,
+                 collapsed by default. Wired by the .changelog-toggle handler. -->
+            <div class="changelog-toggle" data-target="v18" style="font-weight: 600; margin-bottom: 8px; margin-top: 16px; font-size: 18px; cursor: pointer; user-select: none;"><span class="changelog-caret" style="display: inline-block; width: 14px; color: #888;">▸</span>LMGM Version 1.8 Updates - Summer 1, Final Exams</div>
+            <ul id="v18" style="display: none; margin: 0; padding-left: 18px; line-height: 1.6;">
                 <li>Recolored grammar and vocab highlights to match the rubric exactly, and added highlights for 'redundancy' and 'professor's comments'</li>
                 <li>Squashed the two big bugs from last term: essays no longer get auto-saved with the wrong student attached, and the occasional "infinite load" that froze a grading batch is fixed — your work is now preserved and restored reliably even if a session expires mid-grade.</li>
                 <li>Edit Highlight modal: added a one-click copy button for the highlighted text, and locked the layout so it no longer jumps around when changing error category.</li>
@@ -152,8 +151,8 @@
                 <li><strong>New:</strong> Under the teacher's note, you'll see a button called "Focus on one category". I added this as I found myself frequently changing the teacher's note to just emphasize one category. Give it a try!</li>
             </ul>
 
-            <div style="font-weight: 600; margin-bottom: 8px; margin-top: 16px; font-size: 18px;">LMGM Version 1.7 Updates - April 2026, Midterm Exams</div>
-            <ul style="margin: 0; padding-left: 18px; line-height: 1.6;">
+            <div class="changelog-toggle" data-target="v17" style="font-weight: 600; margin-bottom: 8px; margin-top: 16px; font-size: 18px; cursor: pointer; user-select: none;"><span class="changelog-caret" style="display: inline-block; width: 14px; color: #888;">▸</span>LMGM Version 1.7 Updates - April 2026, Midterm Exams</div>
+            <ul id="v17" style="display: none; margin: 0; padding-left: 18px; line-height: 1.6;">
                 <li><strong>New: multi-tab grading.</strong> You can now open multiple grading tabs (like browser tabs) to work on different batches at the same time. Click the + button next to your current tab to open a new one. Each tab keeps its own essays, results, and edits. Your tabs are auto-saved and restored when you come back, so you can close your laptop and pick up right where you left off.</li>
                 <li><strong>New: paste a syllabus, extract vocab and grammar automatically.</strong> When creating or editing a class profile, you'll see a new "Paste your complete syllabus" box above the vocab and grammar fields. Paste in your syllabus text, click Extract, and we'll parse out the vocabulary and grammar structures and fill the fields for you. Review and edit the results before saving. Headers like "UNIT 1" are preserved so you can see how the content is organized.</li>
                 <li>You can now enter class vocabulary and grammar separated by commas in addition to one-per-line — paste your list however it's formatted in your syllabus and it will just work (for grammar structures that contain commas like "not only..., but also...", use semicolons to separate items)</li>
@@ -163,8 +162,8 @@
                 <li>Cleaned up minor UI spacing issues on the first essay row of the grading form</li>
             </ul>
 
-            <div style="font-weight: 600; margin-bottom: 8px; margin-top: 16px; font-size: 18px;">LMGM Version 1.6 Updates - Jan/Feb 2026, Final Exams</div>
-            <ul style="margin: 0; padding-left: 18px; line-height: 1.6;">
+            <div class="changelog-toggle" data-target="v16" style="font-weight: 600; margin-bottom: 8px; margin-top: 16px; font-size: 18px; cursor: pointer; user-select: none;"><span class="changelog-caret" style="display: inline-block; width: 14px; color: #888;">▸</span>LMGM Version 1.6 Updates - Jan/Feb 2026, Final Exams</div>
+            <ul id="v16" style="display: none; margin: 0; padding-left: 18px; line-height: 1.6;">
                 <li>Your grading sessions now auto-save — close the tab and come back later, everything will be right where you left it</li>
                 <li>Added explanation auto-suggestions when editing error highlights to avoid typing common explanations out every time</li>
                 <li>You can now edit error highlight length after clicking/creating a highlight, a much needed feature!</li>
@@ -176,8 +175,8 @@
                 <li>Save essays to your account (beta) — graded essays can now be saved and viewed on your "My Essays" page</li>
             </ul>
 
-            <div style="font-weight: 600; margin-bottom: 8px; margin-top: 16px; font-size: 18px;">LMGM Version 1.5 Updates - Jan/Feb 2026, Midterm Exams</div>
-            <ul style="margin: 0; padding-left: 18px; line-height: 1.6;">
+            <div class="changelog-toggle" data-target="v15" style="font-weight: 600; margin-bottom: 8px; margin-top: 16px; font-size: 18px; cursor: pointer; user-select: none;"><span class="changelog-caret" style="display: inline-block; width: 14px; color: #888;">▸</span>LMGM Version 1.5 Updates - Jan/Feb 2026, Midterm Exams</div>
+            <ul id="v15" style="display: none; margin: 0; padding-left: 18px; line-height: 1.6;">
                 <li>Squashed minor bugs in the PDF export</li>
                 <li>Fixed the peculiar infinite load bug</li>
                 <li>Improved AI-generated teacher notes</li>
@@ -188,7 +187,6 @@
                 <li>Removed "delete" error type from AI detection, as it was particularly problematic</li>
                 <li>Added funny loading messages, like "🪐 Contemplating reality..."</li>
             </ul>
-            </div><!-- /#older-updates -->
         </div>
     </div>
 
@@ -212,18 +210,20 @@
             document.body.appendChild(popup);
         });
 
-        // Older-updates toggle: newest version stays expanded, older ones
-        // collapse behind this button so the panel isn't a wall of text.
-        (function () {
-            var btn = document.getElementById('toggle-older-updates');
-            var older = document.getElementById('older-updates');
-            if (!btn || !older) return;
-            btn.addEventListener('click', function () {
-                var open = older.style.display !== 'none';
-                older.style.display = open ? 'none' : 'block';
-                btn.textContent = open ? 'Show older updates ▾' : 'Hide older updates ▴';
+        // Changelog: newest version stays expanded; each older version title is
+        // its own clickable dropdown (collapsed by default). One delegated
+        // handler toggles the list named by the title's data-target and flips
+        // its caret.
+        document.querySelectorAll('.changelog-toggle').forEach(function (header) {
+            header.addEventListener('click', function () {
+                var list = document.getElementById(header.dataset.target);
+                if (!list) return;
+                var open = list.style.display !== 'none';
+                list.style.display = open ? 'none' : 'block';
+                var caret = header.querySelector('.changelog-caret');
+                if (caret) caret.textContent = open ? '▸' : '▾';
             });
-        })();
+        });
 
         // Check if already authenticated and redirect
         fetch('/auth/status', {
