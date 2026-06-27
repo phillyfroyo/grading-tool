@@ -118,6 +118,15 @@ No test suite in repo. Verification = `node --check` on every edited file + manu
 
 ---
 
+## Known issues (pre-existing, deferred)
+
+- **`updateRemoveAllCheckboxState` doesn't auto-tick the master "Remove all" checkbox in BATCH view** (`public/js/grading/display-utils.js`, ~line 1176). It resolves the checkbox as `` `${contentId}-remove-all` ``, which is correct for the single-essay family (`highlights-content-N` → `highlights-content-N-remove-all`) but WRONG for the batch family: `contentId` there is `highlights-tab-content-N`, while the actual checkbox id is `highlights-tab-N-remove-all` (the `-content` is dropped). So `getElementById` returns null and the function silently `return`s for batch.
+  - **Symptom:** in batch view, if a teacher manually clicks individual − buttons until *every* highlight is excluded, the master "Remove all" checkbox doesn't auto-check. That's the only effect — marks still exclude correctly, the PDF exports correctly, and clicking the master checkbox directly still works. Cosmetic auto-sync only, rare flow.
+  - **Pre-existing:** confirmed identical before the 2026-06-27 UI session (the id mismatch predates the "move remove-all into the dropdown" work; not introduced or worsened by it).
+  - **Why not a drive-by fix:** the 3-line `tabMatch` id-mapping (same pattern used ~4× elsewhere in this file) makes it *find* the checkbox, but the function sets `checkbox.checked` WITHOUT writing localStorage or dispatching a change event (deliberate, see the inline comment). Turning it on for batch widens the exposure of visual-vs-persisted drift (master ticks visually but `removeAllFromPDF_*` localStorage stays false → can reset on re-render/restore). A proper fix decides whether this reverse-sync should persist + flow through the delegated change path, which is its own small test matrix — treat as a "remove-all consistency" ticket, not a one-liner.
+
+---
+
 ## 📋 REFACTOR PLAN — `public/js/grading/auto-save.js` (researched 2026-06-25; Phase 1 on-ramp DONE, rest DEFERRED)
 
 Full plan from a deep code analysis, saved so it can be executed post-midterms without re-deriving. **Status:** the safe Phase-1 on-ramp (cluster-map comment + hoisting 3 stray state `let`s) is committed (`5e576ee`). Everything structural below is DEFERRED — do not split files before midterms / before a test harness exists.
