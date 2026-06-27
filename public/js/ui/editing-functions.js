@@ -740,14 +740,20 @@ function isRemoveAllActiveForNote(notesBlock) {
     try {
         const row = notesBlock && notesBlock.closest('.student-row');
         const m = row && (row.id || '').match(/student-row-(\d+)/);
+        // Tab-scoped key via the shared helper (defaults to the active tab,
+        // which is where a note is being edited/toggled). Falls back to the old
+        // unscoped key shape if the helper isn't present.
+        const keyFor = (cid) => window.removeAllStorageKey
+            ? window.removeAllStorageKey(cid)
+            : `removeAllFromPDF_${cid}`;
         if (!m) {
             // Single-essay (non-batch) layout: check the unindexed contentId.
-            return localStorage.getItem('removeAllFromPDF_highlights-content') === 'true';
+            return localStorage.getItem(keyFor('highlights-content')) === 'true';
         }
         const idx = m[1];
         const cids = [`highlights-content-${idx}`, `highlights-tab-content-${idx}`];
         for (const cid of cids) {
-            if (localStorage.getItem(`removeAllFromPDF_${cid}`) === 'true') return true;
+            if (localStorage.getItem(keyFor(cid)) === 'true') return true;
             // Live checkbox fallback (fresh-browser restore where localStorage is empty).
             const cbId = cid.startsWith('highlights-tab-content-')
                 ? `highlights-tab-${idx}-remove-all`

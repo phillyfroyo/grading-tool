@@ -595,6 +595,53 @@ function populateHighlightsContent(contentId) {
  * @returns {string} HTML string
  */
 /**
+ * Build the localStorage key for an essay's "remove all from PDF" state.
+ *
+ * THE BUG THIS FIXES: the key used to be `removeAllFromPDF_${contentId}` where
+ * contentId is index-based (`highlights-tab-content-0`, …). The index RESETS
+ * per tab, so tab 1 essay 0 and tab 2 essay 0 shared one key — checking
+ * remove-all in one tab made other tabs' essay 0 render pre-checked (and it
+ * leaked across page loads too). Scoping the key by tabId makes it unique per
+ * essay-per-tab. ALL reads and writes MUST go through this single helper so a
+ * read and a write can never build the key differently.
+ *
+ * @param {string} contentId - e.g. "highlights-tab-content-0" / "highlights-content-0"
+ * @param {string} [tabId] - the owning tab; defaults to the active tab (correct
+ *   for render/setup sites, which run for the active tab). Restore MUST pass the
+ *   explicit tab being restored, since the active tab flips during multi-tab restore.
+ * @returns {string}
+ */
+function removeAllStorageKey(contentId, tabId) {
+    const tid = tabId
+        || (window.TabStore && window.TabStore.activeId && window.TabStore.activeId())
+        || '';
+    return `removeAllFromPDF_${tid}_${contentId}`;
+}
+// Cross-file: grading-display-main.js, auto-save.js, batch-processing.js, and
+// editing-functions.js all build this key too — they call this same helper.
+window.removeAllStorageKey = removeAllStorageKey;
+
+/**
+ * One-time migration: delete the OLD index-only remove-all keys
+ * (`removeAllFromPDF_highlights-…`, no tabId segment) that the pre-fix code
+ * wrote. They're now orphaned (nothing reads them) and could otherwise leave a
+ * stale pre-check around. New keys are `removeAllFromPDF_${tabId}_highlights-…`,
+ * so the `_highlights-` anchor below matches ONLY old keys. Guarded to run once.
+ */
+function migrateRemoveAllKeysOnce() {
+    try {
+        if (localStorage.getItem('removeAllKeyMigrationV1') === 'done') return;
+        Object.keys(localStorage)
+            .filter(k => /^removeAllFromPDF_highlights-/.test(k))
+            .forEach(k => localStorage.removeItem(k));
+        localStorage.setItem('removeAllKeyMigrationV1', 'done');
+    } catch (e) {
+        // localStorage unavailable / quota — non-fatal; skip the migration.
+    }
+}
+migrateRemoveAllKeysOnce();
+
+/**
  * Build the "Remove all from PDF" checkbox row shown at the top of a highlights
  * dropdown. Keeps the exact id / class / data-content-id the rest of the app
  * wires against. Initial checked state comes from localStorage so it paints
@@ -611,7 +658,7 @@ function createRemoveAllRowHTML(contentId) {
         ? `highlights-tab-${tabMatch[1]}-remove-all`
         : `${contentId}-remove-all`;
 
-    const isChecked = localStorage.getItem(`removeAllFromPDF_${contentId}`) === 'true';
+    const isChecked = localStorage.getItem(removeAllStorageKey(contentId)) === 'true';
 
     return `
         <label style="
@@ -886,7 +933,8 @@ function setupRemoveAllCheckbox(contentId) {
 
     // CAPTURE the checkbox state IMMEDIATELY before any other operations
     const currentCheckboxState = checkbox.checked;
-    const savedState = localStorage.getItem(`removeAllFromPDF_${contentId}`);
+    const storageKey = removeAllStorageKey(contentId);
+    const savedState = localStorage.getItem(storageKey);
 
     let isChecked;
 
@@ -901,7 +949,7 @@ function setupRemoveAllCheckbox(contentId) {
         // User has it checked and storage doesn't explicitly say otherwise — keep it.
         isChecked = true;
         checkbox.checked = true;
-        localStorage.setItem(`removeAllFromPDF_${contentId}`, 'true');
+        localStorage.setItem(storageKey, 'true');
     } else if (savedState !== null) {
         // Not currently checked (or storage explicitly says false): trust storage.
         isChecked = savedState === 'true';
@@ -952,8 +1000,8 @@ function setupRemoveAllCheckbox(contentId) {
     checkbox.addEventListener('change', function() {
         const isChecked = this.checked;
 
-        // Save state to localStorage
-        localStorage.setItem(`removeAllFromPDF_${contentId}`, isChecked.toString());
+        // Save state to localStorage (tab-scoped key via the shared helper)
+        localStorage.setItem(removeAllStorageKey(contentId), isChecked.toString());
 
         // (The teacher-note add/subtract is driven by the document-level
         // delegated remove-all listener below, so it fires for every checkbox
@@ -1060,7 +1108,7 @@ function applyRemoveAllStateToMarks(essayIndex) {
 
         let removeAll = false;
         for (const cid of contentIds) {
-            if (localStorage.getItem(`removeAllFromPDF_${cid}`) === 'true') {
+            if (localStorage.getItem(removeAllStorageKey(cid)) === 'true') {
                 removeAll = true;
                 break;
             }

@@ -576,7 +576,11 @@ function displayBatchResults(batchResult, originalData) {
             const checkbox = tabScopedQuery(`.remove-all-checkbox[data-content-id="${contentId}"]`);
             if (checkbox && isChecked) {
                 checkbox.checked = true;
-                localStorage.setItem(`removeAllFromPDF_${contentId}`, 'true');
+                // Tab-scoped key; pass the batch's own tab (currentBatchTabId).
+                const key = window.removeAllStorageKey
+                    ? window.removeAllStorageKey(contentId, currentBatchTabId)
+                    : `removeAllFromPDF_${contentId}`;
+                localStorage.setItem(key, 'true');
                 console.log(`✅ Restored checked state for ${contentId}`);
             }
         });

@@ -281,7 +281,11 @@ function setupRemoveAllCheckboxForTab(checkbox, contentDiv) {
 
     // CAPTURE the checkbox state IMMEDIATELY before any other operations
     const currentCheckboxState = checkbox.checked;
-    const savedState = localStorage.getItem(`removeAllFromPDF_${contentId}`);
+    // Tab-scoped key via the shared helper (see display-utils removeAllStorageKey).
+    const storageKey = window.removeAllStorageKey
+        ? window.removeAllStorageKey(contentId)
+        : `removeAllFromPDF_${contentId}`;
+    const savedState = localStorage.getItem(storageKey);
 
     let isChecked;
 
@@ -296,7 +300,7 @@ function setupRemoveAllCheckboxForTab(checkbox, contentDiv) {
     } else if (currentCheckboxState) {
         // User manually checked before content loaded - save this to localStorage
         isChecked = true;
-        localStorage.setItem(`removeAllFromPDF_${contentId}`, 'true');
+        localStorage.setItem(storageKey, 'true');
     } else {
         // Default to unchecked
         isChecked = false;
@@ -334,8 +338,8 @@ function setupRemoveAllCheckboxForTab(checkbox, contentDiv) {
     checkbox.addEventListener('change', function() {
         const isChecked = this.checked;
 
-        // Save state to localStorage
-        localStorage.setItem(`removeAllFromPDF_${contentId}`, isChecked.toString());
+        // Save state to localStorage (tab-scoped key via the shared helper)
+        localStorage.setItem(storageKey, isChecked.toString());
 
         // (Teacher-note add/subtract is driven by the document-level delegated
         // remove-all listener in display-utils.js.)

@@ -618,7 +618,13 @@
         if (tabData.removeAllStates) {
             Object.entries(tabData.removeAllStates).forEach(([contentId, checked]) => {
                 if (!checked) return;
-                localStorage.setItem(`removeAllFromPDF_${contentId}`, 'true');
+                // Tab-scoped key. CRITICAL: pass the EXPLICIT tabId of the tab
+                // being restored — during multi-tab restore the active tab flips,
+                // so activeId() would mis-scope this to the wrong tab.
+                const key = window.removeAllStorageKey
+                    ? window.removeAllStorageKey(contentId, tabId)
+                    : `removeAllFromPDF_${contentId}`;
+                localStorage.setItem(key, 'true');
                 const cbId = contentId + '-remove-all';
                 const tabMatch = contentId.match(/^highlights-tab-content-(\d+)$/);
                 const actualCbId = tabMatch ? `highlights-tab-${tabMatch[1]}-remove-all` : cbId;
@@ -2118,7 +2124,7 @@
                     if (window.setupRemoveAllCheckboxForTab) {
                         window.setupRemoveAllCheckboxForTab(checkbox, container);
                     } else {
-                        setupRemoveAllCheckboxFromAutoSave(checkbox, container);
+                        setupRemoveAllCheckboxFromAutoSave(checkbox, container, scopedTabId);
                     }
                 }
             } else if (type === 'content') {
@@ -2138,11 +2144,16 @@
      * Setup remove-all checkbox listener for highlights tab (mirrors setupRemoveAllCheckboxForTab
      * from grading-display-main.js, which is a file-scoped function we can't call directly).
      */
-    function setupRemoveAllCheckboxFromAutoSave(checkbox, contentDiv) {
+    function setupRemoveAllCheckboxFromAutoSave(checkbox, contentDiv, tabId) {
         if (checkbox.dataset.setupComplete === 'true') return;
 
         const contentId = checkbox.dataset.contentId || checkbox.id.replace('-remove-all', '');
-        const savedState = localStorage.getItem(`removeAllFromPDF_${contentId}`);
+        // Tab-scoped key via the shared helper. tabId is the restoring tab (passed
+        // from reattachHighlightsHandlers); fall back to activeId() inside helper.
+        const storageKey = window.removeAllStorageKey
+            ? window.removeAllStorageKey(contentId, tabId)
+            : `removeAllFromPDF_${contentId}`;
+        const savedState = localStorage.getItem(storageKey);
 
         let isChecked;
         if (savedState !== null) {
@@ -2177,7 +2188,7 @@
         // Add change listener
         checkbox.addEventListener('change', function() {
             const checked = this.checked;
-            localStorage.setItem(`removeAllFromPDF_${contentId}`, checked.toString());
+            localStorage.setItem(storageKey, checked.toString());
             // (Teacher-note add/subtract is driven by the document-level delegated
             // remove-all listener in display-utils.js.)
             const toggleButtons = contentDiv.querySelectorAll('.toggle-pdf-btn');
