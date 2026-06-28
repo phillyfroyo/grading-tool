@@ -476,10 +476,16 @@ function populateHighlightsContent(contentId) {
     const match = contentId.match(/highlights-content-(\d+)/);
     const essayIndex = match ? match[1] : null;
 
-    // Find the essay container
+    // Find the essay container — TAB-SCOPED. An essay index is not unique across
+    // tabs, so a bare document.querySelector could grab another tab's same-index
+    // essay (with remove-all on / marks struck out) and build this dropdown from
+    // it. Scope to the active tab (this populate runs for the active tab's render).
+    const scopedQuery = (selector) => window.TabStore
+        ? window.TabStore.activeQuery(selector)
+        : document.querySelector(selector);
     const essayContainer = essayIndex !== null
-        ? document.querySelector(`.formatted-essay-content[data-essay-index="${essayIndex}"]`)
-        : document.querySelector('.formatted-essay-content');
+        ? scopedQuery(`.formatted-essay-content[data-essay-index="${essayIndex}"]`)
+        : scopedQuery('.formatted-essay-content');
 
     if (!essayContainer) {
         contentInner.innerHTML = '<p style="color: #999;">No highlights found.</p>';

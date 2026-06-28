@@ -118,18 +118,24 @@ function toggleTab(tabId, index) {
  * @param {number} index - Essay index
  */
 function loadHighlightsTab(index) {
-    const contentDiv = window.TabStore
-        ? window.TabStore.activeQuery(`#highlights-tab-content-${index}`)
-        : document.getElementById(`highlights-tab-content-${index}`);
+    // Pin the tab this load belongs to, ONCE. Every lookup below (initial,
+    // retry-poll, recursive re-call) scopes to THIS tab — so a tab switch
+    // mid-load, or an index that also exists in another tab, can't make us read
+    // a different tab's essay marks (the cross-tab "highlights render struck-out"
+    // bug). queryInTab falls back to active/document when tabId is null.
+    const scopedTabId = (window.TabStore && window.TabStore.activeId && window.TabStore.activeId()) || null;
+    const scopedQuery = (selector) => window.TabStore
+        ? window.TabStore.queryInTab(scopedTabId, selector)
+        : document.querySelector(selector);
+
+    const contentDiv = scopedQuery(`#highlights-tab-content-${index}`);
     if (!contentDiv) return;
 
     // Check if already loaded
     if (contentDiv.dataset.loaded === 'true') return;
 
     // Get essay container to extract highlights
-    const essayContainer = window.TabStore
-        ? window.TabStore.activeQuery(`.formatted-essay-content[data-essay-index="${index}"]`)
-        : document.querySelector(`.formatted-essay-content[data-essay-index="${index}"]`);
+    const essayContainer = scopedQuery(`.formatted-essay-content[data-essay-index="${index}"]`);
     if (!essayContainer) {
         // Essay details not loaded yet - load them first, then populate highlights
         console.log(`📄 Essay content not loaded for index ${index}, loading now...`);
@@ -160,7 +166,12 @@ function loadHighlightsTab(index) {
         const maxAttempts = 20; // 20 attempts * 100ms = 2 seconds max wait
         const checkInterval = setInterval(() => {
             attempts++;
-            const essayContainerRetry = document.querySelector(`.formatted-essay-content[data-essay-index="${index}"]`);
+            // TAB-SCOPED (scopedQuery pins the originating tab): index is not
+            // unique across tabs — a bare document.querySelector here would grab
+            // ANOTHER tab's same-index essay (e.g. one with remove-all on, marks
+            // struck out), then build THIS dropdown from those marks → highlights
+            // render crossed-out even though this tab's remove-all is unchecked.
+            const essayContainerRetry = scopedQuery(`.formatted-essay-content[data-essay-index="${index}"]`);
 
             if (essayContainerRetry) {
                 clearInterval(checkInterval);
