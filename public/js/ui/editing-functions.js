@@ -755,8 +755,8 @@ function isRemoveAllActiveForNote(notesBlock) {
         for (const cid of cids) {
             if (localStorage.getItem(keyFor(cid)) === 'true') return true;
             // Live checkbox fallback (fresh-browser restore where localStorage is empty).
-            const cbId = cid.startsWith('highlights-tab-content-')
-                ? `highlights-tab-${idx}-remove-all`
+            const cbId = window.removeAllCheckboxId
+                ? window.removeAllCheckboxId(cid)
                 : `${cid}-remove-all`;
             const cb = document.getElementById(cbId);
             if (cb && cb.checked) return true;

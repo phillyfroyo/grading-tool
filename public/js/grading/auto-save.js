@@ -625,9 +625,9 @@
                     ? window.removeAllStorageKey(contentId, tabId)
                     : `removeAllFromPDF_${contentId}`;
                 localStorage.setItem(key, 'true');
-                const cbId = contentId + '-remove-all';
-                const tabMatch = contentId.match(/^highlights-tab-content-(\d+)$/);
-                const actualCbId = tabMatch ? `highlights-tab-${tabMatch[1]}-remove-all` : cbId;
+                const actualCbId = window.removeAllCheckboxId
+                    ? window.removeAllCheckboxId(contentId)
+                    : `${contentId}-remove-all`;
                 const cb = queryInTab(`#${actualCbId}`) || document.getElementById(actualCbId);
                 if (cb) cb.checked = true;
             });

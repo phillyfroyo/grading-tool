@@ -622,6 +622,22 @@ function removeAllStorageKey(contentId, tabId) {
 window.removeAllStorageKey = removeAllStorageKey;
 
 /**
+ * Map a highlights contentId to its remove-all checkbox element id.
+ * The batch family drops the "-content" segment:
+ *   highlights-tab-content-N  → highlights-tab-N-remove-all
+ *   highlights-content-N      → highlights-content-N-remove-all
+ * Single source of truth — this derivation was duplicated across 4 sites and
+ * MUST stay consistent (a drift here re-creates the class of remove-all bug).
+ * @param {string} contentId
+ * @returns {string}
+ */
+function removeAllCheckboxId(contentId) {
+    const tabMatch = (contentId || '').match(/^highlights-tab-content-(\d+)$/);
+    return tabMatch ? `highlights-tab-${tabMatch[1]}-remove-all` : `${contentId}-remove-all`;
+}
+window.removeAllCheckboxId = removeAllCheckboxId;
+
+/**
  * One-time migration: delete the OLD index-only remove-all keys
  * (`removeAllFromPDF_highlights-…`, no tabId segment) that the pre-fix code
  * wrote. They're now orphaned (nothing reads them) and could otherwise leave a
@@ -650,14 +666,7 @@ migrateRemoveAllKeysOnce();
  * @returns {string} HTML string
  */
 function createRemoveAllRowHTML(contentId) {
-    // The checkbox id pattern differs by variant; mirror the original ids:
-    //   batch:  highlights-tab-content-N  -> highlights-tab-N-remove-all
-    //   single: highlights-content-N      -> highlights-content-N-remove-all
-    const tabMatch = contentId.match(/^highlights-tab-content-(\d+)$/);
-    const checkboxId = tabMatch
-        ? `highlights-tab-${tabMatch[1]}-remove-all`
-        : `${contentId}-remove-all`;
-
+    const checkboxId = removeAllCheckboxId(contentId);
     const isChecked = localStorage.getItem(removeAllStorageKey(contentId)) === 'true';
 
     return `
@@ -1110,18 +1119,13 @@ function applyRemoveAllStateToMarks(essayIndex, tabId) {
         // localStorage is empty but restoreTabDOM re-checked the box). The
         // tab-variant checkbox id differs from its contentId
         // (highlights-tab-content-N → highlights-tab-N-remove-all).
-        const checkboxIdFor = (cid) => {
-            const tabMatch = cid.match(/^highlights-tab-content-(\d+)$/);
-            return tabMatch ? `highlights-tab-${tabMatch[1]}-remove-all` : `${cid}-remove-all`;
-        };
-
         let removeAll = false;
         for (const cid of contentIds) {
             if (localStorage.getItem(removeAllStorageKey(cid, tabId)) === 'true') {
                 removeAll = true;
                 break;
             }
-            const cb = scopedQuery(`#${checkboxIdFor(cid)}`);
+            const cb = scopedQuery(`#${removeAllCheckboxId(cid)}`);
             if (cb && cb.checked) {
                 removeAll = true;
                 break;
