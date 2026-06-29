@@ -443,9 +443,43 @@ function makeElementEditable(element, onSave = null) {
 /**
  * Setup editable elements in the document
  */
+/**
+ * Strip highlight branding that a cross-tab bug may have stamped onto a
+ * teacher-note content span (see highlighting.js fix). Idempotent: a clean note
+ * is left untouched. Removes the highlight-* class, the highlight id, mark data
+ * attributes, and the grey highlight tint — restoring it to a plain note span.
+ * @param {HTMLElement} span - a .teacher-notes-content element
+ */
+function sanitizeTeacherNoteSpan(span) {
+    if (!span || !span.classList || !span.classList.contains('teacher-notes-content')) return;
+    let touched = false;
+    // highlight-<category> class(es)
+    span.className.split(/\s+/).forEach(c => {
+        if (/^highlight-/.test(c)) { span.classList.remove(c); touched = true; }
+    });
+    // a highlight-…-… id wrongly minted onto the note
+    if (/^highlight-/.test(span.id || '')) { span.removeAttribute('id'); touched = true; }
+    // mark data attributes that don't belong on a note
+    ['category', 'type', 'correction', 'message', 'explanation', 'notes', 'highlightGroup', 'originalText']
+        .forEach(k => { if (k in span.dataset) { delete span.dataset[k]; touched = true; } });
+    // grey highlight tint (#D3D3D3 / rgb(211,211,211)); leave any legit note styling alone
+    const bg = span.style.backgroundColor;
+    if (bg && /211,\s*211,\s*211|d3d3d3/i.test(bg)) { span.style.backgroundColor = ''; touched = true; }
+    if (touched) {
+        console.log('[editing] sanitized highlight branding off a teacher-note span');
+    }
+}
+
 function setupEditableElements() {
     // Make teacher notes editable
     document.querySelectorAll('.teacher-notes-content').forEach(element => {
+        // Heal contamination: a cross-tab bug could brand a teacher-note span as
+        // a highlight (highlight-* class, data-category/type, a highlight-… id,
+        // grey tint). That state was persisted into saved sessions and replays
+        // on restore, so strip it here on every render — every note passes
+        // through this setup. Source of the branding is fixed in highlighting.js
+        // (resolveEditingElement + the note-type guard); this undoes prior damage.
+        sanitizeTeacherNoteSpan(element);
         makeElementEditable(element, (newValue, oldValue) => {
             console.log('Teacher notes updated:', { old: oldValue, new: newValue });
         });
@@ -796,6 +830,7 @@ window.EditingFunctionsModule = {
     editStat,
     makeElementEditable,
     setupEditableElements,
+    sanitizeTeacherNoteSpan,
     applyTeacherNotesSuggestion,
     applyRemoveAllToTeacherNote,
     findTeacherNotesBlockForEssay

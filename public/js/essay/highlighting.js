@@ -828,7 +828,38 @@ function rebuildHighlightBoundaries(oldMark, newStart, newEnd, container) {
  * @param {HTMLElement} element - Highlight element
  * @param {Array} currentCategories - Current categories
  */
+/**
+ * Resolve the element a highlight-edit modal is operating on, safely.
+ *
+ * Prefers the DIRECT element reference stashed at open time (modal._editingElementRef)
+ * — it can't cross tabs. Falls back to an ACTIVE-TAB-scoped id lookup (never bare
+ * document.getElementById, which is not tab-unique). As a final guard, REFUSES to
+ * return a teacher-note content span: a note must never be edited as a highlight
+ * (this is the boundary that the cross-tab branding bug crossed).
+ *
+ * @param {HTMLElement} modal
+ * @returns {HTMLElement|null}
+ */
+function resolveEditingElement(modal) {
+    const isNote = (el) => !!(el && el.classList && el.classList.contains('teacher-notes-content'));
+    const ref = modal._editingElementRef;
+    // Live ref is authoritative as long as it's still in the document and isn't a note.
+    if (ref && ref.isConnected && !isNote(ref)) return ref;
+    const id = modal.dataset.editingElement;
+    if (!id) return null;
+    const scoped = window.TabStore ? window.TabStore.activeQuery(`#${CSS.escape(id)}`) : document.getElementById(id);
+    return isNote(scoped) ? null : scoped;
+}
+
 function showHighlightEditModal(element, currentCategories) {
+
+    // Never open the highlight editor on a teacher-note span — they share a
+    // document with highlights but are a different type; treating one as a
+    // highlight is what corrupted notes across tabs.
+    if (element && element.classList && element.classList.contains('teacher-notes-content')) {
+        console.warn('[highlighting] refusing to edit a teacher-notes-content span as a highlight');
+        return;
+    }
 
     // Ensure element has an ID
     if (!element.id) {
@@ -907,6 +938,7 @@ function showHighlightEditModal(element, currentCategories) {
     // COMPLETE modal reset to prevent any interference between highlights
     modal.dataset.selectedCategories = '';
     modal.dataset.editingElement = '';
+    modal._editingElementRef = null;
 
     // Clear any lingering button states from previous edits
     modal.querySelectorAll('.modal-category-btn').forEach(btn => {
@@ -963,8 +995,14 @@ function showHighlightEditModal(element, currentCategories) {
         });
     }
 
-    // Store reference to the element being edited (AFTER clearing state)
+    // Store reference to the element being edited (AFTER clearing state).
+    // Keep a DIRECT element reference, not just the id: id-based re-resolution
+    // via document.getElementById is not tab-unique (highlight ids and the
+    // panes of inactive tabs both coexist in one document), so a Save/Remove
+    // could resolve to ANOTHER tab's same-id element — including a teacher-note
+    // span — and brand it as a highlight. The live ref can't cross tabs.
     modal.dataset.editingElement = element.id;
+    modal._editingElementRef = element;
 
     // Clear any previous category button states
     modal.querySelectorAll('.modal-category-btn').forEach(btn => {
@@ -1057,8 +1095,7 @@ function showHighlightEditModal(element, currentCategories) {
     const saveButton = modal.querySelector('.modal-save-btn');
     if (saveButton && !saveButton.dataset.simpleHandlerAttached) {
         saveButton.addEventListener('click', () => {
-            const elementId = modal.dataset.editingElement;
-            const element = document.getElementById(elementId);
+            const element = resolveEditingElement(modal);
             const selectedCategories = modal.dataset.selectedCategories ? modal.dataset.selectedCategories.split(',').filter(c => c.trim()) : [];
 
             if (element && selectedCategories.length > 0) {
@@ -1145,6 +1182,7 @@ function showHighlightEditModal(element, currentCategories) {
                     if (newMark) {
                         // Update the editing reference so subsequent saves reference the new element
                         modal.dataset.editingElement = newMark.id;
+                        modal._editingElementRef = newMark;
                     }
                     modal.dataset.highlightResized = '';
                 }
@@ -1170,8 +1208,7 @@ function showHighlightEditModal(element, currentCategories) {
     const removeButton = modal.querySelector('.modal-remove-btn');
     if (removeButton && !removeButton.dataset.simpleHandlerAttached) {
         removeButton.addEventListener('click', () => {
-            const elementId = modal.dataset.editingElement;
-            const element = document.getElementById(elementId);
+            const element = resolveEditingElement(modal);
             if (element) {
                 removeHighlight(element);
             }

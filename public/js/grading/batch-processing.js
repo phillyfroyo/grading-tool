@@ -845,6 +845,18 @@ function loadEssayDetails(index, essayId = null) {
 
                             // Add click handlers to GPT highlights
                             gptHighlights.forEach((element, i) => {
+                                // NEVER treat a teacher-note element as a highlight.
+                                // The note block lives inside #batch-essay-N (outside
+                                // .formatted-essay-content), and its content span (once
+                                // edited → inline background) and .edit-indicator ✎
+                                // (color: #666) both match the broad selector above.
+                                // Branding them here force-set data-category and bolted
+                                // on a capture-phase editHighlight listener that
+                                // stopPropagation()'d the note's own editTeacherNotes
+                                // click — i.e. "can't edit the teacher note" + note
+                                // rendered as a highlight. This is the ROOT of that bug.
+                                if (element.closest('.teacher-notes')) return;
+
                                 // Resolve category via the single source of truth.
                                 // Prefer the persisted data-category / data-type
                                 // (canonical id or alias), then fall back to the

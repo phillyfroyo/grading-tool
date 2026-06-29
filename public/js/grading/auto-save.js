@@ -1949,6 +1949,16 @@
                 essayContainer.querySelectorAll('[data-listener-added]').forEach(
                     el => el.removeAttribute('data-listener-added')
                 );
+                // Heal contaminated saves: a cross-tab bug (fixed in highlighting.js)
+                // could brand a teacher-note span as a highlight, and that branding
+                // is persisted in renderedHTML and replays here on restore. Strip it
+                // off this tab's note spans (scoped to essayContainer). Source is now
+                // fixed; this undoes prior damage so reloaded sessions self-clean.
+                if (window.EditingFunctionsModule && window.EditingFunctionsModule.sanitizeTeacherNoteSpan) {
+                    essayContainer.querySelectorAll('.teacher-notes-content').forEach(
+                        span => window.EditingFunctionsModule.sanitizeTeacherNoteSpan(span)
+                    );
+                }
             }
 
             // Text selection handler
@@ -2024,6 +2034,14 @@
                         'span[style*="background"], span[class*="highlight"], span[style*="color"], mark[data-type], mark.highlighted-segment, mark[data-category]'
                     );
                     highlights.forEach(function (element) {
+                        // NEVER treat a teacher-note element as a highlight. The
+                        // note span (edited → inline background) and its
+                        // .edit-indicator ✎ (color: #666) match the broad selector
+                        // above; branding them attached a capture-phase editHighlight
+                        // listener that stopPropagation()'d the note's own edit click
+                        // ("can't edit the teacher note"). This loop re-runs on every
+                        // restore, so guarding it here makes reload self-heal. ROOT fix.
+                        if (element.closest('.teacher-notes')) return;
                         element.style.cursor = 'pointer';
                         element.addEventListener(
                             'click',
@@ -2044,7 +2062,11 @@
                             true
                         );
                     });
-                    window.HighlightingModule.ensureHighlightClickHandlers(essayContainer);
+                    // Scope to the color-coded essay, NOT the whole #batch-essay-N
+                    // row — the row also contains the teacher-notes block, and the
+                    // un-scoped call would re-wire note descendants as highlights.
+                    const essayContentForHandlers = queryScoped(`.formatted-essay-content[data-essay-index="${index}"]`) || essayContainer;
+                    window.HighlightingModule.ensureHighlightClickHandlers(essayContentForHandlers);
                 }
             }
 
