@@ -841,7 +841,8 @@ function loadEssayDetails(index, essayId = null) {
                         const essayContainer = tabScopedQuery(`#batch-essay-${index}`);
                         if (essayContainer) {
                             // Check for both span and mark elements from GPT highlighting
-                            const gptHighlights = essayContainer.querySelectorAll('span[style*="background"], span[class*="highlight"], span[style*="color"], mark[data-type], mark.highlighted-segment');
+                            // Keep this selector in sync with the sibling loop in auto-save.js.
+                            const gptHighlights = essayContainer.querySelectorAll('span[style*="background"], span[class*="highlight"], span[style*="color"], mark[data-type], mark.highlighted-segment, mark[data-category]');
 
                             // Add click handlers to GPT highlights
                             gptHighlights.forEach((element, i) => {
@@ -908,8 +909,12 @@ function loadEssayDetails(index, essayId = null) {
                                 }, true);
                             });
 
-                            // Still run the original function for mark elements
-                            window.HighlightingModule.ensureHighlightClickHandlers(essayContainer);
+                            // Still run the original function for mark elements.
+                            // Scope to the color-coded essay, NOT the whole
+                            // #batch-essay-N row (which also holds the teacher-notes
+                            // block) — parity with the restore path in auto-save.js.
+                            const essayContentForHandlers = tabScopedQuery(`.formatted-essay-content[data-essay-index="${index}"]`) || essayContainer;
+                            window.HighlightingModule.ensureHighlightClickHandlers(essayContentForHandlers);
                         }
                     }
 

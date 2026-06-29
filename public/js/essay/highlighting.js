@@ -1506,6 +1506,11 @@ function migrateLegacyHighlights(container = document) {
     // Find existing highlights that might need migration
     const existingHighlights = container.querySelectorAll('mark, span[data-category]');
     existingHighlights.forEach(element => {
+        // A contaminated teacher-note span (branded with data-category by a
+        // pre-fix save) matches span[data-category] here — never migrate it
+        // into a real highlight. sanitizeTeacherNoteSpan normally strips it
+        // first, but don't rely on call ordering. (See teacher-note branding fix.)
+        if (element.closest('.teacher-notes')) return;
         if (!element.dataset.category) {
             // Try to determine category from class name or styling
             const className = element.className;
