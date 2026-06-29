@@ -2042,38 +2042,13 @@
             // Highlight click handlers
             if (window.HighlightingModule) {
                 if (essayContainer) {
-                    const highlights = essayContainer.querySelectorAll(
-                        'span[style*="background"], span[class*="highlight"], span[style*="color"], mark[data-type], mark.highlighted-segment, mark[data-category]'
-                    );
-                    highlights.forEach(function (element) {
-                        // NEVER treat a teacher-note element as a highlight. The
-                        // note span (edited → inline background) and its
-                        // .edit-indicator ✎ (color: #666) match the broad selector
-                        // above; branding them attached a capture-phase editHighlight
-                        // listener that stopPropagation()'d the note's own edit click
-                        // ("can't edit the teacher note"). This loop re-runs on every
-                        // restore, so guarding it here makes reload self-heal. ROOT fix.
-                        if (element.closest('.teacher-notes')) return;
-                        element.style.cursor = 'pointer';
-                        element.addEventListener(
-                            'click',
-                            function (e) {
-                                e.stopPropagation();
-                                e.preventDefault();
-                                if (window.HighlightingModule) {
-                                    window.HighlightingModule.editHighlight(this);
-                                }
-                            },
-                            true
-                        );
-                        element.addEventListener(
-                            'mousedown',
-                            function (e) {
-                                e.stopPropagation();
-                            },
-                            true
-                        );
-                    });
+                    // Wire legacy/GPT highlight spans via the shared helper (the
+                    // broad selector + .teacher-notes guard + capture-phase
+                    // listeners live in highlighting.js, shared with the
+                    // initial-render path in batch-processing.js so they can't
+                    // drift). Restore doesn't re-brand: the saved HTML already
+                    // carries data-category/title, so brandCategory is omitted.
+                    window.HighlightingModule.wireLegacyHighlightSpans(essayContainer);
                     // Scope to the color-coded essay, NOT the whole #batch-essay-N
                     // row — the row also contains the teacher-notes block, and the
                     // un-scoped call would re-wire note descendants as highlights.

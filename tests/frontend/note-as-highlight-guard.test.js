@@ -1,55 +1,50 @@
 /**
  * Regression: Family 2 — teacher note branded/hijacked as a highlight.
  *
- * Pins the fix from commit faf32bd. The teacher-notes block lives inside
- * #batch-essay-N as a SIBLING of .formatted-essay-content (not inside it), so a
- * broad "wire up GPT highlights" sweep scoped to the whole row also catches
- * note elements. Two near-identical loops do this:
- *   - batch-processing.js (~line 845)  — initial render
- *   - auto-save.js (~line 2046)        — restore / reattach
- * Note elements match because an edited note's content span gets inline
- * `background-color:#e8f5e8` (editing-functions.js) → matches span[style*=
- * "background"], and the .edit-indicator ✎ has `color:#666` → matches
- * span[style*="color"]. The fix is the guard `if (el.closest('.teacher-notes'))
- * return;` in both loops, so notes are never branded as highlights and the
- * note's own edit click isn't hijacked by a capture-phase listener.
+ * Pins the fix from commit faf32bd, now exercised through the SHARED helper
+ * HighlightingModule.wireLegacyHighlightSpans() that the refactor extracted from
+ * the two near-identical loops (batch-processing.js initial render + auto-save.js
+ * restore). The teacher-notes block lives inside #batch-essay-N as a SIBLING of
+ * .formatted-essay-content, so a broad sweep over the whole row also catches note
+ * elements: an edited note's content span gets inline background-color:#e8f5e8
+ * → matches span[style*="background"], and the .edit-indicator ✎ has color:#666
+ * → matches span[style*="color"]. Without the guard `if (el.closest(
+ * '.teacher-notes')) return;` those get branded (data-category) and hijacked (a
+ * capture-phase click that stopPropagation()'d the note's own edit click).
  *
- * This is a CHARACTERIZATION test of the pure invariant — "the broad selector +
- * .teacher-notes guard must never select a note element" — not a drive of the
- * deeply-buried (setTimeout + essay-state-gated) reattach loops. To keep it
- * honest, the broad selector is EXTRACTED FROM THE REAL SOURCE at test time, so
- * it can't silently drift from production. When the planned refactor extracts
- * both loops into one HighlightingModule.wireLegacyHighlightSpans(container),
- * this same test should retarget that helper unchanged.
+ * This now drives the REAL helper directly (a strict upgrade over the earlier
+ * characterization version): load highlighting.js + categories.js, call
+ * wireLegacyHighlightSpans on a realistic row, and assert note elements are
+ * never wired (no cursor:pointer, no data-category, no title) while genuine
+ * essay marks are.
  */
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { beforeEach, describe, expect, it } from 'vitest';
+import { loadModules } from '../setup/load-module.js';
 
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..');
 
 /**
- * Pull the EXACT broad highlight-wiring selector out of the real source files,
- * so the test exercises the production selector, not a hand-copied paraphrase.
- * Asserts both call sites still share one identical selector (the refactor's
- * "can't drift" guarantee) and returns it.
+ * The broad selector now lives in ONE place — LEGACY_HIGHLIGHT_SELECTOR in
+ * highlighting.js (the refactor's "can't drift between paths" guarantee). Pull
+ * it from there so the fixture is validated against the real production selector
+ * rather than a hand-copied paraphrase, and assert it's the single source.
  */
-function realBroadSelector() {
-  const read = rel => fs.readFileSync(path.join(repoRoot, rel), 'utf8');
-  // The selector always begins with span[style*="background"] and runs to the
-  // closing quote of the querySelectorAll argument.
-  const grab = src => {
-    const m = src.match(/'(span\[style\*="background"\][^']*mark\[data-category\])'/);
-    return m && m[1];
-  };
-  const batch = grab(read('public/js/grading/batch-processing.js'));
-  const auto = grab(read('public/js/grading/auto-save.js'));
-  expect(batch, 'broad selector not found in batch-processing.js').toBeTruthy();
-  expect(auto, 'broad selector not found in auto-save.js').toBeTruthy();
-  // Both loops MUST use the identical selector — drift is exactly the bug class.
-  expect(batch).toBe(auto);
-  return batch;
+function singleSourceSelector() {
+  const src = fs.readFileSync(path.join(repoRoot, 'public/js/essay/highlighting.js'), 'utf8');
+  const m = src.match(/const LEGACY_HIGHLIGHT_SELECTOR\s*=\s*'([^']+)'/);
+  expect(m && m[1], 'LEGACY_HIGHLIGHT_SELECTOR not found in highlighting.js').toBeTruthy();
+  // The old call sites must no longer carry their own copy of the literal
+  // selector — they route through the helper now, so drift is impossible.
+  const batch = fs.readFileSync(path.join(repoRoot, 'public/js/grading/batch-processing.js'), 'utf8');
+  const auto = fs.readFileSync(path.join(repoRoot, 'public/js/grading/auto-save.js'), 'utf8');
+  expect(batch, 'batch-processing.js still has its own broad selector literal')
+    .not.toMatch(/'span\[style\*="background"\][^']*mark\[data-category\]'/);
+  expect(auto, 'auto-save.js still has its own broad selector literal')
+    .not.toMatch(/'span\[style\*="background"\][^']*mark\[data-category\]'/);
+  return m[1];
 }
 
 /**
@@ -77,44 +72,52 @@ function makeEssayRow() {
   return row;
 }
 
-describe('broad highlight-wiring selector + .teacher-notes guard (Family 2)', () => {
+/** An element is "wired" if the helper touched it (cursor + click listener). */
+function isWired(el) {
+  return el.style.cursor === 'pointer';
+}
+
+describe('wireLegacyHighlightSpans + .teacher-notes guard (Family 2, real helper)', () => {
   let row, broad;
 
   beforeEach(() => {
-    broad = realBroadSelector();
+    loadModules('public/js/categories.js', 'public/js/essay/highlighting.js');
+    broad = singleSourceSelector();
     row = makeEssayRow();
   });
 
-  it('the DOM genuinely triggers the bug: without the guard, note elements ARE caught (teeth)', () => {
-    // This is the pre-fix behavior — sweeping the whole row with the broad
-    // selector and NO guard pulls in the note content span and the ✎ indicator.
-    const caughtUnguarded = Array.from(row.querySelectorAll(broad));
-    const noteEls = caughtUnguarded.filter(el => el.closest('.teacher-notes'));
-    expect(noteEls.length).toBeGreaterThan(0); // if this is 0, the fixture is wrong
+  it('the fixture genuinely triggers the bug: the broad selector DOES match note elements (teeth)', () => {
+    // If this is 0, the fixture no longer reproduces the bug and the guard
+    // assertions below would pass vacuously.
+    const noteMatches = Array.from(row.querySelectorAll(broad)).filter(el => el.closest('.teacher-notes'));
+    expect(noteMatches.length).toBeGreaterThan(0);
   });
 
-  it('with the guard, only real essay highlights are wired — never note elements', () => {
-    // The fix: apply the guard exactly as both loops do.
-    const wired = Array.from(row.querySelectorAll(broad))
-      .filter(el => !el.closest('.teacher-notes'));
+  it('restore path (brandCategory off): wires real marks, never note elements', () => {
+    window.HighlightingModule.wireLegacyHighlightSpans(row);
 
-    // No wired element is inside a teacher-notes block …
-    expect(wired.some(el => el.closest('.teacher-notes'))).toBe(false);
-    // … and the genuine essay marks ARE wired.
-    const wiredIds = wired.map(el => el.id).sort();
-    expect(wiredIds).toContain('hl-1');
-    expect(wiredIds).toContain('hl-2');
-    // The note content span and ✎ indicator are NOT wired.
-    expect(wiredIds).not.toContain('note-content');
+    // Genuine essay marks are wired.
+    expect(isWired(row.querySelector('#hl-1'))).toBe(true);
+    expect(isWired(row.querySelector('#hl-2'))).toBe(true);
+    // Note content span and ✎ indicator are NOT wired (no cursor, no listener).
+    expect(isWired(row.querySelector('#note-content'))).toBe(false);
+    expect(isWired(row.querySelector('.edit-indicator'))).toBe(false);
   });
 
-  it('the guard is scoped to the whole .teacher-notes block, not just the content span', () => {
-    // The ✎ .edit-indicator is a sibling of the content span inside
-    // .teacher-notes; .closest('.teacher-notes') must still exclude it.
-    const indicator = row.querySelector('.edit-indicator');
-    expect(indicator.closest('.teacher-notes')).not.toBeNull();
-    const wired = Array.from(row.querySelectorAll(broad))
-      .filter(el => !el.closest('.teacher-notes'));
-    expect(wired).not.toContain(indicator);
+  it('initial-render path (brandCategory on): brands real marks, never brands notes', () => {
+    window.HighlightingModule.wireLegacyHighlightSpans(row, { brandCategory: true });
+
+    // Real marks get a resolved category + title.
+    const hl1 = row.querySelector('#hl-1');
+    expect(hl1.dataset.category).toBe('grammar');
+    expect(hl1.title).toMatch(/Click to edit/);
+
+    // The note content span must NOT be branded — this is the exact corruption
+    // the bug produced (note carrying data-category + title like a highlight).
+    const note = row.querySelector('#note-content');
+    expect(note.title).toBe('');
+    expect(isWired(note)).toBe(false);
+    // It keeps its legit edited-note background, untouched by the wiring.
+    expect(note.style.backgroundColor).toMatch(/232, 245, 232|#e8f5e8/);
   });
 });
