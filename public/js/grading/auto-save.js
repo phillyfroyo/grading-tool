@@ -798,10 +798,11 @@
                 });
             }, 400);
 
-            // Restore confirmation banner. Worded to reassure: a restorable
-            // session is one that was already persisted server-side, so prior
-            // work is safe. (No actual save fires here — this is a load.)
-            showClearButton('Session restored — all prior changes have been saved');
+            // Restore confirmation banner. Kept terse: the "all prior changes
+            // saved" wording was dropped because the save-status banner that
+            // appears just after restore already conveys that, so the two read
+            // as redundant. (No actual save fires here — this is a load.)
+            showClearButton('Session restored');
 
             // Delay clearing isRestoring until after reattachHandlers timeouts
             // and applyScoreOverrides event dispatches have settled
@@ -983,6 +984,17 @@
             color = '#2d6a2d';
         }
 
+        // Width: keep the uniform fixed 420px only for warnings (yellow) and
+        // errors (red) — the payload-capacity warnings. Every other (green)
+        // success toast shrinks to fit its text. Because the stack is a flex
+        // column with default align-items:stretch, a plain max-width still
+        // stretches to stack width — align-self:flex-start + width:fit-content
+        // is what actually shrinks it (same pattern as the save-status banner).
+        const fixedWidth = isWarn || isError;
+        const widthCss = fixedWidth
+            ? 'width:420px;box-sizing:border-box;'
+            : 'max-width:420px;width:fit-content;align-self:flex-start;';
+
         const toast = document.createElement('div');
         toast.className = 'auto-save-toast';
         toast.dataset.toastText = fullText;
@@ -994,7 +1006,7 @@
             'box-shadow:0 2px 8px rgba(0,0,0,0.12);' +
             'backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);' +
             'transition:opacity 0.3s ease;opacity:0;' +
-            'white-space:pre-line;width:420px;box-sizing:border-box;' +
+            'white-space:pre-line;' + widthCss +
             `background:${bg};border:1px solid ${border};color:${color};`;
         toast.textContent = fullText;
 
