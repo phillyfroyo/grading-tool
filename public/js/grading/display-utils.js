@@ -408,8 +408,20 @@ window.syncAllRemoveAllStateToMarks = syncAllRemoveAllStateToMarks;
  * @param {string} contentId - ID of the content div to toggle
  */
 function toggleHighlightsSection(contentId) {
-    const content = document.getElementById(contentId);
-    const arrow = document.getElementById(`${contentId}-arrow`);
+    // Tab-scope these lookups: contentId is index-bearing (highlights-content-N)
+    // and the index is not unique across tabs, so a bare getElementById would
+    // grab whichever tab's element is first in the document and toggle the WRONG
+    // tab's section. Scope to the active tab (same pattern this function already
+    // uses for student-details below), falling back to document for no-TabStore.
+    // Use an [id="…"] attribute selector rather than #id: the id is duplicated
+    // across panes, and a scoped #id query is unreliable under duplicate ids
+    // (jsdom outright fails it); the attribute selector resolves within the pane.
+    const content = window.TabStore
+        ? window.TabStore.activeQuery(`[id="${contentId}"]`)
+        : document.getElementById(contentId);
+    const arrow = window.TabStore
+        ? window.TabStore.activeQuery(`[id="${contentId}-arrow"]`)
+        : document.getElementById(`${contentId}-arrow`);
 
     // Arrow is optional now (the redesigned header drops the carrot); only the
     // content element is required for the toggle to work.
