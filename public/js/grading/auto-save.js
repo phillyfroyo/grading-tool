@@ -19,8 +19,11 @@
  *                              updateCapacityBanner. Seam: resetFullDismissed().
  *   F. Auth-expiry & stash ... write/clear/readPendingSaveStash, recoverOrphanedStash,
  *                              handleAuthExpired, showReauthPrompt, attemptReauth, flushPendingSave
- *   G. Grading-state & lock .. markGradingStarted/Finished, isGradingInProgress,
- *                              setFormLocked, clearSavedSession
+ *   G. Grading-state & lock .. EXTRACTED to auto-save-grading.js (window.AutoSaveGrading):
+ *                              markGradingStarted/Finished, isGradingInProgress, setFormLocked.
+ *                              Thin local wrappers here delegate to it; seam:
+ *                              setGradingInProgress() (core teardown clears the flag).
+ *                              clearSavedSession stays here (cross-cluster teardown orchestrator).
  *   H. Wiring ................ initialize
  */
 (function () {
@@ -33,8 +36,10 @@
     let initialized = false;
     let lastSuccessfulSaveTime = 0;
     let hasPendingChanges = false;
-    let gradingInProgress = false;
-    let formLocked = false;
+    // Grading-state + form lock (Cluster G) live in auto-save-grading.js
+    // (window.AutoSaveGrading). The gradingInProgress flag moved there too;
+    // the core reads it via isGradingInProgress() and clears it on teardown via
+    // setGradingInProgress(false). Thin local wrappers below delegate the rest.
     const DEBOUNCE_MS = 2500;
 
     // Auth-expired state: when the server rejects a save with 401/403, the
@@ -222,109 +227,24 @@
         debounceTimer = setTimeout(() => doSave('debouncedSave'), DEBOUNCE_MS);
     }
 
-    /**
-     * Mark that a grading operation has started. Sets the in-memory
-     * gradingInProgress flag so that the next save (which happens
-     * incrementally as each chunk completes) persists the flag. If the
-     * user refreshes mid-grading, the restore modal shows its
-     * "interrupted" variant.
-     *
-     * We intentionally do NOT fire an immediate save here: until the first
-     * chunk completes there's no essay data to save, and firing an empty
-     * save would just overwrite any legitimate prior session on the server.
-     */
+    // --- Cluster G (grading-state + form lock) — thin delegators to auto-save-grading.js ---
+    // The implementations live in window.AutoSaveGrading (loaded before this file).
+    // These local wrappers keep the core's internal call sites + public facade unchanged.
+
     function markGradingStarted() {
-        gradingInProgress = true;
-        // Emit event so tab-management can disable Grade buttons in other tabs.
-        // The originating tab ID is captured at the event site so listeners know
-        // which tab to leave enabled.
-        try {
-            const originTabId = (window.TabStore && window.TabStore.activeId()) || null;
-            window.dispatchEvent(new CustomEvent('grading-started', {
-                detail: { originTabId }
-            }));
-        } catch (err) {
-            console.error('[AutoSave] Failed to dispatch grading-started:', err);
-        }
+        if (window.AutoSaveGrading) window.AutoSaveGrading.markGradingStarted();
     }
 
-    /**
-     * Mark that a grading operation has finished (success OR failure).
-     * Clears the gradingInProgress flag. The next save will persist the
-     * cleared state.
-     */
     function markGradingFinished() {
-        gradingInProgress = false;
-        try {
-            window.dispatchEvent(new CustomEvent('grading-finished', { detail: {} }));
-        } catch (err) {
-            console.error('[AutoSave] Failed to dispatch grading-finished:', err);
-        }
+        if (window.AutoSaveGrading) window.AutoSaveGrading.markGradingFinished();
     }
 
-    /**
-     * Public getter for the grading-in-progress state. Other modules use
-     * this to decide whether to allow starting a new grading run.
-     */
     function isGradingInProgress() {
-        return gradingInProgress;
+        return !!(window.AutoSaveGrading && window.AutoSaveGrading.isGradingInProgress());
     }
 
-    /**
-     * Lock or unlock the grading form in a specific tab pane. When locked:
-     *   - Essay entry headers (name/nickname inputs) and text areas are hidden.
-     *   - Grade, Add Another Essay, and essay counter controls are disabled.
-     *   - An inline message appears next to the grade button pointing users
-     *     at the "Clear & Start Fresh" banner button.
-     *
-     * Phase 7: accepts an optional tabId parameter. When provided, only that
-     * tab's form is locked. When omitted or null, ALL tab panes are locked
-     * (used by the restore path where every restored tab has completed work).
-     *
-     * @param {boolean} locked
-     * @param {string|null} tabId - Specific tab to lock, or null for all tabs
-     */
     function setFormLocked(locked, tabId) {
-        formLocked = locked;
-
-        // Collect the tab panes to operate on.
-        let panes;
-        if (tabId && window.TabStore) {
-            const pane = window.TabStore.paneForTab(tabId);
-            panes = pane ? [pane] : [];
-        } else {
-            // No tabId → lock/unlock ALL tab panes
-            panes = Array.from(document.querySelectorAll('.tab-pane'));
-            if (panes.length === 0) {
-                const legacy = document.getElementById('gradingForm');
-                if (legacy) panes = [legacy.closest('.tab-pane') || legacy.parentElement];
-            }
-        }
-
-        panes.forEach(pane => {
-            if (!pane) return;
-            const form = pane.querySelector('#gradingForm');
-            if (!form) return;
-
-            // Phase 8: When locked, hide the ENTIRE form — but only if this
-            // tab actually has graded results. Empty tabs (no batch data)
-            // should keep their form visible so the user sees the blank
-            // grading form, not a blank page.
-            if (locked) {
-                const paneTabId = pane.dataset.tabId;
-                const tabState = paneTabId && window.TabStore && window.TabStore.get(paneTabId);
-                const hasResults = tabState && tabState.currentBatchData;
-                form.style.display = hasResults ? 'none' : '';
-            } else {
-                form.style.display = '';
-            }
-
-            // Also clean up any lingering inline lock messages from the old
-            // partial-hide approach (in case they were left from a prior
-            // session or an older code version).
-            const existingMsg = form.querySelector('.auto-save-lock-message');
-            if (existingMsg) existingMsg.remove();
-        });
+        if (window.AutoSaveGrading) window.AutoSaveGrading.setFormLocked(locked, tabId);
     }
 
     /**
@@ -823,8 +743,9 @@
         clearDebounce();
 
         // Unlock ALL tab forms and clear the grading-in-progress flag so
-        // the next save doesn't re-persist a stale interrupted state.
-        gradingInProgress = false;
+        // the next save doesn't re-persist a stale interrupted state. The flag
+        // now lives in auto-save-grading.js — clear it via its seam setter.
+        if (window.AutoSaveGrading) window.AutoSaveGrading.setGradingInProgress(false);
         setFormLocked(false); // null tabId → unlocks ALL panes
 
         try {
@@ -1370,7 +1291,8 @@
             scoreOverrides: primaryDOMState.scoreOverrides,
             completedEssays: primaryDOMState.completedEssays,
             removeAllStates: primaryDOMState.removeAllStates,
-            gradingInProgress,
+            // gradingInProgress flag lives in auto-save-grading.js now.
+            gradingInProgress: isGradingInProgress(),
         };
 
         // Diagnostics
