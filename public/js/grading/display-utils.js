@@ -478,7 +478,14 @@ function toggleHighlightsSection(contentId) {
  * @param {string} contentId - ID of the content div
  */
 function populateHighlightsContent(contentId) {
-    const contentInner = document.getElementById(`${contentId}-inner`);
+    // Tab-scope the -inner lookup: contentId is index-bearing and not unique
+    // across tabs (inactive panes stay in the DOM), so a bare getElementById
+    // could populate the WRONG tab's container (its essay lookup below is
+    // already active-tab-scoped, so a mismatch would build one tab's dropdown
+    // into another's). [id="…"] attribute selector is robust under duplicate ids.
+    const contentInner = window.TabStore
+        ? window.TabStore.activeQuery(`[id="${contentId}-inner"]`)
+        : document.getElementById(`${contentId}-inner`);
     if (!contentInner) return;
 
     // Check if already populated
@@ -879,8 +886,16 @@ function createHighlightsLegendHTML(highlightsData, contentId = '') {
  * @param {string} contentId - ID of the content div to refresh
  */
 function refreshHighlightsSection(contentId) {
-    const content = document.getElementById(contentId);
-    const contentInner = document.getElementById(`${contentId}-inner`);
+    // Tab-scope these lookups: contentId is index-bearing and not unique across
+    // tabs (inactive panes stay in the DOM), so a bare getElementById would
+    // refresh the WRONG tab's section. Scope to the active tab via an [id="…"]
+    // attribute selector (robust under the duplicate ids; see toggleHighlightsSection).
+    const content = window.TabStore
+        ? window.TabStore.activeQuery(`[id="${contentId}"]`)
+        : document.getElementById(contentId);
+    const contentInner = window.TabStore
+        ? window.TabStore.activeQuery(`[id="${contentId}-inner"]`)
+        : document.getElementById(`${contentId}-inner`);
     if (!contentInner) {
         return;
     }
