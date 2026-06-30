@@ -24,7 +24,6 @@ function initializeUIInteractions() {
     // Set up main grading functionality
     if (window.FormHandlingModule) {
         window.FormHandlingModule.setupMainGrading();
-        window.FormHandlingModule.setupManualGrading();
         window.FormHandlingModule.setupFormValidation();
     }
 
