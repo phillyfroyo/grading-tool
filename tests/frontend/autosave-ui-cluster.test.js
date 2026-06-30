@@ -86,4 +86,50 @@ describe('auto-save Cluster E — toast/banner UI characterization', () => {
       expect(t[0].style.width).toBe('fit-content'); // success → fit-to-text
     });
   });
+
+  // The capacity banner moved to auto-save-ui.js; its "full" (>=100%) dismissal
+  // is transient — when the payload drops <100% the CORE (auto-save.js) re-arms
+  // it across the file boundary via window.AutoSaveUI.resetFullDismissed().
+  // This pins that cross-file seam: dismiss persists while >=100%, but a
+  // resetFullDismissed() (what the core fires on dropping <100%) lets the full
+  // banner re-show on the next climb back to the ceiling.
+  describe('capacity banner — full-dismissal seam (resetFullDismissed)', () => {
+    function capacityBanner() { return document.getElementById('auto-save-capacity'); }
+
+    it('full banner shows >=100%, stays dismissed until resetFullDismissed re-arms it', () => {
+      // Climb to the ceiling → red full banner appears.
+      window.AutoSaveUI.updateCapacityBanner(100);
+      expect(capacityBanner()).not.toBeNull();
+      expect(capacityBanner().dataset.state).toBe('full');
+
+      // Teacher dismisses it (click the × button).
+      capacityBanner().querySelector('.capacity-banner-dismiss').click();
+      vi.advanceTimersByTime(300); // fade-out removal
+      expect(capacityBanner()).toBeNull();
+
+      // Still at/over the ceiling → stays dismissed (transient flag honored).
+      window.AutoSaveUI.updateCapacityBanner(105);
+      expect(capacityBanner()).toBeNull();
+
+      // Core fires resetFullDismissed() when the payload drops <100%...
+      window.AutoSaveUI.resetFullDismissed();
+      // ...so the next climb back to the ceiling re-shows the full banner.
+      window.AutoSaveUI.updateCapacityBanner(100);
+      expect(capacityBanner()).not.toBeNull();
+      expect(capacityBanner().dataset.state).toBe('full');
+    });
+
+    it('warn dismissal is sticky and NOT cleared by resetFullDismissed', () => {
+      window.AutoSaveUI.updateCapacityBanner(80); // amber warn
+      expect(capacityBanner().dataset.state).toBe('warn');
+      capacityBanner().querySelector('.capacity-banner-dismiss').click();
+      vi.advanceTimersByTime(300);
+      expect(capacityBanner()).toBeNull();
+
+      // resetFullDismissed only re-arms the FULL banner; the warn stays sticky.
+      window.AutoSaveUI.resetFullDismissed();
+      window.AutoSaveUI.updateCapacityBanner(85);
+      expect(capacityBanner()).toBeNull();
+    });
+  });
 });
