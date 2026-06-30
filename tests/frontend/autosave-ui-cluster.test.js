@@ -22,7 +22,9 @@ describe('auto-save Cluster E — toast/banner UI characterization', () => {
   beforeEach(() => {
     document.body.innerHTML = '';
     vi.useFakeTimers();          // toasts arm setTimeout dismiss timers
-    loadModules('public/js/grading/auto-save.js');
+    // auto-save-ui.js (Cluster E impl) must load before auto-save.js, whose
+    // showToast/showClearButton are thin delegators to window.AutoSaveUI.
+    loadModules('public/js/grading/auto-save-ui.js', 'public/js/grading/auto-save.js');
   });
   afterEach(() => {
     vi.runOnlyPendingTimers();
