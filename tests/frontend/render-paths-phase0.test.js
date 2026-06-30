@@ -1,21 +1,17 @@
 /**
- * Phase 0 — characterization net for the render-path unification (DESIGN-unify-
- * render-paths.md). Pins the CURRENT structural output of BOTH render builders
- * so the Phase-1 reroute (manual grading: displayResults → displayBatchResults)
- * can't silently change what gets rendered.
+ * Render-path contract net (originally Phase 0 of DESIGN-unify-render-paths.md).
  *
- * Both builders are pure HTML-string functions (no fetch/await/DOM side effects),
- * so we render their output into jsdom and assert the structural contract each
- * side of the reroute must honor:
- *   - SINGLE-ESSAY (createSingleEssayHTML): the manual/single mode output Phase 1
- *     replaces. Uses the bare `highlights-content` id scheme + toggleHighlightsSection.
- *   - BATCH (createStudentRowHTML): what Phase 1 reroutes the manual essay INTO.
- *     Uses the indexed `highlights-tab-N` scheme + toggleTab.
+ * The single-essay render path (createSingleEssayHTML / displayResults /
+ * toggleHighlightsSection / the bare `highlights-content` scheme) was DELETED:
+ * it was dead code — the manual-grading UI that was its only entry was removed
+ * from index.html long ago, and the live app renders even a 1-essay grade through
+ * the BATCH path (displayBatchResults). So the unification is "delete the dead
+ * path," and the batch render is now the ONE render path.
  *
- * These are CHARACTERIZATION tests (pin current behavior), not assertions that the
- * two schemes match — they intentionally differ today; that difference is what the
- * unification removes. After Phase 1, the single-essay test becomes the spec for
- * "deleted" (Phase 2) and the batch test stays as the surviving contract.
+ * These tests pin the surviving batch render contract (createStudentRowHTML) so a
+ * future refactor can't silently change the structure the live app depends on.
+ * createStudentRowHTML is a pure HTML-string builder, rendered into jsdom and
+ * asserted directly.
  */
 import { beforeEach, describe, expect, it } from 'vitest';
 import { loadModules } from '../setup/load-module.js';
@@ -27,42 +23,14 @@ function render(html) {
   return el;
 }
 
-describe('Phase 0 — render-path characterization net', () => {
+describe('Render-path contract net', () => {
   beforeEach(() => {
     // categories.js provides window.CATEGORIES (createCategoryButtons/ColorLegend
     // read it); display-utils.js provides the builders under test.
     loadModules('public/js/categories.js', 'public/js/grading/display-utils.js');
   });
 
-  describe('SINGLE-ESSAY render (createSingleEssayHTML) — current manual/single output', () => {
-    const formatted = { feedbackSummary: '<div class="fb">summary</div>', formattedText: '<p>essay <mark data-category="grammar">x</mark></p>' };
-
-    it('produces the essay content container + the bare highlights-content dropdown scheme', () => {
-      const out = render(window.DisplayUtilsModule.createSingleEssayHTML('Ada', formatted));
-
-      // Essay content area (no data-essay-index — single-essay marker).
-      const essay = out.querySelector('.formatted-essay-content');
-      expect(essay).not.toBeNull();
-      expect(essay.hasAttribute('data-essay-index')).toBe(false);
-      expect(out.innerHTML).toContain('summary');           // feedback summary injected
-      expect(essay.querySelector('mark[data-category="grammar"]')).not.toBeNull(); // marks present
-
-      // Highlights dropdown: the bare (no-index) scheme + toggleHighlightsSection wiring.
-      expect(out.querySelector('[id="highlights-content"]')).not.toBeNull();
-      expect(out.innerHTML).toContain("toggleHighlightsSection('highlights-content')");
-      // It does NOT use the batch toggleTab / highlights-tab scheme.
-      expect(out.innerHTML).not.toContain('toggleTab(');
-      expect(out.querySelector('[id^="highlights-tab"]')).toBeNull();
-    });
-
-    it('includes the student name and the save-essay action', () => {
-      const out = render(window.DisplayUtilsModule.createSingleEssayHTML('Ada', formatted));
-      expect(out.innerHTML).toContain('Grading Results for Ada');
-      expect(out.querySelector('[data-action="export-pdf"]')).not.toBeNull();
-    });
-  });
-
-  describe('BATCH render (createStudentRowHTML) — the target Phase 1 reroutes into', () => {
+  describe('BATCH render (createStudentRowHTML) — the one live render path', () => {
     const essay = { success: true, studentName: 'Ada', essayId: 'e-1' };
 
     it('produces the indexed student row + highlights-tab scheme with toggleTab wiring', () => {

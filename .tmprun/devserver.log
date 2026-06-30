@@ -1,0 +1,169 @@
+
+> grading-tool@1.0.0 dev
+> concurrently "npm run dev:backend" "npm run dev:frontend"
+
+[1] 
+[1] > grading-tool@1.0.0 dev:frontend
+[1] > vite
+[1] 
+[0] 
+[0] > grading-tool@1.0.0 dev:backend
+[0] > nodemon server.js
+[0] 
+[1] 
+[1]   VITE v5.4.20  ready in 461 ms
+[1] 
+[1]   ➜  Local:   http://localhost:3000/
+[1]   ➜  Network: use --host to expose
+[1] [baseline-browser-mapping] The data in this module is over two months old.  To ensure accurate Baseline data, please update: `npm i baseline-browser-mapping@latest -D`
+[0] [33m[nodemon] 3.1.10[39m
+[0] [33m[nodemon] to restart at any time, enter `rs`[39m
+[0] [33m[nodemon] watching path(s): server.js src/**/*.js grader/**/*.js[39m
+[0] [33m[nodemon] watching extensions: js[39m
+[0] [32m[nodemon] starting `node server.js`[39m
+[1] Browserslist: browsers data (caniuse-lite) is 9 months old. Please run:
+[1]   npx update-browserslist-db@latest
+[1]   Why you should do it regularly: https://github.com/browserslist/update-db#readme
+[0] [dotenv@17.2.2] injecting env (5) from .env -- tip: ⚙️  override existing env vars with { override: true }
+[0] [ENV] Running in: Local environment
+[0] [CONFIG] Application configuration loaded:
+[0]   - Environment: Local
+[0]   - Node.js: v22.19.0
+[0]   - Platform: darwin
+[0]   - OpenAI API Key: Present
+[0]   - Anthropic API Key: Missing
+[0] [DATABASE] Initializing database configuration...
+[0] [dotenv@17.2.2] injecting env (0) from .env -- tip: ⚙️  suppress all logs with { quiet: true }
+[0] [dotenv@17.2.2] injecting env (0) from .env -- tip: 🔐 prevent building .env in docker: https://dotenvx.com/prebuild
+[0] [USER_SERVICE] Constructor initialized
+[0] [AUTH_ROUTES] Auth routes being registered
+[0] 
+[0] === ESL GRADING SERVER STARTING (MODULAR) ===
+[0] 
+[0] [BOOT] import: file:///Users/philipwooleryprice/grading-tool/server.js
+[0] [BOOT] cwd: /Users/philipwooleryprice/grading-tool
+[0] [BOOT] Node version: v22.19.0
+[0] [BOOT] Platform: darwin
+[0] [CONFIG] Validating configuration...
+[0] [DATABASE] Initializing database...
+[0] [PRISMA] =================================
+[0] [PRISMA] Environment check:
+[0] [PRISMA] NODE_ENV: undefined
+[0] [PRISMA] DATABASE_URL exists: true
+[0] [PRISMA] DATABASE_URL length: 117
+[0] [PRISMA] DATABASE_URL starts with: postgresql://neondb_
+[0] [PRISMA] =================================
+[0] [PRISMA] DATABASE_URL found, initializing client...
+[0] [PRISMA] ✅ Client initialized successfully
+[0] ✅ Prisma database connected
+[0] [SESSION] Using memory store (set USE_DB_SESSION_STORE=1 to enable DB-backed sessions)
+[0] [ROUTES] Mounting application routes...
+[0] 
+[0] === SERVER SUCCESSFULLY STARTED (MODULAR) ===
+[0] 
+[0] 🌐 Grader running on http://localhost:3001
+[0] 📝 Submit essays to see grading logs here
+[0] ⚡ Using modular architecture
+[0] 📁 Routes organized by feature
+[0] 
+[0] [REQUEST] GET /auth/status from Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) Ap
+[0] [AUTH_STATUS] Using signed cookies for auth check
+[0] [AUTH_STATUS] Auth check: {
+[0]   hasSession: true,
+[0]   sessionUserId: undefined,
+[0]   cookieUserId: '7ea5c46c-6e36-4b51-9d41-9394edfd1f06',
+[0]   finalUserId: '7ea5c46c-6e36-4b51-9d41-9394edfd1f06'
+[0] }
+[0] [USER_SERVICE] Getting user by ID: 7ea5c46c-6e36-4b51-9d41-9394edfd1f06
+[0] [USER_SERVICE] Attempting to import Prisma client...
+[0] [USER_SERVICE] Prisma import successful, client: true
+[0] [USER_SERVICE] Prisma client type: object
+[0] prisma:info Starting a postgresql pool with 5 connections.
+[0] [REQUEST] GET / from Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) Ap
+[0] [AUTH] Session not found, using signed cookies: { userId: true, userEmail: true }
+[0] [REQUEST] GET /login from Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) Ap
+[0] [REQUEST] GET /.well-known/appspecific/com.chrome.devtools.json from Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) Ap
+[0] [REQUEST] GET /css/main.css?v=2 from Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) Ap
+[0] [REQUEST] GET /images/LMGM.svg from Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) Ap
+[0] [REQUEST] GET /auth/status from Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) Ap
+[0] [AUTH_STATUS] Using signed cookies for auth check
+[0] [AUTH_STATUS] Auth check: {
+[0]   hasSession: true,
+[0]   sessionUserId: undefined,
+[0]   cookieUserId: '7ea5c46c-6e36-4b51-9d41-9394edfd1f06',
+[0]   finalUserId: '7ea5c46c-6e36-4b51-9d41-9394edfd1f06'
+[0] }
+[0] [USER_SERVICE] Getting user by ID: 7ea5c46c-6e36-4b51-9d41-9394edfd1f06
+[0] [USER_SERVICE] Attempting to import Prisma client...
+[0] [USER_SERVICE] Prisma import successful, client: true
+[0] [USER_SERVICE] Prisma client type: object
+[0] [PRISMA] ✅ Connection test successful!
+[0] [REQUEST] GET /images/LMGM-favicon.png from Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) Ap
+[0] [REQUEST] GET / from Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) Ap
+[0] [AUTH] Session not found, using signed cookies: { userId: true, userEmail: true }
+[0] [REQUEST] GET /.well-known/appspecific/com.chrome.devtools.json from Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) Ap
+[0] [REQUEST] GET /css/main.css?v=7 from Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) Ap
+[0] [REQUEST] GET /css/components.css?v=26 from Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) Ap
+[0] [REQUEST] GET /css/print.css?v=3 from Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) Ap
+[0] [REQUEST] GET /images/LMGM.svg from Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) Ap
+[0] [REQUEST] GET /css/categories.css?v=4 from Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) Ap
+[0] [REQUEST] GET /js/core/utils.js?v=14 from Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) Ap
+[0] [REQUEST] GET /js/core/logger.js?v=14 from Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) Ap
+[0] [REQUEST] GET /js/core/eventBus.js?v=14 from Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) Ap
+[0] [REQUEST] GET /js/core/event-delegation.js?v=14 from Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) Ap
+[0] [REQUEST] GET /js/core/dependency-container.js?v=14 from Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) Ap
+[0] [REQUEST] GET /js/core/service-registry.js?v=14 from Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) Ap
+[0] [REQUEST] GET /js/categories.js?v=1 from Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) Ap
+[0] [REQUEST] GET /js/ui/tab-store.js?v=1 from Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) Ap
+[0] [REQUEST] GET /js/ui/tab-management.js?v=15 from Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) Ap
+[0] [REQUEST] GET /js/ui/modals.js?v=21 from Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) Ap
+[0] [REQUEST] GET /js/ui/form-handling.js?v=33 from Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) Ap
+[0] [REQUEST] GET /js/ui/editing-functions.js?v=18 from Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) Ap
+[0] [REQUEST] GET /js/ui/manual-grading.js?v=16 from Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) Ap
+[0] [REQUEST] GET /js/ui/ui-interactions-main.js?v=15 from Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) Ap
+[0] [REQUEST] GET /js/essay/text-selection.js?v=15 from Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) Ap
+[0] [REQUEST] GET /js/essay/category-selection.js?v=16 from Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) Ap
+[0] [REQUEST] GET /js/essay/highlighting.js?v=23 from Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) Ap
+[0] [REQUEST] GET /js/essay/essay-formatter.js?v=14 from Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) Ap
+[0] [REQUEST] GET /js/core/logger.js from Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) Ap
+[0] [REQUEST] GET /js/essay/essay-editing-main.js?v=14 from Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) Ap
+[0] [REQUEST] GET /js/grading/display-utils.js?v=24 from Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) Ap
+[0] [REQUEST] GET /js/core/dependency-container.js from Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) Ap
+[0] [REQUEST] GET /js/core/eventBus.js from Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) Ap
+[0] [REQUEST] GET /js/grading/single-result.js?v=16 from Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) Ap
+[0] [REQUEST] GET /js/grading/batch-processing.js?v=24 from Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) Ap
+[0] [REQUEST] GET /js/grading/grading-display-main.js?v=14 from Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) Ap
+[0] [REQUEST] GET /js/grading/auto-save.js?v=15 from Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) Ap
+[0] [REQUEST] GET /js/profiles.js?v=23 from Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) Ap
+[0] [REQUEST] GET /js/essay-management.js?v=17 from Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) Ap
+[0] [REQUEST] GET /js/pdf-export.js?v=17 from Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) Ap
+[0] [REQUEST] GET /js/user-menu.js from Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) Ap
+[0] [REQUEST] GET /auth/status from Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) Ap
+[0] [REQUEST] GET /auth/status from Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) Ap
+[0] [AUTH_STATUS] Using signed cookies for auth check
+[0] [AUTH_STATUS] Auth check: {
+[0]   hasSession: true,
+[0]   sessionUserId: undefined,
+[0]   cookieUserId: '7ea5c46c-6e36-4b51-9d41-9394edfd1f06',
+[0]   finalUserId: '7ea5c46c-6e36-4b51-9d41-9394edfd1f06'
+[0] }
+[0] [USER_SERVICE] Getting user by ID: 7ea5c46c-6e36-4b51-9d41-9394edfd1f06
+[0] [USER_SERVICE] Attempting to import Prisma client...
+[0] [USER_SERVICE] Prisma import successful, client: true
+[0] [USER_SERVICE] Prisma client type: object
+[0] [AUTH_STATUS] Using signed cookies for auth check
+[0] [AUTH_STATUS] Auth check: {
+[0]   hasSession: true,
+[0]   sessionUserId: undefined,
+[0]   cookieUserId: '7ea5c46c-6e36-4b51-9d41-9394edfd1f06',
+[0]   finalUserId: '7ea5c46c-6e36-4b51-9d41-9394edfd1f06'
+[0] }
+[0] [USER_SERVICE] Getting user by ID: 7ea5c46c-6e36-4b51-9d41-9394edfd1f06
+[0] [USER_SERVICE] Attempting to import Prisma client...
+[0] [USER_SERVICE] Prisma import successful, client: true
+[0] [USER_SERVICE] Prisma client type: object
+[0] SIGTERM signal received: closing HTTP server
+[0] HTTP server closed
+[0] [32m[nodemon] clean exit - waiting for changes before restart[39m
+[1] npm run dev:frontend exited with code 0
+[0] npm run dev:backend exited with code 143

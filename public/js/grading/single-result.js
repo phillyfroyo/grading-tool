@@ -52,75 +52,6 @@ function getBatchDataForTab(tabId) {
 }
 
 /**
- * Display results for a single essay
- * @param {Object} gradingResult - The grading result from the server
- * @param {Object} originalData - The original form data
- */
-function displayResults(gradingResult, originalData) {
-    // Clear any batch data in the current tab when displaying single results.
-    // Scoped to the active tab — other tabs' batch data is untouched.
-    const activeState = window.TabStore && window.TabStore.active();
-    if (activeState) activeState.batchGradingData = {};
-
-    const resultsDiv = window.TabStore ? window.TabStore.activeQuery('#results') : document.getElementById('results');
-    if (!resultsDiv) return;
-
-    // Show loading state
-    resultsDiv.innerHTML = window.DisplayUtilsModule ?
-        window.DisplayUtilsModule.createLoadingSpinner('Formatting essay...') :
-        '<div class="loading">Formatting essay...</div>';
-    resultsDiv.style.display = 'block';
-
-    // Format the essay with color coding
-    fetch('/format', {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-            studentText: originalData.studentText,
-            gradingResults: gradingResult,
-            studentName: originalData.studentName,
-            editable: true
-        })
-    })
-    .then(response => response.json())
-    .then(formatted => {
-        const studentName = originalData.studentName || 'Student';
-
-        const essayHTML = window.DisplayUtilsModule ?
-            window.DisplayUtilsModule.createSingleEssayHTML(studentName, formatted) :
-            createSingleEssayHTMLFallback(studentName, formatted);
-
-        resultsDiv.innerHTML = essayHTML;
-        resultsDiv.style.display = 'block';
-
-        // Add event listeners for editable elements
-        setupEditableElements(gradingResult, originalData);
-
-        // Initialize essay editing
-        setTimeout(() => {
-            if (window.EssayEditingModule) {
-                window.EssayEditingModule.initializeEssayEditing();
-            }
-
-            // Ensure all existing highlights have click handlers for modal reopening
-            if (window.HighlightingModule) {
-                window.HighlightingModule.ensureHighlightClickHandlers();
-            }
-        }, 100);
-    })
-    .catch(error => {
-        console.error('Formatting error:', error);
-        const errorHTML = window.DisplayUtilsModule ?
-            window.DisplayUtilsModule.createErrorHTML('Error formatting results', error.message) :
-            '<div class="error">Error formatting results.</div>';
-        resultsDiv.innerHTML = errorHTML;
-        resultsDiv.style.display = 'block';
-    });
-}
-
-/**
  * Setup editable elements for single essay results
  * @param {Object} gradingResult - Grading result object
  * @param {Object} originalData - Original form data
@@ -706,20 +637,6 @@ function clearGradingState() {
     currentOriginalData = null;
 }
 
-/**
- * Fallback implementation for createSingleEssayHTML
- */
-function createSingleEssayHTMLFallback(studentName, formatted) {
-    return `
-        <h2>Grading Results for ${studentName}</h2>
-        ${formatted.feedbackSummary || ''}
-        <h3>Essay Text:</h3>
-        <div class="formatted-essay-content">
-            ${formatted.formattedText || ''}
-        </div>
-    `;
-}
-
 // Auto-resize all feedback textareas when the window resizes (handles
 // browser narrow/widen causing text to wrap/unwrap). Debounced to avoid
 // excessive reflows during drag-resize.
@@ -736,7 +653,6 @@ window.addEventListener('resize', function() {
 
 // Export functions for module usage
 window.SingleResultModule = {
-    displayResults,
     setupEditableElements,
     setupBatchEditableElements,
     updateTotalScore,

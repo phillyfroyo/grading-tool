@@ -1718,64 +1718,6 @@ function createPrintContent(resultsDiv, studentName) {
     `;
 }
 /**
- * Export manual grading to PDF
- */
-function exportManualToPDF() {
-
-    // Try different possible containers
-    let manualContainer = document.getElementById('manualResults');
-    if (!manualContainer) {
-        manualContainer = document.getElementById('manualGradingContainer');
-    }
-
-    if (!manualContainer || manualContainer.style.display === 'none' || !manualContainer.innerHTML.trim()) {
-        alert('No manual grading results to export. Please complete manual grading first.');
-        return;
-    }
-
-
-    // CRITICAL: Sync all editable score values before export
-    let totalScore = 0;
-    let totalMax = 0;
-    manualContainer.querySelectorAll('.editable-score').forEach(input => {
-        // Ensure the input's value attribute matches its current value
-        input.setAttribute('value', input.value);
-        const score = parseFloat(input.value) || 0;
-        const max = parseFloat(input.getAttribute('max')) || 0;
-        totalScore += score;
-        totalMax += max;
-    });
-
-    // Fix floating point precision
-    totalScore = Math.round(totalScore * 10) / 10;
-
-    // Update the overall score display before export
-    const overallScoreElement = manualContainer.querySelector('.overall-score');
-    if (overallScoreElement) {
-        const percentage = totalMax > 0 ? Math.round((totalScore / totalMax) * 100) : 0;
-        overallScoreElement.innerHTML = `<div style="font-size: 2em; font-weight: bold; text-align: center; margin: 20px 0;">${totalScore}/${totalMax} (${percentage}%)</div>`;
-    }
-
-    // Get student name - handle different possible formats
-    const heading = manualContainer.querySelector('h2');
-    let studentName = 'Student';
-
-    if (heading) {
-        const headingText = heading.textContent;
-        // Remove various prefixes that might be in the heading
-        studentName = headingText
-            .replace('Manual Grading: ', '')
-            .replace('Grading Results for ', '')
-            .replace('Manual Grading for ', '')
-            .trim();
-    }
-
-
-    // Use the same reliable print dialog method as the main grading
-    openPrintDialog(manualContainer, studentName);
-}
-
-/**
  * Create export content for single essay
  * @param {HTMLElement} resultsDiv - Results container
  * @param {string} studentName - Student name
@@ -1945,17 +1887,13 @@ function exportIndividualEssay(essayData) {
 // Export functions for use in other modules
 window.PDFExportModule = {
     exportToPDF,
-    exportManualToPDF,
     exportIndividualEssay,
     initializePDFExport,
-    isHTML2PDFLoaded,
-    // Legacy compatibility
-    exportManualResults: exportManualToPDF
+    isHTML2PDFLoaded
 };
 
 // Also expose individual functions globally for compatibility
 window.exportToPDF = exportToPDF;
-window.exportManualToPDF = exportManualToPDF;
 window.exportIndividualEssay = exportIndividualEssay;
 window.downloadIndividualEssay = function(index) {
     // Wrapper function for batch download

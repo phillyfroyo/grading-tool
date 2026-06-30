@@ -334,14 +334,12 @@ async function handleGradingFormSubmission(e) {
                     totalEssays: 1
                 };
 
-                // Display using batch results display for consistent UI
+                // Display using batch results display (the single, shared render
+                // path — a 1-essay grade renders as a batch of one).
                 if (window.BatchProcessingModule) {
                     window.BatchProcessingModule.displayBatchResults(batchResult, singleEssayBatchData);
-                } else if (window.GradingDisplayModule) {
-                    // Fallback to original display method
-                    window.GradingDisplayModule.displayResults(result, gradingData);
                 } else {
-                    console.error('Neither BatchProcessingModule nor GradingDisplayModule available');
+                    console.error('BatchProcessingModule not available');
                 }
 
                 // Auto-save after single essay grading completes, then

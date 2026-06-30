@@ -1,0 +1,74 @@
+
+> grading-tool@1.0.0 dev
+> concurrently "npm run dev:backend" "npm run dev:frontend"
+
+[0] 
+[0] > grading-tool@1.0.0 dev:backend
+[0] > nodemon server.js
+[0] 
+[1] 
+[1] > grading-tool@1.0.0 dev:frontend
+[1] > vite
+[1] 
+[0] [33m[nodemon] 3.1.10[39m
+[0] [33m[nodemon] to restart at any time, enter `rs`[39m
+[0] [33m[nodemon] watching path(s): server.js src/**/*.js grader/**/*.js[39m
+[0] [33m[nodemon] watching extensions: js[39m
+[0] [32m[nodemon] starting `node server.js`[39m
+[1] Port 3000 is in use, trying another one...
+[1] 
+[1]   VITE v5.4.20  ready in 1123 ms
+[1] 
+[1]   ➜  Local:   http://localhost:3001/
+[1]   ➜  Network: use --host to expose
+[1] [baseline-browser-mapping] The data in this module is over two months old.  To ensure accurate Baseline data, please update: `npm i baseline-browser-mapping@latest -D`
+[0] [dotenv@17.2.2] injecting env (5) from .env -- tip: 🔐 encrypt with Dotenvx: https://dotenvx.com
+[0] [ENV] Running in: Local environment
+[0] [CONFIG] Application configuration loaded:
+[0]   - Environment: Local
+[0]   - Node.js: v22.19.0
+[0]   - Platform: darwin
+[0]   - OpenAI API Key: Present
+[0]   - Anthropic API Key: Missing
+[0] [DATABASE] Initializing database configuration...
+[0] [dotenv@17.2.2] injecting env (0) from .env -- tip: ⚙️  override existing env vars with { override: true }
+[0] [dotenv@17.2.2] injecting env (0) from .env -- tip: ⚙️  override existing env vars with { override: true }
+[0] [USER_SERVICE] Constructor initialized
+[0] [AUTH_ROUTES] Auth routes being registered
+[0] 
+[0] === ESL GRADING SERVER STARTING (MODULAR) ===
+[0] 
+[0] [BOOT] import: file:///Users/philipwooleryprice/grading-tool/server.js
+[0] [BOOT] cwd: /Users/philipwooleryprice/grading-tool
+[0] [BOOT] Node version: v22.19.0
+[0] [BOOT] Platform: darwin
+[0] [CONFIG] Validating configuration...
+[0] [DATABASE] Initializing database...
+[0] [PRISMA] =================================
+[0] [PRISMA] Environment check:
+[0] [PRISMA] NODE_ENV: undefined
+[0] [PRISMA] DATABASE_URL exists: true
+[0] [PRISMA] DATABASE_URL length: 117
+[0] [PRISMA] DATABASE_URL starts with: postgresql://neondb_
+[0] [PRISMA] =================================
+[0] [PRISMA] DATABASE_URL found, initializing client...
+[0] [PRISMA] ✅ Client initialized successfully
+[0] ✅ Prisma database connected
+[0] [SESSION] Using memory store (set USE_DB_SESSION_STORE=1 to enable DB-backed sessions)
+[0] [ROUTES] Mounting application routes...
+[1] Browserslist: browsers data (caniuse-lite) is 9 months old. Please run:
+[1]   npx update-browserslist-db@latest
+[1]   Why you should do it regularly: https://github.com/browserslist/update-db#readme
+[0] 
+[0] === SERVER SUCCESSFULLY STARTED (MODULAR) ===
+[0] 
+[0] 🌐 Grader running on http://localhost:3001
+[0] 📝 Submit essays to see grading logs here
+[0] ⚡ Using modular architecture
+[0] 📁 Routes organized by feature
+[0] 
+[0] prisma:info Starting a postgresql pool with 5 connections.
+[0] [PRISMA] ✅ Connection test successful!
+[0] [32m[nodemon] clean exit - waiting for changes before restart[39m
+[0] npm run dev:backend exited with code SIGTERM
+[1] npm run dev:frontend exited with code SIGTERM
