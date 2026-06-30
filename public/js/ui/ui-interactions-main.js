@@ -24,7 +24,6 @@ function initializeUIInteractions() {
     // Set up main grading functionality
     if (window.FormHandlingModule) {
         window.FormHandlingModule.setupMainGrading();
-        window.FormHandlingModule.setupManualGrading();
         window.FormHandlingModule.setupFormValidation();
     }
 
@@ -110,66 +109,6 @@ function editTeacherNotes(element) {
 function editStat(element, statType) {
     if (window.EditingFunctionsModule) {
         window.EditingFunctionsModule.editStat(element, statType);
-    }
-}
-
-/**
- * Handle manual grading form submission
- * @param {Event} e - Form submission event
- */
-function handleManualGradingSubmission(e) {
-    if (window.FormHandlingModule) {
-        window.FormHandlingModule.handleManualGradingSubmission(e);
-    }
-}
-
-/**
- * Clear manual form
- */
-function clearManualForm() {
-    if (window.FormHandlingModule) {
-        window.FormHandlingModule.clearManualForm();
-    }
-}
-
-/**
- * Display manual grading results
- * @param {Object} result - Manual grading result object
- */
-function displayManualGradingResults(result) {
-    if (window.ManualGradingModule) {
-        window.ManualGradingModule.displayManualGradingResults(result);
-    }
-}
-
-/**
- * Clear manual grading results
- */
-function clearManualResults() {
-    const resultsDiv = document.getElementById('manualResults');
-    if (resultsDiv) {
-        resultsDiv.innerHTML = '';
-        resultsDiv.style.display = 'none';
-    }
-}
-
-/**
- * Export manual results to PDF
- */
-function exportManualResults() {
-    if (window.PDFExportModule && window.PDFExportModule.exportManualToPDF) {
-        window.PDFExportModule.exportManualToPDF();
-    } else if (window.PDFExportModule && window.PDFExportModule.exportToPDF) {
-        window.PDFExportModule.exportToPDF();
-    }
-}
-
-/**
- * Test manual grading functionality
- */
-function testManualGrading() {
-    if (window.ManualGradingModule) {
-        window.ManualGradingModule.testManualGrading();
     }
 }
 
@@ -265,11 +204,6 @@ function recolorCategoryScore(inputEl) {
  * @returns {number} Word count
  */
 function countWords(text) {
-    if (window.ManualGradingModule) {
-        return window.ManualGradingModule.countWords(text);
-    }
-
-    // Fallback implementation
     if (!text) return 0;
     return text.trim().split(/\s+/).filter(word => word.length > 0).length;
 }
@@ -280,11 +214,6 @@ function countWords(text) {
  * @returns {string} Escaped text
  */
 function escapeHtml(text) {
-    if (window.ManualGradingModule) {
-        return window.ManualGradingModule.escapeHtml(text);
-    }
-
-    // Fallback implementation
     if (!text) return '';
     const div = document.createElement('div');
     div.textContent = text;
@@ -336,8 +265,7 @@ function getUIStatus() {
             modalManagement: !!window.ModalManagementModule,
             keyboardShortcuts: !!window.KeyboardShortcutsModule,
             formHandling: !!window.FormHandlingModule,
-            editingFunctions: !!window.EditingFunctionsModule,
-            manualGrading: !!window.ManualGradingModule
+            editingFunctions: !!window.EditingFunctionsModule
         },
         initialized: true
     };
@@ -360,9 +288,6 @@ window.closeEditModal = closeEditModal;
 window.saveEditModal = saveEditModal;
 window.editTeacherNotes = editTeacherNotes;
 window.editStat = editStat;
-window.clearManualForm = clearManualForm;
-window.displayManualGradingResults = displayManualGradingResults;
-window.testManualGrading = testManualGrading;
 window.getScoreColor = getScoreColor;
 window.getCategoryScoreColor = getCategoryScoreColor;
 window.recolorCategoryScore = recolorCategoryScore;
@@ -391,16 +316,6 @@ window.UIInteractionsModule = {
     // Editing functions
     editTeacherNotes,
     editStat,
-
-    // Form handling
-    handleManualGradingSubmission,
-    clearManualForm,
-
-    // Manual grading
-    displayManualGradingResults,
-    clearManualResults,
-    exportManualResults,
-    testManualGrading,
 
     // Utilities
     getScoreColor,

@@ -123,19 +123,6 @@ class EventDelegation {
             return;
         }
 
-        // Manual grading actions
-        if (target.onclick?.toString().includes('saveManualGrading')) {
-            event.preventDefault();
-            this.handleSaveManualGrading();
-            return;
-        }
-
-        if (target.onclick?.toString().includes('cancelManualGrading')) {
-            event.preventDefault();
-            this.handleCancelManualGrading();
-            return;
-        }
-
         // Editable sections
         if (target.onclick?.toString().includes('editTeacherNotes')) {
             event.preventDefault();
@@ -233,34 +220,12 @@ class EventDelegation {
     handleExportToPDF() {
         console.log('🎯 handleExportToPDF called');
 
-        // Determine which export function to call based on current tab/context
-        const isManualTab = document.querySelector('.tab-button[data-tab="manual-grader"]')?.classList.contains('active');
-        const hasManualResults = document.getElementById('manualResults')?.innerHTML.trim();
-        const mainResults = window.TabStore ? window.TabStore.activeQuery('#results') : document.getElementById('results');
-        const hasMainResults = mainResults?.innerHTML.trim();
-
-        console.log('Manual tab active:', isManualTab);
-        console.log('Has manual results:', !!hasManualResults);
-        console.log('Has main results:', !!hasMainResults);
-
-        if (isManualTab || (hasManualResults && !hasMainResults)) {
-            // Manual grading context
-            if (window.PDFExportModule?.exportManualToPDF) {
-                window.PDFExportModule.exportManualToPDF();
-            } else if (typeof exportManualResults === 'function') {
-                exportManualResults();
-            } else {
-                logger.warn('Manual export function not found');
-            }
+        if (window.PDFExportModule?.exportToPDF) {
+            window.PDFExportModule.exportToPDF();
+        } else if (typeof exportToPDF === 'function') {
+            exportToPDF();
         } else {
-            // Main grading context
-            if (window.PDFExportModule?.exportToPDF) {
-                window.PDFExportModule.exportToPDF();
-            } else if (typeof exportToPDF === 'function') {
-                exportToPDF();
-            } else {
-                logger.warn('Main export function not found');
-            }
+            logger.warn('Main export function not found');
         }
     }
 
@@ -294,22 +259,6 @@ class EventDelegation {
             removeEssay(index);
         } else {
             logger.warn('removeEssay function not found');
-        }
-    }
-
-    handleSaveManualGrading() {
-        if (typeof saveManualGrading === 'function') {
-            saveManualGrading();
-        } else {
-            logger.warn('saveManualGrading function not found');
-        }
-    }
-
-    handleCancelManualGrading() {
-        if (typeof cancelManualGrading === 'function') {
-            cancelManualGrading();
-        } else {
-            logger.warn('cancelManualGrading function not found');
         }
     }
 

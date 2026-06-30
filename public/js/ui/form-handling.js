@@ -153,81 +153,6 @@ function showValidationToast(errors) {
 }
 
 /**
- * Handle manual grading form submission
- * @param {Event} e - Form submission event
- */
-async function handleManualGradingSubmission(e) {
-    e.preventDefault();
-
-    const formData = new FormData(e.target);
-    const studentName = formData.get('studentName') || 'Student';
-    const studentNickname = formData.get('studentNickname') || '';
-    const essayText = formData.get('essayText') || '';
-
-    if (!essayText.trim()) {
-        showError('Please enter student essay text', 'Missing Essay Text');
-        return;
-    }
-
-    // Show loading state
-    const button = e.target.querySelector('.grade-button');
-    const originalText = button.textContent;
-    button.textContent = 'Generating Grade...';
-    button.disabled = true;
-
-    try {
-        // Use the same GPT grading system but mark as manual mode
-        const gradingData = {
-            studentText: essayText,
-            prompt: 'Manual grading mode - generate detailed feedback',
-            classProfile: 'default-profile', // Use default profile for manual mode
-            temperature: 0,
-            studentName: studentName,
-            studentNickname: studentNickname,
-            isManualMode: true
-        };
-
-        const response = await fetch('/api/grade', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify(gradingData)
-        });
-
-        if (!response.ok) {
-            throw new Error(`HTTP error! status: ${response.status}`);
-        }
-
-        const result = await response.json();
-
-        if (result.success) {
-            // Mark result as manual and display
-            result.isManual = true;
-            result.studentName = studentName;
-            result.originalEssayText = essayText;
-
-            // Display results using the grading display module
-            if (window.GradingDisplayModule) {
-                window.GradingDisplayModule.displayResults(result, gradingData);
-            } else {
-                console.error('GradingDisplayModule not available');
-            }
-        } else {
-            throw new Error(result.error || 'Grading failed');
-        }
-
-    } catch (error) {
-        console.error('Manual grading error:', error);
-        showError('Error generating grade: ' + error.message, 'Grading Error');
-    } finally {
-        // Restore button state
-        button.textContent = originalText;
-        button.disabled = false;
-    }
-}
-
-/**
  * Handle main grading form submission
  * @param {Event} e - Form submission event
  */
@@ -409,14 +334,12 @@ async function handleGradingFormSubmission(e) {
                     totalEssays: 1
                 };
 
-                // Display using batch results display for consistent UI
+                // Display using batch results display (the single, shared render
+                // path — a 1-essay grade renders as a batch of one).
                 if (window.BatchProcessingModule) {
                     window.BatchProcessingModule.displayBatchResults(batchResult, singleEssayBatchData);
-                } else if (window.GradingDisplayModule) {
-                    // Fallback to original display method
-                    window.GradingDisplayModule.displayResults(result, gradingData);
                 } else {
-                    console.error('Neither BatchProcessingModule nor GradingDisplayModule available');
+                    console.error('BatchProcessingModule not available');
                 }
 
                 // Auto-save after single essay grading completes, then
@@ -625,34 +548,6 @@ function setupMainGrading() {
         gradingForm.addEventListener('change', clearOwnInvalidState);
     } else {
         console.warn('Main grading form not found');
-    }
-}
-
-/**
- * Setup manual grading functionality
- */
-function setupManualGrading() {
-    const manualForm = document.getElementById('manualGradingForm');
-    if (manualForm) {
-        manualForm.addEventListener('submit', handleManualGradingSubmission);
-    }
-    // Note: manual grading form is optional; no warning when missing
-}
-
-
-/**
- * Clear manual grading form
- */
-function clearManualForm() {
-    const form = document.getElementById('manualGradingForm');
-    if (form) {
-        form.reset();
-    }
-
-    // Clear results display
-    const resultsContainer = document.getElementById('manualResults');
-    if (resultsContainer) {
-        resultsContainer.innerHTML = '';
     }
 }
 
@@ -1217,10 +1112,7 @@ function processBatchResultQueue() {
 // Export functions for module usage
 window.FormHandlingModule = {
     handleGradingFormSubmission,
-    handleManualGradingSubmission,
     setupMainGrading,
-    setupManualGrading,
-    clearManualForm,
     validateForm,
     setupFormValidation,
     streamBatchGradingSimple,

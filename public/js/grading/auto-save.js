@@ -6,19 +6,29 @@
  * ── CLUSTER MAP (concern groups; this file is large and a structured split is
  *    planned — see HANDOFF-413-fix.md. Until then, use this map to navigate.) ──
  *   A. Save lifecycle ....... saveImmediately, debouncedSave, doSave, scheduleRetry, clearDebounce
- *   B. Payload build/de-dup .. buildPayload, gatherTabDOMState, readEssayData,
- *                              countEssayDataGlobals, payloadHasResults
+ *   B. Payload build/de-dup .. EXTRACTED to auto-save-payload.js (window.AutoSavePayload):
+ *                              buildPayload, gatherTabDOMState, readEssayData, payloadHasResults.
+ *                              Thin local wrappers here delegate to it; internal-only (no facade
+ *                              members). Seam: reads gradingInProgress via AutoSaveGrading getter.
+ *                              (countEssayDataGlobals was dead — deleted in the move.)
  *   C. Restore & reattach .... peekSavedSession, promptRestoreIfSaved, loadAndRestore,
  *      (HIGHEST RISK)          restoreTabDOM, reattachHandlers, reattachHighlightsHandlers,
  *                              setupRemoveAllCheckboxFromAutoSave, applyScoreOverrides
- *   D. Capacity / budget ..... evaluatePayloadBudget, getCapacityPercent,
- *                              refreshCapacityDisplay, updateCapacityChip, isPayloadOverBudget
- *   E. Toasts / banners ...... getToastStack, showToast, showClearButton,
- *                              updateBannerStatus, updateSaveStatus, updateCapacityBanner
+ *   D. Capacity / budget ..... EXTRACTED to auto-save-capacity.js (window.AutoSaveCapacity):
+ *                              evaluatePayloadBudget, getCapacityPercent, refreshCapacityDisplay,
+ *                              updateCapacityChip, isPayloadOverBudget. Thin local wrappers here
+ *                              delegate. Outbound seams to AutoSaveUI (banner) + AutoSavePayload.
+ *   E. Toasts / banners ...... EXTRACTED to auto-save-ui.js (window.AutoSaveUI).
+ *                              Thin local wrappers here delegate to it: showToast,
+ *                              showClearButton, updateBannerStatus, updateSaveStatus,
+ *                              updateCapacityBanner. Seam: resetFullDismissed().
  *   F. Auth-expiry & stash ... write/clear/readPendingSaveStash, recoverOrphanedStash,
  *                              handleAuthExpired, showReauthPrompt, attemptReauth, flushPendingSave
- *   G. Grading-state & lock .. markGradingStarted/Finished, isGradingInProgress,
- *                              setFormLocked, clearSavedSession
+ *   G. Grading-state & lock .. EXTRACTED to auto-save-grading.js (window.AutoSaveGrading):
+ *                              markGradingStarted/Finished, isGradingInProgress, setFormLocked.
+ *                              Thin local wrappers here delegate to it; seam:
+ *                              setGradingInProgress() (core teardown clears the flag).
+ *                              clearSavedSession stays here (cross-cluster teardown orchestrator).
  *   H. Wiring ................ initialize
  */
 (function () {
@@ -31,8 +41,10 @@
     let initialized = false;
     let lastSuccessfulSaveTime = 0;
     let hasPendingChanges = false;
-    let gradingInProgress = false;
-    let formLocked = false;
+    // Grading-state + form lock (Cluster G) live in auto-save-grading.js
+    // (window.AutoSaveGrading). The gradingInProgress flag moved there too;
+    // the core reads it via isGradingInProgress() and clears it on teardown via
+    // setGradingInProgress(false). Thin local wrappers below delegate the rest.
     const DEBOUNCE_MS = 2500;
 
     // Auth-expired state: when the server rejects a save with 401/403, the
@@ -54,21 +66,16 @@
     // saving fails — instead of being blindsided. At 100% we block edits that
     // grow the payload (new highlights); score edits (tiny, via scoreOverrides)
     // and already-saved work are unaffected.
-    const PAYLOAD_CEILING_BYTES = 3_800_000;       // 100% capacity / hard stop (≈3.8MB)
-    let payloadOverBudget = false;                 // true once at/over ceiling
-    let lastPayloadBytes = 0;                       // diagnostics + pill/banner
-    // Capacity guidance is shown via the single self-updating banner
-    // (updateCapacityBanner): one element, live %, warn at 70%+, full at 100%+.
-    // (Replaced the old per-threshold stacked toasts + CAPACITY_THRESHOLDS.)
+    // The budget state (ceiling, last bytes, over-budget flag) + the capacity
+    // functions live in auto-save-capacity.js (window.AutoSaveCapacity). Thin
+    // local wrappers below delegate to it. Capacity guidance shows via the single
+    // self-updating banner (AutoSaveUI.updateCapacityBanner): one element, live %,
+    // warn at 70%+, full at 100%+.
 
-    // --- Banner/toast UI state (used by Cluster E: updateSaveStatus / updateCapacityBanner) ---
-    let saveStatusTimer = null;                    // dismiss timer for the save-status banner
-    // Capacity-banner dismissals. The warning (70–99%) is dismissable AND sticky:
-    // once the teacher dismisses it, it stays gone for the rest of the session
-    // (they rely on the omnipresent pill). The full banner (≥100%) is dismissable
-    // but NOT sticky — it re-shows whenever capacity is at/over the ceiling.
-    let capacityWarnDismissed = false; // sticky: warning dismissed for the session
-    let capacityFullDismissed = false; // transient: cleared whenever we drop <100%
+    // Banner/toast UI (Cluster E) lives in auto-save-ui.js (window.AutoSaveUI).
+    // Its state — the save-status dismiss timer and the capacity-banner dismissal
+    // flags — moved there too. The thin local wrappers below delegate to it; the
+    // one piece of state the core touches is re-armed via AutoSaveUI.resetFullDismissed().
 
     // --- Public API ---
 
@@ -144,18 +151,10 @@
         console.log('[AutoSave] Initialized');
     }
 
-    /**
-     * True if a built payload actually contains graded results (vs. an empty
-     * fresh form). Used to decide whether there's live grading state worth
-     * acting on — by stash recovery and the on-load capacity reveal.
-     * @param {object|null} payload - output of buildPayload()
-     */
+    // payloadHasResults (Cluster B) — thin delegator to auto-save-payload.js.
     function payloadHasResults(payload) {
-        return !!(payload && payload.sessionData &&
-            payload.sessionData.currentBatchData &&
-            payload.sessionData.currentBatchData.batchResult &&
-            payload.sessionData.currentBatchData.batchResult.results &&
-            payload.sessionData.currentBatchData.batchResult.results.length);
+        return !!(window.AutoSavePayload
+            && window.AutoSavePayload.payloadHasResults(payload));
     }
 
     /**
@@ -224,109 +223,24 @@
         debounceTimer = setTimeout(() => doSave('debouncedSave'), DEBOUNCE_MS);
     }
 
-    /**
-     * Mark that a grading operation has started. Sets the in-memory
-     * gradingInProgress flag so that the next save (which happens
-     * incrementally as each chunk completes) persists the flag. If the
-     * user refreshes mid-grading, the restore modal shows its
-     * "interrupted" variant.
-     *
-     * We intentionally do NOT fire an immediate save here: until the first
-     * chunk completes there's no essay data to save, and firing an empty
-     * save would just overwrite any legitimate prior session on the server.
-     */
+    // --- Cluster G (grading-state + form lock) — thin delegators to auto-save-grading.js ---
+    // The implementations live in window.AutoSaveGrading (loaded before this file).
+    // These local wrappers keep the core's internal call sites + public facade unchanged.
+
     function markGradingStarted() {
-        gradingInProgress = true;
-        // Emit event so tab-management can disable Grade buttons in other tabs.
-        // The originating tab ID is captured at the event site so listeners know
-        // which tab to leave enabled.
-        try {
-            const originTabId = (window.TabStore && window.TabStore.activeId()) || null;
-            window.dispatchEvent(new CustomEvent('grading-started', {
-                detail: { originTabId }
-            }));
-        } catch (err) {
-            console.error('[AutoSave] Failed to dispatch grading-started:', err);
-        }
+        if (window.AutoSaveGrading) window.AutoSaveGrading.markGradingStarted();
     }
 
-    /**
-     * Mark that a grading operation has finished (success OR failure).
-     * Clears the gradingInProgress flag. The next save will persist the
-     * cleared state.
-     */
     function markGradingFinished() {
-        gradingInProgress = false;
-        try {
-            window.dispatchEvent(new CustomEvent('grading-finished', { detail: {} }));
-        } catch (err) {
-            console.error('[AutoSave] Failed to dispatch grading-finished:', err);
-        }
+        if (window.AutoSaveGrading) window.AutoSaveGrading.markGradingFinished();
     }
 
-    /**
-     * Public getter for the grading-in-progress state. Other modules use
-     * this to decide whether to allow starting a new grading run.
-     */
     function isGradingInProgress() {
-        return gradingInProgress;
+        return !!(window.AutoSaveGrading && window.AutoSaveGrading.isGradingInProgress());
     }
 
-    /**
-     * Lock or unlock the grading form in a specific tab pane. When locked:
-     *   - Essay entry headers (name/nickname inputs) and text areas are hidden.
-     *   - Grade, Add Another Essay, and essay counter controls are disabled.
-     *   - An inline message appears next to the grade button pointing users
-     *     at the "Clear & Start Fresh" banner button.
-     *
-     * Phase 7: accepts an optional tabId parameter. When provided, only that
-     * tab's form is locked. When omitted or null, ALL tab panes are locked
-     * (used by the restore path where every restored tab has completed work).
-     *
-     * @param {boolean} locked
-     * @param {string|null} tabId - Specific tab to lock, or null for all tabs
-     */
     function setFormLocked(locked, tabId) {
-        formLocked = locked;
-
-        // Collect the tab panes to operate on.
-        let panes;
-        if (tabId && window.TabStore) {
-            const pane = window.TabStore.paneForTab(tabId);
-            panes = pane ? [pane] : [];
-        } else {
-            // No tabId → lock/unlock ALL tab panes
-            panes = Array.from(document.querySelectorAll('.tab-pane'));
-            if (panes.length === 0) {
-                const legacy = document.getElementById('gradingForm');
-                if (legacy) panes = [legacy.closest('.tab-pane') || legacy.parentElement];
-            }
-        }
-
-        panes.forEach(pane => {
-            if (!pane) return;
-            const form = pane.querySelector('#gradingForm');
-            if (!form) return;
-
-            // Phase 8: When locked, hide the ENTIRE form — but only if this
-            // tab actually has graded results. Empty tabs (no batch data)
-            // should keep their form visible so the user sees the blank
-            // grading form, not a blank page.
-            if (locked) {
-                const paneTabId = pane.dataset.tabId;
-                const tabState = paneTabId && window.TabStore && window.TabStore.get(paneTabId);
-                const hasResults = tabState && tabState.currentBatchData;
-                form.style.display = hasResults ? 'none' : '';
-            } else {
-                form.style.display = '';
-            }
-
-            // Also clean up any lingering inline lock messages from the old
-            // partial-hide approach (in case they were left from a prior
-            // session or an older code version).
-            const existingMsg = form.querySelector('.auto-save-lock-message');
-            if (existingMsg) existingMsg.remove();
-        });
+        if (window.AutoSaveGrading) window.AutoSaveGrading.setFormLocked(locked, tabId);
     }
 
     /**
@@ -825,8 +739,9 @@
         clearDebounce();
 
         // Unlock ALL tab forms and clear the grading-in-progress flag so
-        // the next save doesn't re-persist a stale interrupted state.
-        gradingInProgress = false;
+        // the next save doesn't re-persist a stale interrupted state. The flag
+        // now lives in auto-save-grading.js — clear it via its seam setter.
+        if (window.AutoSaveGrading) window.AutoSaveGrading.setGradingInProgress(false);
         setFormLocked(false); // null tabId → unlocks ALL panes
 
         try {
@@ -897,357 +812,28 @@
         console.log('[AutoSave] Session cleared');
     }
 
-    /**
-     * Show the fixed auto-save banner at the top of the viewport.
-     * Left side: status text. Right side: "Clear & Start Fresh" button.
-     */
-    /**
-     * Show a transient toast notification at the top of the viewport.
-     * Replaces the old persistent banner. Toasts auto-dismiss after a
-     * delay (5s for success, stays for warnings until manually dismissed
-     * or replaced by the next toast).
-     *
-     * @param {string} text - Message to display
-     * @param {'ok'|'warn'} level - Visual style: green for ok, yellow for warn
-     */
-    // Toasts now STACK instead of replacing each other. Previously a new toast
-    // instantly removed the old one, so the "Grading complete / capacity" banner
-    // was stolen the moment the next save's "All changes saved" toast fired —
-    // it flashed and vanished. Now each toast lives in a fixed stack (newest on
-    // top); each self-dismisses on its own timer, and when one is removed the
-    // others slide up to fill the gap (the flex column reflows automatically).
-
-    /** Get or create the fixed-position stack that holds all toasts. */
-    function getToastStack() {
-        let stack = document.getElementById('auto-save-toast-stack');
-        if (!stack) {
-            stack = document.createElement('div');
-            stack.id = 'auto-save-toast-stack';
-            stack.style.cssText =
-                'position:fixed;top:12px;left:12px;z-index:9999;' +
-                'display:flex;flex-direction:column;gap:8px;' +
-                'pointer-events:none;'; // wrapper ignores clicks; toasts re-enable
-            document.body.appendChild(stack);
-        }
-        return stack;
-    }
-
-    /**
-     * Insert a TRANSIENT banner (a save/restore/grading toast or the save-status
-     * banner) at the top of the stack — but BELOW the standing capacity banner
-     * if one is showing. The capacity banner (amber/red) has no auto-dismiss, so
-     * keeping it pinned at the very top stops it from bouncing down and back up
-     * every time a short-lived toast appears above it on each edit/autosave.
-     */
-    function insertTransient(stack, el) {
-        const capacity = document.getElementById('auto-save-capacity');
-        if (capacity && capacity.parentNode === stack) {
-            // Place directly after the capacity banner.
-            stack.insertBefore(el, capacity.nextSibling);
-        } else {
-            stack.insertBefore(el, stack.firstChild);
-        }
-    }
+    // --- Cluster E (toasts / banners UI) — thin delegators to auto-save-ui.js ---
+    // The implementations live in window.AutoSaveUI (loaded before this file).
+    // These local wrappers keep the core's internal call sites unchanged.
 
     function showToast(text, level) {
-        const stack = getToastStack();
-
-        const isWarn = level === 'warn';
-        const isError = level === 'error';
-
-        // De-dupe: if a toast with identical text is already showing, don't add
-        // a second copy. This matters for persistent warnings (e.g. the same
-        // capacity threshold message would otherwise re-stack on every save).
-        const fullText = text + (isError ? '' : isWarn ? ' ⚠' : ' ✓');
-        const dupes = stack.querySelectorAll('.auto-save-toast');
-        for (const d of dupes) {
-            if (d.dataset.toastText === fullText) {
-                // Refresh its dismiss timer (for non-warn) so it stays the
-                // expected duration from the latest trigger, then bail.
-                if (d._refreshDismiss) d._refreshDismiss();
-                return;
-            }
-        }
-
-        let bg, border, color;
-        if (isError) {
-            bg = 'rgba(248,215,218,0.97)';
-            border = 'rgba(180,80,80,0.5)';
-            color = '#721c24';
-        } else if (isWarn) {
-            bg = 'rgba(255,243,205,0.95)';
-            border = 'rgba(200,170,80,0.4)';
-            color = '#856404';
-        } else {
-            bg = 'rgba(209,243,209,0.95)';
-            border = 'rgba(100,180,100,0.4)';
-            color = '#2d6a2d';
-        }
-
-        // Width: keep the uniform fixed 420px only for warnings (yellow) and
-        // errors (red) — the payload-capacity warnings. Every other (green)
-        // success toast shrinks to fit its text. Because the stack is a flex
-        // column with default align-items:stretch, a plain max-width still
-        // stretches to stack width — align-self:flex-start + width:fit-content
-        // is what actually shrinks it (same pattern as the save-status banner).
-        const fixedWidth = isWarn || isError;
-        const widthCss = fixedWidth
-            ? 'width:420px;box-sizing:border-box;'
-            : 'max-width:420px;width:fit-content;align-self:flex-start;';
-
-        const toast = document.createElement('div');
-        toast.className = 'auto-save-toast';
-        toast.dataset.toastText = fullText;
-        toast.style.cssText =
-            'pointer-events:auto;' +
-            'padding:10px 18px;border-radius:6px;' +
-            'font-family:"Inter","Helvetica Neue",Arial,sans-serif;' +
-            'font-size:13px;font-weight:500;letter-spacing:0.01em;' +
-            'box-shadow:0 2px 8px rgba(0,0,0,0.12);' +
-            'backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);' +
-            'transition:opacity 0.3s ease;opacity:0;' +
-            'white-space:pre-line;' + widthCss +
-            `background:${bg};border:1px solid ${border};color:${color};`;
-        toast.textContent = fullText;
-
-        // Newest on top — but below a standing capacity banner if present.
-        insertTransient(stack, toast);
-
-        // Fade in
-        requestAnimationFrame(() => { toast.style.opacity = '1'; });
-
-        const dismiss = () => {
-            toast.style.opacity = '0';
-            setTimeout(() => { if (toast.parentNode) toast.remove(); }, 300);
-        };
-
-        // Auto-dismiss: 5s for success, 8s for errors (longer — users need time
-        // to read a multi-line validation message). Warnings persist (no timer)
-        // since they describe an ongoing condition the teacher should act on.
-        let dismissTimer = null;
-        if (!isWarn) {
-            const dismissMs = isError ? 8000 : 5000;
-            const arm = () => {
-                if (dismissTimer) clearTimeout(dismissTimer);
-                dismissTimer = setTimeout(dismiss, dismissMs);
-            };
-            arm();
-            toast._refreshDismiss = arm; // used by the de-dupe path above
-        }
+        if (window.AutoSaveUI) window.AutoSaveUI.showToast(text, level);
     }
 
-    /**
-     * Legacy API: showClearButton is called by form-handling.js and
-     * batch-processing.js after grading completes. In the old design it
-     * created a persistent banner with a Clear button. Now it just shows
-     * a brief toast confirming grading is complete.
-     *
-     * Autosave-capacity awareness is NOT appended here anymore — the
-     * always-present capacity pill in the tab bar already shows that, so a
-     * "Autosave capacity: X%" line on this banner was redundant.
-     */
     function showClearButton(statusText) {
-        showToast(statusText || 'Session restored', 'ok');
+        if (window.AutoSaveUI) window.AutoSaveUI.showClearButton(statusText);
     }
 
-    /**
-     * Legacy API: updateBannerStatus is called by doSave and saveImmediately
-     * to show save progress. Now routes to the toast.
-     */
     function updateBannerStatus(text, level) {
-        showToast(text, level || 'ok');
+        if (window.AutoSaveUI) window.AutoSaveUI.updateBannerStatus(text, level);
     }
 
-    /**
-     * Single, reusable banner for the SAVE lifecycle (Saving… → All changes
-     * saved → or Couldn't save…). Unlike showToast (which stacks a new toast per
-     * call), this updates ONE persistent element in place, so "Saving…" and
-     * "All changes saved" never coexist as two contradictory banners — the same
-     * banner just changes text and color.
-     *
-     * It lives at the top of the same top-left stack as the other toasts.
-     * 'pending' (Saving…) has no auto-dismiss — it stays until the outcome
-     * replaces it. 'ok'/'warn' auto-dismiss after a short read.
-     *
-     * @param {string} text
-     * @param {'pending'|'ok'|'warn'} state
-     */
     function updateSaveStatus(text, state) {
-        const stack = getToastStack();
-
-        let banner = document.getElementById('auto-save-status');
-        if (!banner) {
-            banner = document.createElement('div');
-            banner.id = 'auto-save-status';
-            banner.className = 'auto-save-toast'; // share dismissal/query class
-            banner.style.cssText =
-                'pointer-events:auto;padding:10px 18px;border-radius:6px;' +
-                'font-family:"Inter","Helvetica Neue",Arial,sans-serif;' +
-                'font-size:13px;font-weight:500;letter-spacing:0.01em;' +
-                'box-shadow:0 2px 8px rgba(0,0,0,0.12);' +
-                'backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);' +
-                'transition:opacity 0.3s ease,background-color 0.25s ease,' +
-                'border-color 0.25s ease,color 0.25s ease;opacity:0;' +
-                // Fit-to-text (not a fixed width): the save-lifecycle banner
-                // (Saving… / All changes saved) fires constantly during editing,
-                // so a full-width box every few seconds was overwhelming. The
-                // standing capacity banner keeps its fixed width.
-                // NOTE: the toast stack is a flex column (align-items:stretch),
-                // so a plain max-width still stretches to the stack's width —
-                // align-self:flex-start + width:fit-content is what shrinks it
-                // to the text.
-                'white-space:pre-line;max-width:420px;width:fit-content;align-self:flex-start;';
-        }
-        // Keep it at the top — but below a standing capacity banner if present.
-        insertTransient(stack, banner);
-
-        const isWarn = state === 'warn';
-        const suffix = state === 'pending' ? '' : isWarn ? ' ⚠' : ' ✓';
-        let bg, border, color;
-        if (isWarn) {
-            bg = 'rgba(255,243,205,0.95)'; border = 'rgba(200,170,80,0.4)'; color = '#856404';
-        } else {
-            bg = 'rgba(209,243,209,0.95)'; border = 'rgba(100,180,100,0.4)'; color = '#2d6a2d';
-        }
-        banner.style.background = bg;
-        banner.style.borderTop = banner.style.borderRight = banner.style.borderBottom =
-            banner.style.borderLeft = '1px solid ' + border;
-        banner.style.color = color;
-        banner.textContent = text + suffix;
-        requestAnimationFrame(() => { banner.style.opacity = '1'; });
-
-        // Manage auto-dismiss. Resolved states ('ok'/'warn') fade after a short
-        // read. 'pending' (Saving…) normally stays until the outcome replaces
-        // it, but gets a long SAFETY fade so it can't get stuck on screen if a
-        // doSave path returns early without reporting an outcome (auth expired,
-        // no payload, save already in flight).
-        if (saveStatusTimer) { clearTimeout(saveStatusTimer); saveStatusTimer = null; }
-        const fadeMs = state === 'pending' ? 15000 : 5000;
-        saveStatusTimer = setTimeout(() => {
-            banner.style.opacity = '0';
-            setTimeout(() => { if (banner.parentNode) banner.remove(); }, 300);
-        }, fadeMs);
+        if (window.AutoSaveUI) window.AutoSaveUI.updateSaveStatus(text, state);
     }
 
-    /**
-     * Single, reusable CAPACITY banner — sibling concept to updateSaveStatus.
-     * One element (#auto-save-capacity) that updates its % in place rather than
-     * stacking a new toast per threshold (the old showToast approach left "86%"
-     * and "88%" banners coexisting). Lives in the same top-left stack.
-     *
-     * Two states, by capacity:
-     *  - 'warn' (70–99%): amber, live %, dismissable + STICKY (capacityWarnDismissed).
-     *  - 'full' (≥100%):  red, live %, persists (no timer), dismissable but NOT
-     *                     sticky — re-shows whenever ≥100%.
-     * Below 70% (state null) the banner is removed.
-     *
-     * @param {number} pct - true capacity percent (may exceed 100)
-     */
     function updateCapacityBanner(pct) {
-        const stack = getToastStack();
-        const existing = document.getElementById('auto-save-capacity');
-
-        const state = pct >= 100 ? 'full' : pct >= 70 ? 'warn' : null;
-
-        // Below the warning floor → nothing to show; clear any existing banner.
-        if (!state) {
-            if (existing) existing.remove();
-            return;
-        }
-
-        // Respect dismissals. Warning dismissal is sticky for the session; the
-        // full banner ignores the warning dismissal (it's too important) but
-        // honors its own transient dismissal until we drop back under 100%.
-        if (state === 'warn' && capacityWarnDismissed) {
-            if (existing) existing.remove();
-            return;
-        }
-        if (state === 'full' && capacityFullDismissed) {
-            if (existing) existing.remove();
-            return;
-        }
-
-        const isFull = state === 'full';
-        const shown = Math.round(pct);
-        const text = isFull
-            ? `Autosave is full (${shown}%). New highlights can’t be saved. ` +
-              `Download completed essays (PDF) and clear a finished tab — or start ` +
-              `a fresh session — to keep working.`
-            : `Autosave is at ${shown}% capacity. Before reaching 100%, download ` +
-              `completed essays and clear a finished tab to keep the app working reliably.`;
-
-        let banner = existing;
-        if (!banner) {
-            banner = document.createElement('div');
-            banner.id = 'auto-save-capacity';
-            banner.className = 'auto-save-toast';
-            banner.style.cssText =
-                'pointer-events:auto;position:relative;padding:10px 34px 10px 18px;' +
-                'border-radius:6px;font-family:"Inter","Helvetica Neue",Arial,sans-serif;' +
-                'font-size:13px;font-weight:500;letter-spacing:0.01em;' +
-                'box-shadow:0 2px 8px rgba(0,0,0,0.12);' +
-                'backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);' +
-                'transition:opacity 0.3s ease,background-color 0.25s ease,' +
-                'border-color 0.25s ease,color 0.25s ease;opacity:0;' +
-                'white-space:pre-line;width:420px;box-sizing:border-box;';
-
-            const msg = document.createElement('span');
-            msg.className = 'capacity-banner-msg';
-            // The text lives in a child <span>, so the global `p, li, span {
-            // font-size: 18px }` rule in main.css overrides the banner div's
-            // inline 13px and renders this banner LARGER than the green save/
-            // restore toasts (whose text is set directly on the div). Re-declare
-            // the toast typography ON the span so it matches the others exactly.
-            msg.style.cssText =
-                'font-family:"Inter","Helvetica Neue",Arial,sans-serif;' +
-                'font-size:13px;font-weight:500;letter-spacing:0.01em;';
-            banner.appendChild(msg);
-
-            const dismiss = document.createElement('button');
-            dismiss.type = 'button';
-            dismiss.className = 'capacity-banner-dismiss';
-            dismiss.setAttribute('aria-label', 'Dismiss');
-            dismiss.textContent = '×';
-            dismiss.style.cssText =
-                'position:absolute;top:4px;right:6px;border:none;background:transparent;' +
-                'font-size:18px;line-height:1;cursor:pointer;color:inherit;opacity:0.55;' +
-                'padding:2px 4px;';
-            dismiss.addEventListener('mouseenter', () => { dismiss.style.opacity = '0.9'; });
-            dismiss.addEventListener('mouseleave', () => { dismiss.style.opacity = '0.55'; });
-            dismiss.addEventListener('click', function () {
-                // Record the dismissal per current state, then remove.
-                if (banner.dataset.state === 'full') capacityFullDismissed = true;
-                else capacityWarnDismissed = true;
-                banner.style.opacity = '0';
-                setTimeout(() => { if (banner.parentNode) banner.remove(); }, 300);
-            });
-            banner.appendChild(dismiss);
-        }
-        banner.dataset.state = state;
-
-        // Color band.
-        let bg, border, color;
-        if (isFull) {
-            bg = 'rgba(248,215,218,0.97)'; border = 'rgba(180,80,80,0.5)'; color = '#721c24';
-        } else {
-            bg = 'rgba(255,243,205,0.95)'; border = 'rgba(200,170,80,0.4)'; color = '#856404';
-        }
-        banner.style.background = bg;
-        banner.style.border = '1px solid ' + border;
-        banner.style.color = color;
-        banner.querySelector('.capacity-banner-msg').textContent =
-            text + (isFull ? ' ⚠' : ' ⚠');
-
-        // Keep the capacity banner pinned at the very top of the stack — but
-        // only move it if it isn't already there, so re-running this on every
-        // save (capacity is recomputed each save) doesn't churn the DOM or
-        // flicker. Transient toasts insert BELOW it (see insertTransient).
-        if (stack.firstChild !== banner) {
-            stack.insertBefore(banner, stack.firstChild);
-        }
-        requestAnimationFrame(() => { banner.style.opacity = '1'; });
-        // No auto-dismiss timer for either state — capacity is a standing
-        // condition; it goes away only on explicit dismiss or dropping <70%.
+        if (window.AutoSaveUI) window.AutoSaveUI.updateCapacityBanner(pct);
     }
 
     // --- Internal helpers ---
@@ -1463,390 +1049,46 @@
         }
     }
 
-    /**
-     * Look up essay data by index. Prefers the batch's originating tab
-     * when a batch is currently streaming (via BatchProcessingModule
-     * batch tab context), else the active tab, else the legacy window
-     * global. This mirrors the tab-resolution logic in buildPayload so
-     * save / restore always reads the right tab.
-     */
+    // --- Cluster B (payload build/de-dup) — thin delegators to auto-save-payload.js ---
+    // Implementations live in window.AutoSavePayload (loaded before this file).
+    // (countEssayDataGlobals was dead — zero callers — and was dropped in the move.)
+
     function readEssayData(index) {
-        const batchOriginId = (window.BatchProcessingModule
-            && typeof window.BatchProcessingModule.getBatchTabContext === 'function'
-            && window.BatchProcessingModule.getBatchTabContext())
-            || null;
-
-        const targetTab = window.TabStore && (
-            (batchOriginId && window.TabStore.get(batchOriginId))
-            || window.TabStore.active()
-        );
-        if (targetTab && targetTab.essayData && targetTab.essayData[index]) {
-            return targetTab.essayData[index];
-        }
-        return window[`essayData_${index}`];
+        return window.AutoSavePayload && window.AutoSavePayload.readEssayData(index);
     }
 
-    /**
-     * Count how many essayData entries exist (scan up to 50).
-     * Returns highest filled index + 1, so the iteration range in buildPayload
-     * spans the full batch even when failed essays leave gaps in the sequence
-     * (batch-processing.js only sets essayData for essay.success === true).
-     */
-    function countEssayDataGlobals() {
-        let highestIndex = -1;
-        for (let i = 0; i < 50; i++) {
-            if (readEssayData(i)) highestIndex = i;
-        }
-        return highestIndex + 1;
-    }
-
-    /**
-     * Gather the DOM-derived state for a single tab's pane: rendered essay
-     * HTML, highlight HTML, score overrides, checkbox states. Used by
-     * buildPayload to snapshot each tab independently.
-     *
-     * @param {string} tabId - The tab to gather from
-     * @param {Object} tabState - The tab's state from TabStore (for essay count)
-     * @param {boolean} omitHTML - Skip rendered HTML to keep payload small
-     * @returns {Object} DOM-derived data for this tab
-     */
     function gatherTabDOMState(tabId, tabState, omitHTML) {
-        const queryInTab = (selector) => {
-            if (window.TabStore && tabId) {
-                return window.TabStore.queryInTab(tabId, selector);
-            }
-            return document.querySelector(selector);
-        };
-
-        const batchData = tabState?.currentBatchData;
-        const resultCount = batchData?.batchResult?.results?.length || 0;
-
-        // Gather essayData entries — prefer the tab's own state.
-        //
-        // tabState.essayData stores each essay TWICE: once under its numeric
-        // index and once under its alphanumeric essayId (see batch-processing.js
-        // — essayData[index] = essayData[resultId] = snapshot), for fast id-based
-        // lookup at runtime. But restore only ever reads the numeric-index keys
-        // (it matches /^essayData_(\d+)$/), so persisting the essayId-keyed copies
-        // doubled the essaySnapshots weight for nothing. Each snapshot holds the
-        // full essay text + grading result, so this duplication was a large chunk
-        // of the payload. Persist ONLY the numeric-index entries.
-        const essaySnapshots = {};
-        if (tabState && tabState.essayData) {
-            for (const [idx, ed] of Object.entries(tabState.essayData)) {
-                if (ed && /^\d+$/.test(String(idx))) {
-                    essaySnapshots[`essayData_${idx}`] = ed;
-                }
-            }
-        }
-
-        const renderedHTML = {};
-        const renderedHTMLEssayIds = {}; // index -> essayId, for swap-safe restore re-pairing
-        // NOTE: We intentionally do NOT capture the highlights-tab or
-        // highlights-content HTML anymore. Both are derived views, regenerated
-        // on demand from the essay's <mark> elements by populateHighlightsContent
-        // (display-utils.js) when the user opens the highlights tab/section.
-        // Since every manual highlight edit lives in those marks — which are
-        // inside renderedHTML, captured below — storing the rendered highlight
-        // HTML was pure duplication (2 extra full-HTML copies per essay) and a
-        // major driver of the 4.5MB payload 413s. Restore lazy-regenerates them,
-        // so nothing is lost. (removeAllStates is still captured below so the
-        // "remove all" toggle re-applies after regeneration.)
-        if (!omitHTML) {
-            for (let i = 0; i < resultCount; i++) {
-                const div = queryInTab(`#batch-essay-${i}`);
-                const hasContent = div && div.innerHTML.trim() && div.innerHTML.trim() !== 'Loading formatted result...';
-                if (hasContent) {
-                    renderedHTML[i] = div.innerHTML;
-                    // Record which essay this captured HTML belongs to, so that
-                    // on restore we inject it into the row with the matching
-                    // essayId rather than blindly by index (which slides if any
-                    // essay was missing).
-                    if (div.dataset && div.dataset.essayId) {
-                        renderedHTMLEssayIds[i] = div.dataset.essayId;
-                    }
-                }
-            }
-        }
-
-        // Gather mark-complete checkbox states
-        const completedEssays = {};
-        for (let i = 0; i < resultCount; i++) {
-            const cb = queryInTab(`.mark-complete-checkbox[data-student-index="${i}"]`);
-            if (cb && cb.checked) completedEssays[i] = true;
-        }
-
-        // Gather remove-all checkbox states
-        const removeAllStates = {};
-        for (let i = 0; i < resultCount; i++) {
-            const hlTabCb = queryInTab(`#highlights-tab-${i}-remove-all`);
-            if (hlTabCb && hlTabCb.checked) removeAllStates[`highlights-tab-content-${i}`] = true;
-            const hlContentCb = queryInTab(`#highlights-content-${i}-remove-all`);
-            if (hlContentCb && hlContentCb.checked) removeAllStates[`highlights-content-${i}`] = true;
-        }
-
-        // Per-tab score overrides — live inside tabState.batchGradingData now.
-        // Keep the saved-payload field name `scoreOverrides` so restoreTabDOM's
-        // existing `if (tabData.scoreOverrides)` check keeps working for both
-        // old and new payloads.
-        const bgd = tabState && tabState.batchGradingData;
-        const scoreOverrides = (bgd && Object.keys(bgd).length > 0) ? bgd : null;
-
-        return {
-            essaySnapshots,
-            renderedHTML,
-            renderedHTMLEssayIds,
-            completedEssays,
-            removeAllStates,
-            scoreOverrides,
-        };
+        return window.AutoSavePayload
+            && window.AutoSavePayload.gatherTabDOMState(tabId, tabState, omitHTML);
     }
 
-    /**
-     * Build the POST body for /api/grading-session.
-     *
-     * Phase 7: serializes ALL tabs via TabStore.serialize(), then augments
-     * each tab's snapshot with DOM-derived state (rendered HTML, checkbox
-     * states, etc.). Also builds a legacy `sessionData` field from the
-     * primary grading tab (the batch origin or active tab) for backward
-     * compat with old restore code.
-     *
-     * @param {boolean} omitHTML - If true, skip rendered HTML to keep payload small.
-     */
     function buildPayload(omitHTML) {
-        if (!window.TabStore) return null;
-
-        // When a batch is currently streaming, the active tab may not be the
-        // tab that owns the batch (user may have switched tabs mid-stream).
-        // Identify the "primary" tab for backward-compat sessionData.
-        const batchOriginId = (window.BatchProcessingModule
-            && typeof window.BatchProcessingModule.getBatchTabContext === 'function'
-            && window.BatchProcessingModule.getBatchTabContext())
-            || null;
-
-        const primaryTabId = batchOriginId || window.TabStore.activeId();
-        const primaryTabState = window.TabStore.get(primaryTabId) || window.TabStore.active();
-        const primaryBatchData = primaryTabState?.currentBatchData || window.currentBatchData;
-
-        // Diagnostic
-        const dbgCBDCount = primaryBatchData?.batchResult?.results?.length;
-        const dbgTabEssayCount = primaryTabState
-            ? Object.keys(primaryTabState.essayData || {}).length : 0;
-        console.log(
-            `[AutoSaveDiag] buildPayload entry: ` +
-            `currentBatchData.results=${dbgCBDCount ?? 'null'}, ` +
-            `tab essayData entries=${dbgTabEssayCount}, ` +
-            `tabs=${window.TabStore.count()}`
-        );
-
-        // Phase 7: Serialize the full TabStore state, then augment each tab
-        // with DOM-derived data (renderedHTML, checkbox states, etc.)
-        const tabStoreSnapshot = window.TabStore.serialize();
-        for (const tabSnapshot of tabStoreSnapshot.tabs) {
-            const tabState = window.TabStore.get(tabSnapshot.id);
-            const domState = gatherTabDOMState(tabSnapshot.id, tabState, omitHTML);
-            // Merge DOM state into the tab's snapshot
-            Object.assign(tabSnapshot, domState);
-        }
-
-        // Legacy sessionData: built from the PRIMARY tab (batch origin or
-        // active tab) for backward compat. If the old restore code runs
-        // (e.g., after a rollback to pre-Phase-7 code), it reads sessionData
-        // and restores that one tab's state correctly.
-        const primaryResultCount = primaryBatchData?.batchResult?.results?.length || 0;
-        let batchDataForPayload = primaryBatchData;
-        if (!batchDataForPayload && primaryTabState) {
-            // Reconstruct from essayData if batchData is missing
-            const results = [];
-            const essays = [];
-            for (let i = 0; i < 50; i++) {
-                const ed = primaryTabState.essayData?.[i];
-                if (ed) {
-                    results.push(ed.essay);
-                    essays.push(ed.originalData);
-                }
-            }
-            if (results.length > 0) {
-                batchDataForPayload = {
-                    batchResult: { results, totalEssays: results.length },
-                    originalData: { essays }
-                };
-            }
-        }
-        const primaryDOMState = gatherTabDOMState(primaryTabId, primaryTabState, omitHTML);
-
-        // Legacy sessionData (primary tab only). The current restore path uses
-        // tabStoreSnapshot (below); this block is ONLY consumed by the
-        // pre-Phase-7 legacy restore fallback (when a build that predates
-        // tabStoreSnapshot reads one of our saves — i.e. a rollback). The
-        // modern path never reads it.
-        //
-        // We intentionally DROP the primary tab's renderedHTML (+ essayIds)
-        // here. It is a full byte-for-byte duplicate of
-        // tabStoreSnapshot.tabs[primary].renderedHTML and was the single
-        // largest payload contributor — for a single-tab session it roughly
-        // DOUBLED the rendered-HTML cost (measured: ~430KB of a 0.94MB 7-essay
-        // save), eating the very ceiling headroom this branch exists to
-        // protect. The rollback fallback still restores with NO data loss:
-        // currentBatchData + essaySnapshots below are enough for pre-Phase-7
-        // code to rebuild each essay by re-rendering through /format (slower,
-        // but lossless). highlightsTabHTML/highlightsContentHTML were already
-        // dropped earlier for the same regenerable-duplication reason.
-        const sessionData = {
-            currentBatchData: batchDataForPayload,
-            essaySnapshots: primaryDOMState.essaySnapshots,
-            // Per-tab score overrides are now captured inside gatherTabDOMState
-            // for each tab. Legacy sessionData reflects the primary tab only,
-            // which matches how old singleton-based saves worked.
-            scoreOverrides: primaryDOMState.scoreOverrides,
-            completedEssays: primaryDOMState.completedEssays,
-            removeAllStates: primaryDOMState.removeAllStates,
-            gradingInProgress,
-        };
-
-        // Diagnostics
-        const snapshotCount = Object.keys(primaryDOMState.essaySnapshots).length;
-        const renderedCount = Object.keys(primaryDOMState.renderedHTML).length;
-        if (snapshotCount < primaryResultCount) {
-            console.warn(
-                `[AutoSave] buildPayload: snapshot/result MISMATCH — ` +
-                `resultCount=${primaryResultCount}, essaySnapshots=${snapshotCount}, ` +
-                `renderedHTML=${renderedCount}.`
-            );
-        } else {
-            console.log(
-                `[AutoSave] buildPayload: resultCount=${primaryResultCount}, ` +
-                `essaySnapshots=${snapshotCount}, renderedHTML=${renderedCount}, ` +
-                `tabs=${tabStoreSnapshot.tabs.length}`
-            );
-        }
-
-        return {
-            activeTab: 'gpt-grader', // legacy
-            sessionData,              // legacy (primary tab only)
-            tabStoreSnapshot,          // Phase 7: ALL tabs
-        };
+        return window.AutoSavePayload
+            ? window.AutoSavePayload.buildPayload(omitHTML)
+            : null;
     }
 
-    /**
-     * Current autosave capacity as a percent of the ceiling (0–100+, clamped at
-     * display time). 100% = the hard stop. Exposed for the grading-complete
-     * banner.
-     */
+    // --- Cluster D (capacity/budget) — thin delegators to auto-save-capacity.js ---
+    // Implementations + state live in window.AutoSaveCapacity (loaded before this file).
+
     function getCapacityPercent() {
-        return Math.round((lastPayloadBytes / PAYLOAD_CEILING_BYTES) * 100);
+        return window.AutoSaveCapacity ? window.AutoSaveCapacity.getCapacityPercent() : 0;
     }
 
-    /**
-     * Measure the serialized payload against the budget, update the persistent
-     * capacity chip, fire escalating warnings on upward threshold crossings, and
-     * flip the edit-block at the ceiling. Byte length is measured as UTF-8 (what
-     * actually travels on the wire), not string length.
-     * @param {string} body - the JSON.stringify'd payload
-     */
     function evaluatePayloadBudget(body) {
-        let bytes;
-        try {
-            bytes = (typeof TextEncoder !== 'undefined')
-                ? new TextEncoder().encode(body).length
-                : body.length; // fallback: approx (ASCII-ish)
-        } catch (e) {
-            bytes = body.length;
-        }
-        lastPayloadBytes = bytes;
-        const pct = getCapacityPercent();
-
-        // Update the persistent pill every save.
-        updateCapacityChip(pct);
-
-        if (bytes >= PAYLOAD_CEILING_BYTES) {
-            // At/over the ceiling — block payload-growing edits.
-            payloadOverBudget = true;
-        } else {
-            // Back under the ceiling (e.g. a tab was cleared) — re-enable edits.
-            payloadOverBudget = false;
-            // We've dropped under 100%, so re-arm the full banner: if capacity
-            // climbs back to the ceiling later, the (non-sticky) full banner
-            // should show again even if it was dismissed before.
-            capacityFullDismissed = false;
-        }
-
-        // Drive the single self-updating capacity banner. It shows from 70% up,
-        // morphs warn→full at 100%, tracks the live %, and honors the dismissal
-        // rules (warning sticky for the session; full re-showable). Replaces the
-        // old per-threshold stacked toasts.
-        updateCapacityBanner(pct);
-
-        console.log(`[AutoSave] payload size: ${(bytes / 1_000_000).toFixed(2)}MB ` +
-            `(${pct}% of ceiling ${(PAYLOAD_CEILING_BYTES / 1_000_000).toFixed(1)}MB, overBudget=${payloadOverBudget})`);
+        if (window.AutoSaveCapacity) window.AutoSaveCapacity.evaluatePayloadBudget(body);
     }
 
-    /**
-     * Measure current capacity and reveal the pill WITHOUT performing a network
-     * save. Used on page load so a restored session shows its capacity right
-     * away, instead of the pill staying hidden until the user's first edit (the
-     * old behavior — the chip only updated inside doSave()). Skips entirely when
-     * there's no real grading content yet, so an empty fresh form doesn't show a
-     * "0%" pill until there's actually something to report.
-     */
     function refreshCapacityDisplay() {
-        const payload = buildPayload();
-        if (!payloadHasResults(payload)) return; // nothing graded yet — keep the pill hidden
-        evaluatePayloadBudget(JSON.stringify(payload));
+        if (window.AutoSaveCapacity) window.AutoSaveCapacity.refreshCapacityDisplay();
     }
 
-    /**
-     * Update the always-present "Autosave N%" capacity pill anchored to the
-     * RIGHT edge of the tab bar (markup in index.html: #autosaveCapacityChip).
-     * Color shifts green → amber → red as capacity climbs; at 90%+ it appends a
-     * short action hint. Hidden until there's something to report — revealed on
-     * page load for a restored session (refreshCapacityDisplay) or on the first
-     * save, whichever comes first.
-     *
-     * The pill is a permanent sibling of the .tab-list lane, so renderTabBar()
-     * — which rewrites only .tab-list's innerHTML — never destroys it. CSS
-     * pins it right and forbids it from shrinking, and caps the tab lane to the
-     * space left of it, so tabs compress to fit instead of pushing the pill
-     * around or off-screen (the old "weird things with multiple tabs").
-     * @param {number} pct
-     */
     function updateCapacityChip(pct) {
-        try {
-            const chip = document.getElementById('autosaveCapacityChip');
-            const textEl = document.getElementById('autosaveCapacityChipText');
-            if (!chip || !textEl) return;
-
-            // Show the TRUE percent, including above 100%, so the teacher sees
-            // they've gone PAST the ceiling (e.g. "Autosave 110%"), not just "at"
-            // it. Only the lower bound is clamped (never negative).
-            const shown = Math.max(0, Math.round(pct));
-
-            // Reveal on first real measurement.
-            if (chip.hidden) chip.hidden = false;
-
-            // Color band → CSS class. Over 100% gets a distinct darker-red band.
-            chip.classList.remove('is-ok', 'is-warn', 'is-full', 'is-over');
-            if (shown < 70) chip.classList.add('is-ok');
-            else if (shown < 90) chip.classList.add('is-warn');
-            else if (shown <= 100) chip.classList.add('is-full');
-            else chip.classList.add('is-over');
-
-            const hint = shown >= 90 ? ' — clear a tab' : '';
-            textEl.textContent = `Autosave ${shown}%${hint}`;
-        } catch (e) {
-            // Cosmetic only — never let the chip break saving.
-            console.warn('[AutoSave] capacity chip update skipped:', e && e.message);
-        }
+        if (window.AutoSaveCapacity) window.AutoSaveCapacity.updateCapacityChip(pct);
     }
 
-    /**
-     * Whether the current session payload is at/over the size ceiling. Edit
-     * handlers that would GROW the payload (new highlights, comment/note text)
-     * consult this to block themselves, so the teacher never makes changes that
-     * would silently fail to save. Returns false if AutoSave isn't active.
-     */
     function isPayloadOverBudget() {
-        return payloadOverBudget === true;
+        return !!(window.AutoSaveCapacity && window.AutoSaveCapacity.isPayloadOverBudget());
     }
 
     /**
@@ -2042,38 +1284,13 @@
             // Highlight click handlers
             if (window.HighlightingModule) {
                 if (essayContainer) {
-                    const highlights = essayContainer.querySelectorAll(
-                        'span[style*="background"], span[class*="highlight"], span[style*="color"], mark[data-type], mark.highlighted-segment, mark[data-category]'
-                    );
-                    highlights.forEach(function (element) {
-                        // NEVER treat a teacher-note element as a highlight. The
-                        // note span (edited → inline background) and its
-                        // .edit-indicator ✎ (color: #666) match the broad selector
-                        // above; branding them attached a capture-phase editHighlight
-                        // listener that stopPropagation()'d the note's own edit click
-                        // ("can't edit the teacher note"). This loop re-runs on every
-                        // restore, so guarding it here makes reload self-heal. ROOT fix.
-                        if (element.closest('.teacher-notes')) return;
-                        element.style.cursor = 'pointer';
-                        element.addEventListener(
-                            'click',
-                            function (e) {
-                                e.stopPropagation();
-                                e.preventDefault();
-                                if (window.HighlightingModule) {
-                                    window.HighlightingModule.editHighlight(this);
-                                }
-                            },
-                            true
-                        );
-                        element.addEventListener(
-                            'mousedown',
-                            function (e) {
-                                e.stopPropagation();
-                            },
-                            true
-                        );
-                    });
+                    // Wire legacy/GPT highlight spans via the shared helper (the
+                    // broad selector + .teacher-notes guard + capture-phase
+                    // listeners live in highlighting.js, shared with the
+                    // initial-render path in batch-processing.js so they can't
+                    // drift). Restore doesn't re-brand: the saved HTML already
+                    // carries data-category/title, so brandCategory is omitted.
+                    window.HighlightingModule.wireLegacyHighlightSpans(essayContainer);
                     // Scope to the color-coded essay, NOT the whole #batch-essay-N
                     // row — the row also contains the teacher-notes block, and the
                     // un-scoped call would re-wire note descendants as highlights.
@@ -2163,7 +1380,18 @@
                 }
             } else if (type === 'content') {
                 const contentId = `highlights-content-${index}`;
-                const checkbox = document.getElementById(`${contentId}-remove-all`);
+                // Tab-scope the lookup: highlights-content-N-remove-all ids repeat
+                // across panes (N restarts per tab, inactive panes stay in the DOM),
+                // so a bare getElementById grabs the FIRST tab's checkbox — wrong
+                // essay on a multi-tab restore. Scope to the tab's pane, and use
+                // the [id="…"] attribute selector (not `#id`) because querySelector
+                // with `#dupId` is unreliable under duplicate ids; the attribute
+                // form resolves the per-pane element in both browsers and jsdom.
+                const pane = (window.TabStore && scopedTabId)
+                    ? window.TabStore.paneForTab(scopedTabId) : null;
+                const checkbox = pane
+                    ? pane.querySelector(`[id="${contentId}-remove-all"]`)
+                    : document.getElementById(`${contentId}-remove-all`);
                 if (checkbox) {
                     checkbox.removeAttribute('data-setup-complete');
                     if (window.DisplayUtilsModule && window.DisplayUtilsModule.setupRemoveAllCheckbox) {
@@ -2325,5 +1553,10 @@
         // toast-style messages with consistent styling. Levels: 'ok' (green,
         // 5s), 'warn' (yellow, persistent), 'error' (red, 8s).
         showToast,
+        // Exposed for tests only (no production caller): lets the regression net
+        // drive the legacy-restore highlight reattach directly to pin the
+        // per-tab scoping of the remove-all checkbox lookup (the 'content'
+        // branch's tab-scope fix). Not part of the public API contract.
+        _reattachHighlightsHandlers: reattachHighlightsHandlers,
     };
 })();

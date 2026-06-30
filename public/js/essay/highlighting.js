@@ -1542,6 +1542,91 @@ function migrateLegacyHighlights(container = document) {
 }
 
 /**
+ * The broad selector both legacy highlight-wiring loops use to find GPT
+ * highlight spans/marks. Single source of truth — batch-processing.js (initial
+ * render) and auto-save.js (restore/reattach) both wire through
+ * wireLegacyHighlightSpans() so this selector and the .teacher-notes guard can
+ * never drift between the two paths (their drift was the root of the
+ * note-branded-as-highlight bug, faf32bd).
+ */
+const LEGACY_HIGHLIGHT_SELECTOR = 'span[style*="background"], span[class*="highlight"], span[style*="color"], mark[data-type], mark.highlighted-segment, mark[data-category]';
+
+/**
+ * Wire legacy/GPT highlight spans inside a container with click-to-edit
+ * behavior. Extracted from two near-identical loops (batch-processing.js ~845
+ * initial render; auto-save.js ~2046 restore) so the broad selector, the
+ * .teacher-notes guard, and the capture-phase listeners live in ONE place.
+ *
+ * NEVER treats a teacher-note element as a highlight: the note block lives
+ * inside #batch-essay-N (a sibling of .formatted-essay-content), and its edited
+ * content span (inline background) and .edit-indicator ✎ (color:#666) both match
+ * the broad selector. Branding them force-set data-category and bolted on a
+ * capture-phase listener whose stopPropagation() killed the note's own edit
+ * click ("can't edit the teacher note"). The .teacher-notes guard is the root
+ * fix (faf32bd) and is shared here so it can't be forgotten on one path.
+ *
+ * @param {HTMLElement} container - the row/essay container to scan
+ * @param {Object} [options]
+ * @param {boolean} [options.brandCategory=false] - when true (initial render),
+ *   also resolve and stamp data-category / data-originalText / title on each
+ *   wired element. The restore path leaves these as-is (the saved HTML already
+ *   carries them), so it passes false.
+ */
+function wireLegacyHighlightSpans(container, options) {
+    if (!container) return;
+    const brandCategory = !!(options && options.brandCategory);
+    const elements = container.querySelectorAll(LEGACY_HIGHLIGHT_SELECTOR);
+
+    elements.forEach((element) => {
+        // ROOT GUARD: skip anything inside a teacher-notes block (see above).
+        if (element.closest('.teacher-notes')) return;
+
+        if (brandCategory) {
+            // Resolve category via the single source of truth: persisted
+            // data-category / data-type (canonical id or alias), then class
+            // name, then the strikethrough → delete cue.
+            let category = null;
+            const resolveCat = (val) => {
+                const cat = val && window.CATEGORIES && window.CATEGORIES.getCategory(val);
+                return cat ? cat.id : null;
+            };
+            category = resolveCat(element.dataset.category) || resolveCat(element.dataset.type) || null;
+            if (!category && element.className) {
+                for (const c of (window.CATEGORIES ? window.CATEGORIES.CATEGORY_LIST : [])) {
+                    if (element.className.includes(c.id)) { category = c.id; break; }
+                }
+            }
+            if (!category && element.style.textDecoration?.includes('line-through')) {
+                category = 'delete';
+            }
+            if (!category) category = 'unknown';
+
+            element.dataset.category = category;
+            element.dataset.originalText = element.textContent;
+            element.title = `Click to edit ${category} highlight`;
+        }
+
+        element.style.cursor = 'pointer';
+
+        // Capture-phase click → open the highlight editor (and stop the event
+        // before it reaches other handlers). Capture phase mirrors the original
+        // loops' behavior.
+        element.addEventListener('click', function (e) {
+            e.stopPropagation();
+            e.preventDefault();
+            if (window.HighlightingModule) {
+                window.HighlightingModule.editHighlight(this);
+            }
+        }, true);
+
+        // Backup mousedown swallow (capture phase), same as the originals.
+        element.addEventListener('mousedown', function (e) {
+            e.stopPropagation();
+        }, true);
+    });
+}
+
+/**
  * Ensure all highlights in container have click handlers
  * @param {HTMLElement} container - Container element
  */
@@ -1691,6 +1776,7 @@ window.HighlightingModule = {
     getAllHighlights,
     clearAllHighlights,
     migrateLegacyHighlights,
+    wireLegacyHighlightSpans,
     ensureHighlightClickHandlers,
     mapLegacyCategory,
     exportHighlightsData,

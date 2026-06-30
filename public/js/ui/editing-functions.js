@@ -356,17 +356,11 @@ function editStat(element, statType) {
                         currentData.scores[category].out_of = maxPoints;
                     }
                 }
-                // For manual grading
-                else if (window.ManualGradingModule && window.ManualGradingModule.updateCategoryScore) {
-                    window.ManualGradingModule.updateCategoryScore(category, points, maxPoints);
-                }
             }
 
             // Update total score with correct context
             if (typeof updateTotalScore === 'function') {
                 updateTotalScore(essayIndex); // Pass the essay index if available
-            } else if (window.ManualGradingModule && window.ManualGradingModule.updateManualTotalScore) {
-                window.ManualGradingModule.updateManualTotalScore();
             }
 
             // Recolor the score to track the new value (green for high, red for

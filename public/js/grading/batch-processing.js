@@ -840,74 +840,13 @@ function loadEssayDetails(index, essayId = null) {
                     if (window.HighlightingModule) {
                         const essayContainer = tabScopedQuery(`#batch-essay-${index}`);
                         if (essayContainer) {
-                            // Check for both span and mark elements from GPT highlighting
-                            // Keep this selector in sync with the sibling loop in auto-save.js.
-                            const gptHighlights = essayContainer.querySelectorAll('span[style*="background"], span[class*="highlight"], span[style*="color"], mark[data-type], mark.highlighted-segment, mark[data-category]');
-
-                            // Add click handlers to GPT highlights
-                            gptHighlights.forEach((element, i) => {
-                                // NEVER treat a teacher-note element as a highlight.
-                                // The note block lives inside #batch-essay-N (outside
-                                // .formatted-essay-content), and its content span (once
-                                // edited → inline background) and .edit-indicator ✎
-                                // (color: #666) both match the broad selector above.
-                                // Branding them here force-set data-category and bolted
-                                // on a capture-phase editHighlight listener that
-                                // stopPropagation()'d the note's own editTeacherNotes
-                                // click — i.e. "can't edit the teacher note" + note
-                                // rendered as a highlight. This is the ROOT of that bug.
-                                if (element.closest('.teacher-notes')) return;
-
-                                // Resolve category via the single source of truth.
-                                // Prefer the persisted data-category / data-type
-                                // (canonical id or alias), then fall back to the
-                                // class name, then the strikethrough → delete cue.
-                                let category = 'unknown';
-
-                                const resolveCat = (val) => {
-                                    const cat = val && window.CATEGORIES && window.CATEGORIES.getCategory(val);
-                                    return cat ? cat.id : null;
-                                };
-
-                                category = resolveCat(element.dataset.category)
-                                    || resolveCat(element.dataset.type)
-                                    || null;
-
-                                if (!category && element.className) {
-                                    // Legacy: id embedded in a class like "highlight-<id>".
-                                    for (const c of (window.CATEGORIES ? window.CATEGORIES.CATEGORY_LIST : [])) {
-                                        if (element.className.includes(c.id)) { category = c.id; break; }
-                                    }
-                                }
-
-                                if (!category && element.style.textDecoration?.includes('line-through')) {
-                                    category = 'delete';
-                                }
-
-                                if (!category) {
-                                    category = 'unknown';
-                                }
-
-                                // Add required attributes
-                                element.dataset.category = category;
-                                element.dataset.originalText = element.textContent;
-                                element.style.cursor = 'pointer';
-                                element.title = `Click to edit ${category} highlight`;
-
-                                // Add click handler with capturing
-                                element.addEventListener('click', function(e) {
-                                    e.stopPropagation();
-                                    e.preventDefault();
-                                    if (window.HighlightingModule) {
-                                        window.HighlightingModule.editHighlight(this);
-                                    }
-                                }, true); // Use capturing phase
-
-                                // Also add mousedown handler as backup
-                                element.addEventListener('mousedown', function(e) {
-                                    e.stopPropagation();
-                                }, true);
-                            });
+                            // Wire legacy/GPT highlight spans via the shared helper
+                            // (broad selector + .teacher-notes guard + capture-phase
+                            // listeners live in highlighting.js, shared with the
+                            // restore path in auto-save.js so they can't drift). This
+                            // is the initial render, so brandCategory:true resolves and
+                            // stamps data-category / data-originalText / title.
+                            window.HighlightingModule.wireLegacyHighlightSpans(essayContainer, { brandCategory: true });
 
                             // Still run the original function for mark elements.
                             // Scope to the color-coded essay, NOT the whole

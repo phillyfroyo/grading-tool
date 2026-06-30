@@ -4,19 +4,6 @@
  */
 
 /**
- * Display results for a single essay
- * @param {Object} gradingResult - The grading result from the server
- * @param {Object} originalData - The original form data
- */
-function displayResults(gradingResult, originalData) {
-    if (window.SingleResultModule) {
-        window.SingleResultModule.displayResults(gradingResult, originalData);
-    } else {
-        console.error('SingleResultModule not available');
-    }
-}
-
-/**
  * Display batch grading results
  * @param {Object} batchResult - The batch grading result
  * @param {Object} originalData - The original form data
@@ -522,26 +509,6 @@ function getCurrentOriginalData() {
     return null;
 }
 
-/**
- * Create HTML for single essay display
- * @param {string} studentName - Student name
- * @param {Object} formatted - Formatted essay data
- * @returns {string} HTML string
- */
-function createSingleEssayHTML(studentName, formatted) {
-    if (window.DisplayUtilsModule) {
-        return window.DisplayUtilsModule.createSingleEssayHTML(studentName, formatted);
-    }
-
-    // Fallback implementation
-    return `
-        <h2>Grading Results for ${studentName}</h2>
-        ${formatted.feedbackSummary || ''}
-        <div class="formatted-essay-content">
-            ${formatted.formattedText || ''}
-        </div>
-    `;
-}
 
 /**
  * Create HTML for batch essay display
@@ -700,7 +667,6 @@ function getGradingDisplayStatus() {
 }
 
 // Backward compatibility: expose functions globally for existing code
-window.displayResults = displayResults;
 window.displayBatchResults = displayBatchResults;
 window.setupEditableElements = setupEditableElements;
 window.updateTotalScore = updateTotalScore;
@@ -712,11 +678,9 @@ window.downloadIndividualEssay = downloadIndividualEssay;
 window.downloadAllEssays = downloadAllEssays;
 window.getCurrentGradingData = getCurrentGradingData;
 window.getCurrentOriginalData = getCurrentOriginalData;
-window.createSingleEssayHTML = createSingleEssayHTML;
 
 // Export main module
 window.GradingDisplayModule = {
-    displayResults,
     displayBatchResults,
     setupEditableElements,
     updateTotalScore,
@@ -728,7 +692,6 @@ window.GradingDisplayModule = {
     downloadAllEssays,
     getCurrentGradingData,
     getCurrentOriginalData,
-    createSingleEssayHTML,
     createBatchEssayHTML,
     createStudentRowHTML,
     createBatchResultsHTML,

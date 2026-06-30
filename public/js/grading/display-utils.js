@@ -9,42 +9,6 @@
  * @param {Object} formatted - Formatted essay data
  * @returns {string} HTML string
  */
-function createSingleEssayHTML(studentName, formatted) {
-    return `
-        <h2>Grading Results for ${studentName}</h2>
-        ${formatted.feedbackSummary}
-        <h3 style="margin: 20px 0 10px 0;">Color-Coded Essay:</h3>
-        <div id="essayContainer" style="border: 1px solid #ddd; border-radius: 4px;">
-            <!-- Category selector bar -->
-            <div id="categoryBar" style="padding: 10px 10px 6px 10px; background: #f8f9fa; border-bottom: 1px solid #ddd; border-radius: 4px 4px 0 0;">
-                <div style="margin-bottom: 10px; font-weight: bold; font-size: 14px;">Select category then highlight text, or highlight text then select category:</div>
-                <div id="categoryButtons" style="display: flex; flex-wrap: wrap; gap: 8px;">
-                    ${createCategoryButtons()}
-                    <button id="clearSelectionBtn" onclick="clearSelection()" style="background: #f5f5f5; color: #666; border: 2px solid #ccc; padding: 8px 12px; border-radius: 4px; cursor: pointer; margin-left: 10px;">Clear Selection</button>
-                </div>
-                <div id="selectionStatus" style="margin-top: 2px; font-size: 12px; color: #666; min-height: 10px;"></div>
-            </div>
-            <!-- Essay text area -->
-            <div class="formatted-essay-content" style="padding: 15px; line-height: 1.6; user-select: text;">
-                ${formatted.formattedText}
-            </div>
-            <!-- Color Legend -->
-            ${createColorLegend()}
-        </div>
-
-        <!-- Highlights and Corrections Section -->
-        ${createHighlightsUISection()}
-
-        <div style="margin-top: 20px; display: flex; gap: 10px; align-items: center;">
-            <button data-action="export-pdf">Export to PDF</button>
-            <button onclick="saveEssayToAccount(this, 0)"
-                    style="background: #28a745; color: white; border: none; padding: 10px 20px; border-radius: 6px; font-size: 15px; cursor: pointer; font-weight: 600; box-shadow: 0 2px 4px rgba(0,0,0,0.1); transition: all 0.2s;"
-                    onmouseover="this.style.background='#218838'; this.style.transform='translateY(-2px)'"
-                    onmouseout="this.style.background='#28a745'; this.style.transform='translateY(0)'">Save Essay</button>
-        </div>
-    `;
-}
-
 /**
  * Create HTML for batch essay display
  * @param {Object} formatted - Formatted essay data
@@ -331,64 +295,11 @@ function createErrorHTML(message = 'An error occurred', details = '') {
     `;
 }
 
-/**
- * Create collapsible highlights and corrections section for UI
- * @param {number|string} essayIndex - Optional essay index for batch processing
- * @returns {string} HTML string for highlights section
- */
-function createHighlightsUISection(essayIndex = '') {
-    const containerId = essayIndex !== '' ? `highlights-section-${essayIndex}` : 'highlights-section';
-    const contentId = essayIndex !== '' ? `highlights-content-${essayIndex}` : 'highlights-content';
-
-    return `
-        <div class="highlights-ui-section no-print" style="margin: 20px 0; border: 1px solid #ddd; border-radius: 8px; overflow: hidden;">
-            <!-- Single full-width clickable title bar. The "Remove all from PDF"
-                 control now lives INSIDE the dropdown body (top of the highlights
-                 list). No carrot, hover-fills. -->
-            <div
-                onclick="toggleHighlightsSection('${contentId}')"
-                style="
-                    padding: 12px 18px;
-                    min-height: 44px;
-                    box-sizing: border-box;
-                    background: #f8f9fa;
-                    border-bottom: 1px solid #ddd;
-                    user-select: none;
-                    cursor: pointer;
-                    display: flex;
-                    align-items: center;
-                    transition: background-color 0.2s;
-                "
-                onmouseover="this.style.backgroundColor='#e9ecef'"
-                onmouseout="this.style.backgroundColor='#f8f9fa'"
-            >
-                <span style="font-weight: 600; font-size: 13px;">Manage 'Highlights and Corrections' as seen on the exported PDF</span>
-            </div>
-            <div
-                id="${contentId}"
-                style="
-                    max-height: 0;
-                    overflow: hidden;
-                    transition: max-height 0.3s ease-out;
-                    background: white;
-                "
-            >
-                <div id="${contentId}-inner" style="padding: 20px;">
-                    <!-- Content will be populated dynamically -->
-                    <p style="color: #666; font-style: italic;">Loading highlights...</p>
-                </div>
-            </div>
-        </div>
-    `;
-}
-
 // Export functions for module usage
 window.DisplayUtilsModule = {
-    createSingleEssayHTML,
     createBatchEssayHTML,
     createCategoryButtons,
     createColorLegend,
-    createHighlightsUISection,
     createStudentRowHTML,
     createBatchResultsHTML,
     createLoadingSpinner,
@@ -404,69 +315,18 @@ window.DisplayUtilsModule = {
 window.syncAllRemoveAllStateToMarks = syncAllRemoveAllStateToMarks;
 
 /**
- * Toggle the highlights and corrections section
- * @param {string} contentId - ID of the content div to toggle
- */
-function toggleHighlightsSection(contentId) {
-    const content = document.getElementById(contentId);
-    const arrow = document.getElementById(`${contentId}-arrow`);
-
-    // Arrow is optional now (the redesigned header drops the carrot); only the
-    // content element is required for the toggle to work.
-    if (!content) return;
-
-    if (content.style.maxHeight === '0px' || content.style.maxHeight === '') {
-        // Expand
-        if (arrow) arrow.style.transform = 'rotate(180deg)';
-
-        // First, populate content (if not already done)
-        populateHighlightsContent(contentId);
-
-        // Use a large fixed maxHeight value to avoid calculation issues
-        // This is simpler and more reliable than trying to calculate scrollHeight during transitions
-        content.style.maxHeight = '10000px';
-
-        // Expand parent student-details after the highlights section transition completes
-        // CSS transition is 0.3s (300ms), so wait for it to finish
-        setTimeout(() => {
-            const match = contentId.match(/highlights-content-(\d+)/);
-            if (match) {
-                const essayIndex = match[1];
-                const studentDetails = window.TabStore
-                    ? window.TabStore.activeQuery(`#student-details-${essayIndex}`)
-                    : document.getElementById(`student-details-${essayIndex}`);
-                if (studentDetails && studentDetails.style.maxHeight !== '0px') {
-                    studentDetails.style.maxHeight = studentDetails.scrollHeight + 2000 + 'px';
-                }
-            }
-        }, 350);
-    } else {
-        // Collapse
-        content.style.maxHeight = '0px';
-        if (arrow) arrow.style.transform = 'rotate(0deg)';
-
-        // Also recalculate parent student-details height
-        const match = contentId.match(/highlights-content-(\d+)/);
-        if (match) {
-            const essayIndex = match[1];
-            const studentDetails = window.TabStore
-                ? window.TabStore.activeQuery(`#student-details-${essayIndex}`)
-                : document.getElementById(`student-details-${essayIndex}`);
-            if (studentDetails && studentDetails.style.maxHeight !== '0px') {
-                setTimeout(() => {
-                    studentDetails.style.maxHeight = studentDetails.scrollHeight + 'px';
-                }, 50);
-            }
-        }
-    }
-}
-
-/**
  * Populate the highlights section with actual content
  * @param {string} contentId - ID of the content div
  */
 function populateHighlightsContent(contentId) {
-    const contentInner = document.getElementById(`${contentId}-inner`);
+    // Tab-scope the -inner lookup: contentId is index-bearing and not unique
+    // across tabs (inactive panes stay in the DOM), so a bare getElementById
+    // could populate the WRONG tab's container (its essay lookup below is
+    // already active-tab-scoped, so a mismatch would build one tab's dropdown
+    // into another's). [id="…"] attribute selector is robust under duplicate ids.
+    const contentInner = window.TabStore
+        ? window.TabStore.activeQuery(`[id="${contentId}-inner"]`)
+        : document.getElementById(`${contentId}-inner`);
     if (!contentInner) return;
 
     // Check if already populated
@@ -867,8 +727,16 @@ function createHighlightsLegendHTML(highlightsData, contentId = '') {
  * @param {string} contentId - ID of the content div to refresh
  */
 function refreshHighlightsSection(contentId) {
-    const content = document.getElementById(contentId);
-    const contentInner = document.getElementById(`${contentId}-inner`);
+    // Tab-scope these lookups: contentId is index-bearing and not unique across
+    // tabs (inactive panes stay in the DOM), so a bare getElementById would
+    // refresh the WRONG tab's section. Scope to the active tab via an [id="…"]
+    // attribute selector (robust under duplicate ids across panes).
+    const content = window.TabStore
+        ? window.TabStore.activeQuery(`[id="${contentId}"]`)
+        : document.getElementById(contentId);
+    const contentInner = window.TabStore
+        ? window.TabStore.activeQuery(`[id="${contentId}-inner"]`)
+        : document.getElementById(`${contentId}-inner`);
     if (!contentInner) {
         return;
     }
@@ -1415,9 +1283,6 @@ if (document.readyState === 'loading') {
 } else {
     setupHighlightChangeListeners();
 }
-
-// Make toggle function globally available
-window.toggleHighlightsSection = toggleHighlightsSection;
 
 /**
  * Save an essay to the user's account

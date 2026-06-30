@@ -395,55 +395,7 @@
         </div>
     </div>
 
-    <!-- Test function for manual grading -->
     <script>
-        function testManualGrading() {
-            console.log('🧪 TESTING MANUAL GRADING DISPLAY...');
-
-            const testResult = {
-                studentName: "Test Student",
-                essayText: "This is a test essay. It has multiple sentences. This helps us test the formatting and display functionality.",
-                scores: {
-                    grammar: { points: 12, out_of: 15, rationale: "Some grammar issues to address." },
-                    vocabulary: { points: 11, out_of: 15, rationale: "Nice vocabulary choices." },
-                    spelling: { points: 12, out_of: 15, rationale: "A few spelling errors noted." },
-                    mechanics: { points: 13, out_of: 15, rationale: "Excellent mechanics and punctuation." },
-                    fluency: { points: 7, out_of: 10, rationale: "Could improve fluency and flow." },
-                    layout: { points: 14, out_of: 15, rationale: "Good layout and formatting." },
-                    content: { points: 12, out_of: 15, rationale: "Good content overall." }
-                },
-                feedback: {
-                    grammar: "Some grammar issues to address.",
-                    vocabulary: "Nice vocabulary choices.",
-                    spelling: "A few spelling errors noted.",
-                    mechanics: "Excellent mechanics and punctuation.",
-                    fluency: "Could improve fluency and flow.",
-                    layout: "Good layout and formatting.",
-                    content: "Good content overall."
-                },
-                overallFeedback: "This is a test of the manual grading system. The student shows promise.",
-                totalScore: 80,
-                totalMax: 100,
-                percentage: 80,
-                isManual: true,
-                timestamp: new Date().toISOString()
-            };
-
-            console.log('📊 Test result object:', testResult);
-
-            // Check if the function exists
-            if (window.UIInteractionsModule && window.UIInteractionsModule.displayManualGradingResults) {
-                console.log('✅ Found displayManualGradingResults in UIInteractionsModule');
-                window.UIInteractionsModule.displayManualGradingResults(testResult);
-            } else if (window.displayManualGradingResults) {
-                console.log('✅ Found global displayManualGradingResults function');
-                window.displayManualGradingResults(testResult);
-            } else {
-                console.error('❌ displayManualGradingResults function not found!');
-                console.log('Available window properties:', Object.keys(window).filter(k => k.includes('Manual') || k.includes('UI')));
-            }
-        }
-
         function debugJS() {
             console.log('=== JAVASCRIPT DEBUG INFO ===');
             console.log('Available modules:');
@@ -473,7 +425,7 @@
     <script type="module" src="/js/core/utils.js?v=14"></script>
     <script type="module" src="/js/core/logger.js?v=14"></script>
     <script type="module" src="/js/core/eventBus.js?v=14"></script>
-    <script type="module" src="/js/core/event-delegation.js?v=14"></script>
+    <script type="module" src="/js/core/event-delegation.js?v=15"></script>
     <script type="module" src="/js/core/dependency-container.js?v=14"></script>
     <script type="module" src="/js/core/service-registry.js?v=14"></script>
 
@@ -484,29 +436,32 @@
     <script src="/js/ui/tab-store.js?v=1"></script>
     <script src="/js/ui/tab-management.js?v=15"></script>
     <script src="/js/ui/modals.js?v=22"></script>
-    <script src="/js/ui/form-handling.js?v=34"></script>
-    <script src="/js/ui/editing-functions.js?v=26"></script>
-    <script src="/js/ui/manual-grading.js?v=16"></script>
-    <script src="/js/ui/ui-interactions-main.js?v=15"></script>
+    <script src="/js/ui/form-handling.js?v=35"></script>
+    <script src="/js/ui/editing-functions.js?v=27"></script>
+    <script src="/js/ui/ui-interactions-main.js?v=16"></script>
 
     <!-- Essay Modules -->
     <script src="/js/essay/text-selection.js?v=17"></script>
     <script src="/js/essay/category-selection.js?v=16"></script>
-    <script src="/js/essay/highlighting.js?v=25"></script>
+    <script src="/js/essay/highlighting.js?v=26"></script>
     <script src="/js/essay/essay-formatter.js?v=14"></script>
     <script src="/js/essay/essay-editing-main.js?v=14"></script>
 
     <!-- Grading Modules (ES6) -->
-    <script src="/js/grading/display-utils.js?v=46"></script>
-    <script src="/js/grading/single-result.js?v=19"></script>
-    <script src="/js/grading/batch-processing.js?v=29"></script>
-    <script src="/js/grading/grading-display-main.js?v=20"></script>
-    <script src="/js/grading/auto-save.js?v=37"></script>
+    <script src="/js/grading/display-utils.js?v=49"></script>
+    <script src="/js/grading/single-result.js?v=20"></script>
+    <script src="/js/grading/batch-processing.js?v=30"></script>
+    <script src="/js/grading/grading-display-main.js?v=21"></script>
+    <script src="/js/grading/auto-save-grading.js?v=1"></script>
+    <script src="/js/grading/auto-save-ui.js?v=1"></script>
+    <script src="/js/grading/auto-save-payload.js?v=1"></script>
+    <script src="/js/grading/auto-save-capacity.js?v=1"></script>
+    <script src="/js/grading/auto-save.js?v=43"></script>
 
     <!-- Other Modules -->
     <script src="/js/profiles.js?v=24"></script>
     <script src="/js/essay-management.js?v=17"></script>
-    <script src="/js/pdf-export.js?v=20"></script>
+    <script src="/js/pdf-export.js?v=21"></script>
 
     <!-- html2pdf library for direct PDF download -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
@@ -544,7 +499,6 @@
             // Set up grading forms
             if (window.FormHandlingModule) {
                 window.FormHandlingModule.setupMainGrading();
-                window.FormHandlingModule.setupManualGrading();
             }
 
             // Initialize Essay Management (including essay counter controls)
