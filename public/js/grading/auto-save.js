@@ -1478,7 +1478,18 @@
                 }
             } else if (type === 'content') {
                 const contentId = `highlights-content-${index}`;
-                const checkbox = document.getElementById(`${contentId}-remove-all`);
+                // Tab-scope the lookup: highlights-content-N-remove-all ids repeat
+                // across panes (N restarts per tab, inactive panes stay in the DOM),
+                // so a bare getElementById grabs the FIRST tab's checkbox — wrong
+                // essay on a multi-tab restore. Scope to the tab's pane, and use
+                // the [id="…"] attribute selector (not `#id`) because querySelector
+                // with `#dupId` is unreliable under duplicate ids; the attribute
+                // form resolves the per-pane element in both browsers and jsdom.
+                const pane = (window.TabStore && scopedTabId)
+                    ? window.TabStore.paneForTab(scopedTabId) : null;
+                const checkbox = pane
+                    ? pane.querySelector(`[id="${contentId}-remove-all"]`)
+                    : document.getElementById(`${contentId}-remove-all`);
                 if (checkbox) {
                     checkbox.removeAttribute('data-setup-complete');
                     if (window.DisplayUtilsModule && window.DisplayUtilsModule.setupRemoveAllCheckbox) {
@@ -1640,5 +1651,10 @@
         // toast-style messages with consistent styling. Levels: 'ok' (green,
         // 5s), 'warn' (yellow, persistent), 'error' (red, 8s).
         showToast,
+        // Exposed for tests only (no production caller): lets the regression net
+        // drive the legacy-restore highlight reattach directly to pin the
+        // per-tab scoping of the remove-all checkbox lookup (the 'content'
+        // branch's tab-scope fix). Not part of the public API contract.
+        _reattachHighlightsHandlers: reattachHighlightsHandlers,
     };
 })();
