@@ -49,9 +49,11 @@ describe('reattachHighlightsHandlers content branch — tab scoping', () => {
     vi.useFakeTimers(); // reattach defers its work behind a 250ms setTimeout
     loadModules(
       'public/js/ui/tab-store.js',
+      'public/js/grading/auto-save-state.js',
       'public/js/grading/auto-save-grading.js',
       'public/js/grading/auto-save-ui.js',
       'public/js/grading/auto-save-payload.js',
+      'public/js/grading/auto-save-restore.js',
       'public/js/grading/auto-save.js'
     );
     window.TabStore.clear();

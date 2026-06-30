@@ -23,6 +23,7 @@ describe('auto-save Cluster G — grading-state + form lock characterization', (
     document.body.innerHTML = '';
     delete window.TabStore;
     loadModules(
+      'public/js/grading/auto-save-state.js',
       'public/js/grading/auto-save-grading.js',
       'public/js/grading/auto-save-ui.js',
       'public/js/grading/auto-save.js'
