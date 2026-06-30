@@ -395,55 +395,7 @@
         </div>
     </div>
 
-    <!-- Test function for manual grading -->
     <script>
-        function testManualGrading() {
-            console.log('🧪 TESTING MANUAL GRADING DISPLAY...');
-
-            const testResult = {
-                studentName: "Test Student",
-                essayText: "This is a test essay. It has multiple sentences. This helps us test the formatting and display functionality.",
-                scores: {
-                    grammar: { points: 12, out_of: 15, rationale: "Some grammar issues to address." },
-                    vocabulary: { points: 11, out_of: 15, rationale: "Nice vocabulary choices." },
-                    spelling: { points: 12, out_of: 15, rationale: "A few spelling errors noted." },
-                    mechanics: { points: 13, out_of: 15, rationale: "Excellent mechanics and punctuation." },
-                    fluency: { points: 7, out_of: 10, rationale: "Could improve fluency and flow." },
-                    layout: { points: 14, out_of: 15, rationale: "Good layout and formatting." },
-                    content: { points: 12, out_of: 15, rationale: "Good content overall." }
-                },
-                feedback: {
-                    grammar: "Some grammar issues to address.",
-                    vocabulary: "Nice vocabulary choices.",
-                    spelling: "A few spelling errors noted.",
-                    mechanics: "Excellent mechanics and punctuation.",
-                    fluency: "Could improve fluency and flow.",
-                    layout: "Good layout and formatting.",
-                    content: "Good content overall."
-                },
-                overallFeedback: "This is a test of the manual grading system. The student shows promise.",
-                totalScore: 80,
-                totalMax: 100,
-                percentage: 80,
-                isManual: true,
-                timestamp: new Date().toISOString()
-            };
-
-            console.log('📊 Test result object:', testResult);
-
-            // Check if the function exists
-            if (window.UIInteractionsModule && window.UIInteractionsModule.displayManualGradingResults) {
-                console.log('✅ Found displayManualGradingResults in UIInteractionsModule');
-                window.UIInteractionsModule.displayManualGradingResults(testResult);
-            } else if (window.displayManualGradingResults) {
-                console.log('✅ Found global displayManualGradingResults function');
-                window.displayManualGradingResults(testResult);
-            } else {
-                console.error('❌ displayManualGradingResults function not found!');
-                console.log('Available window properties:', Object.keys(window).filter(k => k.includes('Manual') || k.includes('UI')));
-            }
-        }
-
         function debugJS() {
             console.log('=== JAVASCRIPT DEBUG INFO ===');
             console.log('Available modules:');
