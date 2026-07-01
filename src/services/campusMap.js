@@ -15,10 +15,17 @@
 // Automated test accounts to omit from the dashboard entirely (list + all
 // counts). Confirmed test noise, not real users.
 const HIDDEN_EMAILS = new Set([
-  'sessiontest@example.com', // session-persistence test run
-  'comptest@example.com',    // component test run
-  'uitest@example.com',      // hardcoded in .tmprun/pill-check.mjs (UI screenshot test)
-  'flip.wp@gmail.com',       // early dev-alias account; hidden per operator (not deleted — keeps its class profile)
+  'sessiontest@example.com',   // session-persistence test run
+  'comptest@example.com',      // component test run
+  'uitest@example.com',        // hardcoded in .tmprun/pill-check.mjs (UI screenshot test)
+  'flip.wp@gmail.com',         // early dev-alias account; hidden per operator (not deleted — keeps its class profile)
+  // Assorted early test accounts, hidden per operator (soft-hide, not deleted).
+  'testuser@example.com',
+  'newtestuser@example.com',
+  'testupdatedat@example.com',
+  'testing1234@email.com',
+  'test@example.com',
+  'testingemail@gmail.com',
 ]);
 
 // email → 'North' | 'South'

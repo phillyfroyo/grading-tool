@@ -274,7 +274,7 @@
       const t = d.totals;
 
       const topCards = [
-        card('Total cost', fmtUsd(t.cost), `${d.windowDays}-day window`),
+        card('Total cost', fmtUsd(t.cost), `${d.windowDays}-day window · excl. dev`),
         card('Dev costs', fmtUsd(t.devCost), `${fmtNum(t.devGrades)} dev grades · your account`),
         card('Essays graded', fmtNum(t.grades), `${fmtNum(t.tokens)} tokens`),
         card('Avg cost / essay', fmtUsd4(t.avgCostPerGrade), null, true),
