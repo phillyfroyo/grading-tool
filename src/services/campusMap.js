@@ -18,6 +18,7 @@ const HIDDEN_EMAILS = new Set([
   'sessiontest@example.com', // session-persistence test run
   'comptest@example.com',    // component test run
   'uitest@example.com',      // hardcoded in .tmprun/pill-check.mjs (UI screenshot test)
+  'flip.wp@gmail.com',       // early dev-alias account; hidden per operator (not deleted — keeps its class profile)
 ]);
 
 // email → 'North' | 'South'

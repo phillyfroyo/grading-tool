@@ -198,6 +198,23 @@ function daysSince(date) {
   return Math.floor((Date.now() - new Date(date).getTime()) / (24 * 60 * 60 * 1000));
 }
 
+// Window during which a not-yet-returned user is considered "New".
+const NEW_WINDOW_DAYS = 42; // 6 weeks
+
+/**
+ * Engagement status for a user:
+ *   'returning' — has come back at least once (activity on 2+ distinct days).
+ *                 Monitored continuously; never expires.
+ *   'new'       — not returning yet, but signed up within the last 6 weeks.
+ *   null        — signed up >6 weeks ago and never returned (badge drops off).
+ */
+function engagementStatus({ activeDays, signupDate }) {
+  if (activeDays >= 2) return 'returning';
+  const since = daysSince(signupDate);
+  if (since != null && since <= NEW_WINDOW_DAYS) return 'new';
+  return null;
+}
+
 /**
  * GET /admin/api/users
  * The User-tab list: EVERY registered user (base = users table, so people who
@@ -256,7 +273,7 @@ export async function handleAdminUsers(req, res) {
           role: roleForEmail(u.email),     // 'dev' | 'akdmic' | null
           essays: a.essays,
           cost: round(a.cost),
-          returning: a.activeDays >= 2,
+          status: engagementStatus({ activeDays: a.activeDays, signupDate: u.createdAt }),
           lastActive: a.lastActive,
           lastActiveDaysAgo: daysSince(a.lastActive),
         };
@@ -340,6 +357,9 @@ export async function handleAdminUserDetail(req, res) {
     const cycles = computeCycles(events.map(e => e.createdAt));
     const firstActive = events.length ? events[0].createdAt : null;
     const lastActive = events.length ? events[events.length - 1].createdAt : null;
+    // Distinct active days = same "returning" basis as the list (2+ days).
+    const activeDays = new Set(events.map(e => new Date(e.createdAt).toISOString().slice(0, 10))).size;
+    const status = engagementStatus({ activeDays, signupDate: user.createdAt });
 
     return res.json({
       success: true,
@@ -362,7 +382,7 @@ export async function handleAdminUserDetail(req, res) {
         lastActive,
         lastActiveDaysAgo: daysSince(lastActive),
         daysSinceSignup: daysSince(user.createdAt),
-        returning: cycles.length >= 2,
+        status, // 'returning' | 'new' | null
       },
       cycles, // newest-first: { start, end, essays, spanDays }
       cycleCount: cycles.length,

@@ -230,10 +230,13 @@
       const local = (e || '').split('@')[0].replace(/[._]+/g, ' ');
       return local.replace(/\b\w/g, c => c.toUpperCase()) || '(unknown)';
     };
-    // Build the badge set for a user (returning/new, role, campus).
+    // Build the badge set for a user (status, role, campus).
+    // status: 'returning' → ↻ Returning; 'new' → New (≤6wk, not returned yet);
+    // null → no engagement badge (past 6wk, never returned).
     const badges = (u) => {
       const out = [];
-      out.push(u.returning ? '<span class="tag returning">↻ Returning</span>' : '<span class="tag new">New</span>');
+      if (u.status === 'returning') out.push('<span class="tag returning">↻ Returning</span>');
+      else if (u.status === 'new') out.push('<span class="tag new">New</span>');
       if (u.role === 'dev') out.push('<span class="tag dev">Dev</span>');
       else if (u.role === 'akdmic') out.push('<span class="tag akdmic">akdmic</span>');
       out.push(u.campus ? `<span class="tag campus">${esc(u.campus)}</span>` : '<span class="tag none">no campus</span>');
@@ -347,7 +350,7 @@
         </div>`).join('') : '<p class="muted">No grading activity yet.</p>';
 
       $('userDetail').innerHTML = `<div class="detail-body">
-        <h4>${esc(nameFromEmail(d.user.email))} ${badges({ returning: rec.returning, role: d.user.role, campus: d.user.campus })}</h4>
+        <h4>${esc(nameFromEmail(d.user.email))} ${badges({ status: rec.status, role: d.user.role, campus: d.user.campus })}</h4>
         <div class="detail-sub">${esc(d.user.email)} · joined ${fmtDate(d.user.signupDate)}</div>
 
         <div class="section-label">Cost breakdown</div>
