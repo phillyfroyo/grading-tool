@@ -92,6 +92,8 @@
     .tag.new { background: var(--accent-soft); color: var(--accent); }
     .tag.campus { background: var(--amber-soft); color: var(--amber-text); }
     .tag.none { background: var(--panel-alt); color: var(--muted); }
+    .tag.dev { background: #ede9fe; color: #6d28d9; }
+    .tag.akdmic { background: #cffafe; color: #0e7490; }
     .dot { color: var(--border); }
 
     /* Detail panel */
@@ -228,6 +230,15 @@
       const local = (e || '').split('@')[0].replace(/[._]+/g, ' ');
       return local.replace(/\b\w/g, c => c.toUpperCase()) || '(unknown)';
     };
+    // Build the badge set for a user (returning/new, role, campus).
+    const badges = (u) => {
+      const out = [];
+      out.push(u.returning ? '<span class="tag returning">↻ Returning</span>' : '<span class="tag new">New</span>');
+      if (u.role === 'dev') out.push('<span class="tag dev">Dev</span>');
+      else if (u.role === 'akdmic') out.push('<span class="tag akdmic">akdmic</span>');
+      out.push(u.campus ? `<span class="tag campus">${esc(u.campus)}</span>` : '<span class="tag none">no campus</span>');
+      return out.join(' ');
+    };
 
     let currentDays = 30;
     let selectedUserId = null;
@@ -261,6 +272,7 @@
 
       const topCards = [
         card('Total cost', fmtUsd(t.cost), `${d.windowDays}-day window`),
+        card('Dev costs', fmtUsd(t.devCost), `${fmtNum(t.devGrades)} dev grades · your account`),
         card('Essays graded', fmtNum(t.grades), `${fmtNum(t.tokens)} tokens`),
         card('Avg cost / essay', fmtUsd4(t.avgCostPerGrade), null, true),
         card('Active users', fmtNum(t.activeUsers)),
@@ -297,11 +309,9 @@
       if (!d.success) { $('userList').innerHTML = '<div class="detail-empty">Error loading users.</div>'; return; }
 
       $('userList').innerHTML = d.users.map(u => {
-        const campusTag = u.campus ? `<span class="tag campus">${esc(u.campus)}</span>` : `<span class="tag none">no campus</span>`;
-        const returnTag = u.returning ? `<span class="tag returning">↻ Returning</span>` : `<span class="tag new">New</span>`;
         return `<div class="user-row${u.id===selectedUserId?' selected':''}" data-id="${esc(u.id)}">
           <div style="min-width:0">
-            <div class="name-line"><span class="num">#${u.num}</span> <span class="name">${esc(nameFromEmail(u.email))}</span> ${returnTag} ${campusTag}</div>
+            <div class="name-line"><span class="num">#${u.num}</span> <span class="name">${esc(nameFromEmail(u.email))}</span> ${badges(u)}</div>
             <div class="email">${esc(u.email)}</div>
             <div class="meta">
               <span>${fmtNum(u.essays)} essays</span><span class="dot">·</span>
@@ -337,7 +347,7 @@
         </div>`).join('') : '<p class="muted">No grading activity yet.</p>';
 
       $('userDetail').innerHTML = `<div class="detail-body">
-        <h4>${esc(nameFromEmail(d.user.email))} ${d.user.campus?`<span class="tag campus">${esc(d.user.campus)}</span>`:''} ${rec.returning?'<span class="tag returning">↻ Returning</span>':'<span class="tag new">New</span>'}</h4>
+        <h4>${esc(nameFromEmail(d.user.email))} ${badges({ returning: rec.returning, role: d.user.role, campus: d.user.campus })}</h4>
         <div class="detail-sub">${esc(d.user.email)} · joined ${fmtDate(d.user.signupDate)}</div>
 
         <div class="section-label">Cost breakdown</div>

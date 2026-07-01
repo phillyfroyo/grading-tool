@@ -8,7 +8,7 @@
 //
 // All handlers are gated by requireAdmin (see middleware/adminAuth.js).
 
-import { campusForEmail } from '../services/campusMap.js';
+import { campusForEmail, roleForEmail, isHiddenEmail, DEV_EMAIL } from '../services/campusMap.js';
 
 async function getPrisma() {
   try {
@@ -70,6 +70,7 @@ export async function handleAdminSummary(req, res) {
       byDayRows,           // per-UTC-day grades/cost/errors (raw SQL)
       byUserRows,          // per-user grades/cost/tokens (raw SQL — handles null email)
       recentErrors,        // capped, newest-first (query-side limit)
+      devAgg,              // the operator/dev account's cost, called out separately
     ] = await Promise.all([
       prisma.grading_events.aggregate({
         where: { ...where, status: 'success' },
@@ -114,6 +115,11 @@ export async function handleAdminSummary(req, res) {
         orderBy: { createdAt: 'desc' },
         take: 25,
         select: { createdAt: true, userEmail: true, userId: true, action: true, errorMessage: true },
+      }),
+      prisma.grading_events.aggregate({
+        where: { ...where, status: 'success', userEmail: DEV_EMAIL },
+        _count: { _all: true },
+        _sum: { costUsd: true },
       }),
     ]);
 
@@ -165,6 +171,10 @@ export async function handleAdminSummary(req, res) {
         avgCostPerGrade: totalGrades ? round(totalCost / totalGrades) : 0,
         errorRate: total ? round(errorCount / total, 4) : 0,
         avgLatencyMs: latencyAgg._avg.latencyMs != null ? Math.round(latencyAgg._avg.latencyMs) : null,
+        // Dev/operator account's own cost, called out separately (still included
+        // in the `cost` total above).
+        devCost: round(devAgg._sum.costUsd || 0),
+        devGrades: devAgg._count._all || 0,
       },
       overTime,
       users,
@@ -232,21 +242,26 @@ export async function handleAdminUsers(req, res) {
       });
     }
 
-    const list = users.map((u, i) => {
-      const a = byId.get(u.id) || { essays: 0, cost: 0, activeDays: 0, lastActive: null };
-      return {
-        num: i + 1,
-        id: u.id,
-        email: u.email,
-        signupDate: u.createdAt,
-        campus: campusForEmail(u.email), // null → "—" until the map is filled
-        essays: a.essays,
-        cost: round(a.cost),
-        returning: a.activeDays >= 2,
-        lastActive: a.lastActive,
-        lastActiveDaysAgo: daysSince(a.lastActive),
-      };
-    });
+    // Number by signup order across ALL users first (so #s are stable), then
+    // drop hidden test accounts from what we return.
+    const list = users
+      .map((u, i) => {
+        const a = byId.get(u.id) || { essays: 0, cost: 0, activeDays: 0, lastActive: null };
+        return {
+          num: i + 1,
+          id: u.id,
+          email: u.email,
+          signupDate: u.createdAt,
+          campus: campusForEmail(u.email), // null → "—" until the map is filled
+          role: roleForEmail(u.email),     // 'dev' | 'akdmic' | null
+          essays: a.essays,
+          cost: round(a.cost),
+          returning: a.activeDays >= 2,
+          lastActive: a.lastActive,
+          lastActiveDaysAgo: daysSince(a.lastActive),
+        };
+      })
+      .filter(u => !isHiddenEmail(u.email));
 
     return res.json({ success: true, count: list.length, users: list });
   } catch (error) {
@@ -332,6 +347,7 @@ export async function handleAdminUserDetail(req, res) {
         id: user.id,
         email: user.email,
         campus: campusForEmail(user.email),
+        role: roleForEmail(user.email),
         signupDate: user.createdAt,
       },
       cost: {
