@@ -1,0 +1,261 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Grading Admin Dashboard</title>
+  <style>
+    :root {
+      --bg: #0f172a; --panel: #1e293b; --panel2: #273449;
+      --text: #e2e8f0; --muted: #94a3b8; --accent: #38bdf8;
+      --good: #34d399; --bad: #f87171; --bar: #38bdf8; --border: #334155;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background: var(--bg); color: var(--text); font-size: 14px;
+    }
+    header {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 16px 24px; border-bottom: 1px solid var(--border); background: var(--panel);
+    }
+    header h1 { font-size: 18px; margin: 0; }
+    .controls { display: flex; gap: 10px; align-items: center; }
+    select, button, input {
+      background: var(--panel2); color: var(--text); border: 1px solid var(--border);
+      border-radius: 6px; padding: 8px 12px; font-size: 14px;
+    }
+    button { cursor: pointer; }
+    button:hover { border-color: var(--accent); }
+    main { padding: 24px; max-width: 1100px; margin: 0 auto; }
+
+    /* Login */
+    #login { max-width: 360px; margin: 80px auto; text-align: center; }
+    #login h2 { margin-bottom: 8px; }
+    #login p { color: var(--muted); margin-bottom: 20px; }
+    #login input { width: 100%; margin-bottom: 12px; text-align: center; }
+    #login button { width: 100%; background: var(--accent); color: #06263a; font-weight: 600; border: none; }
+    #loginError { color: var(--bad); min-height: 18px; margin-top: 8px; }
+
+    /* Cards */
+    .cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 12px; margin-bottom: 28px; }
+    .card { background: var(--panel); border: 1px solid var(--border); border-radius: 10px; padding: 16px; }
+    .card .label { color: var(--muted); font-size: 12px; text-transform: uppercase; letter-spacing: .04em; }
+    .card .value { font-size: 26px; font-weight: 700; margin-top: 6px; }
+    .card .sub { color: var(--muted); font-size: 12px; margin-top: 4px; }
+
+    section { margin-bottom: 32px; }
+    section h3 { font-size: 15px; border-left: 3px solid var(--accent); padding-left: 10px; margin-bottom: 14px; }
+
+    table { width: 100%; border-collapse: collapse; }
+    th, td { text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--border); }
+    th { color: var(--muted); font-weight: 600; font-size: 12px; text-transform: uppercase; }
+    td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
+    .err-msg { color: var(--bad); font-family: monospace; font-size: 12px; }
+
+    .chart { background: var(--panel); border: 1px solid var(--border); border-radius: 10px; padding: 16px; }
+    .bar-row { display: flex; align-items: center; gap: 10px; margin: 4px 0; }
+    .bar-row .k { width: 90px; color: var(--muted); font-size: 12px; flex-shrink: 0; font-variant-numeric: tabular-nums; }
+    .bar-track { flex: 1; background: var(--panel2); border-radius: 4px; height: 18px; position: relative; }
+    .bar-fill { background: var(--bar); height: 100%; border-radius: 4px; min-width: 2px; }
+    .bar-row .v { width: 110px; text-align: right; font-size: 12px; font-variant-numeric: tabular-nums; flex-shrink: 0; }
+
+    .muted { color: var(--muted); }
+    .pill { display: inline-block; padding: 2px 8px; border-radius: 999px; font-size: 12px; }
+    .pill.good { background: rgba(52,211,153,.15); color: var(--good); }
+    .pill.bad { background: rgba(248,113,113,.15); color: var(--bad); }
+    .hidden { display: none; }
+    #status { color: var(--muted); font-size: 12px; }
+  </style>
+</head>
+<body>
+  <!-- LOGIN -->
+  <div id="login" class="hidden">
+    <h2>Admin Access</h2>
+    <p>Enter the admin secret to view the dashboard.</p>
+    <input id="secret" type="password" placeholder="Admin secret" autocomplete="current-password" />
+    <button id="loginBtn">Enter</button>
+    <div id="loginError"></div>
+  </div>
+
+  <!-- DASHBOARD -->
+  <div id="dashboard" class="hidden">
+    <header>
+      <h1>📊 Grading Admin Dashboard</h1>
+      <div class="controls">
+        <span id="status"></span>
+        <select id="range">
+          <option value="7">Last 7 days</option>
+          <option value="30" selected>Last 30 days</option>
+          <option value="90">Last 90 days</option>
+          <option value="365">Last year</option>
+        </select>
+        <button id="refresh">Refresh</button>
+        <button id="logout">Log out</button>
+      </div>
+    </header>
+    <main>
+      <div class="cards" id="cards"></div>
+
+      <section>
+        <h3>Activity &amp; cost over time</h3>
+        <div class="chart" id="overTime"></div>
+      </section>
+
+      <section>
+        <h3>By user</h3>
+        <div id="usersTable"></div>
+      </section>
+
+      <section>
+        <h3>Cost by model</h3>
+        <div id="modelsTable"></div>
+      </section>
+
+      <section>
+        <h3>Reliability — recent errors</h3>
+        <div id="errorsTable"></div>
+      </section>
+    </main>
+  </div>
+
+  <script>
+    const $ = (id) => document.getElementById(id);
+    const fmtUsd = (n) => '$' + (Number(n) || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    const fmtUsd4 = (n) => '$' + (Number(n) || 0).toLocaleString(undefined, { minimumFractionDigits: 4, maximumFractionDigits: 4 });
+    const fmtNum = (n) => (Number(n) || 0).toLocaleString();
+    const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c]));
+    const fmtDate = (d) => new Date(d).toLocaleString();
+
+    async function whoami() {
+      const r = await fetch('/admin/api/whoami');
+      if (r.status === 404) { document.body.innerHTML = '<main style="padding:40px">Admin dashboard is not configured.</main>'; return null; }
+      const j = await r.json();
+      return j.authed;
+    }
+
+    function showLogin() { $('login').classList.remove('hidden'); $('dashboard').classList.add('hidden'); $('secret').focus(); }
+    function showDashboard() { $('login').classList.add('hidden'); $('dashboard').classList.remove('hidden'); load(); }
+
+    async function doLogin() {
+      $('loginError').textContent = '';
+      const secret = $('secret').value;
+      const r = await fetch('/admin/login', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ secret }),
+      });
+      if (r.ok) { showDashboard(); }
+      else { $('loginError').textContent = 'Invalid secret.'; }
+    }
+
+    async function doLogout() {
+      await fetch('/admin/logout', { method: 'POST' });
+      showLogin();
+    }
+
+    function card(label, value, sub) {
+      return `<div class="card"><div class="label">${esc(label)}</div><div class="value">${value}</div>${sub ? `<div class="sub">${esc(sub)}</div>` : ''}</div>`;
+    }
+
+    function barChart(items, keyFn, valFn, labelFn, isCost) {
+      if (!items.length) return '<p class="muted">No data in this window.</p>';
+      const max = Math.max(...items.map(valFn), 1);
+      return items.map(it => {
+        const v = valFn(it);
+        const pct = (v / max) * 100;
+        return `<div class="bar-row">
+          <div class="k">${esc(keyFn(it))}</div>
+          <div class="bar-track"><div class="bar-fill" style="width:${pct}%"></div></div>
+          <div class="v">${labelFn(it)}</div>
+        </div>`;
+      }).join('');
+    }
+
+    function render(d) {
+      const t = d.totals;
+      $('cards').innerHTML = [
+        card('Total cost', fmtUsd(t.cost), `${t.windowDays || d.windowDays} day window`),
+        card('Grades', fmtNum(t.grades), `${fmtNum(t.tokens)} tokens`),
+        card('Avg cost / grade', fmtUsd4(t.avgCostPerGrade)),
+        card('Active users', fmtNum(t.activeUsers)),
+        card('Error rate', (t.errorRate * 100).toFixed(1) + '%', `${fmtNum(t.errors)} errors`),
+        card('Avg latency', t.avgLatencyMs != null ? (t.avgLatencyMs / 1000).toFixed(1) + 's' : '—'),
+      ].join('');
+
+      // Over time: show grades bar + cost value per day.
+      $('overTime').innerHTML = barChart(
+        d.overTime,
+        (r) => r.day.slice(5),
+        (r) => r.grades,
+        (r) => `${fmtNum(r.grades)} · ${fmtUsd(r.cost)}${r.errors ? ` · <span class="pill bad">${r.errors} err</span>` : ''}`,
+      );
+
+      // Users table
+      $('usersTable').innerHTML = d.users.length ? `
+        <table><thead><tr>
+          <th>User</th><th class="num">Grades</th><th class="num">Errors</th>
+          <th class="num">Tokens</th><th class="num">Cost</th><th>Last active</th>
+        </tr></thead><tbody>
+        ${d.users.map(u => `<tr>
+          <td>${esc(u.user)}</td>
+          <td class="num">${fmtNum(u.grades)}</td>
+          <td class="num">${u.errors ? `<span class="pill bad">${u.errors}</span>` : '0'}</td>
+          <td class="num">${fmtNum(u.tokens)}</td>
+          <td class="num">${fmtUsd(u.cost)}</td>
+          <td class="muted">${u.lastActive ? fmtDate(u.lastActive) : '—'}</td>
+        </tr>`).join('')}
+        </tbody></table>` : '<p class="muted">No activity in this window.</p>';
+
+      // Models table
+      $('modelsTable').innerHTML = d.models.length ? `
+        <table><thead><tr>
+          <th>Model</th><th class="num">Grades</th><th class="num">Tokens</th><th class="num">Cost</th>
+        </tr></thead><tbody>
+        ${d.models.map(m => `<tr>
+          <td>${esc(m.model)}</td>
+          <td class="num">${fmtNum(m.grades)}</td>
+          <td class="num">${fmtNum(m.tokens)}</td>
+          <td class="num">${fmtUsd(m.cost)}</td>
+        </tr>`).join('')}
+        </tbody></table>` : '<p class="muted">No data in this window.</p>';
+
+      // Errors table
+      $('errorsTable').innerHTML = d.recentErrors.length ? `
+        <table><thead><tr>
+          <th>When</th><th>User</th><th>Action</th><th>Error</th>
+        </tr></thead><tbody>
+        ${d.recentErrors.map(e => `<tr>
+          <td class="muted">${fmtDate(e.createdAt)}</td>
+          <td>${esc(e.user)}</td>
+          <td>${esc(e.action)}</td>
+          <td class="err-msg">${esc(e.errorMessage)}</td>
+        </tr>`).join('')}
+        </tbody></table>` : '<p class="muted">No errors in this window. 🎉</p>';
+
+      $('status').textContent = 'Updated ' + new Date().toLocaleTimeString();
+    }
+
+    async function load() {
+      $('status').textContent = 'Loading…';
+      const days = $('range').value;
+      const r = await fetch('/admin/api/summary?days=' + days);
+      if (r.status === 401) { showLogin(); return; }
+      const j = await r.json();
+      if (!j.success) { $('status').textContent = 'Error: ' + (j.error || 'unknown'); return; }
+      render(j);
+    }
+
+    $('loginBtn').addEventListener('click', doLogin);
+    $('secret').addEventListener('keydown', (e) => { if (e.key === 'Enter') doLogin(); });
+    $('logout').addEventListener('click', doLogout);
+    $('refresh').addEventListener('click', load);
+    $('range').addEventListener('change', load);
+
+    (async () => {
+      const authed = await whoami();
+      if (authed === null) return;
+      if (authed) showDashboard(); else showLogin();
+    })();
+  </script>
+</body>
+</html>

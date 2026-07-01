@@ -8,24 +8,24 @@ datasource db {
 }
 
 model class_profiles {
-  id                    String   @id
-  name                  String
-  cefrLevel             String
-  vocabulary            String[]
-  grammar               String[]
-  prompt                String?
+  id                   String   @id
+  name                 String
+  cefrLevel            String
+  vocabulary           String[]
+  grammar              String[]
+  prompt               String?
   // Explicit word count target for this profile's assignment. Teachers can
   // set these directly in the profile edit modal. When both are null the
   // grader falls back to regex-parsing the prompt text for ranges like
   // "200-220 words"; when no target is found at all the Layout category is
   // scored on structure/transitions only, not length.
-  requiredWordCountMin  Int?
-  requiredWordCountMax  Int?
-  created               DateTime @default(now())
-  lastModified          DateTime
-  userId                String
-  temperature           Float?   @default(0)
-  users                 users    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  requiredWordCountMin Int?
+  requiredWordCountMax Int?
+  created              DateTime @default(now())
+  lastModified         DateTime
+  userId               String
+  temperature          Float?   @default(0)
+  users                users    @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
 model sessions {
@@ -40,13 +40,13 @@ model sessions {
 }
 
 model users {
-  id                      String                   @id
-  email                   String                   @unique
-  createdAt               DateTime                 @default(now())
-  updatedAt               DateTime
-  class_profiles          class_profiles[]
-  saved_grading_sessions  saved_grading_sessions?
-  saved_essays            saved_essays[]
+  id                     String                  @id
+  email                  String                  @unique
+  createdAt              DateTime                @default(now())
+  updatedAt              DateTime
+  class_profiles         class_profiles[]
+  saved_grading_sessions saved_grading_sessions?
+  saved_essays           saved_essays[]
 }
 
 model saved_grading_sessions {
@@ -57,6 +57,53 @@ model saved_grading_sessions {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
   users       users    @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+// One row per grading call (single grade or one essay within a batch).
+//
+// This is the durable event log that backs the admin dashboard's three lenses:
+//   1. Cost      — model + token counts + computed USD cost per grade
+//   2. Behavior  — who graded, when, how many (userId/userEmail/createdAt/action)
+//   3. Errors    — status + errorMessage + latency for reliability tracking
+//
+// Design notes:
+//  - Intentionally NOT a relation to `users` (no FK). Logging must survive even
+//    when the user row can't be resolved (auth via cookie fallback, deleted
+//    user, DB hiccup). userId is nullable and userEmail is denormalized so the
+//    dashboard can display who did what without a join.
+//  - Writing a row must NEVER be able to break grading — the caller wraps this
+//    in try/catch and fires it after the grade completes (or fails).
+//  - costUsd is computed at write time from tokens using rates pinned in code
+//    (see src/services/costRates.js). The in-app log is the source of truth for
+//    cost, so tokens AND the frozen dollar cost are both stored.
+model grading_events {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+
+  // Who (denormalized — no FK so the event survives user-lookup failures)
+  userId    String?
+  userEmail String?
+
+  // What
+  action          String // "grade" (single) | "grade_batch" (one essay in a batch)
+  classProfileId  String?
+  studentNickname String?
+
+  // Model + usage (tokens summed across the 3 sub-calls per grade)
+  model            String?
+  promptTokens     Int     @default(0)
+  completionTokens Int     @default(0)
+  totalTokens      Int     @default(0)
+  costUsd          Float   @default(0)
+
+  // Reliability
+  status       String  @default("success") // "success" | "error"
+  errorMessage String?
+  latencyMs    Int?
+
+  @@index([createdAt])
+  @@index([userId])
+  @@index([status])
 }
 
 model saved_essays {

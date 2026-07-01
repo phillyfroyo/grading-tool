@@ -24,6 +24,22 @@ postgresql://username:password@host/database?sslmode=require
 - ✅ Include `?sslmode=require` at the end
 - ✅ Check all three environment boxes
 
+## Admin Dashboard (`ADMIN_SECRET`)
+
+The admin dashboard at `/admin` is gated by a single shared secret. Set it in
+Vercel so only you can reach it:
+
+   - **Name**: `ADMIN_SECRET`
+   - **Value**: a long random string (e.g. `openssl rand -hex 24`)
+   - **Environment**: Production (and Preview/Development if you want it there)
+
+Notes:
+- If `ADMIN_SECRET` is **unset**, the entire `/admin` surface returns 404 — the
+  dashboard is invisible until you configure it. Safe by default.
+- Access flow: visit `/admin` → enter the secret once → an httpOnly signed
+  cookie keeps you in (secret never appears in the URL).
+- This is independent of normal teacher login — it's the operator gate.
+
 ## Testing:
 
 After setting the environment variable:
