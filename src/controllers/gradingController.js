@@ -6,6 +6,21 @@ import { findProfileById } from '../services/profileService.js';
 import { applyTemperatureAdjustment } from '../services/temperatureService.js';
 import { formatGradedEssay } from '../../grader/formatter.js';
 import { isVercel } from '../config/index.js';
+import { recordGradingEvent } from '../services/gradingEventService.js';
+
+/**
+ * Resolve the acting user's id + email from session or signed-cookie fallback.
+ * Mirrors the logic used throughout the grading handlers.
+ */
+function resolveUser(req) {
+  let userId = req.session?.userId;
+  let userEmail = req.session?.userEmail;
+  if (!userId && req.signedCookies) {
+    userId = req.signedCookies.userId;
+    userEmail = req.signedCookies.userEmail;
+  }
+  return { userId: userId || null, userEmail: userEmail || null };
+}
 
 // Simple session store for streaming batch grading
 const streamingSessions = new Map();
@@ -45,13 +60,11 @@ async function handleLegacyGrade(req, res) {
 async function handleApiGrade(req, res) {
   const { studentText, prompt, classProfile, temperature, studentNickname } = req.body;
 
-  try {
-    // Get userId from session or cookies
-    let userId = req.session?.userId;
-    if (!userId && req.signedCookies) {
-      userId = req.signedCookies.userId;
-    }
+  // Timing + identity for the grading-events log (dashboard cost/behavior/errors).
+  const startTime = Date.now();
+  const { userId, userEmail } = resolveUser(req);
 
+  try {
     // Get profile data
     const profileData = await findProfileById(classProfile, userId);
 
@@ -66,6 +79,22 @@ async function handleApiGrade(req, res) {
     if (!result || !result.scores || !result.total) {
       throw new Error('Incomplete grading result - missing scores or total');
     }
+
+    // Log the successful grade. Awaited (not fire-and-forget) because on
+    // serverless the instance can be frozen/reclaimed right after the response
+    // is sent, dropping an un-awaited write — and this log is the source of
+    // truth for cost. recordGradingEvent swallows its own errors, so awaiting it
+    // still cannot break grading.
+    await recordGradingEvent({
+      userId,
+      userEmail,
+      action: 'grade',
+      classProfileId: classProfile,
+      studentNickname,
+      usage: result.usage,
+      status: 'success',
+      latencyMs: Date.now() - startTime,
+    });
 
     // Apply temperature adjustment
     const finalTemperature = temperature !== undefined ? temperature : (profileData.temperature || 0);
@@ -90,6 +119,19 @@ async function handleApiGrade(req, res) {
   } catch (error) {
     console.error("\n❌ GRADING ERROR:", error);
     console.error("Error stack:", error.stack);
+
+    // Log the failed grade for the reliability lens.
+    await recordGradingEvent({
+      userId,
+      userEmail,
+      action: 'grade',
+      classProfileId: classProfile,
+      studentNickname,
+      status: 'error',
+      errorMessage: error.message,
+      latencyMs: Date.now() - startTime,
+    });
+
     res.json({
       success: false,
       error: error.message,
@@ -125,10 +167,7 @@ async function handleBatchGrade(req, res) {
     }
 
     // Get userId from session or cookies
-    let userId = req.session?.userId;
-    if (!userId && req.signedCookies) {
-      userId = req.signedCookies.userId;
-    }
+    const { userId, userEmail } = resolveUser(req);
 
     // Get profile data
     const profileData = await findProfileById(classProfile, userId);
@@ -143,12 +182,27 @@ async function handleBatchGrade(req, res) {
     // Grade each essay
     for (let i = 0; i < essays.length; i++) {
       const essay = essays[i];
+      const essayStart = Date.now();
 
       try {
         const result = await gradeEssayUnified(essay.studentText, prompt, profileData, essay.studentNickname);
 
+        await recordGradingEvent({
+          userId,
+          userEmail,
+          action: 'grade_batch',
+          classProfileId: classProfile,
+          studentNickname: essay.studentNickname,
+          usage: result.usage,
+          status: 'success',
+          latencyMs: Date.now() - essayStart,
+        });
+
         // Apply temperature adjustment
         const finalResult = applyTemperatureAdjustment(result, finalTemperature);
+        // Strip internal token/cost telemetry before returning to the client —
+        // usage is for the server-side event log only, not the graded output.
+        delete finalResult.usage;
         finalResult.studentName = essay.studentName;
         finalResult.studentNickname = essay.studentNickname;
 
@@ -161,6 +215,16 @@ async function handleBatchGrade(req, res) {
         });
       } catch (error) {
         console.error(`❌ Error grading essay ${i + 1} for ${essay.studentName}:`, error);
+        await recordGradingEvent({
+          userId,
+          userEmail,
+          action: 'grade_batch',
+          classProfileId: classProfile,
+          studentNickname: essay.studentNickname,
+          status: 'error',
+          errorMessage: error.message,
+          latencyMs: Date.now() - essayStart,
+        });
         results.push({
           essayId: essay.essayId,
           success: false,
@@ -224,10 +288,7 @@ async function handleStreamingBatchGrade(req, res, { essays, prompt, classProfil
     console.log("🔍 Looking for profile:", classProfile);
 
     // Get userId from session or cookies (same logic as profile controller)
-    let userId = req.session?.userId;
-    if (!userId && req.signedCookies) {
-      userId = req.signedCookies.userId;
-    }
+    const { userId, userEmail } = resolveUser(req);
     console.log("🔑 User ID for streaming grading:", userId, "from session:", !!req.session?.userId, "from cookies:", !!req.signedCookies?.userId);
 
     const profileData = await findProfileById(classProfile, userId);
@@ -280,6 +341,7 @@ async function handleStreamingBatchGrade(req, res, { essays, prompt, classProfil
       // Process all essays in this batch in parallel
       const batchPromises = batch.map(async (essay, batchIndex) => {
         const globalIndex = batchStart + batchIndex;
+        const essayStart = Date.now();
 
         try {
           console.log(`📝 Grading essay ${globalIndex + 1}/${essays.length} for ${essay.studentName}...`);
@@ -292,8 +354,21 @@ async function handleStreamingBatchGrade(req, res, { essays, prompt, classProfil
             throw new Error('Incomplete grading result - missing scores or total');
           }
 
+          await recordGradingEvent({
+            userId,
+            userEmail,
+            action: 'grade_batch',
+            classProfileId: classProfile,
+            studentNickname: essay.studentNickname,
+            usage: result.usage,
+            status: 'success',
+            latencyMs: Date.now() - essayStart,
+          });
+
           // Apply temperature adjustment
           const finalResult = applyTemperatureAdjustment(result, finalTemperature);
+          // Strip internal token/cost telemetry before returning to the client.
+          delete finalResult.usage;
           finalResult.studentName = essay.studentName;
           finalResult.studentNickname = essay.studentNickname;
 
@@ -308,6 +383,17 @@ async function handleStreamingBatchGrade(req, res, { essays, prompt, classProfil
 
         } catch (error) {
           console.error(`❌ Error grading essay ${globalIndex + 1} for ${essay.studentName}:`, error);
+
+          await recordGradingEvent({
+            userId,
+            userEmail,
+            action: 'grade_batch',
+            classProfileId: classProfile,
+            studentNickname: essay.studentNickname,
+            status: 'error',
+            errorMessage: error.message,
+            latencyMs: Date.now() - essayStart,
+          });
 
           return {
             index: globalIndex,
@@ -732,10 +818,7 @@ async function handleBatchGradeStream(req, res) {
     console.log("\n⚡ STARTING STREAMING BATCH GRADING...");
 
     // Get userId from session or cookies (same logic as profile controller)
-    let userId = req.session?.userId;
-    if (!userId && req.signedCookies) {
-      userId = req.signedCookies.userId;
-    }
+    const { userId, userEmail } = resolveUser(req);
     console.log("🔑 User ID for streaming batch grading:", userId, "from session:", !!req.session?.userId, "from cookies:", !!req.signedCookies?.userId);
 
     // Get profile data
@@ -769,6 +852,7 @@ async function handleBatchGradeStream(req, res) {
     // Process each essay and send results immediately
     for (let i = 0; i < essays.length; i++) {
       const essay = essays[i];
+      const essayStart = Date.now();
       console.log(`\n📝 Streaming essay ${i + 1}/${essays.length} for ${essay.studentName}...`);
 
       try {
@@ -783,8 +867,21 @@ async function handleBatchGradeStream(req, res) {
         const result = await gradeEssayUnified(essay.studentText, prompt, profileData, essay.studentNickname);
         console.log(`✅ Essay ${i + 1} graded successfully, streaming result...`);
 
+        await recordGradingEvent({
+          userId,
+          userEmail,
+          action: 'grade_batch',
+          classProfileId: classProfile,
+          studentNickname: essay.studentNickname,
+          usage: result.usage,
+          status: 'success',
+          latencyMs: Date.now() - essayStart,
+        });
+
         // Apply temperature adjustment
         const finalResult = applyTemperatureAdjustment(result, finalTemperature);
+        // Strip internal token/cost telemetry before returning to the client.
+        delete finalResult.usage;
         finalResult.studentName = essay.studentName;
         finalResult.studentNickname = essay.studentNickname;
 
@@ -800,6 +897,17 @@ async function handleBatchGradeStream(req, res) {
 
       } catch (error) {
         console.error(`❌ Error grading essay ${i + 1} for ${essay.studentName}:`, error);
+
+        await recordGradingEvent({
+          userId,
+          userEmail,
+          action: 'grade_batch',
+          classProfileId: classProfile,
+          studentNickname: essay.studentNickname,
+          status: 'error',
+          errorMessage: error.message,
+          latencyMs: Date.now() - essayStart,
+        });
 
         // Send error immediately
         res.write(`data: ${JSON.stringify({
