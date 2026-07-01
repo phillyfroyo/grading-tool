@@ -14,7 +14,11 @@ import {
   adminConfigured,
   isAdminAuthed,
 } from '../middleware/adminAuth.js';
-import { handleAdminSummary } from '../controllers/adminController.js';
+import {
+  handleAdminSummary,
+  handleAdminUsers,
+  handleAdminUserDetail,
+} from '../controllers/adminController.js';
 
 const router = express.Router();
 
@@ -30,6 +34,8 @@ router.post('/admin/logout', handleAdminLogout);
 
 // Data API (gated).
 router.get('/admin/api/summary', requireAdmin, asyncHandler(handleAdminSummary));
+router.get('/admin/api/users', requireAdmin, asyncHandler(handleAdminUsers));
+router.get('/admin/api/users/:id', requireAdmin, asyncHandler(handleAdminUserDetail));
 
 // Dashboard page. Serves admin.html for both the login form and the dashboard;
 // the page's JS calls /admin/api/summary and shows the login form on 401.

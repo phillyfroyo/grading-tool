@@ -8,6 +8,8 @@
 //
 // All handlers are gated by requireAdmin (see middleware/adminAuth.js).
 
+import { campusForEmail } from '../services/campusMap.js';
+
 async function getPrisma() {
   try {
     const { prisma } = await import('../../lib/prisma.js');
@@ -176,6 +178,181 @@ export async function handleAdminSummary(req, res) {
     });
   } catch (error) {
     console.error('[ADMIN] Summary query failed:', error);
+    return res.status(500).json({ success: false, error: error.message });
+  }
+}
+
+/** Days since a date, or null. */
+function daysSince(date) {
+  if (!date) return null;
+  return Math.floor((Date.now() - new Date(date).getTime()) / (24 * 60 * 60 * 1000));
+}
+
+/**
+ * GET /admin/api/users
+ * The User-tab list: EVERY registered user (base = users table, so people who
+ * haven't graded since instrumentation still appear), left-joined to their
+ * grading_events aggregates. Numbered by signup order (#1 = earliest).
+ *
+ * "Returning" = has grading activity on 2+ distinct UTC days (a real repeat
+ * user, not a one-session tryout). Cost/essays come from grading_events only,
+ * so they read 0 until events accrue — accurate over invented history.
+ */
+export async function handleAdminUsers(req, res) {
+  const prisma = await getPrisma();
+  if (!prisma?.users) {
+    return res.status(503).json({ success: false, error: 'Database unavailable' });
+  }
+
+  try {
+    const users = await prisma.users.findMany({
+      select: { id: true, email: true, createdAt: true },
+      orderBy: { createdAt: 'asc' }, // #1 = earliest signup
+    });
+
+    // Per-user event aggregates (success grades only for cost/essays), plus the
+    // count of distinct active days (for returning/one-time) and last activity.
+    const agg = await prisma.$queryRaw`
+      SELECT "userId",
+             COUNT(*) FILTER (WHERE status = 'success')                        AS essays,
+             COALESCE(SUM("costUsd") FILTER (WHERE status = 'success'), 0)     AS cost,
+             COUNT(DISTINCT date_trunc('day', "createdAt"))                    AS active_days,
+             MAX("createdAt")                                                  AS last_active
+      FROM "grading_events"
+      WHERE "userId" IS NOT NULL
+      GROUP BY "userId"`;
+
+    const byId = new Map();
+    for (const r of agg) {
+      byId.set(r.userId, {
+        essays: Number(r.essays) || 0,
+        cost: Number(r.cost) || 0,
+        activeDays: Number(r.active_days) || 0,
+        lastActive: r.last_active,
+      });
+    }
+
+    const list = users.map((u, i) => {
+      const a = byId.get(u.id) || { essays: 0, cost: 0, activeDays: 0, lastActive: null };
+      return {
+        num: i + 1,
+        id: u.id,
+        email: u.email,
+        signupDate: u.createdAt,
+        campus: campusForEmail(u.email), // null → "—" until the map is filled
+        essays: a.essays,
+        cost: round(a.cost),
+        returning: a.activeDays >= 2,
+        lastActive: a.lastActive,
+        lastActiveDaysAgo: daysSince(a.lastActive),
+      };
+    });
+
+    return res.json({ success: true, count: list.length, users: list });
+  } catch (error) {
+    console.error('[ADMIN] Users query failed:', error);
+    return res.status(500).json({ success: false, error: error.message });
+  }
+}
+
+/**
+ * Cluster a chronological list of activity timestamps into "grading cycles".
+ * The teacher grades in 1–3 day bursts every ~month, so any gap longer than
+ * GAP_DAYS starts a new cycle. Returns cycle summaries newest-first.
+ */
+function computeCycles(timestamps, GAP_DAYS = 4) {
+  const ts = timestamps
+    .map(t => new Date(t).getTime())
+    .filter(n => Number.isFinite(n))
+    .sort((a, b) => a - b);
+  if (!ts.length) return [];
+  const gapMs = GAP_DAYS * 24 * 60 * 60 * 1000;
+  const cycles = [];
+  let start = ts[0], prev = ts[0], count = 1;
+  for (let i = 1; i < ts.length; i++) {
+    if (ts[i] - prev > gapMs) {
+      cycles.push({ start, end: prev, essays: count });
+      start = ts[i]; count = 1;
+    } else {
+      count++;
+    }
+    prev = ts[i];
+  }
+  cycles.push({ start, end: prev, essays: count });
+  return cycles
+    .map(c => ({
+      start: new Date(c.start).toISOString(),
+      end: new Date(c.end).toISOString(),
+      essays: c.essays,
+      spanDays: Math.round((c.end - c.start) / (24 * 60 * 60 * 1000)) + 1,
+    }))
+    .reverse();
+}
+
+/**
+ * GET /admin/api/users/:id
+ * Side-panel detail for one user: cost breakdown, grading cycles (usage
+ * pattern), and recency/returning info.
+ */
+export async function handleAdminUserDetail(req, res) {
+  const prisma = await getPrisma();
+  if (!prisma?.users) {
+    return res.status(503).json({ success: false, error: 'Database unavailable' });
+  }
+
+  const { id } = req.params;
+
+  try {
+    const user = await prisma.users.findUnique({
+      select: { id: true, email: true, createdAt: true },
+      where: { id },
+    });
+    if (!user) return res.status(404).json({ success: false, error: 'User not found' });
+
+    // All successful grade timestamps for this user (for cost + cycles).
+    const events = await prisma.grading_events.findMany({
+      where: { userId: id, status: 'success' },
+      select: { createdAt: true, costUsd: true, totalTokens: true },
+      orderBy: { createdAt: 'asc' },
+    });
+    const errorCount = await prisma.grading_events.count({
+      where: { userId: id, status: 'error' },
+    });
+
+    const essays = events.length;
+    const totalCost = events.reduce((s, e) => s + (e.costUsd || 0), 0);
+    const totalTokens = events.reduce((s, e) => s + (e.totalTokens || 0), 0);
+    const cycles = computeCycles(events.map(e => e.createdAt));
+    const firstActive = events.length ? events[0].createdAt : null;
+    const lastActive = events.length ? events[events.length - 1].createdAt : null;
+
+    return res.json({
+      success: true,
+      user: {
+        id: user.id,
+        email: user.email,
+        campus: campusForEmail(user.email),
+        signupDate: user.createdAt,
+      },
+      cost: {
+        total: round(totalCost),
+        essays,
+        avgPerEssay: essays ? round(totalCost / essays) : 0,
+        tokens: totalTokens,
+        errors: errorCount,
+      },
+      recency: {
+        firstActive,
+        lastActive,
+        lastActiveDaysAgo: daysSince(lastActive),
+        daysSinceSignup: daysSince(user.createdAt),
+        returning: cycles.length >= 2,
+      },
+      cycles, // newest-first: { start, end, essays, spanDays }
+      cycleCount: cycles.length,
+    });
+  } catch (error) {
+    console.error('[ADMIN] User detail query failed:', error);
     return res.status(500).json({ success: false, error: error.message });
   }
 }
