@@ -802,12 +802,37 @@ window.applyRemoveAllToTeacherNoteFor = applyRemoveAllToTeacherNoteFor;
  * Setup remove-all checkbox listener
  * @param {string} contentId - ID of the content div
  */
-function setupRemoveAllCheckbox(contentId) {
-    const checkbox = document.getElementById(`${contentId}-remove-all`);
+function setupRemoveAllCheckbox(contentId, checkboxEl) {
+    // Resolve the checkbox TAB-SCOPED. `${contentId}-remove-all` is index-based
+    // and repeats across panes (inactive panes stay in the DOM), so a bare
+    // getElementById returns the FIRST in document order — which wires this
+    // setup onto the WRONG tab's checkbox when the active tab isn't first.
+    // That was the live remove-all cross-tab bleed: the toggle landed on
+    // another tab's marks.
+    //
+    // Callers that already hold the exact checkbox (the multi-tab RESTORE path,
+    // which resolves it via paneForTab(restoringTab) — NOT the active tab, since
+    // the active tab flips as restore iterates behind a 250ms timeout) pass it
+    // in as checkboxEl. Live-render callers omit it, and we resolve the ACTIVE
+    // pane's checkbox via the [id="…"] attribute selector (robust under
+    // duplicate ids in browsers + jsdom).
+    const checkbox = checkboxEl || (window.TabStore
+        ? window.TabStore.activeQuery(`[id="${contentId}-remove-all"]`)
+        : document.getElementById(`${contentId}-remove-all`));
     if (!checkbox) {
         console.warn(`Remove-all checkbox not found for ${contentId}`);
         return;
     }
+
+    // Scope every downstream lookup to the checkbox's OWN pane. The inner
+    // container id (`${contentId}-inner`) is also index-based and collides
+    // across tabs, so resolving it — and the marks it enumerates — must be
+    // pinned to this checkbox's pane, never document-wide. Falls back to the
+    // document when there's no tab pane (non-tabbed contexts).
+    const ownPane = checkbox.closest('.tab-pane');
+    const queryInPane = (id) => ownPane
+        ? ownPane.querySelector(`[id="${id}"]`)
+        : document.getElementById(id);
 
     // Prevent multiple setups on the same checkbox
     if (checkbox.dataset.setupComplete === 'true') {
@@ -850,13 +875,13 @@ function setupRemoveAllCheckbox(contentId) {
 
     // Apply the determined state to all highlights
     if (isChecked) {
-        const contentInner = document.getElementById(`${contentId}-inner`);
+        const contentInner = queryInPane(`${contentId}-inner`);
         if (contentInner) {
             const toggleButtons = contentInner.querySelectorAll('.toggle-pdf-btn');
 
             toggleButtons.forEach(button => {
                 const elementId = button.dataset.elementId;
-                const highlightElement = document.getElementById(elementId);
+                const highlightElement = queryInPane(elementId);
 
                 if (highlightElement) {
                     // Set excluded state
@@ -890,8 +915,10 @@ function setupRemoveAllCheckbox(contentId) {
         // delegated remove-all listener below, so it fires for every checkbox
         // regardless of which per-element handler is attached.)
 
-        // Find the content container
-        const contentInner = document.getElementById(`${contentId}-inner`);
+        // Find the content container — scoped to this checkbox's OWN pane, so a
+        // live toggle can only ever affect its own tab's highlights (the id is
+        // index-based and collides across panes).
+        const contentInner = queryInPane(`${contentId}-inner`);
         if (!contentInner) {
             return;
         }
@@ -901,7 +928,7 @@ function setupRemoveAllCheckbox(contentId) {
 
         toggleButtons.forEach(button => {
             const elementId = button.dataset.elementId;
-            const highlightElement = document.getElementById(elementId);
+            const highlightElement = queryInPane(elementId);
 
             if (!highlightElement) {
                 console.warn(`Highlight element not found: ${elementId}`);
