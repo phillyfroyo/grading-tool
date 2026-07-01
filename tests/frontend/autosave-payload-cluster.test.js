@@ -56,6 +56,7 @@ describe('auto-save Cluster B — payload build/de-dup characterization', () => 
     loadModules(
       'public/js/ui/tab-store.js',
       'public/js/grading/auto-save-payload.js',
+      'public/js/grading/auto-save-state.js',
       'public/js/grading/auto-save-grading.js',
       'public/js/grading/auto-save-ui.js',
       'public/js/grading/auto-save.js'

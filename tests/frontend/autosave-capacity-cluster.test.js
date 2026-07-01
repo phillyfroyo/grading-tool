@@ -43,6 +43,7 @@ describe('auto-save Cluster D — capacity/budget characterization', () => {
       'public/js/grading/auto-save-capacity.js',
       'public/js/grading/auto-save-ui.js',
       'public/js/grading/auto-save-payload.js',
+      'public/js/grading/auto-save-state.js',
       'public/js/grading/auto-save-grading.js',
       'public/js/grading/auto-save.js'
     );
