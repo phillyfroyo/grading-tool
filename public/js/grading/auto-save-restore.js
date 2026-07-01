@@ -641,7 +641,12 @@
                 if (checkbox) {
                     checkbox.removeAttribute('data-setup-complete');
                     if (window.DisplayUtilsModule && window.DisplayUtilsModule.setupRemoveAllCheckbox) {
-                        window.DisplayUtilsModule.setupRemoveAllCheckbox(contentId);
+                        // Pass the checkbox we resolved via paneForTab(restoringTab):
+                        // during multi-tab restore the active tab flips behind this
+                        // 250ms timeout, so setup must NOT re-resolve via activeQuery
+                        // (it would grab the wrong tab). The passed element pins all
+                        // of setup's downstream lookups to the restoring tab's pane.
+                        window.DisplayUtilsModule.setupRemoveAllCheckbox(contentId, checkbox);
                     }
                 }
             }
