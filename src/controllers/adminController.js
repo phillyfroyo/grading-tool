@@ -63,7 +63,7 @@ export async function handleAdminSummary(req, res) {
   try {
     // Run the independent aggregate queries concurrently.
     const [
-      successAgg,          // totals over successful grades
+      successAgg,          // totals over successful grades — EXCLUDES dev account
       statusCounts,        // grades vs errors (for error rate)
       latencyAgg,          // avg latency over successes
       byModelRows,         // cost/tokens/grades grouped by model (success only)
@@ -72,8 +72,11 @@ export async function handleAdminSummary(req, res) {
       recentErrors,        // capped, newest-first (query-side limit)
       devAgg,              // the operator/dev account's cost, called out separately
     ] = await Promise.all([
+      // Headline totals (Total cost, essays, tokens, avg/essay) count REAL users
+      // only — the dev/operator account is excluded here and reported separately
+      // in the Dev-costs card, so the two figures are disjoint.
       prisma.grading_events.aggregate({
-        where: { ...where, status: 'success' },
+        where: { ...where, status: 'success', userEmail: { not: DEV_EMAIL } },
         _count: { _all: true },
         _sum: { costUsd: true, totalTokens: true },
       }),
@@ -167,12 +170,14 @@ export async function handleAdminSummary(req, res) {
         errors: errorCount,
         cost: round(totalCost),
         tokens: totalTokens,
-        activeUsers: users.length,
+        // Active users, real users only (exclude the dev account to match the
+        // dev-excluded cost total).
+        activeUsers: users.filter(u => u.user !== DEV_EMAIL).length,
         avgCostPerGrade: totalGrades ? round(totalCost / totalGrades) : 0,
         errorRate: total ? round(errorCount / total, 4) : 0,
         avgLatencyMs: latencyAgg._avg.latencyMs != null ? Math.round(latencyAgg._avg.latencyMs) : null,
-        // Dev/operator account's own cost, called out separately (still included
-        // in the `cost` total above).
+        // Dev/operator account's own cost, reported separately and NOT included
+        // in the `cost` total above (the two are disjoint by design).
         devCost: round(devAgg._sum.costUsd || 0),
         devGrades: devAgg._count._all || 0,
       },
