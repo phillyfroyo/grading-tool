@@ -259,9 +259,12 @@ export async function handleAdminUsers(req, res) {
       });
     }
 
-    // Number by signup order across ALL users first (so #s are stable), then
-    // drop hidden test accounts from what we return.
+    // Drop hidden test accounts FIRST, then number the survivors. `users` is
+    // already ordered by signup (createdAt asc), so numbering after the filter
+    // keeps signup order but flows 1,2,3… with no gaps where a hidden account
+    // sat (rather than skipping its number).
     const list = users
+      .filter(u => !isHiddenEmail(u.email))
       .map((u, i) => {
         const a = byId.get(u.id) || { essays: 0, cost: 0, activeDays: 0, lastActive: null };
         return {
@@ -277,8 +280,7 @@ export async function handleAdminUsers(req, res) {
           lastActive: a.lastActive,
           lastActiveDaysAgo: daysSince(a.lastActive),
         };
-      })
-      .filter(u => !isHiddenEmail(u.email));
+      });
 
     return res.json({ success: true, count: list.length, users: list });
   } catch (error) {
